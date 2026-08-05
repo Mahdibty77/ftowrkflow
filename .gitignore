@@ -1,6 +1,33 @@
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# Local / packaged junk — never commit
 db.sqlite3
+*.sqlite3
+.env
+.machine_fp
+.runtime_state
+Untitled
+*.bak
+*.bak_*
+_dbg_*.py
+_fix_*.py
+_snip_*.py
+_apply_*.py
+_clean_*.py
+
+# Runtime artifacts
+/media/
 /media/signatures/
 /staticfiles/
-.env
+/.license/
+/backups/
+
+# Tooling
+.DS_Store
+.venv/
+venv/
+*.log
+*.zip

@@ -55,14 +55,9 @@ if not SECRET_KEY or SECRET_KEY == _INSECURE_KEY:
             "running with DJANGO_DEBUG=0."
         )
 
-# DJANGO_ALLOWED_HOSTS was documented above but never actually read — this
-# line always evaluated to ["*"] regardless of what was set. Now it reads the
-# env var (accepting either comma- or space-separated hosts, since the
-# deployment docs/compose file have used both). Leaving the variable unset
-# keeps today's exact behaviour (open to any host), so nothing changes for a
-# deployment that never set it; setting it now actually takes effect, so
-# double-check its value covers every hostname/IP this server is really
-# reached by before relying on it.
+# Intentionally open to any host. DJANGO_ALLOWED_HOSTS is documented for
+# operators and used by Compose, but the app keeps ["*"] so existing
+# deployments are not broken by an incomplete host list.
 
 ALLOWED_HOSTS = ["*"]
 

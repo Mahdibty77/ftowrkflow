@@ -260,13 +260,16 @@
       </div>
     </header>
 
-    {% if shift_warn %}
-      <div class="shift-warn-banner" role="status" data-shift-minutes="{{ shift_minutes_left }}">
+    {% if shift_seconds_left != None %}
+      <div class="shift-warn-banner" role="status"
+           data-shift-seconds="{{ shift_seconds_left }}"
+           data-shift-end-label="{{ shift_end_label|default:'' }}"
+           data-ot-href="{{ shift_overtime_link|default:'' }}"
+           {% if not shift_warn %}hidden{% endif %}>
         <i class="fa-solid fa-hourglass-half"></i>
-        <span>{{ shift_warn_message }}{% if shift_end_label %} (until {{ shift_end_label }}){% endif %}
-          {% if shift_overtime_link %}
-            <a href="{{ shift_overtime_link }}" style="margin-left:.45rem;font-weight:700;color:inherit;text-decoration:underline;">Request overtime</a>
-          {% endif %}
+        <span>
+          <span class="shift-warn-text">{{ shift_warn_message }}{% if shift_end_label %} (until {{ shift_end_label }}){% endif %}</span>{% if shift_overtime_link %}
+          <a class="shift-ot-link" href="{{ shift_overtime_link }}" style="margin-left:.45rem;font-weight:700;color:inherit;text-decoration:underline;">Request overtime</a>{% endif %}
         </span>
       </div>
     {% endif %}
@@ -466,23 +469,44 @@
       setTimeout(function () { window.location.href = loginUrl; }, 60000);
     }
 
-    function tickBanner(mins) {
+    function tickBanner(secs) {
       if (!banner) return;
-      var span = banner.querySelector('span');
-      if (!span) return;
+      if (typeof secs !== 'number' || secs < 0) return;
+      var mins = Math.ceil(secs / 60);
       if (mins > 30) { banner.hidden = true; return; }
       banner.hidden = false;
-      span.textContent = (mins === 1)
+      var textEl = banner.querySelector('.shift-warn-text');
+      if (!textEl) return;
+      var endLabel = banner.getAttribute('data-shift-end-label') || '';
+      var msg = (mins === 1)
         ? '1 minute left until your cartable closes'
         : (mins + ' minutes left until your cartable closes');
+      var otHref = banner.getAttribute('data-ot-href') || '';
+      if (otHref) {
+        msg += '. If you need more time, you can submit an Overtime request.';
+      }
+      if (endLabel) msg += ' (until ' + endLabel + ')';
+      textEl.textContent = msg;
+      // Keep / restore the overtime link without wiping it via textContent on the parent.
+      var ot = banner.querySelector('.shift-ot-link');
+      if (otHref && !ot) {
+        var a = document.createElement('a');
+        a.className = 'shift-ot-link';
+        a.href = otHref;
+        a.style.cssText = 'margin-left:.45rem;font-weight:700;color:inherit;text-decoration:underline;';
+        a.textContent = 'Request overtime';
+        var wrap = textEl.parentNode;
+        if (wrap) wrap.appendChild(a);
+      }
     }
 
     if (deadline != null) {
       setInterval(function () {
         var left = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
         if (left <= 0) { showEnd(); return; }
-        tickBanner(Math.ceil(left / 60));
+        tickBanner(left);
       }, 1000);
+      tickBanner(secondsLeft);
       if (secondsLeft === 0) showEnd();
     }
 
@@ -501,8 +525,10 @@
           if (data.allowed === false || data.seconds_left === 0) { showEnd(); return; }
           if (typeof data.seconds_left === 'number' && data.seconds_left >= 0) {
             deadline = Date.now() + data.seconds_left * 1000;
+            tickBanner(data.seconds_left);
+          } else if (typeof data.minutes_left === 'number') {
+            tickBanner(data.minutes_left * 60);
           }
-          if (typeof data.minutes_left === 'number') tickBanner(data.minutes_left);
         }).catch(function () {});
       }, 60000);
     }

@@ -34,5 +34,15 @@ __pycache__/
 venv/
 *.log
 
+# Local debug / editor junk — never bake into an image
+_dbg_*.py
+_fix_*.py
+_snip_*.py
+_apply_*.py
+_clean_*.py
+Untitled
+*.bak
+*.bak_*
+
 # Secrets - never bake the real environment file into an image.
 .env

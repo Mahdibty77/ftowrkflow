@@ -520,7 +520,7 @@ def _plain_ftco_text(html_or_text):
 def _ftco_code_optional():
     try:
         from django.conf import settings as _dj_settings
-        return not bool(getattr(_dj_settings, "REQUIRE_FTCO_CODE_TO_SUPPLY", True))
+        return not bool(getattr(_dj_settings, "REQUIRE_FTCO_CODE_TO_SUPPLY", False))
     except Exception:
         return False
 
@@ -2036,7 +2036,7 @@ def tool_for_case(request, case_id, kind):
         # UNIT PRICE / TOTAL PRICE must be fully locked — no manual entry, no
         # price list. Pricing is allowed only when the case needs pricing.
         "pricing_locked": (kind == "PI" and not case.needs_pricing),
-        "require_ftco_code": bool(getattr(_dj_settings, "REQUIRE_FTCO_CODE_TO_SUPPLY", True)),
+        "require_ftco_code": bool(getattr(_dj_settings, "REQUIRE_FTCO_CODE_TO_SUPPLY", False)),
         # External side/case: PI currency is USD/EUR only (no Rial).
         "external_currency": (
             kind == "PI" and (

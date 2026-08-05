@@ -49,8 +49,20 @@ def home(request):
 # the existing upload paths are already laid out. Profile photos under avatars/
 # use the same owner rule so only the owner (and admins) can load the image.
 _MEDIA_SHARED = ("signatures/", "stamps/")
-# avatars/ follows the same layout as personnel/: avatars/<user-id>/<file>
-_MEDIA_OWNER_SCOPED = ("personnel/", "avatars/")
+# avatars/<user-id>/… — owner is the User pk in the path.
+# personnel/p<person-id>/… — owner is the Person's linked login (not a User pk).
+# Legacy personnel/<user-id>/… is still accepted for any older uploads.
+
+
+def _user_owns_person(user, person_id: int) -> bool:
+    """True when ``user`` holds a seat on the Person with pk ``person_id``."""
+    try:
+        from people.models import PersonAccount
+        return PersonAccount.objects.filter(
+            person_id=person_id, user_id=user.pk,
+        ).exists()
+    except Exception:
+        return False
 
 
 def _media_access_granted(request, rel_path: str) -> bool:
@@ -65,14 +77,24 @@ def _media_access_granted(request, rel_path: str) -> bool:
     if rel.startswith(_MEDIA_SHARED):
         return True
 
-    if rel.startswith(_MEDIA_OWNER_SCOPED):
-        # Layout is "<prefix>/<owner-id>/<filename>". Anything shaped
-        # differently — a personnel module that later files things under a
-        # non-numeric folder, say — is refused rather than guessed at, and
-        # stays administrators-only until a rule is written for it.
+    if rel.startswith("avatars/"):
+        # Layout: avatars/<user-id>/<filename>
         parts = rel.split("/")
         if len(parts) >= 3 and parts[1].isdigit():
             return int(parts[1]) == request.user.pk
+        return False
+
+    if rel.startswith("personnel/"):
+        # Preferred: personnel/p<person-id>/photo|docs/<filename>
+        # Legacy:    personnel/<user-id>/<filename>
+        parts = rel.split("/")
+        if len(parts) < 3:
+            return False
+        folder = parts[1]
+        if folder.startswith("p") and folder[1:].isdigit():
+            return _user_owns_person(request.user, int(folder[1:]))
+        if folder.isdigit():
+            return int(folder) == request.user.pk
         return False
 
     return False

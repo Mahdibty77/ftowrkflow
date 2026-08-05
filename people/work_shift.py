@@ -110,6 +110,7 @@ def shift_status(user, *, when: datetime | None = None) -> dict:
             "exempt": True,
             "person": None,
             "minutes_left": None,
+            "seconds_left": None,
             "warn": False,
             "start": None,
             "end": None,
@@ -144,10 +145,12 @@ def shift_status(user, *, when: datetime | None = None) -> dict:
     # After normal end but still in OT extension.
     in_ot_extension = bool(ot_minutes and allowed and not in_base)
 
+    seconds_left = None
     minutes_left = None
     warn = False
     if allowed:
-        minutes_left = max(0, int((end_dt - when).total_seconds() // 60))
+        seconds_left = max(0, int((end_dt - when).total_seconds()))
+        minutes_left = seconds_left // 60
         warn = minutes_left <= 30
 
     return {
@@ -155,6 +158,7 @@ def shift_status(user, *, when: datetime | None = None) -> dict:
         "exempt": False,
         "person": person,
         "minutes_left": minutes_left,
+        "seconds_left": seconds_left,
         "warn": warn and allowed,
         "start": start,
         "end": end,

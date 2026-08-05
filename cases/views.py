@@ -1346,7 +1346,7 @@ def case_detail(request, pk):
         "currency_logs": (list(case.currency_logs.select_related("actor").all()[:300])
                           if is_admin_view else None),
         "vat_percent": _vat_percent_value(),
-        "require_ftco_code": bool(getattr(_dj_settings, "REQUIRE_FTCO_CODE_TO_SUPPLY", True)),
+        "require_ftco_code": bool(getattr(_dj_settings, "REQUIRE_FTCO_CODE_TO_SUPPLY", False)),
     }
     return render(request, "cases/case_detail.html", context)
 

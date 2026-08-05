@@ -1911,7 +1911,7 @@ def _pi_row_missing_fields(row, needs_pricing: bool) -> list:
     if str((row or {}).get("_unsuppliable", "") or "") == "1":
         return []
     missing = []
-    require_code = bool(getattr(_dj_settings, "REQUIRE_FTCO_CODE_TO_SUPPLY", True))
+    require_code = bool(getattr(_dj_settings, "REQUIRE_FTCO_CODE_TO_SUPPLY", False))
     if require_code and not str((row or {}).get("کد", "") or "").strip():
         missing.append("code")
     if not str((row or {}).get("BRAND", "") or "").strip():
@@ -2989,7 +2989,7 @@ def send_to_supply(case: Case, actor, comment: str = "", side: str = ""):
     # Every active row must have an FTCO code before it can go to Supply
     # (unless REQUIRE_FTCO_CODE_TO_SUPPLY is False in settings).
     from django.conf import settings as _dj_settings
-    if bool(getattr(_dj_settings, "REQUIRE_FTCO_CODE_TO_SUPPLY", True)):
+    if bool(getattr(_dj_settings, "REQUIRE_FTCO_CODE_TO_SUPPLY", False)):
         _uncoded = _to_rows_without_code(case, side)
         if _uncoded:
             _rows_txt = ", ".join(f"#{n}" for n in _uncoded[:25])

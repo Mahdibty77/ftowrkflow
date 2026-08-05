@@ -381,13 +381,16 @@ def shift_presence_ping(request):
 def _seconds_left(st: dict) -> int | None:
     if not st.get("allowed") or st.get("exempt"):
         return None
+    if st.get("seconds_left") is not None:
+        return max(0, int(st["seconds_left"]))
     if st.get("minutes_left") is not None:
         return max(0, int(st["minutes_left"]) * 60)
     end = st.get("effective_end") or st.get("end")
     if end is None:
         return None
-    from .work_shift import now_local
     from datetime import datetime, timedelta
+
+    from .work_shift import now_local
     when = now_local()
     end_dt = datetime.combine(when.date(), end, tzinfo=when.tzinfo)
     start = st.get("start")
