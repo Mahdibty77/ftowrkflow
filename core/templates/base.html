@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Foolad Tabar Workflow{% endblock %}</title>
   {% include "includes/favicon.html" %}
-  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=shift-end-7">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=shift-end-8">
   <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-17">
   <link rel="stylesheet" href="{% static 'css/icons-offline.css' %}?v=shift-icons-4">
   <script>
@@ -261,7 +261,7 @@
     </header>
 
     {% if shift_seconds_left is not None %}
-      {# OT sentence + link are separate nodes; JS only updates timer / minute number / urgency. #}
+      {# Timer shows remaining time; copy only states end clock + action hint. #}
       <div class="shift-warn-banner" id="shiftWarnBanner" role="alert" aria-live="assertive"
            data-shift-seconds="{{ shift_seconds_left }}"
            data-has-ot="{% if shift_overtime_link %}1{% else %}0{% endif %}"
@@ -274,8 +274,7 @@
           </div>
           <div class="shift-warn-copy">
             <div class="shift-warn-title">
-              Your cartable closes in
-              <span class="shift-mins-num">{{ shift_minutes_left }}</span><span class="shift-mins-word"> {{ shift_mins_word }}</span>{% if shift_end_label %}<span class="shift-until"> · until {{ shift_end_label }}</span>{% endif %}
+              Your cartable closes{% if shift_end_label %}<span class="shift-until"> · until {{ shift_end_label }}</span>{% endif %}
             </div>
             <div class="shift-warn-text">
               Finish work before close{% if shift_overtime_link %}<span class="shift-ot-sentence">, or request overtime</span>{% endif %}.
@@ -503,11 +502,6 @@
       setUrgency(secs);
       var timerEl = banner.querySelector('.shift-warn-timer');
       if (timerEl) timerEl.textContent = formatTimer(secs);
-      var mins = secs > 0 ? Math.ceil(secs / 60) : 0;
-      var numEl = banner.querySelector('.shift-mins-num');
-      var wordEl = banner.querySelector('.shift-mins-word');
-      if (numEl) numEl.textContent = String(mins);
-      if (wordEl) wordEl.textContent = (mins === 1) ? ' minute' : ' minutes';
     }
 
     function showEnd() {
