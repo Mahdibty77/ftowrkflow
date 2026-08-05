@@ -1,0 +1,525 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Foolad Tabar — Sign in</title>
+  {% include "includes/favicon.html" %}
+  <script>
+    /* Decide the render mode BEFORE first paint.
+       Full animated background: systems with more than 4 GB deviceMemory
+       (when reported). Lite: ≤4 GB, save-data, or prefers-reduced-motion.
+       Welcome overlay is ALWAYS shown (lighter styling in lite mode). */
+    (function () {
+      try {
+        var m = window.matchMedia;
+        var reduce = m && m('(prefers-reduced-motion: reduce)').matches;
+        var saveData = navigator.connection && navigator.connection.saveData;
+        var mem = navigator.deviceMemory;            // GB, Chromium only
+        var weak =
+          reduce || saveData ||
+          (typeof mem === 'number' && mem <= 4);
+        // Unknown memory → assume full (user wants animation on capable PCs;
+        // only explicit ≤4 GB forces lite).
+        document.documentElement.className = weak ? 'lite' : 'full';
+      } catch (e) {
+        document.documentElement.className = 'full';
+      }
+    })();
+  </script>
+  <style>
+    :root{
+      --bg:#0a0f1a; --card:rgba(20,29,43,.72); --card-solid:#141d2b; --line:#243044;
+      --txt:#e6edf6; --muted:#8b9bb2; --accent:#3b82f6; --accent2:#0ea5e9; --steel:#5b7da6;
+    }
+    *{box-sizing:border-box;}
+    html,body{height:100%;}
+    body{
+      margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
+      background:
+        radial-gradient(1100px 620px at 18% -8%, rgba(37,99,235,.28) 0%, transparent 55%),
+        radial-gradient(900px 520px at 92% 12%, rgba(14,165,233,.18) 0%, transparent 50%),
+        radial-gradient(1200px 640px at 50% -12%, #16233a 0%, var(--bg) 62%);
+      font-family:'Segoe UI',system-ui,Arial,sans-serif;color:var(--txt);position:relative;
+    }
+    /* Lite: richer static backdrop, no canvas / blur / keyframes. */
+    html.lite body{
+      background:
+        linear-gradient(160deg, rgba(10,18,34,.55) 0%, rgba(8,14,26,.35) 40%, transparent 70%),
+        radial-gradient(900px 500px at 12% 8%, rgba(59,130,246,.35) 0%, transparent 58%),
+        radial-gradient(700px 420px at 88% 18%, rgba(14,165,233,.22) 0%, transparent 52%),
+        radial-gradient(1000px 700px at 50% 110%, rgba(30,58,110,.45) 0%, transparent 55%),
+        linear-gradient(180deg, #0c1526 0%, #080e1a 48%, #060b14 100%);
+    }
+    #fx{position:fixed;inset:0;z-index:0;pointer-events:none;}
+    html.lite #fx{display:none;}
+    html.full body{overflow:hidden;}
+
+    .auth-card{
+      position:relative;z-index:2;background:var(--card);max-width:412px;width:100%;border-radius:20px;
+      padding:36px 32px 26px;border:1px solid var(--line);
+      box-shadow:0 24px 70px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.04);
+      text-align:center;overflow:hidden;
+    }
+    html.full .auth-card{
+      backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+      animation:rise-in .7s cubic-bezier(.2,.8,.25,1) both;
+      transition:opacity .6s ease,transform .6s ease,filter .6s ease;
+    }
+    html.lite .auth-card{
+      background:linear-gradient(180deg, rgba(22,33,52,.96) 0%, rgba(16,24,40,.98) 100%);
+      border-color:#2a3b55;box-shadow:0 18px 48px rgba(0,0,0,.5);
+    }
+    @keyframes rise-in{from{opacity:0;transform:translateY(26px) scale(.985);}to{opacity:1;transform:none;}}
+    .auth-card::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;
+      background:linear-gradient(90deg,transparent,var(--accent),var(--accent2),transparent);}
+    html.full .auth-card.go{opacity:0;transform:scale(.92) translateY(-10px);filter:blur(6px);}
+    html.lite .auth-card.go{opacity:0;transition:opacity .35s ease;}
+
+    html.full .stagger{animation:rise-in .6s cubic-bezier(.2,.8,.25,1) both;}
+    html.full .d1{animation-delay:.06s;} html.full .d2{animation-delay:.14s;} html.full .d3{animation-delay:.22s;}
+    html.full .d4{animation-delay:.30s;} html.full .d5{animation-delay:.38s;}
+
+    .brand-name{font-size:22px;font-weight:800;letter-spacing:3px;margin:0;
+      background:linear-gradient(90deg,#dbe7f7,#9cc2f0);-webkit-background-clip:text;background-clip:text;color:transparent;}
+    .brand-sub{font-size:10.5px;letter-spacing:4px;color:var(--steel);text-transform:uppercase;margin:4px 0 0;font-weight:600;}
+    .brand-rule{width:54px;height:2px;margin:14px auto 18px;border-radius:2px;
+      background:linear-gradient(90deg,transparent,var(--accent2),transparent);}
+    .lead{color:var(--muted);font-size:13px;margin:0 0 20px;}
+
+    .field{text-align:left;margin-bottom:14px;}
+    .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600;}
+    .inp{position:relative;display:flex;align-items:center;}
+    .inp svg.inp-ico{position:absolute;left:13px;width:17px;height:17px;color:#6c7e96;pointer-events:none;transition:color .15s;}
+    .inp input{width:100%;background:rgba(11,18,32,.85);color:var(--txt);border:1px solid #283749;border-radius:11px;
+      padding:12px 12px 12px 40px;font-size:14px;font-family:inherit;transition:border-color .15s,box-shadow .15s;}
+    .inp input.has-toggle{padding-right:44px;}
+    .inp input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,130,246,.18);}
+    .inp:focus-within svg.inp-ico{color:var(--accent2);}
+    .pw-toggle{
+      position:absolute;right:8px;top:50%;transform:translateY(-50%);
+      width:34px;height:34px;border:0;border-radius:8px;cursor:pointer;
+      background:transparent;color:#6c7e96;display:inline-flex;align-items:center;justify-content:center;
+      padding:0;transition:color .15s,background .15s;
+    }
+    .pw-toggle:hover{color:var(--accent2);background:rgba(59,130,246,.12);}
+    .pw-toggle:focus{outline:none;color:var(--accent2);}
+    .pw-toggle svg{width:18px;height:18px;pointer-events:none;}
+    .pw-toggle .eye-off{display:none;}
+    .pw-toggle.is-shown .eye-on{display:none;}
+    .pw-toggle.is-shown .eye-off{display:block;}
+    .btn-primary{width:100%;border:0;border-radius:11px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;
+      color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));margin-top:6px;letter-spacing:.04em;
+      display:inline-flex;align-items:center;justify-content:center;gap:9px;box-shadow:0 10px 26px rgba(37,99,235,.4);
+      position:relative;overflow:hidden;transition:transform .12s,filter .15s;}
+    .btn-primary:hover{filter:brightness(1.08);}
+    html.full .btn-primary:hover{transform:translateY(-1px);}
+    .btn-primary:active{transform:translateY(0);}
+    .btn-primary svg{width:16px;height:16px;}
+    .flash-error{display:flex;gap:9px;align-items:center;text-align:left;border-radius:11px;padding:11px 14px;
+      font-size:13px;margin-bottom:16px;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.35);color:#f87171;
+      transition:opacity .35s ease;}
+    .flash-error[hidden]{display:none !important;}
+    .flash-error svg{width:17px;height:17px;flex:0 0 auto;}
+    .flash-error.checking{background:rgba(59,130,246,.10);border-color:rgba(59,130,246,.35);color:#93c5fd;}
+    .flash-error.checking svg{display:none;}
+    .btn-primary.is-busy{opacity:.75;pointer-events:none;}
+    .btn-primary .btn-busy-label{display:none;}
+    .btn-primary.is-busy .btn-idle-label{display:none;}
+    .btn-primary.is-busy .btn-busy-label{display:inline;}
+    .foot{margin-top:18px;font-size:10.5px;letter-spacing:1.5px;color:#56688a;text-transform:uppercase;
+      display:flex;align-items:center;justify-content:center;gap:8px;}
+    .foot .dot{width:5px;height:5px;border-radius:50%;background:#2bd07a;box-shadow:0 0 8px #2bd07a;}
+    html.full .foot .dot{animation:blink 2.4s ease-in-out infinite;}
+    @keyframes blink{0%,100%{opacity:1;}50%{opacity:.35;}}
+
+    /* Welcome overlay — always available; lite uses a lighter fade (no gate ring). */
+    #enter-fx{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;flex-direction:column;
+      pointer-events:none;opacity:0;transition:opacity .45s ease;
+      background:radial-gradient(circle at 50% 50%, rgba(8,12,22,.30) 0%, rgba(7,11,20,.86) 72%);}
+    html.lite #enter-fx{
+      background:linear-gradient(180deg, rgba(8,14,26,.88) 0%, rgba(6,10,18,.94) 100%);
+      transition:opacity .3s ease;
+    }
+    #enter-fx.on{opacity:1;}
+    .gate{position:absolute;width:14px;height:14px;border-radius:50%;border:2px solid var(--accent2);
+      box-shadow:0 0 60px var(--accent2);opacity:0;}
+    html.lite .gate{display:none;}
+    #enter-fx.on .gate{animation:gate 1.7s cubic-bezier(.2,.7,.2,1) forwards;}
+    @keyframes gate{0%{opacity:0;width:14px;height:14px;}16%{opacity:1;}100%{opacity:0;width:1700px;height:1700px;border-width:0;}}
+    .welcome{position:relative;text-align:center;opacity:0;transform:translateY(12px) scale(.96);}
+    #enter-fx.on .welcome{animation:welc 1s ease .3s forwards;}
+    html.lite #enter-fx.on .welcome{animation:welc-lite .45s ease forwards;}
+    @keyframes welc{to{opacity:1;transform:none;}}
+    @keyframes welc-lite{to{opacity:1;transform:none;}}
+    .w-hi{display:block;font-family:'Trebuchet MS','Segoe UI',system-ui,sans-serif;font-size:38px;font-weight:600;
+      color:#e8f1ff;letter-spacing:.4px;text-shadow:0 2px 26px rgba(0,0,0,.55);}
+    html.lite .w-hi{font-size:30px;text-shadow:none;}
+    .w-hi .nm{font-weight:800;font-size:54px;letter-spacing:.6px;
+      background:linear-gradient(105deg,#a7ecff 0%,#86bdf7 48%,#dfeaff 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+      filter:drop-shadow(0 2px 22px rgba(95,180,255,.8));margin-left:6px;}
+    html.lite .w-hi .nm{font-size:40px;filter:none;color:#cfe4ff;-webkit-text-fill-color:#cfe4ff;background:none;}
+    .w-msg{display:block;font-size:20px;font-weight:500;color:#c6d6ed;margin-top:16px;letter-spacing:2px;
+      text-shadow:0 2px 16px rgba(0,0,0,.6);}
+    html.lite .w-msg{font-size:16px;letter-spacing:1px;text-shadow:none;margin-top:12px;}
+
+    @media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important;}}
+  </style>
+</head>
+<body>
+  <canvas id="fx"></canvas>
+
+  <div class="auth-card" id="card">
+    <h1 class="brand-name stagger d1">FOOLAD TABAR</h1>
+    <p class="brand-sub stagger d2">Workflow Platform</p>
+    <div class="brand-rule stagger d2"></div>
+    <p class="lead stagger d2">Sign in to access your workspace</p>
+
+    <div class="flash-error stagger d2" id="login-error" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+      <span id="login-error-text"></span>
+    </div>
+
+    <!-- Credential save is blocked by design: session is created via AJAX
+         (login/check/) and the browser then navigates with GET — there is no
+         username/password form POST for the password manager to capture. -->
+    <form method="post" action="{% url 'accounts:login' %}" id="loginForm" autocomplete="off"
+          data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other"
+          data-protonpass-ignore="true" onsubmit="return false;">
+      {% csrf_token %}
+      {# Honeypot decoys soak up autofill; real fields use non-credential names. #}
+      <input type="text" name="username" value="" tabindex="-1" aria-hidden="true"
+             autocomplete="username" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" readonly>
+      <input type="password" name="password" value="" tabindex="-1" aria-hidden="true"
+             autocomplete="current-password" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" readonly>
+      <div class="field stagger d3">
+        <label for="id_username">Username</label>
+        <div class="inp">
+          <input type="text" name="ft_login_id" id="id_username"
+                 autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+                 data-lpignore="true" data-1p-ignore="true" data-bwignore="true"
+                 data-form-type="other" autofocus required>
+          <svg class="inp-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+      </div>
+      <div class="field stagger d4">
+        <label for="id_password_visible">Password</label>
+        <div class="inp">
+          <input type="password" id="id_password_visible" name="ft_access_token" class="has-toggle"
+                 autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false"
+                 data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other"
+                 readonly onfocus="this.removeAttribute('readonly')" required>
+          <svg class="inp-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <button type="button" class="pw-toggle" id="pwToggle" aria-label="Show password" title="Show password">
+            <svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+        </div>
+      </div>
+      <input type="hidden" name="next" id="id_next" value="{{ next }}">
+      <button type="submit" class="btn-primary stagger d5">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        <span class="btn-idle-label">Sign in</span>
+        <span class="btn-busy-label">Checking…</span>
+      </button>
+    </form>
+
+    <div class="foot stagger d5"><span class="dot"></span> Secure Engineering Workspace</div>
+  </div>
+
+  <div id="enter-fx">
+    <div class="gate"></div>
+    <div class="welcome">
+      <span class="w-hi">Hi, <span class="nm" id="welcome-name"></span></span>
+      <span class="w-msg" id="welcome-msg">{{ welcome_message|default:"Let's make a great day" }}</span>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    var lite = document.documentElement.classList.contains('lite');
+    var USERNAME_KEY = 'ft_login_username';
+
+    var pwv = document.getElementById('id_password_visible');
+    var form = document.getElementById('loginForm');
+    var userInp = document.getElementById('id_username');
+    var pwToggle = document.getElementById('pwToggle');
+    var nextInp = document.getElementById('id_next');
+
+    // Remember username only (never password). Prefill from localStorage.
+    try {
+      var savedUser = localStorage.getItem(USERNAME_KEY) || '';
+      if (userInp && savedUser && !(userInp.value || '').trim()) {
+        userInp.value = savedUser;
+      }
+    } catch (e) {}
+
+    if (pwToggle && pwv) {
+      pwToggle.addEventListener('click', function () {
+        var show = pwv.type === 'password';
+        pwv.type = show ? 'text' : 'password';
+        pwToggle.classList.toggle('is-shown', show);
+        pwToggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        pwToggle.setAttribute('title', show ? 'Hide password' : 'Show password');
+        try { pwv.focus(); } catch (e) {}
+      });
+    }
+
+    function clearVisiblePw () { try { if (pwv) { pwv.value = ''; } } catch (e) {} }
+    clearVisiblePw();
+    setTimeout(clearVisiblePw, 200);
+    window.addEventListener('pageshow', clearVisiblePw);
+
+    var submitting = false;
+    var btn = form.querySelector('button[type="submit"]');
+    var errBox = document.getElementById('login-error');
+    var errText = document.getElementById('login-error-text');
+    var checkUrl = '{% url "accounts:login_check" %}';
+
+    var errHideTimer = null;
+    function showLoginError (msg) {
+      if (!errBox) return;
+      errBox.classList.remove('checking');
+      if (errText) errText.textContent = msg || 'Invalid username or password.';
+      errBox.hidden = false;
+      errBox.style.opacity = '1';
+      if (errHideTimer) clearTimeout(errHideTimer);
+      errHideTimer = setTimeout(function () {
+        errBox.style.opacity = '0';
+        setTimeout(function () {
+          errBox.hidden = true;
+          errBox.style.opacity = '1';
+        }, 350);
+      }, 4500);
+    }
+    function showChecking () {
+      if (!errBox) return;
+      if (errHideTimer) { clearTimeout(errHideTimer); errHideTimer = null; }
+      errBox.classList.add('checking');
+      if (errText) errText.textContent = 'Checking credentials…';
+      errBox.hidden = false;
+      errBox.style.opacity = '1';
+    }
+    function hideLoginError () {
+      if (errHideTimer) { clearTimeout(errHideTimer); errHideTimer = null; }
+      if (errBox) {
+        errBox.hidden = true;
+        errBox.style.opacity = '1';
+        errBox.classList.remove('checking');
+      }
+    }
+
+    // Server-side POST failure (non-AJAX): show once, then auto-hide.
+    {% if login_error or locked %}
+    showLoginError("{% if login_error %}{{ login_error|escapejs }}{% else %}Too many attempts. Please wait a few minutes and try again.{% endif %}");
+    {% endif %}
+    function setBusy (on) {
+      if (btn) {
+        btn.disabled = on;
+        btn.classList.toggle('is-busy', !!on);
+      }
+    }
+
+    function rememberUsername () {
+      try {
+        var u = (userInp && userInp.value || '').trim();
+        if (u) localStorage.setItem(USERNAME_KEY, u);
+      } catch (e) {}
+    }
+
+    function playWelcome (displayName, welcomeMsg, redirectTo) {
+      var nice = (displayName || '').trim() || 'there';
+      document.getElementById('welcome-name').textContent = nice;
+      var msgEl = document.getElementById('welcome-msg');
+      if (msgEl && welcomeMsg) msgEl.textContent = welcomeMsg;
+      window.__ftConverge && window.__ftConverge();
+      document.getElementById('card').classList.add('go');
+      document.getElementById('enter-fx').classList.add('on');
+      // Navigate with GET after the session cookie is already set — never POST
+      // username/password (that is what triggers “Save password?”).
+      var dest = redirectTo || '/';
+      setTimeout(function () { window.location.replace(dest); }, lite ? 1400 : 2700);
+    }
+
+    function checkCredentials (done) {
+      var fd = new FormData();
+      fd.append('username', (userInp && userInp.value || '').trim());
+      fd.append('password', (pwv && pwv.value) || '');
+      if (nextInp && nextInp.value) fd.append('next', nextInp.value);
+      var csrf = form.querySelector('[name=csrfmiddlewaretoken]');
+      if (csrf) fd.append('csrfmiddlewaretoken', csrf.value);
+      fetch(checkUrl, { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function (r) { return r.json(); })
+        .then(function (data) { done(null, data); })
+        .catch(function (err) { done(err); });
+    }
+
+    if (!lite) {
+      startEffects();
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (submitting) return;
+      showChecking();
+      submitting = true;
+      setBusy(true);
+      checkCredentials(function (err, data) {
+        if (err || !data || !data.ok) {
+          submitting = false;
+          setBusy(false);
+          showLoginError((data && data.message) || 'Could not verify credentials. Please try again.');
+          return;
+        }
+        hideLoginError();
+        rememberUsername();
+        if (pwv) pwv.value = '';
+        playWelcome(data.display_name, data.welcome_message, data.redirect);
+      });
+    });
+
+    function startEffects () {
+      var canvas = document.getElementById('fx');
+      if (!canvas || !canvas.getContext) return;
+      var ctx = canvas.getContext('2d');
+      var W, H, dpr = 1, running = true, rafId = 0;
+
+      function resize () {
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        W = canvas.width = innerWidth * dpr; H = canvas.height = innerHeight * dpr;
+        canvas.style.width = innerWidth + 'px'; canvas.style.height = innerHeight + 'px';
+      }
+      resize(); addEventListener('resize', resize);
+
+      var mouse = { x: 0, y: 0, active: false };
+      addEventListener('mousemove', function (e) { mouse.x = e.clientX * dpr; mouse.y = e.clientY * dpr; mouse.active = true; });
+      addEventListener('mouseleave', function () { mouse.active = false; });
+
+      function makeStar () {
+        var p = {};
+        p.hx = Math.random() * W; p.hy = Math.random() * H;
+        p.x = p.hx + (Math.random() - 0.5) * 60 * dpr; p.y = p.hy + (Math.random() - 0.5) * 60 * dpr;
+        p.vx = 0; p.vy = 0;
+        p.ha = Math.random() * Math.PI * 2;
+        p.hs = (0.12 + Math.random() * 0.20) * dpr;
+        p.turn = (Math.random() - 0.5) * 0.010;
+        p.r = (Math.random() * 1.4 + 0.6) * dpr;
+        p.alpha = 1;
+        return p;
+      }
+      var BASE = innerWidth < 640 ? 150 : 300;
+      var parts = [];
+      for (var i = 0; i < BASE; i++) parts.push(makeStar());
+
+      var converge = false, cx = 0, cy = 0;
+      window.__ftConverge = function () {
+        cx = W / 2; cy = H / 2;
+        for (var k = 0; k < 220; k++) { var q = makeStar(); q.alpha = 0.6 + Math.random() * 0.4; parts.push(q); }
+        converge = true;
+      };
+      var REPEL = 135 * dpr, REPEL2 = REPEL * REPEL;
+
+      // Soft FPS probe: only drop particle links (not full lite) if very janky.
+      var probe = { n: 0, t0: 0, done: false };
+      function checkPerf (now) {
+        if (probe.done) return;
+        if (!probe.t0) { probe.t0 = now; probe.n = 0; return; }
+        probe.n++;
+        if (probe.n >= 50) {
+          var fps = (probe.n * 1000) / (now - probe.t0);
+          probe.done = true;
+          if (fps < 28 && !converge) {
+            // Keep full mode visuals but cut particle count for smoother motion.
+            parts = parts.slice(0, Math.floor(parts.length * 0.45));
+          }
+        }
+      }
+
+      document.addEventListener('visibilitychange', function () {
+        if (document.hidden) {
+          running = false; cancelAnimationFrame(rafId);
+        } else if (!lite && !running) {
+          running = true; rafId = requestAnimationFrame(frame);
+        }
+      });
+
+      function frame (now) {
+        if (!running) return;
+        checkPerf(now || performance.now());
+        ctx.clearRect(0, 0, W, H);
+        for (var i = 0; i < parts.length; i++) {
+          var p = parts[i];
+          if (converge) {
+            var dxc = cx - p.x, dyc = cy - p.y;
+            p.vx += dxc * 0.045 + (-dyc) * 0.010 + (Math.random() - 0.5) * 3 * dpr;
+            p.vy += dyc * 0.045 + (dxc) * 0.010 + (Math.random() - 0.5) * 3 * dpr;
+            p.vx *= 0.86; p.vy *= 0.86;
+          } else {
+            p.ha += p.turn + (Math.random() - 0.5) * 0.03;
+            p.hx += Math.cos(p.ha) * p.hs; p.hy += Math.sin(p.ha) * p.hs;
+            if (p.hx < 0) p.hx += W; else if (p.hx > W) p.hx -= W;
+            if (p.hy < 0) p.hy += H; else if (p.hy > H) p.hy -= H;
+            p.vx += (p.hx - p.x) * 0.012; p.vy += (p.hy - p.y) * 0.012;
+            p.vx += (Math.random() - 0.5) * 0.05 * dpr; p.vy += (Math.random() - 0.5) * 0.05 * dpr;
+            if (mouse.active) {
+              var dx = p.x - mouse.x, dy = p.y - mouse.y, qd = dx * dx + dy * dy;
+              if (qd < REPEL2) {
+                var d = Math.sqrt(qd) || 1, force = (1 - d / REPEL); force = force * force * 7.0 * dpr;
+                p.vx += (dx / d) * force; p.vy += (dy / d) * force;
+              }
+            }
+            p.vx *= 0.90; p.vy *= 0.90;
+            var sp = Math.hypot(p.vx, p.vy), MAX = 4.0 * dpr;
+            if (sp > MAX) { p.vx = p.vx / sp * MAX; p.vy = p.vy / sp * MAX; }
+          }
+          p.x += p.vx; p.y += p.vy;
+          ctx.globalAlpha = p.alpha < 0 ? 0 : (p.alpha > 1 ? 1 : p.alpha);
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = converge ? 'rgba(150,195,245,1)' : 'rgba(150,190,235,0.95)';
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        if (!converge) {
+          var LINK = 118 * dpr, max = LINK * LINK, cell = LINK;
+          var cols = Math.max(1, Math.ceil(W / cell)), rows = Math.max(1, Math.ceil(H / cell));
+          var grid = {};
+          for (var g = 0; g < parts.length; g++) {
+            var gp = parts[g];
+            var gcx = Math.max(0, Math.min(cols - 1, Math.floor(gp.x / cell)));
+            var gcy = Math.max(0, Math.min(rows - 1, Math.floor(gp.y / cell)));
+            var key = gcx + ':' + gcy; (grid[key] || (grid[key] = [])).push(gp);
+          }
+          for (var ci = 0; ci < cols; ci++) {
+            for (var cj = 0; cj < rows; cj++) {
+              var bucket = grid[ci + ':' + cj]; if (!bucket) continue;
+              var neigh = [bucket];
+              var n1 = grid[(ci + 1) + ':' + cj]; if (n1) neigh.push(n1);
+              var n2 = grid[ci + ':' + (cj + 1)]; if (n2) neigh.push(n2);
+              var n3 = grid[(ci + 1) + ':' + (cj + 1)]; if (n3) neigh.push(n3);
+              var n4 = grid[(ci + 1) + ':' + (cj - 1)]; if (n4) neigh.push(n4);
+              for (var s1 = 0; s1 < bucket.length; s1++) {
+                var A = bucket[s1];
+                for (var ni = 0; ni < neigh.length; ni++) {
+                  var arr2 = neigh[ni]; var startJ = (arr2 === bucket) ? s1 + 1 : 0;
+                  for (var s2 = startJ; s2 < arr2.length; s2++) {
+                    var B = arr2[s2];
+                    var ddx = A.x - B.x, ddy = A.y - B.y, qq = ddx * ddx + ddy * ddy;
+                    if (qq < max) {
+                      var o = (1 - qq / max) * 0.28 * Math.min(A.alpha, B.alpha);
+                      ctx.strokeStyle = 'rgba(96,156,216,' + o + ')'; ctx.lineWidth = 1;
+                      ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        rafId = requestAnimationFrame(frame);
+      }
+      rafId = requestAnimationFrame(frame);
+    }
+  })();
+  </script>
+</body>
+</html>

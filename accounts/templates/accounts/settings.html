@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Settings · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Settings{% endblock %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-16">
+{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1><i class="fa-solid fa-gear"></i> Settings</h1>
+    <div class="sub">{{ profile.title_line }}</div>
+  </div>
+  <div class="btn-row">
+    <a href="{% url 'accounts:my_profile' %}" class="btn btn-sm"><i class="fa-solid fa-id-badge"></i> My profile</a>
+  </div>
+</div>
+
+<div class="ft-settings-stack">
+
+<div class="card">
+  <div class="card-head"><h3><i class="fa-solid fa-wand-magic-sparkles"></i> Appearance</h3></div>
+  <p class="muted" style="margin:.1rem 0 1rem;">Choose the colour theme and light or dark mode for the interface. Your choice is saved on this device.</p>
+  <div class="theme-picker">
+    <button type="button" class="theme-card" data-skin="blue">
+      <span class="tc-sw"><i style="background:#1e293b"></i><i style="background:#2563eb"></i><i style="background:#eff6ff"></i></span>
+      <b>Blue</b><small>Calm blue</small>
+    </button>
+    <button type="button" class="theme-card" data-skin="rose">
+      <span class="tc-sw"><i style="background:#1e293b"></i><i style="background:#be185d"></i><i style="background:#fdf2f8"></i></span>
+      <b>Rose</b><small>Soft rose</small>
+    </button>
+    <button type="button" class="theme-card" data-skin="teal">
+      <span class="tc-sw"><i style="background:#1e293b"></i><i style="background:#0f766e"></i><i style="background:#f0fdfa"></i></span>
+      <b>Teal</b><small>Calm teal</small>
+    </button>
+  </div>
+  <div class="mode-picker">
+    <span class="muted" style="font-size:.8rem;">Mode</span>
+    <button type="button" class="btn btn-sm" data-mode="light"><i class="fa-solid fa-sun"></i> Light</button>
+    <button type="button" class="btn btn-sm" data-mode="dark"><i class="fa-solid fa-moon"></i> Dark</button>
+  </div>
+</div>
+
+<div class="card pw-card">
+  <div class="card-head"><h3><i class="fa-solid fa-lock"></i> Change password</h3></div>
+  <p class="muted" style="margin:.1rem 0 1rem;">Update the password you use to sign in to the platform.</p>
+  <form method="post" class="pw-form" style="max-width:420px">
+    {% csrf_token %}
+    <input type="hidden" name="change_password" value="1">
+    {% for field in pw_form %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}<ul class="errorlist">{% for e in field.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+    {% endfor %}
+    {% if pw_form.non_field_errors %}<ul class="errorlist">{% for e in pw_form.non_field_errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    <button type="submit" class="btn btn-primary">Change password</button>
+  </form>
+</div>
+
+{% if is_admin %}
+<div class="card">
+  <div class="card-head"><h3><i class="fa-solid fa-medal"></i> Unit stamps</h3></div>
+  <p class="muted" style="margin:.1rem 0 1rem;">
+    One seal per unit. <b>Commercial</b> is stamped on Proforma (PI) exports;
+    <b>Technical</b> on Technical Offer (TO) exports. PNG or SVG.
+  </p>
+  <form method="post" enctype="multipart/form-data" id="stamps-form">
+    {% csrf_token %}
+    <input type="hidden" name="save_unit_stamps" value="1">
+    <div class="sig-preview-grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin-bottom:1rem;">
+      <div>
+        <div class="muted" style="font-size:.78rem;margin-bottom:.35rem;">Commercial · PI</div>
+        <div class="sig-frame">
+          {% if stamp_urls.commercial %}
+            <img id="stamp-commercial-img" src="{{ stamp_urls.commercial }}" alt="">
+            <div class="muted" id="stamp-commercial-empty" hidden>No stamp yet.</div>
+          {% else %}
+            <img id="stamp-commercial-img" alt="" hidden>
+            <div class="muted" id="stamp-commercial-empty">No stamp yet.</div>
+          {% endif %}
+        </div>
+      </div>
+      <div>
+        <div class="muted" style="font-size:.78rem;margin-bottom:.35rem;">Technical · TO</div>
+        <div class="sig-frame">
+          {% if stamp_urls.technical %}
+            <img id="stamp-technical-img" src="{{ stamp_urls.technical }}" alt="">
+            <div class="muted" id="stamp-technical-empty" hidden>No stamp yet.</div>
+          {% else %}
+            <img id="stamp-technical-img" alt="" hidden>
+            <div class="muted" id="stamp-technical-empty">No stamp yet.</div>
+          {% endif %}
+        </div>
+      </div>
+      <div>
+        <div class="muted" style="font-size:.78rem;margin-bottom:.35rem;">Supply</div>
+        <div class="sig-frame">
+          {% if stamp_urls.supply %}
+            <img id="stamp-supply-img" src="{{ stamp_urls.supply }}" alt="">
+            <div class="muted" id="stamp-supply-empty" hidden>No stamp yet.</div>
+          {% else %}
+            <img id="stamp-supply-img" alt="" hidden>
+            <div class="muted" id="stamp-supply-empty">No stamp yet.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% for field in stamps_form %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+        {% if field.errors %}<ul class="errorlist">{% for e in field.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary">Update unit stamps</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-head"><h3><i class="fa-solid fa-sliders"></i> Platform settings</h3></div>
+  <p class="muted" style="margin:.1rem 0 1rem;">Customise platform-wide options used across the app.</p>
+  <form method="post" class="pw-form" style="max-width:520px">
+    {% csrf_token %}
+    <input type="hidden" name="save_platform" value="1">
+    {% for field in platform_form %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {% if field.name == 'vat_percent' %}
+        <input type="number" name="{{ field.html_name }}" id="{{ field.id_for_label }}" value="{{ field.value|default_if_none:'10' }}" step="0.01" min="0" max="100" style="width:100%;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:9px 11px;font:inherit;margin-top:.15rem">
+        {% else %}
+        <input type="text" name="{{ field.html_name }}" id="{{ field.id_for_label }}" value="{{ field.value|default_if_none:'' }}" maxlength="200" style="width:100%;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:9px 11px;font:inherit;margin-top:.15rem">
+        {% endif %}
+        {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+        {% if field.errors %}<ul class="errorlist">{% for e in field.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary">Save platform settings</button>
+  </form>
+</div>
+
+{% if daily %}
+<div class="card ppl-shift-card">
+  <div class="card-head"><h3><i class="fa-solid fa-hourglass-half"></i> Daily hours</h3></div>
+  <p class="muted" style="font-size:.86rem;margin:0 0 1rem;line-height:1.5;">
+    Default work shift for <strong>every person</strong>. Saving updates all people records
+    (Asia/Tehran). Floating time and reconnect time use the same rules as work-shift tracking.
+  </p>
+  <form method="post" id="globalDailyHoursForm">
+    {% csrf_token %}
+    <input type="hidden" name="save_daily_hours" value="1">
+    <div class="ppl-shift-times">
+      <div class="field ppl-time-wrap">
+        <label for="id_work_start_h">Start</label>
+        <div class="ppl-hm">
+          <i class="fa-solid fa-hourglass-half ppl-hm-ic" aria-hidden="true"></i>
+          <select name="work_start_h" id="id_work_start_h" class="ppl-theme-select" required aria-label="Start hour">
+            {% for h in hour_choices %}
+              <option value="{{ h }}"{% if h == daily.start_h %} selected{% endif %}>{{ h }}</option>
+            {% endfor %}
+          </select>
+          <span class="ppl-hm-sep">:</span>
+          <select name="work_start_m" id="id_work_start_m" class="ppl-theme-select" required aria-label="Start minute">
+            {% for m in minute_choices %}
+              <option value="{{ m }}"{% if m == daily.start_m %} selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="field ppl-time-wrap">
+        <label for="id_work_end_h">End</label>
+        <div class="ppl-hm">
+          <i class="fa-solid fa-hourglass-half ppl-hm-ic" aria-hidden="true"></i>
+          <select name="work_end_h" id="id_work_end_h" class="ppl-theme-select" required aria-label="End hour">
+            {% for h in hour_choices %}
+              <option value="{{ h }}"{% if h == daily.end_h %} selected{% endif %}>{{ h }}</option>
+            {% endfor %}
+          </select>
+          <span class="ppl-hm-sep">:</span>
+          <select name="work_end_m" id="id_work_end_m" class="ppl-theme-select" required aria-label="End minute">
+            {% for m in minute_choices %}
+              <option value="{{ m }}"{% if m == daily.end_m %} selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="field ppl-time-wrap">
+        <label for="id_float_m">Floating time</label>
+        <div class="ppl-hm">
+          <i class="fa-solid fa-clock ppl-hm-ic" aria-hidden="true"></i>
+          <select name="float_m" id="id_float_m" class="ppl-theme-select" required aria-label="Floating minutes">
+            {% for m in float_minute_choices %}
+              <option value="{{ m }}"{% if m == daily.float_m %} selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+          </select>
+          <span class="ppl-hm-sep">:</span>
+          <select name="float_s" id="id_float_s" class="ppl-theme-select" required aria-label="Floating seconds">
+            {% for m in minute_choices %}
+              <option value="{{ m }}"{% if m == daily.float_s %} selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="field ppl-time-wrap">
+        <label for="id_grace_m">Reconnect time</label>
+        <div class="ppl-hm">
+          <i class="fa-solid fa-rotate-right ppl-hm-ic" aria-hidden="true"></i>
+          <select name="grace_m" id="id_grace_m" class="ppl-theme-select" required aria-label="Reconnect minutes">
+            {% for m in float_minute_choices %}
+              <option value="{{ m }}"{% if m == daily.grace_m %} selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+          </select>
+          <span class="ppl-hm-sep">:</span>
+          <select name="grace_s" id="id_grace_s" class="ppl-theme-select" required aria-label="Reconnect seconds">
+            {% for m in minute_choices %}
+              <option value="{{ m }}"{% if m == daily.grace_s %} selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+    <p class="muted" style="font-size:.8rem;margin:.65rem 0 0;">
+      Shift length: <strong>{{ daily.hours_per_day }}</strong> hours / working day
+    </p>
+    <div class="btn-row" style="margin-top:1.1rem;">
+      <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save daily hours for everyone</button>
+    </div>
+  </form>
+</div>
+{% endif %}
+{% endif %}
+
+</div>
+
+<style>
+  .ft-settings-stack{display:flex;flex-direction:column;gap:1rem;}
+  .pw-form input{width:100%;background:var(--paper);color:var(--ink);border:1px solid var(--line);
+    border-radius:9px;padding:9px 11px;font:inherit;margin-top:.15rem}
+  .pw-form input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .pw-form .field{margin-bottom:.8rem}
+  .sig-frame{min-height:110px;border:1px solid var(--line);border-radius:var(--radius);padding:.55rem;
+    background:repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50% / 12px 12px;
+    display:flex;align-items:center;justify-content:center;}
+  .sig-frame img{max-width:100%;max-height:140px;object-fit:contain;display:block;}
+  #stamps-form input[type=file]{width:100%;font:inherit;margin-top:.2rem}
+  #stamps-form .field{margin-bottom:.8rem}
+  .theme-picker{display:flex;gap:1rem;flex-wrap:wrap}
+  .theme-card{cursor:pointer;border:2px solid var(--line);background:var(--paper);border-radius:var(--radius);
+    padding:.75rem 1rem;display:flex;flex-direction:column;gap:.15rem;min-width:155px;text-align:left;
+    font:inherit;color:var(--ink);transition:border-color .12s,box-shadow .12s}
+  .theme-card:hover{border-color:var(--accent)}
+  .theme-card.sel{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .theme-card b{font-size:.92rem}
+  .theme-card small{color:var(--muted);font-size:.74rem}
+  .tc-sw{display:flex;gap:.25rem;margin-bottom:.45rem}
+  .tc-sw i{width:24px;height:24px;border-radius:6px;border:1px solid var(--line)}
+  .mode-picker{display:flex;align-items:center;gap:.55rem;margin-top:1.1rem}
+  .mode-picker .btn.sel{background:var(--accent);border-color:var(--accent);color:#fff}
+  @media (max-width:900px){
+    .sig-preview-grid{grid-template-columns:1fr !important;}
+  }
+</style>
+<script>
+(function () {
+  var r = document.documentElement;
+  function markCards() {
+    var s = r.getAttribute('data-skin') || 'blue';
+    document.querySelectorAll('.theme-card').forEach(function (c) { c.classList.toggle('sel', c.dataset.skin === s); });
+    var m = r.getAttribute('data-mode') || 'light';
+    document.querySelectorAll('.mode-picker .btn').forEach(function (b) { b.classList.toggle('sel', b.dataset.mode === m); });
+  }
+  document.querySelectorAll('.theme-card').forEach(function (c) {
+    c.addEventListener('click', function () {
+      r.setAttribute('data-skin', c.dataset.skin);
+      try { localStorage.setItem('ft-skin', c.dataset.skin); } catch (e) {}
+      markCards();
+    });
+  });
+  document.querySelectorAll('.mode-picker .btn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var m = b.dataset.mode;
+      r.setAttribute('data-mode', m);
+      if (m === 'dark') r.setAttribute('data-theme', 'dark'); else r.removeAttribute('data-theme');
+      try { localStorage.setItem('ft-mode', m); localStorage.setItem('ft-theme', m); } catch (e) {}
+      markCards();
+    });
+  });
+  markCards();
+
+  function wirePreview(formSel, inputName, imgId, emptyId) {
+    var inp = document.querySelector(formSel + ' input[name="' + inputName + '"]');
+    var preview = document.getElementById(imgId);
+    var empty = document.getElementById(emptyId);
+    if (!inp || !preview) return;
+    inp.addEventListener('change', function () {
+      var f = inp.files && inp.files[0];
+      if (!f) return;
+      var url = URL.createObjectURL(f);
+      preview.src = url;
+      preview.hidden = false;
+      if (empty) empty.hidden = true;
+    });
+  }
+  wirePreview('#stamps-form', 'stamp_commercial', 'stamp-commercial-img', 'stamp-commercial-empty');
+  wirePreview('#stamps-form', 'stamp_technical', 'stamp-technical-img', 'stamp-technical-empty');
+  wirePreview('#stamps-form', 'stamp_supply', 'stamp-supply-img', 'stamp-supply-empty');
+})();
+</script>
+<script src="{% static 'people/js/people.js' %}?v=ppl-16"></script>
+{% endblock %}

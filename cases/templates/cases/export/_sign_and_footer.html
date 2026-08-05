@@ -1,0 +1,33 @@
+{# Signature strip + page footer + unit stamp (stamp bottom sits just above Phone). #}
+<div class="doc-tail">
+  <div class="bottom-grid">
+    <div class="signature-box">
+      <div class="box-title">Signature / Engineering Approval System</div>
+      <div class="sign-grid">
+        <div class="sign-cell sign-vendor">
+          <div class="sign-part sign-part-role">
+            <span class="sign-role">Vendor</span>
+            {% if vendor_name %}<span class="sign-name">{{ vendor_name }}</span>{% endif %}
+          {% if vendor_title %}<span class="sign-title">{{ vendor_title }}</span>{% endif %}
+          </div>
+          <div class="sign-part sign-part-sig">
+            {% if vendor_signature %}<img class="sign-inline sign-sig" src="{{ vendor_signature }}" alt="">{% endif %}
+          </div>
+          <div class="sign-part sign-part-stamp" aria-hidden="true"></div>
+        </div>
+        <div class="sign-cell sign-client">
+          <span class="sign-role">Client</span>
+          {% if client %}<span class="sign-name">{{ client }}</span>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  <footer class="footer">
+    <div>Sanat Foolad Tabar Co. · Phone: 1462</div>
+    <div class="center">{{ footer_center }}</div>
+    <div class="right">Nelson Mandela St., Atefi West St., No.106, 5th Floor</div>
+  </footer>
+  {% if vendor_stamp %}
+  <img class="sign-stamp" src="{{ vendor_stamp }}" alt="">
+  {% endif %}
+</div>

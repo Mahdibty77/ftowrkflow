@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Pricing · {{ plist.name }}{% endblock %}
+{% block topbar %}Pricing — {{ plist.name }}{% endblock %}
+{% block content %}
+<script src="{% static 'js/grid_filters.js' %}?v=2-cache"></script>
+<div class="page-head"><div><h1>Price list: {{ plist.name }}</h1>
+  <div class="sub">Pick a group, filter by main features (instant, combined), then price the whole filtered set or edit a single row. Currency: {{ plist.currency }}.</div></div>
+  <div class="btn-row">
+    <button class="btn btn-sm btn-primary" type="button" id="save-exit"><i class="fa-solid fa-floppy-disk"></i> Save &amp; close</button>
+    <a class="btn btn-sm" href="{% url 'dm_price_lists' %}">Back</a>
+  </div>
+</div>
+
+<form method="get" class="card" style="margin-bottom:1rem;display:flex;gap:.6rem;align-items:end;flex-wrap:wrap;">
+  <div class="field" style="margin:0;min-width:220px;"><label>Group</label>
+    <select name="group" data-combo data-placeholder="Search group…" onchange="this.form.submit()">
+      {% for g in groups %}<option value="{{ g }}" {% if g == group %}selected{% endif %}>{{ g }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="muted" style="font-size:.82rem;">Switching groups reloads the workspace.</div>
+</form>
+
+{% if not has_db %}
+<div class="flash flash-error">This group has no code database yet — import its coding table first.</div>
+{% else %}
+{% csrf_token %}
+
+{% if main_filters %}
+<div class="card" style="margin-bottom:1rem;">
+  <div class="card-head"><h3><i class="fa-solid fa-filter"></i> Filter</h3>
+    <span style="display:flex;gap:.6rem;align-items:center;">
+      <button class="btn btn-sm btn-ghost" type="button" id="clear-filters"><i class="fa-solid fa-xmark"></i> Clear</button>
+      <span class="muted" id="total-count">—</span>
+    </span>
+  </div>
+  <div class="grid grid-4" id="filters">
+    {% for mf in main_filters %}
+      <div class="field"><label style="font-size:.72rem;">{{ mf.name }}</label>
+        <div class="combo fcombo" data-col="{{ mf.col }}">
+          <input type="text" class="combo-input" autocomplete="off" placeholder="All {{ mf.name }}">
+          <div class="combo-list"></div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  <div class="muted" style="font-size:.74rem;margin-top:.35rem;">Each filter shows only values still available; press Delete in a field to clear it.</div>
+</div>
+{% endif %}
+
+<div class="card" style="margin-bottom:1rem;background:var(--accent-soft);">
+  <div class="card-head"><h3>Price the whole filtered set</h3></div>
+  <div style="display:flex;gap:.6rem;align-items:end;flex-wrap:wrap;">
+    <div class="field" style="margin:0;"><label>Price ({{ plist.currency }})</label>
+      <input type="text" inputmode="decimal" id="bulk-price" placeholder="e.g. 125000" style="width:160px;"></div>
+    <button class="btn btn-primary btn-sm" type="button" id="bulk-apply"><i class="fa-solid fa-tags"></i> Set for all filtered</button>
+    {% if td_can_delete %}
+    <button class="btn btn-sm" type="button" id="bulk-clear"><i class="fa-solid fa-eraser"></i> Clear price for all filtered</button>
+    {% endif %}
+    <span class="muted" id="bulk-status" style="font-size:.82rem;"></span>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h3>Items</h3><span class="muted" style="font-size:.8rem;">scroll to load more · paste an Excel column into a price cell to fill down</span></div>
+  <div id="scroll-box" style="max-height:58vh;overflow:auto;">
+    <table class="data" id="grid">
+      <thead><tr><th class="num">#</th><th>Item Code</th><th>FTCO Code</th>{% for mc in main_cols %}<th>{{ mc.name }}</th>{% endfor %}<th>Price ({{ plist.currency }})</th></tr></thead>
+      <tbody id="grid-body"></tbody>
+    </table>
+    <div id="loading" class="muted" style="padding:.8rem;text-align:center;display:none;">Loading…</div>
+    <div id="end-note" class="muted" style="padding:.8rem;text-align:center;display:none;">End of list.</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var GROUP = "{{ group|escapejs }}";
+  var ROWS_URL = "{% url 'dm_price_rows_api' plist.pk %}";
+  var APPLY_URL = "{% url 'dm_price_apply' plist.pk %}";
+  var SETONE_URL = "{% url 'dm_price_set_one' plist.pk %}";
+  var DISTINCT_URL = "{% url 'dm_code_distinct_api' group %}";
+  var BACK_URL = "{% url 'dm_price_lists' %}";
+  var MAIN_COLS = [{% for mc in main_cols %}{{ mc.idx }}{% if not forloop.last %},{% endif %}{% endfor %}];
+  var csrf = document.querySelector('input[name=csrfmiddlewaretoken]').value;
+  var body = document.getElementById("grid-body"), box = document.getElementById("scroll-box");
+  var loading = document.getElementById("loading"), endNote = document.getElementById("end-note");
+  var after = -1, busy = false, done = false;
+
+  var GF = window.buildGridFilters ? buildGridFilters({
+    container: document.getElementById("filters"),
+    distinctUrl: DISTINCT_URL,
+    onChange: function () { reset(); }
+  }) : { getFilters: function () { return {}; } };
+
+  function qs(o) { return Object.keys(o).map(function (k) { return encodeURIComponent(k) + "=" + encodeURIComponent(o[k]); }).join("&"); }
+  function hdr() { return { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrf }; }
+  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function reset() { after = -1; busy = false; done = false; body.innerHTML = ""; endNote.style.display = "none"; load(); }
+
+  function load() {
+    if (busy || done) return; busy = true; loading.style.display = "block";
+    var p = GF.getFilters(); p.group = GROUP; p.after = after;
+    fetch(ROWS_URL + "?" + qs(p)).then(function (r) { return r.json(); }).then(function (d) {
+      loading.style.display = "none"; busy = false;
+      document.getElementById("total-count").textContent = (d.total || 0).toLocaleString() + " items";
+      (d.rows || []).forEach(addRow);
+      if (d.next === null || d.next === undefined) { done = true; endNote.style.display = body.children.length ? "block" : "none"; }
+      else after = d.next;
+      if (!done && box.scrollHeight <= box.clientHeight + 40) load();
+    }).catch(function () { loading.style.display = "none"; busy = false; });
+  }
+
+  var CURRENCY = "{{ plist.currency|escapejs }}";
+  function decimals() { var c = String(CURRENCY).toLowerCase(); return (c === "usd" || c === "eur") ? 2 : 0; }
+  function fmtNum(v) {
+    if (v === "" || v == null) return "";
+    var n = parseFloat(String(v).replace(/,/g, ""));
+    if (isNaN(n)) return "";
+    return n.toLocaleString("en-US", { minimumFractionDigits: decimals(), maximumFractionDigits: decimals() });
+  }
+  function rawNum(v) { return String(v == null ? "" : v).replace(/,/g, "").trim(); }
+
+  function addRow(r) {
+    var tr = document.createElement("tr"); tr.setAttribute("data-code", r.code || "");
+    var big = (r.cells && r.cells[0] != null) ? r.cells[0] : "";
+    var small = (r.cells && r.cells[1] != null) ? r.cells[1] : "";
+    var html = '<td class="num muted">' + r.row_no + '</td>';
+    html += '<td><code>' + escapeHtml(big) + '</code></td><td><code>' + escapeHtml(small) + '</code></td>';
+    MAIN_COLS.forEach(function (idx) {
+      var cell = (r.cells && r.cells[idx] != null) ? (window.displayVal ? window.displayVal(r.cells[idx]) : String(r.cells[idx]).toUpperCase()) : "";
+      html += '<td>' + escapeHtml(cell) + '</td>';
+    });
+    tr.innerHTML = html;
+    var td = document.createElement("td");
+    var inp = document.createElement("input"); inp.type = "text"; inp.inputMode = "decimal";
+    inp.value = fmtNum(r.price); inp.style.width = "120px";
+    if (rawNum(r.price) !== "") inp.style.background = "var(--okbg)";
+    inp.addEventListener("focus", function () { inp.value = rawNum(inp.value); });
+    inp.addEventListener("blur", function () { inp.value = fmtNum(inp.value); });
+    inp.addEventListener("change", function () { setOne(r.code, inp); });
+    inp.addEventListener("keydown", function (e) {
+      if (e.key === "Delete") { e.preventDefault(); inp.value = ""; setOne(r.code, inp); }
+    });
+    inp.addEventListener("paste", function (e) { handlePaste(e, tr); });
+    td.appendChild(inp); tr.appendChild(td); body.appendChild(tr);
+  }
+
+  function setOne(code, inp) {
+    if (!code) return;
+    var raw = rawNum(inp.value);
+    fetch(SETONE_URL, { method: "POST", headers: hdr(), body: new URLSearchParams({ code: code, price: raw }).toString() })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (raw === "") { inp.style.background = ""; }       // cleared -> white
+        else if (d.ok) { inp.style.background = "var(--okbg)"; }  // saved -> green
+        else { inp.style.background = "var(--rejbg)"; }
+        if (document.activeElement !== inp) inp.value = fmtNum(inp.value);
+      })
+      .catch(function () { inp.style.background = "var(--rejbg)"; });
+  }
+
+  var undoStack = [];
+  function handlePaste(e, startTr) {
+    var text = (e.clipboardData || window.clipboardData).getData("text");
+    if (!text || text.indexOf("\n") === -1) return;
+    e.preventDefault();
+    var vals = text.replace(/\r/g, "").split("\n").filter(function (x, i, a) { return !(i === a.length - 1 && x === ""); });
+    var tr = startTr, snapshot = [];
+    vals.forEach(function (val) {
+      if (!tr) return;
+      var inp = tr.querySelector("input"); var code = tr.getAttribute("data-code");
+      if (inp) { snapshot.push({ input: inp, prev: inp.value, code: code }); inp.value = rawNum(val); setOne(code, inp); }
+      tr = tr.nextElementSibling;
+    });
+    if (snapshot.length) undoStack.push(snapshot);
+  }
+  function undo() {
+    var snap = undoStack.pop();
+    if (!snap) return;
+    snap.forEach(function (s) { s.input.value = s.prev; setOne(s.code, s.input); });
+  }
+  document.addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) { e.preventDefault(); undo(); }
+  });
+  var clearBtn = document.getElementById("clear-filters");
+  if (clearBtn) clearBtn.addEventListener("click", function () { if (GF.clearAll) GF.clearAll(); });
+
+  function bulk(mode) {
+    var status = document.getElementById("bulk-status");
+    var p = new URLSearchParams(); p.set("group", GROUP); p.set("mode", mode);
+    if (mode === "set") p.set("price", rawNum(document.getElementById("bulk-price").value));
+    var f = GF.getFilters(); Object.keys(f).forEach(function (k) { p.set(k, f[k]); });
+    if (!confirm(mode === "clear" ? "Clear price for the whole filtered set?" : "Set this price for the whole filtered set?")) return;
+    status.textContent = "Working…";
+    fetch(APPLY_URL, { method: "POST", headers: hdr(), body: p.toString() }).then(function (r) { return r.json(); })
+      .then(function (d) { status.textContent = d.ok ? ("Done — " + d.count.toLocaleString() + " rows.") : ("Error: " + (d.error || "failed")); reset(); })
+      .catch(function () { status.textContent = "Request failed."; });
+  }
+
+  document.getElementById("bulk-apply").addEventListener("click", function () { bulk("set"); });
+  var bulkInp = document.getElementById("bulk-price");
+  if (bulkInp) {
+    bulkInp.addEventListener("focus", function () { bulkInp.value = rawNum(bulkInp.value); });
+    bulkInp.addEventListener("blur", function () { bulkInp.value = fmtNum(bulkInp.value); });
+  }
+  var bulkClear = document.getElementById("bulk-clear");
+  if (bulkClear) bulkClear.addEventListener("click", function () { bulk("clear"); });
+  document.getElementById("save-exit").addEventListener("click", function () { window.location.href = BACK_URL; });
+  box.addEventListener("scroll", function () { if (box.scrollTop + box.clientHeight >= box.scrollHeight - 120) load(); });
+  reset();
+})();
+</script>
+{% endif %}
+{% endblock %}

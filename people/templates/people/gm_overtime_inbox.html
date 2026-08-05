@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% load static ft_extras %}
+{% block title %}Requests · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Requests{% endblock %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-21">
+{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1><i class="fa-solid fa-clipboard-check"></i> Requests</h1>
+    <div class="sub">General Manager · review and decide personnel requests{% if pending_count %} · {{ pending_count }} pending{% endif %}</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:1.25rem;">
+  <div class="card-head">
+    <h3><i class="fa-solid fa-inbox"></i> Pending{% if pending_count %} · {{ pending_count }}{% endif %}</h3>
+  </div>
+  <div class="vscroll vscroll-list" style="max-height:min(42vh, 360px);">
+    <table class="data" id="gmPendingTable">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Requester</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Submitted</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in pending_rows %}
+        <tr class="row-link" onclick="window.location='{% url 'people:request_detail' row.req.pk %}'" style="cursor:pointer;">
+          <td class="mono">{{ row.req.request_code|default:row.req.pk }}</td>
+          <td>{{ row.req.person.display_name }}</td>
+          <td>{{ row.req.request_type.title }}</td>
+          <td><span class="pill pill-submitted">Submitted</span></td>
+          <td class="muted mono">{{ row.req.submitted_at|default:row.req.created_at|jalali:"Y.m.d H:i" }}</td>
+          <td class="muted">{{ row.req.comment|default:"—"|truncatechars:80 }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="empty">No pending requests.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% include "people/_request_recent.html" with rows=recent_rows table_id="gmReqTable" show_person=True type_tabs=type_tabs type_tabs_active=False f_codes=f_codes f_people=f_people f_types=f_types f_statuses=f_statuses %}
+{% endblock %}

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Excel</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-15">
+    <link rel="stylesheet" href="{% static 'itemcoder/css/tool-layout.css' %}?v=reorg-1">
+    <link rel="stylesheet" href="{% static 'itemcoder/css/tool-cells-status.css' %}?v=reorg-1">
+    <link rel="stylesheet" href="{% static 'itemcoder/css/tool-panels.css' %}?v=reorg-1">
+    <link rel="stylesheet" href="{% static 'itemcoder/css/tool-icons.css' %}?v=reorg-1">
+    <link rel="stylesheet" href="{% static 'itemcoder/css/tool-dark-mode.css' %}?v=reorg-1">
+    <script>
+      (function () {
+        var r = document.documentElement, skin='m', mode='light';
+        try { skin = localStorage.getItem('ft-skin')||'blue'; mode = localStorage.getItem('ft-mode')||localStorage.getItem('ft-theme')||'light'; } catch(e){}
+        if (skin==='m') skin='blue'; if (skin==='f') skin='rose';
+        if (skin!=='blue'&&skin!=='rose'&&skin!=='teal') skin='blue';
+        r.setAttribute('data-skin', skin);
+        r.setAttribute('data-mode', mode==='dark'?'dark':'light');
+        if (mode==='dark') r.setAttribute('data-theme','dark');
+      })();
+    </script>
+
+    <style>
+        .row { background-color: #f9f9f9; }
+        .cell { padding: 5px; }
+        .highlight-red {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <select class="lang-switch" data-json-url="{% url 'app_json_resource' 'data_translation.json' %}">
+        <option value="en" selected>English</option>
+        <option value="fa">فارسی</option>
+    </select>
+
+    <h1>آپلود فایل اکسل</h1>
+
+    <form method="post" enctype="multipart/form-data" action="{% url 'upload_excel' %}">
+        {% csrf_token %}
+        {{ form.file }}
+        <button type="submit">Upload</button>
+    </form>
+
+    {% if table_html %}
+        <section id="calculation-control-card" class="calculation-card" data-config="{{ calculation_ui_config }}">
+            <h3>تنظیمات محاسبات</h3>
+            <div class="calc-section">
+                <strong>ظاهر</strong>
+                <label>واحد پول:
+                    <select id="calc-currency-symbol">
+                        <option value="rial">ریال</option>
+                        <option value="usd">$</option>
+                        <option value="eur">€</option>
+                    </select>
+                </label>
+                <div id="calc-decimal-controls"></div>
+            </div>
+
+            <div class="calc-section">
+                <strong>تبدیل واحد</strong>
+                <label>از:
+                    <select id="calc-convert-from">
+                        <option value="rial">ریال</option>
+                        <option value="usd">$</option>
+                        <option value="eur">€</option>
+                    </select>
+                </label>
+                <label>به:
+                    <select id="calc-convert-to">
+                        <option value="rial">ریال</option>
+                        <option value="usd">$</option>
+                        <option value="eur">€</option>
+                    </select>
+                </label>
+                <label>نرخ:
+                    <input id="calc-convert-rate" type="number" step="any" value="1">
+                </label>
+            </div>
+
+            <div class="calc-section">
+                <strong>مارجین کلی</strong>
+                <label>گروه:
+                    <select id="global-margin-group">
+                        <option value="__all__">همه</option>
+                        {% for group_name in group_options %}
+                            <option value="{{ group_name }}">{{ group_name }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <div id="global-margin-list">
+                    <div class="global-margin-row">
+                        <input class="global-margin-percent" type="text" inputmode="decimal" placeholder="Margin %">
+                    </div>
+                </div>
+                <button type="button" id="add-global-margin">+</button>
+                <button type="button" id="remove-global-margin">−</button>
+            </div>
+
+            <div class="calc-section">
+                <strong>مارجین تکی</strong>
+                <button type="button" id="toggle-row-margin">فعال/مخفی</button>
+            </div>
+
+        </section>
+    {% endif %}
+
+    {% if table_html %}
+        <h2>نتیجه پردازش</h2>
+        <div id="excel-table-container">
+            <div id="virtual-scroll-viewport">
+                <div id="virtual-scroll-spacer" style="position: absolute; top: 0; left: 0; right: 0; width: 100%; pointer-events: none;"></div>
+                
+                <table id="virtual-scroll-table">
+                    <thead>
+                        <tr id="virtual-scroll-header-row"></tr>
+                    </thead>
+                    <tbody id="virtual-scroll-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <template id="raw-excel-template">
+            {{ table_html|safe }}
+        </template>
+    {% endif %}
+
+    <script src="{% static 'itemcoder/js/virtual_scroll_engine.js' %}?v=vs-stripe-1"></script>
+    <script src="{% static 'itemcoder/js/row_processor.js' %}?v=translation-original-source-1"></script>
+    <script src="{% static 'itemcoder/js/table_ui.js' %}?v=fast-textarea-final-1"></script>
+    <script src="{% static 'itemcoder/js/calculation_controls.js' %}?v=allrows-export-1"></script>
+    <script src="{% static 'itemcoder/js/translator.js' %}?v=persian-layout-bidi-3"></script>
+
+</body>
+</html>

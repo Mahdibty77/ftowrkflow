@@ -1,0 +1,26 @@
+{
+    "pipe": {
+        "arrange": [
+            "material grade_material spec"
+        ]
+    },
+    "fitting": {
+        "arrange": [
+            "prefix type degree sufix",
+            "material grade_material material_class"
+        ]
+    },
+    "flange": {
+        "arrange": [
+            "material grade_material material_class"
+        ]
+    },
+    "valve": {
+        "arrange": [
+            "material grade_material"
+        ]
+    },
+    "seprator": [
+        " ,"
+    ]
+}

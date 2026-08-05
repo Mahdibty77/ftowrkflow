@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ title }}</h1><div class="sub">{{ hint }}</div></div>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="card form-narrow">
+  {% csrf_token %}
+  <div class="field">
+    <label for="excel_file">Excel file (.xlsx)</label>
+    <input type="file" name="excel_file" id="excel_file" accept=".xlsx,.xls" required>
+    <div class="help">{{ hint }}</div>
+  </div>
+  <div class="btn-row">
+    <button type="submit" class="btn btn-primary">Upload</button>
+    <a href="javascript:history.back()" class="btn btn-ghost">Cancel</a>
+  </div>
+</form>
+{% endblock %}

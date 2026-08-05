@@ -1,0 +1,12 @@
+{% comment %}
+People directory + Request types (admin sidebar).
+Icons must exist in static/css/icons-offline.css.
+{% endcomment %}
+{% if user.is_authenticated and user.profile.is_admin %}
+<a href="{% url 'people:person_list' %}" class="sb-item">
+  <span class="ic"><i class="fa-solid fa-id-badge"></i></span>People
+</a>
+<a href="{% url 'people:request_types' %}" class="sb-item">
+  <span class="ic"><i class="fa-solid fa-clipboard-check"></i></span>Request types
+</a>
+{% endif %}

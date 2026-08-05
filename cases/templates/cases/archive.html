@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+{% load ft_extras %}
+{% block title %}Archive · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Case Archive{% endblock %}
+{% block content %}
+{% with unit=user.profile.unit is_admin=user.profile.is_admin %}
+{% if drill_person %}
+<div class="flash flash-info" style="margin-bottom:1rem;">
+  <i class="fa-solid fa-user"></i>
+  <span>Showing cases for <strong>{{ drill_person.get_full_name|default:drill_person.username }}</strong>{% if drill_person.profile.internal_code %} <span class="mono">({{ drill_person.profile.internal_code }})</span>{% endif %}{% if show_money and drill_grand_total_display %} · Grand total (all PI): <strong class="mono">{{ drill_grand_total_display }}</strong>{% endif %} —
+  <a href="{% url 'cases:archive' %}">clear filter</a></span>
+</div>
+{% endif %}
+<div class="page-head" style="align-items:center;">
+  <div>
+    <h1>{% if select_mode %}Select cases{% else %}Case Archive{% endif %}</h1>
+    {% if select_mode %}
+    <div class="sub">Click rows to select. Filters work as usual. Confirm to return to overtime.</div>
+    {% endif %}
+  </div>
+  <div class="row-flex" style="align-items:center;gap:1rem;flex-wrap:wrap;">
+    {% if select_mode %}
+    <button type="button" class="btn btn-primary" id="archiveSelectConfirm" disabled>
+      <i class="fa-solid fa-check"></i> Confirm selection (<span id="archiveSelectCount">0</span>)
+    </button>
+    <a href="{{ select_return|default:'/' }}" class="btn btn-sm btn-ghost">Cancel</a>
+    {% endif %}
+    <span class="count"><span data-filter-count="archiveTable">{{ cases|length }}</span> of {{ total_count }}</span>
+  </div>
+</div>
+
+<nav class="archive-status-tabs" id="archiveStatusTabs" role="tablist" aria-label="Filter by status">
+  {% for tab in status_tabs %}
+  <button type="button"
+          class="archive-status-tab"
+          role="tab"
+          data-status="{{ tab.label }}"
+          data-color="{{ tab.color }}"
+          style="--tab-sc:{{ tab.color }}"
+          aria-selected="false"
+          title="{{ tab.label }}">
+    <span class="ast-dot" aria-hidden="true"></span>
+    <span class="ast-label">{% for w in tab.words %}{% if not forloop.first %} {% endif %}<span class="ast-w">{{ w }}</span>{% endfor %}</span>
+    <span class="ast-count">{{ tab.count }}</span>
+  </button>
+  {% endfor %}
+  <button type="button"
+          class="archive-status-tab archive-status-tab-all"
+          role="tab"
+          data-status="ALL"
+          aria-selected="false"
+          title="All statuses">
+    <span class="ast-label"><span class="ast-w">All</span></span>
+    <span class="ast-count">{{ total_count }}</span>
+  </button>
+</nav>
+
+{# Hidden Status control driven by the tabs (kept out of the filter card). #}
+<select id="archiveStatusFilter"
+        hidden
+        data-filter-for="archiveTable"
+        data-filter-colname="Status"
+        data-filter-mode="contains"
+        data-archive-status-filter="1"
+        aria-hidden="true"
+        tabindex="-1">
+  <option value=""></option>
+  {% for tab in status_tabs %}
+  <option value="{{ tab.label }}">{{ tab.label }}</option>
+  {% endfor %}
+</select>
+
+<div class="card">
+  <div class="archive-filter-toolbar">
+    {% if show_mine_toggle %}
+    <label class="nv-toggle-row archive-mine-toggle" style="margin:0;max-width:none;cursor:pointer;" title="{{ mine_toggle_label }}">
+      <span class="nv-switch">
+        <input type="checkbox" id="archiveMineToggle" {% if mine_only %}checked{% endif %}>
+        <span class="nv-switch-slider"></span>
+      </span>
+      <span class="nv-toggle-text">
+        <span class="nv-toggle-label">Manager view</span>
+        <span class="nv-toggle-state {% if mine_only %}is-on{% endif %}" id="archiveMineState">
+          {% if mine_only %}On{% else %}Off{% endif %}
+        </span>
+      </span>
+    </label>
+    {% else %}
+    <span></span>
+    {% endif %}
+    <button type="button" class="btn btn-sm" data-filter-clear="archiveTable" title="Reset all filters">
+      <i class="fa-solid fa-eraser"></i> Clear filters
+    </button>
+  </div>
+      <div class="grid archive-filter-grid">
+    <div class="field"><label><i class="fa-solid fa-hashtag"></i> Document No.</label>
+      <input type="text" data-filter-for="archiveTable" data-filter-colname="Document No." placeholder="e.g. 503, 1256">
+    </div>
+    <div class="field"><label><i class="fa-solid fa-file-lines"></i> Order No.</label>
+      <select data-combo data-placeholder="Search order no…" data-filter-for="archiveTable" data-filter-colname="Order No." data-filter-mode="contains">
+        {% for v in f_orders %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
+      </select>
+    </div>
+    {% if unit != 'SUPPLY' %}
+    <div class="field"><label><i class="fa-solid fa-building"></i> Client</label>
+      <select data-combo data-placeholder="Search client…" data-filter-for="archiveTable" data-filter-colname="Client" data-filter-mode="contains">
+        {% for v in f_clients %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    {% if is_admin or unit == 'TECHNICAL' or unit == 'SUPPLY' %}
+    <div class="field"><label><i class="fa-solid fa-id-badge"></i> Commercial expert</label>
+      <select data-combo data-placeholder="Search expert…" data-filter-for="archiveTable" data-filter-colname="Commercial expert" data-filter-mode="contains">
+        {% for v in f_experts %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <div class="field"><label><i class="fa-solid fa-layer-group"></i> Price type</label>
+      <select data-combo data-placeholder="Search price type…" data-filter-for="archiveTable" data-filter-colname="Price type" data-filter-mode="equals">
+        {% for v in f_prices %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field"><label><i class="fa-solid fa-file-invoice-dollar"></i> Offer Type</label>
+      <select data-combo data-placeholder="Search offer type…" data-filter-for="archiveTable" data-filter-colname="Offer Type" data-filter-mode="equals">
+        {% for v in f_offers %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field"><label><i class="fa-solid fa-file-lines"></i> Document kind</label>
+      <select data-combo data-placeholder="Search document kind…" data-filter-for="archiveTable" data-filter-colname="Document kind" data-filter-mode="equals">
+        {% for v in f_kinds %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field"><label><i class="fa-solid fa-calendar-day"></i> From date (Jalali)</label>
+      <input type="text" data-jalali-datetime data-filter-for="archiveTable" data-filter-colname="Created" data-filter-mode="gte" placeholder="From date">
+    </div>
+    <div class="field"><label><i class="fa-solid fa-calendar-day"></i> To date (Jalali)</label>
+      <input type="text" data-jalali-datetime data-filter-for="archiveTable" data-filter-colname="Created" data-filter-mode="lte" placeholder="To date">
+    </div>
+  </div>
+</div>
+
+<div class="vscroll vscroll-list">
+  <table class="data" id="archiveTable" data-filter-table>
+    <thead>
+      <tr>
+        <th>Document No.</th>
+        <th>Order No.</th>
+        {% if unit != 'SUPPLY' %}<th>Client</th>{% endif %}
+        {% if is_admin or unit == 'TECHNICAL' or unit == 'SUPPLY' %}<th>Commercial expert</th>{% endif %}
+        <th>Price type</th>
+        <th>Status</th>
+        <th>Offer Type</th>
+        <th>Document kind</th>
+        {% if show_money %}<th>Grand total</th>{% endif %}
+        <th>Created</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in cases %}
+        {% if select_mode %}
+        <tr class="row-link archive-select-row" data-case-id="{{ c.pk }}" tabindex="0" role="button" aria-pressed="false">
+        {% else %}
+        <tr class="row-link" onclick="window.location='{% url 'cases:case_detail' c.pk %}'">
+        {% endif %}
+          <td>
+            {% if select_mode %}<span class="archive-select-bar" aria-hidden="true"></span>{% endif %}
+            <span class="docno-line">
+              <span class="docno"><span>{{ c.doc_no }}</span></span>{% if c.is_delegated %} <span class="pill pill-delegated">Delegated</span>{% endif %}
+            </span>
+          </td>
+          <td>{{ c.order_no|default:"—" }}</td>
+          {% if unit != 'SUPPLY' %}<td>{{ c.client.name }} <span class="muted mono">({{ c.client.code }})</span></td>{% endif %}
+          {% if is_admin or unit == 'TECHNICAL' or unit == 'SUPPLY' %}<td>{% if c.commercial_expert_display %}{{ c.commercial_expert_display }}{% else %}{{ c.created_by.get_full_name|default:c.created_by.username }} <span class="muted mono">({{ c.expert_code }})</span>{% endif %}</td>{% endif %}
+          <td>{{ c.price_type_label }}</td>
+          <td data-fval="{{ c.status_fval }}">{% if c.is_split %}{% for s_label, s_status, s_color, s_holder in c.side_status_rows %}<div style="margin-bottom:.2rem;"><span class="status-tag" style="--sc:{{ s_color }}">{{ s_label }}: {{ s_status }}</span></div>{% endfor %}{% else %}<span class="status-tag" style="--sc:{{ c.status_color }}">{{ c.status_label }}</span>{% endif %}</td>
+          <td>{{ c.offer_stage_label }}</td>
+          <td>{{ c.kind_label }}</td>
+          {% if show_money %}<td class="mono">{{ c.grand_total_display|default:"—" }}</td>{% endif %}
+          <td class="muted">{{ c.created_at|jalali:"Y.m.d H:i" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="12" class="empty">No cases in the archive yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endwith %}
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var STORAGE_KEY = "ft-archive-status-tab";
+  var tabsRoot = document.getElementById("archiveStatusTabs");
+  var statusSelect = document.getElementById("archiveStatusFilter");
+  if (!tabsRoot || !statusSelect) return;
+
+  var tabButtons = Array.prototype.slice.call(
+    tabsRoot.querySelectorAll(".archive-status-tab[data-status]")
+  );
+
+  function knownStatuses() {
+    return tabButtons
+      .map(function (b) { return b.getAttribute("data-status"); })
+      .filter(function (s) { return s && s !== "ALL"; });
+  }
+
+  function loadSavedTab() {
+    try {
+      var saved = (localStorage.getItem(STORAGE_KEY) || "").trim();
+      if (!saved) return "ALL";
+      if (saved === "ALL") return "ALL";
+      if (knownStatuses().indexOf(saved) !== -1) return saved;
+    } catch (_e) {}
+    return "ALL";
+  }
+
+  function saveTab(status) {
+    try { localStorage.setItem(STORAGE_KEY, status || "ALL"); } catch (_e) {}
+  }
+
+  function paintTabs(active) {
+    tabButtons.forEach(function (btn) {
+      var key = btn.getAttribute("data-status");
+      var on = key === active;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-selected", on ? "true" : "false");
+    });
+  }
+
+  function applyStatusTab(status, opts) {
+    var key = status || "ALL";
+    if (key !== "ALL" && knownStatuses().indexOf(key) === -1) key = "ALL";
+    paintTabs(key);
+    statusSelect.value = key === "ALL" ? "" : key;
+    if (!opts || opts.persist !== false) saveTab(key);
+    try {
+      statusSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      statusSelect.dispatchEvent(new Event("input", { bubbles: true }));
+    } catch (_e) {}
+  }
+
+  tabButtons.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      applyStatusTab(btn.getAttribute("data-status"));
+    });
+  });
+
+  function clearOtherFiltersThenRestoreTab() {
+    var btn = document.querySelector('[data-filter-clear="archiveTable"]');
+    if (btn) btn.click();
+    // Card filters cleared; re-apply last status tab (and sync tab chrome).
+    applyStatusTab(loadSavedTab(), { persist: false });
+  }
+
+  // On visit / bfcache restore: reset card filters, keep last status tab.
+  window.addEventListener("pageshow", function () {
+    clearOtherFiltersThenRestoreTab();
+  });
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+      setTimeout(clearOtherFiltersThenRestoreTab, 0);
+    });
+  } else {
+    setTimeout(clearOtherFiltersThenRestoreTab, 0);
+  }
+
+  var mine = document.getElementById("archiveMineToggle");
+  if (mine) {
+    mine.addEventListener("change", function () {
+      var url = new URL(window.location.href);
+      url.search = "";
+      if (mine.checked) url.searchParams.set("mine", "1");
+      window.location.href = url.pathname + (url.search || "");
+    });
+  }
+
+  // Overtime / staff-request select mode: toggle rows, no navigation.
+  (function () {
+    var confirmBtn = document.getElementById("archiveSelectConfirm");
+    if (!confirmBtn) return;
+    var returnTo = "{{ select_return|escapejs }}";
+    var countEl = document.getElementById("archiveSelectCount");
+    var selected = {};
+
+    function sync() {
+      var n = Object.keys(selected).length;
+      if (countEl) countEl.textContent = String(n);
+      confirmBtn.disabled = n === 0;
+      document.querySelectorAll(".archive-select-row").forEach(function (tr) {
+        var id = tr.getAttribute("data-case-id");
+        var on = !!selected[id];
+        tr.classList.toggle("is-selected", on);
+        tr.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+    }
+
+    function toggle(id) {
+      if (!id) return;
+      if (selected[id]) delete selected[id];
+      else selected[id] = true;
+      sync();
+    }
+
+    document.querySelectorAll(".archive-select-row").forEach(function (tr) {
+      tr.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggle(tr.getAttribute("data-case-id"));
+      });
+      tr.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          toggle(tr.getAttribute("data-case-id"));
+        }
+      });
+    });
+
+    confirmBtn.addEventListener("click", function () {
+      var ids = Object.keys(selected);
+      if (!ids.length || !returnTo) return;
+      var sep = returnTo.indexOf("?") >= 0 ? "&" : "?";
+      window.location.href = returnTo + sep + "cases=" + encodeURIComponent(ids.join(","));
+    });
+    sync();
+  })();
+})();
+</script>
+<style>
+  .archive-select-row td:first-child{
+    position:relative;padding-inline-start:1rem;
+  }
+  .archive-select-bar{
+    position:absolute;inset-inline-start:0;top:.35rem;bottom:.35rem;
+    width:4px;border-radius:4px;background:transparent;
+    transition:background .12s;
+  }
+  .archive-select-row{
+    cursor:pointer;
+    transition:background .12s;
+  }
+  .archive-select-row:hover{
+    background:color-mix(in srgb,var(--accent) 8%,var(--paper));
+  }
+  .archive-select-row.is-selected{
+    background:color-mix(in srgb,var(--accent) 14%,var(--paper));
+  }
+  .archive-select-row.is-selected .archive-select-bar{background:var(--accent);}
+</style>
+{% endblock %}

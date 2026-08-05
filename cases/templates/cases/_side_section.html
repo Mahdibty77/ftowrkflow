@@ -1,0 +1,397 @@
+{% load ft_extras %}
+<div class="tabs side-tabs">
+  <div class="tab active" data-tab="inq-{{ sd.code }}">Inquiry</div>
+  <div class="tab" data-tab="to-{{ sd.code }}">Technical Offer</div>
+  <div class="tab" data-tab="pi-{{ sd.code }}">Proforma</div>
+  <div class="tab" data-tab="tl-{{ sd.code }}">Timeline</div>
+  {% if export_logs is not None %}
+  <div class="tab" data-tab="export-tl-{{ sd.code }}">Export Timeline</div>
+  {% endif %}
+  {% if currency_logs is not None %}
+  <div class="tab" data-tab="fx-tl-{{ sd.code }}">Conversion Timeline</div>
+  {% endif %}
+</div>
+
+<div class="tab-panel active" id="panel-inq-{{ sd.code }}">
+  <div class="row-flex" style="margin-bottom:.6rem;flex-wrap:wrap;gap:.4rem;">
+    <span class="muted" style="font-size:.8rem;">Inquiry versions{% if multi_side %} · {{ sd.label }}{% endif %}</span>
+    <span class="spacer"></span>
+    {% if is_split %}
+      {% if sd.can_edit_inq %}<a href="{% url 'cases:edit_items' case.pk %}?side={{ sd.code }}" class="btn btn-sm"><i class="fa-solid fa-pen"></i> Edit current</a>{% endif %}
+      {% if sd.can_new_inq %}
+        <button type="button" class="btn btn-sm btn-primary" data-newver-toggle="{{ sd.code }}"><i class="fa-solid fa-code-branch"></i> New version</button>
+      {% endif %}
+    {% elif primary %}
+      {% if 'edit' in actions %}<a href="{% url 'cases:edit_items' case.pk %}" class="btn btn-sm"><i class="fa-solid fa-pen"></i> Edit current</a>{% endif %}
+      {% if 'new_inquiry_version' in actions %}
+        <button type="button" class="btn btn-sm btn-primary" id="newver-btn"><i class="fa-solid fa-code-branch"></i> New version</button>
+      {% endif %}
+    {% endif %}
+  </div>
+  {% if is_split and sd.can_new_inq %}
+    <form method="get" action="{% url 'cases:edit_items' case.pk %}" id="newver-form-{{ sd.code }}" style="display:none;margin-bottom:.7rem;">
+      <input type="hidden" name="newver" value="1"><input type="hidden" name="side" value="{{ sd.code }}">
+      {% if case.offer_type != 'TO_PI' %}
+        <input type="hidden" name="offer_type" value="" data-nv-offer-out>
+        <div class="nv-toggle-row">
+          <label class="nv-switch">
+            <input type="checkbox" name="offer_type" value="TO_PI" data-nv-offer-toggle>
+            <span class="nv-switch-slider"></span>
+          </label>
+          <div class="nv-toggle-text">
+            <span class="nv-toggle-label">Offer type</span>
+            <span class="nv-toggle-state" data-off="{{ case.offer_type_label }}" data-on="Upgrade to TO &amp; PI (two-stage)">{{ case.offer_type_label }}</span>
+          </div>
+        </div>
+      {% else %}
+        <div class="help" style="margin-bottom:.5rem;">TO &amp; PI case — the offer type can’t change. You’ll edit the items next; a new version is saved only if you change the table{% if case.offer_type == 'TO_PI' %} or turn on Unit conversion / Update price{% endif %}.</div>
+      {% endif %}
+      {% if case.offer_type == 'TO_PI' %}
+      <div class="nv-toggle-row">
+        <label class="nv-switch">
+          <input type="checkbox" name="currency_conversion" value="1" data-nv-currency-toggle>
+          <span class="nv-switch-slider"></span>
+        </label>
+        <div class="nv-toggle-text">
+          <span class="nv-toggle-label">Unit conversion</span>
+          <span class="nv-toggle-state" data-off="Off" data-on="New version for Proforma currency conversion">Off</span>
+        </div>
+      </div>
+      <div class="help" style="margin:.35rem 0 .5rem;font-size:.78rem;">If you turn Unit conversion on and leave the table unchanged (and do not upgrade TO&amp;PI / Update price), a new version is created only for currency conversion — Cancel / Send to client only.</div>
+      <div class="nv-toggle-row">
+        <label class="nv-switch">
+          <input type="checkbox" name="update_price" value="1" data-nv-update-price-toggle>
+          <span class="nv-switch-slider"></span>
+        </label>
+        <div class="nv-toggle-text">
+          <span class="nv-toggle-label">Update price</span>
+          <span class="nv-toggle-state" data-off="Off" data-on="New version labelled Update price">Off</span>
+        </div>
+      </div>
+      <div class="help" style="margin:.35rem 0 .5rem;font-size:.78rem;">If Update price is on and the table is unchanged, the new version is labelled “Update price”. If you also edit / add / delete rows, the version chip stays plain but Update price still appears in the timeline and Technical notes.</div>
+      {% endif %}
+      <div class="btn-row" style="margin-top:.6rem;">
+        <button class="btn btn-sm btn-primary" type="submit"><i class="fa-solid fa-code-branch"></i> Open editor</button>
+        <button class="btn btn-sm btn-ghost" type="button" data-newver-cancel="{{ sd.code }}">Cancel</button>
+      </div>
+    </form>
+  {% endif %}
+  {% if primary and 'new_inquiry_version' in actions and not is_split %}
+    <form method="get" action="{% url 'cases:edit_items' case.pk %}" id="newver-form" style="display:none;margin-bottom:.7rem;">
+      <input type="hidden" name="newver" value="1">
+      {% if case.offer_type != 'TO_PI' %}
+        <input type="hidden" name="offer_type" value="" data-nv-offer-out>
+        <div class="nv-toggle-row">
+          <label class="nv-switch">
+            <input type="checkbox" name="offer_type" value="TO_PI" data-nv-offer-toggle>
+            <span class="nv-switch-slider"></span>
+          </label>
+          <div class="nv-toggle-text">
+            <span class="nv-toggle-label">Offer type</span>
+            <span class="nv-toggle-state" data-off="{{ case.offer_type_label }}" data-on="Upgrade to TO &amp; PI (two-stage)">{{ case.offer_type_label }}</span>
+          </div>
+        </div>
+      {% else %}
+        <div class="help" style="margin-bottom:.5rem;">TO &amp; PI case — the offer type can’t change. You’ll edit the items next; a new version is saved only if you change the table or turn on Unit conversion / Update price.</div>
+      {% endif %}
+      {% if case.offer_type == 'TO_PI' %}
+      <div class="nv-toggle-row">
+        <label class="nv-switch">
+          <input type="checkbox" name="currency_conversion" value="1" data-nv-currency-toggle>
+          <span class="nv-switch-slider"></span>
+        </label>
+        <div class="nv-toggle-text">
+          <span class="nv-toggle-label">Unit conversion</span>
+          <span class="nv-toggle-state" data-off="Off" data-on="New version for Proforma currency conversion">Off</span>
+        </div>
+      </div>
+      <div class="help" style="margin:.35rem 0 .5rem;font-size:.78rem;">If you turn Unit conversion on and leave the table unchanged (and do not upgrade TO&amp;PI / Update price), a new version is created only for currency conversion — Cancel / Send to client only.</div>
+      <div class="nv-toggle-row">
+        <label class="nv-switch">
+          <input type="checkbox" name="update_price" value="1" data-nv-update-price-toggle>
+          <span class="nv-switch-slider"></span>
+        </label>
+        <div class="nv-toggle-text">
+          <span class="nv-toggle-label">Update price</span>
+          <span class="nv-toggle-state" data-off="Off" data-on="New version labelled Update price">Off</span>
+        </div>
+      </div>
+      <div class="help" style="margin:.35rem 0 .5rem;font-size:.78rem;">If Update price is on and the table is unchanged, the new version is labelled “Update price”. If you also edit / add / delete rows, the version chip stays plain but Update price still appears in the timeline and Technical notes.</div>
+      {% endif %}
+      <div class="btn-row" style="margin-top:.6rem;">
+        <button class="btn btn-sm btn-primary" type="submit"><i class="fa-solid fa-code-branch"></i> Open editor</button>
+        <button class="btn btn-sm btn-ghost" type="button" id="newver-cancel">Cancel</button>
+      </div>
+    </form>
+  {% endif %}
+  
+  {% if primary and 'upgrade_two_stage' in actions and not is_split %}
+    <div class="two-stage-box" style="margin:.6rem 0;">
+      <div class="nv-toggle-row" style="margin:0;">
+        <label class="nv-switch">
+          <input type="checkbox" id="two-stage-toggle">
+          <span class="nv-switch-slider"></span>
+        </label>
+        <div class="nv-toggle-text">
+          <span class="nv-toggle-label">Price type</span>
+          <span class="nv-toggle-state" id="two-stage-caption" data-off="{{ case.price_type_label }}" data-on="Convert to Internal &amp; External (two-stage)">{{ case.price_type_label }}</span>
+        </div>
+      </div>
+      <form method="post" action="{% url 'cases:transition' case.pk %}" id="two-stage-form" style="display:none;margin-top:.5rem;">
+        {% csrf_token %}<input type="hidden" name="action" value="upgrade_two_stage">
+        <div class="alert-inline alert-warn" style="margin-bottom:.5rem;">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span>This permanently splits the case into independent <strong>Internal</strong> and <strong>External</strong> streams. The current side keeps its history; the other side starts fresh. This can't be undone.</span>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-sm btn-primary" type="submit"><i class="fa-solid fa-layer-group"></i> Confirm conversion</button>
+          <button class="btn btn-sm btn-ghost" type="button" id="two-stage-cancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+    <script>
+    (function () {
+      var t = document.getElementById('two-stage-toggle');
+      var f = document.getElementById('two-stage-form');
+      var cap = document.getElementById('two-stage-caption');
+      var cancel = document.getElementById('two-stage-cancel');
+      if (!t || !f) return;
+      function paint() {
+        if (cap) cap.textContent = t.checked ? (cap.getAttribute('data-on') || '') : (cap.getAttribute('data-off') || '');
+        f.style.display = t.checked ? 'block' : 'none';
+      }
+      t.addEventListener('change', paint);
+      if (cancel) cancel.addEventListener('click', function () { t.checked = false; paint(); });
+      paint();
+    })();
+    </script>
+  {% endif %}
+  {% include "cases/_versioned_section.html" with forms=sd.version_lists.INQUIRY group_id="inq-"|add:sd.code empty_text="No inquiry items." %}
+</div>
+
+<div class="tab-panel" id="panel-to-{{ sd.code }}">
+  <div class="row-flex" style="margin-bottom:.6rem;flex-wrap:wrap;gap:.4rem;">
+    <span class="muted" style="font-size:.8rem;">Technical Offer versions{% if multi_side %} · {{ sd.label }}{% endif %}</span>
+    <span class="spacer"></span>
+    {% if sd.can_build_to %}
+      {% if sd.to_mode == 'build' %}
+        <a class="btn btn-sm btn-primary" href="/tool/case/{{ case.pk }}/TO/?mode=build&amp;side={{ sd.code }}"><i class="fa-solid fa-wand-magic-sparkles"></i> Build TO</a>
+      {% elif sd.to_mode == 'edit' %}
+        <a class="btn btn-sm" href="/tool/case/{{ case.pk }}/TO/?mode=edit&amp;side={{ sd.code }}"><i class="fa-solid fa-pen"></i> Edit current</a>
+      {% else %}
+        <a class="btn btn-sm btn-primary" href="/tool/case/{{ case.pk }}/TO/?mode=newversion&amp;side={{ sd.code }}"><i class="fa-solid fa-code-branch"></i> New version</a>
+      {% endif %}
+    {% endif %}
+    {% if sd.version_lists.TO %}{% if is_admin_view or is_tech or is_comm %}
+      <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'TO' 'xlsx' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">Excel</a>
+      <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'TO' 'pdf' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">PDF</a>
+      <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'TO' 'html' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">Print view</a>
+    {% endif %}{% endif %}
+  </div>
+  {% include "cases/_versioned_section.html" with forms=sd.version_lists.TO group_id="to-"|add:sd.code empty_text="No technical offer yet." %}
+</div>
+
+<div class="tab-panel" id="panel-pi-{{ sd.code }}">
+  <div class="row-flex" style="margin-bottom:.6rem;flex-wrap:wrap;gap:.4rem;">
+    <span class="muted" style="font-size:.8rem;">Proforma versions{% if multi_side %} · {{ sd.label }}{% endif %}</span>
+    <span class="spacer"></span>
+    {% if sd.can_pi %}
+      {% if sd.pi_mode == 'build' %}
+        <a class="btn btn-sm btn-primary" href="/tool/case/{{ case.pk }}/PI/?mode=build&amp;side={{ sd.code }}"><i class="fa-solid fa-wand-magic-sparkles"></i> Build PI</a>
+      {% elif sd.pi_mode == 'edit' %}
+        <a class="btn btn-sm" href="/tool/case/{{ case.pk }}/PI/?mode=edit&amp;side={{ sd.code }}"><i class="fa-solid fa-pen"></i> Edit current</a>
+      {% else %}
+        <a class="btn btn-sm btn-primary" href="/tool/case/{{ case.pk }}/PI/?mode=newversion&amp;side={{ sd.code }}"><i class="fa-solid fa-code-branch"></i> New version</a>
+      {% endif %}
+    {% endif %}
+    {% if sd.version_lists.PI %}
+      {% if is_admin_view or is_comm %}
+        <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'xlsx' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">Excel</a>
+        <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'pdf' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">PDF</a>
+        <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'html' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">Print view</a>
+      {% elif is_supply %}
+        <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'xlsx' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">Excel</a>
+      {% endif %}
+      {% if is_admin_view or is_supply %}
+        <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'grouped' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">Grouped Excel</a>
+      {% endif %}
+    {% endif %}
+  </div>
+  {% if sd.assignee %}
+    <div class="muted" style="font-size:.78rem;margin-bottom:.5rem;"><i class="fa-solid fa-user-check"></i> {{ sd.label }} expert: {{ sd.assignee.get_full_name|default:sd.assignee.username }}</div>
+  {% endif %}
+  {% if sd.version_lists.PI and is_comm or sd.version_lists.PI and is_supply or sd.version_lists.PI and is_admin_view %}
+  <div class="pi-comm-wrap"
+       data-vat-percent="{{ vat_percent }}"
+       data-side="{{ sd.code }}"
+       data-action-url="{% url 'cases:transition' case.pk %}"
+       {% if sd.code == 'EXTERNAL' %}data-external-currency="1"{% endif %}
+       style="margin-bottom:.75rem;">
+    <div class="pi-comm-totals card" style="padding:.75rem 1rem;margin-bottom:.5rem;">
+      <div class="row-flex" style="gap:.55rem;flex-wrap:wrap;align-items:flex-end;">
+        {% if is_comm %}
+        <div class="pi-conv-gate">
+          <button type="button" class="btn btn-sm pi-conv-open"><i class="fa-solid fa-right-left"></i> Change currency unit</button>
+          <div class="pi-conv-confirm" hidden style="margin-top:.4rem;max-width:22rem;">
+            <div class="pi-conv-confirm-msg" style="color:var(--rej);font-size:.78rem;font-weight:600;line-height:1.35;margin-bottom:.35rem;">
+              Are you sure you want to change the currency unit?
+            </div>
+            <div class="btn-row" style="gap:.35rem;">
+              <button type="button" class="btn btn-sm btn-primary pi-conv-confirm-yes">Confirm</button>
+              <button type="button" class="btn btn-sm btn-ghost pi-conv-confirm-no">Cancel</button>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        <div class="pi-comm-totals-right" style="display:flex;gap:.55rem;flex-wrap:wrap;{% if is_comm %}margin-left:auto;{% endif %}">
+          <div class="badge" style="background:var(--cloud);border:1px solid var(--line);color:var(--ink);padding:.45rem .7rem;">
+            <span class="muted" style="font-size:.68rem;display:block;text-transform:uppercase;">Subtotal</span>
+            <strong><span class="pi-tot-sub">0</span> <span class="pi-tot-unit"></span></strong>
+          </div>
+          <div class="badge pi-tot-svc-badge" style="background:var(--infobg);border:1px solid var(--infoline);color:var(--info);padding:.45rem .7rem;">
+            <span class="muted" style="font-size:.68rem;display:block;text-transform:uppercase;color:var(--info);">Total Service</span>
+            <strong style="color:var(--info);"><span class="pi-tot-svc">0</span> <span class="pi-tot-unit"></span></strong>
+          </div>
+          <div class="badge" style="background:var(--cloud);border:1px solid var(--line);color:var(--ink);padding:.45rem .7rem;">
+            <span class="muted pi-tot-vat-label" style="font-size:.68rem;display:block;text-transform:uppercase;">VAT ({{ vat_percent|floatformat:"-2" }}%)</span>
+            <strong><span class="pi-tot-vat">0</span> <span class="pi-tot-unit"></span></strong>
+          </div>
+          <div class="badge" style="background:var(--accent-soft);border:1px solid var(--accent);color:var(--accent-strong);padding:.45rem .7rem;">
+            <span class="muted" style="font-size:.68rem;display:block;text-transform:uppercase;color:var(--accent-strong);">Grand Total</span>
+            <strong style="color:var(--accent-strong);"><span class="pi-tot-grand">0</span> <span class="pi-tot-unit"></span></strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% if is_comm %}
+    <div class="pi-conv-panel card" hidden style="padding:.75rem 1rem;"
+         data-fx-api="{% url 'cases:fx_rates_api' %}"
+         data-locked-from="{% if sd.code == 'EXTERNAL' %}usd{% else %}rial{% endif %}">
+      <div class="muted" style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.35rem;"><i class="fa-solid fa-right-left"></i> Unit conversion</div>
+      <div class="pi-fx-stale" hidden></div>
+      <div class="row-flex" style="gap:.5rem;flex-wrap:wrap;align-items:flex-end;">
+        <label style="font-size:.78rem;">From
+          <select class="pi-conv-from" disabled style="display:block;margin-top:.15rem;min-width:7rem;opacity:.85;background:var(--cloud);color:var(--ink);">
+            {% if sd.code == 'EXTERNAL' %}
+            <option value="usd" selected>USD ($)</option>
+            {% else %}
+            <option value="rial" selected>Rial</option>
+            {% endif %}
+          </select>
+        </label>
+        <label style="font-size:.78rem;">To
+          <select class="pi-conv-to" style="display:block;margin-top:.15rem;min-width:7rem;">
+            {% if sd.code == 'EXTERNAL' %}
+            <option value="usd">USD ($)</option>
+            <option value="eur" selected>EUR (€)</option>
+            {% else %}
+            <option value="rial">Rial</option>
+            <option value="usd" selected>USD ($)</option>
+            <option value="eur">EUR (€)</option>
+            {% endif %}
+          </select>
+        </label>
+        <label class="pi-conv-rate-wrap" style="font-size:.78rem;display:none;cursor:not-allowed;">Rate
+          <span style="display:inline-flex;align-items:center;gap:5px;margin-top:.15rem;cursor:not-allowed;">
+            <input type="text" class="pi-conv-rate calc-rate-locked" value="" readonly tabindex="-1"
+                   aria-readonly="true"
+                   style="display:block;min-width:8.5rem;background:var(--cloud);color:var(--ink);cursor:not-allowed;pointer-events:none;user-select:none;font-variant-numeric:tabular-nums;">
+            <span class="pi-conv-rate-unit muted" style="font-size:.7rem;font-weight:700;white-space:nowrap;cursor:not-allowed;"></span>
+          </span>
+        </label>
+        <button type="button" class="btn btn-sm btn-primary pi-conv-save"><i class="fa-solid fa-floppy-disk"></i> Confirm</button>
+        <button type="button" class="btn btn-sm btn-ghost pi-conv-cancel">Cancel</button>
+      </div>
+      <div class="muted pi-fx-rate-note" style="font-size:.72rem;margin-top:.45rem;"></div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% include "cases/_versioned_section.html" with forms=sd.version_lists.PI group_id="pi-"|add:sd.code empty_text="No proforma yet." %}
+</div>
+
+<div class="tab-panel" id="panel-tl-{{ sd.code }}">
+  <div class="tl-layout">
+    <ul class="timeline" id="tl-list-{{ sd.code }}">
+      {% for ev in sd.events %}
+        <li>
+          <div class="tl-action">
+            {% if ev.action == 'EDIT' and ev.form_kind %}Edited {{ ev.form_kind }} form
+            {% elif ev.action == 'NEW_VERSION' and ev.form_kind == 'INQUIRY' %}New inquiry form
+            {% elif ev.action == 'NEW_VERSION' and ev.form_kind %}New {{ ev.form_kind }} form
+            {% else %}{{ ev.action_label }}{% endif %}
+            {% if ev.form_version is not None %}<span class="tl-ver">Version {{ ev.form_version|stringformat:"02d" }}</span>{% endif %}
+            {% if ev.two_stage %}<span class="stage-chip">Two&nbsp;Stage</span>{% endif %}
+            {% if ev.from_unit and ev.to_unit and ev.from_unit != ev.to_unit %}
+              · <span class="tl-route"><span class="unit u-{{ ev.from_unit }}">{{ ev.from_unit }}</span><i class="fa-solid fa-arrow-right-long arrow"></i><span class="unit u-{{ ev.to_unit }}">{{ ev.to_unit }}</span></span>
+            {% endif %}
+          </div>
+          <div class="tl-meta">{{ ev.actor_display_name }}{% if ev.actor_is_substitute %} <span class="tl-sub-tag">Substitute</span>{% endif %} · {{ ev.created_at|jalali:"Y.m.d H:i" }}</div>
+          {% if ev.comment %}<div class="tl-comment">{{ ev.comment }}</div>{% endif %}
+        </li>
+      {% empty %}
+        <li class="muted">No activity for this section yet.</li>
+      {% endfor %}
+    </ul>
+    {% if 'comment' in actions %}
+    <div class="tl-side-comment card">
+      <div class="card-head"><h3>Add a comment</h3></div>
+      <form class="ajax-comment-form" data-action-url="{% url 'cases:transition' case.pk %}" data-target="tl-list-{{ sd.code }}" data-user-name="{{ user.get_full_name|default:user.username }}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="comment">
+        <input type="hidden" name="side" value="{{ sd.code }}">
+        <div class="field"><textarea name="comment" rows="3" placeholder="Write a note for the audit trail…" required></textarea></div>
+        <button type="submit" class="btn btn-primary btn-sm">Post comment</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if export_logs is not None %}
+<div class="tab-panel" id="panel-export-tl-{{ sd.code }}">
+  <div class="card" style="margin:0;box-shadow:none;border:0;background:transparent;">
+    <div class="muted" style="font-size:.78rem;margin-bottom:.6rem;">Every document export on this case — administrators only.</div>
+    <ul class="timeline">
+      {% for ex in export_logs %}
+        <li>
+          <div class="tl-action">
+            {{ ex.label|default:ex.fmt }}
+            {% if ex.form_version is not None %}<span class="tl-ver">Version {{ ex.form_version|stringformat:"02d" }}</span>{% endif %}
+            {% if ex.side and case.has_internal and case.has_external %}<span class="side-chip u-side-{{ ex.side }}">{{ ex.side_label }}</span>{% endif %}
+          </div>
+          <div class="tl-meta">{{ ex.actor.get_full_name|default:ex.actor.username|default:"—" }} · {{ ex.created_at|jalali:"Y.m.d H:i" }}</div>
+        </li>
+      {% empty %}
+        <li class="muted">No exports yet.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+
+{% if currency_logs is not None %}
+<div class="tab-panel" id="panel-fx-tl-{{ sd.code }}">
+  <div class="card" style="margin:0;box-shadow:none;border:0;background:transparent;">
+    <div class="muted" style="font-size:.78rem;margin-bottom:.6rem;">Every Proforma unit conversion on this case — administrators only.</div>
+    <ul class="timeline">
+      {% for fx in currency_logs %}
+        <li>
+          <div class="tl-action">
+            <i class="fa-solid fa-right-left"></i>
+            {{ fx.label }}
+            {% if fx.form_version is not None %}<span class="tl-ver">Version {{ fx.form_version|stringformat:"02d" }}</span>{% endif %}
+            {% if fx.side and case.has_internal and case.has_external %}<span class="side-chip u-side-{{ fx.side }}">{{ fx.side_label }}</span>{% endif %}
+            {% if fx.source %}<span class="muted" style="font-size:.72rem;margin-left:.35rem;">({{ fx.source }})</span>{% endif %}
+          </div>
+          <div class="tl-meta">{{ fx.actor.get_full_name|default:fx.actor.username|default:"—" }} · {{ fx.created_at|jalali:"Y.m.d H:i" }}</div>
+        </li>
+      {% empty %}
+        <li class="muted">No currency conversions yet.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+

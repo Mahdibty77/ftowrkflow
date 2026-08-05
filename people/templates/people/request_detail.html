@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% load static ft_extras %}
+{% block title %}Request · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Request detail{% endblock %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-22">
+{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1><i class="fa-solid {{ req.request_type.icon }}"></i> {{ req.request_type.title }}</h1>
+    <div class="sub">
+      {% if is_manager_view %}{{ req.person.display_name }} · {% endif %}
+      {% if req.status == 'approved' %}<span class="pill pill-green">Approved</span>
+      {% elif req.status == 'rejected' %}<span class="pill pill-rejected">Rejected</span>
+      {% elif req.status == 'submitted' %}<span class="pill pill-submitted">Submitted</span>
+      {% else %}<span class="pill pill-grey">{{ req.get_status_display }}</span>{% endif %}
+    </div>
+  </div>
+  <div class="btn-row">
+    <a href="{{ back_url }}" class="btn btn-sm"><i class="fa-solid fa-arrow-left"></i> Back</a>
+  </div>
+</div>
+
+<div class="card" style="max-width:820px;margin-bottom:1rem;">
+  <dl class="kv compact">
+    <dt>Code</dt><dd class="mono">{{ req.request_code|default:req.pk }}</dd>
+    {% if is_manager_view %}
+    <dt>Person</dt><dd>{{ req.person.display_name }}{% if req.person.detail_code %} <span class="muted mono">({{ req.person.detail_code }})</span>{% endif %}</dd>
+    {% endif %}
+    <dt>Type</dt><dd>{{ req.request_type.title }}</dd>
+    <dt>Status</dt>
+    <dd>
+      {% if req.status == 'approved' %}<span class="pill pill-green">Approved</span>
+      {% elif req.status == 'rejected' %}<span class="pill pill-rejected">Rejected</span>
+      {% elif req.status == 'submitted' %}<span class="pill pill-submitted">Submitted</span>
+      {% else %}<span class="pill pill-grey">{{ req.get_status_display }}</span>{% endif %}
+    </dd>
+    <dt>Submitted</dt><dd class="mono">{{ req.submitted_at|default:req.created_at|jalali:"Y.m.d H:i" }}</dd>
+    <dt>Requested</dt><dd class="mono">{{ req.requested_label }}</dd>
+    {% if req.approved_minutes is not None %}
+    <dt>Approved duration</dt><dd class="mono">{{ req.approved_label }}</dd>
+    {% endif %}
+    {% if req.work_day %}
+    <dt>Work day</dt><dd class="mono">{{ req.work_day|jalali:"Y.m.d" }}</dd>
+    {% endif %}
+    <dt>Description</dt><dd>{{ req.comment|default:"—" }}</dd>
+    <dt>Cases</dt>
+    <dd>
+      {% for c in cases %}
+        <div><span class="mono">{{ c.label }}</span>{% if c.client %} · {{ c.client }}{% endif %}</div>
+      {% empty %}—{% endfor %}
+    </dd>
+    {% if req.decided_at %}
+    <dt>Decision</dt>
+    <dd class="muted">
+      {{ req.decided_at|jalali:"Y.m.d H:i" }}
+      {% if req.decided_by %} · {{ req.decided_by.get_full_name|default:req.decided_by.username }}{% endif %}
+    </dd>
+    {% endif %}
+    {% if req.decision_note %}
+    <dt>Note</dt>
+    <dd>{% if req.status == 'rejected' %}Not approved: {% endif %}{{ req.decision_note }}</dd>
+    {% endif %}
+  </dl>
+</div>
+
+{% if can_decide %}
+<div class="card ppl-card" style="max-width:820px;">
+  <div class="card-head"><h3><i class="fa-solid fa-check"></i> Decide</h3></div>
+  <form method="post" action="{% url 'people:gm_overtime_decide' req.pk %}">
+    {% csrf_token %}
+    <div class="field ppl-time-wrap">
+      <label for="id_approved_hours">Approved duration</label>
+      <div class="ppl-hm">
+        <i class="fa-solid fa-hourglass-half ppl-hm-ic" aria-hidden="true"></i>
+        <select name="approved_hours" id="id_approved_hours" class="ppl-theme-select" aria-label="Approved hours">
+          {% for h in hour_choices %}
+            <option value="{{ h }}"{% if h == req_h %} selected{% endif %}>{{ h }}</option>
+          {% endfor %}
+        </select>
+        <span class="ppl-hm-sep">:</span>
+        <select name="approved_minutes" id="id_approved_minutes" class="ppl-theme-select" aria-label="Approved minutes">
+          {% for m in minute_choices %}
+            <option value="{{ m }}"{% if m == req_m %} selected{% endif %}>{{ m }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="help">You may reduce or adjust the requested time before approving.</div>
+    </div>
+    <div class="field" style="margin-top:.75rem;">
+      <label for="id_decision_note">Decision note</label>
+      <input type="text" name="decision_note" id="id_decision_note" placeholder="Optional note"
+        style="width:100%;max-width:28rem;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:.45rem .65rem;font:inherit;">
+    </div>
+    <div class="btn-row" style="margin-top:.9rem;">
+      <button type="submit" name="decision" value="approve" class="btn btn-primary"><i class="fa-solid fa-check"></i> Approve</button>
+      <button type="submit" name="decision" value="reject" class="btn btn-ghost" style="color:var(--rej);"><i class="fa-solid fa-ban"></i> Reject</button>
+    </div>
+  </form>
+</div>
+{% endif %}
+<script src="{% static 'people/js/people.js' %}?v=ppl-19"></script>
+{% endblock %}

@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Dashboard · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Dashboard{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div><h1>{% if scope == 'unit' %}{{ sections.0.unit_label }} report{% else %}Management report{% endif %}</h1>
+    <div class="sub">Overall summary and per-expert cards. Pick a date range, then click a card to open that person's cases.</div></div>
+</div>
+
+{% if overview %}
+<section class="dash-overview">
+  <div class="dash-unit-head">
+    <span class="dash-dot" style="background:var(--accent,#4456e6)"></span>
+    <h2>Overall report</h2>
+  </div>
+  <form method="get" class="dash-filter" data-autosubmit>
+    {% for sec in sections %}
+      <input type="hidden" name="{{ sec.unit|lower }}_from" value="{{ sec.raw_from }}">
+      <input type="hidden" name="{{ sec.unit|lower }}_to" value="{{ sec.raw_to }}">
+    {% endfor %}
+    <div class="field"><label>From</label>
+      <input type="text" name="ov_from" value="{{ ov_raw_from }}" data-jalali-datetime placeholder="From date"></div>
+    <div class="field"><label>To</label>
+      <input type="text" name="ov_to" value="{{ ov_raw_to }}" data-jalali-datetime placeholder="To date"></div>
+    <noscript><button class="btn btn-sm btn-primary" type="submit">Apply</button></noscript>
+  </form>
+
+  <div class="dash-ov-metrics">
+    <div class="dash-ov-m"><span class="dc-v">{{ overview.total }}</span><span class="dc-l">Total cases</span></div>
+    <div class="dash-ov-m"><span class="dc-v">{{ overview.by_status.sent_to_client }}</span><span class="dc-l">Sent to client</span></div>
+    <div class="dash-ov-m"><span class="dc-v">{{ overview.by_status.final_approved }}</span><span class="dc-l">Final approved</span></div>
+    <div class="dash-ov-m"><span class="dc-v">{{ overview.by_status.with_technical }}</span><span class="dc-l">With Technical</span></div>
+    <div class="dash-ov-m"><span class="dc-v">{{ overview.by_status.with_supply }}</span><span class="dc-l">With Supply</span></div>
+    <div class="dash-ov-m"><span class="dc-v">{{ overview.by_status.cancelled }}</span><span class="dc-l">Cancelled</span></div>
+    <div class="dash-ov-m dash-ov-money"><span class="dc-v">{{ overview.grand_total_display }}</span><span class="dc-l">Grand total (all PI)</span></div>
+  </div>
+
+  <div class="dash-charts">
+    <div class="dash-chart-card">
+      <div class="dash-chart-title">Cases by status</div>
+      {% for b in overview.status_bars %}
+      <div class="dash-bar-row">
+        <span class="dash-bar-label">{{ b.label }}</span>
+        <div class="dash-bar-track"><i style="width:{{ b.pct }}%"></i></div>
+        <span class="dash-bar-n">{{ b.count }}</span>
+      </div>
+      {% empty %}
+      <div class="muted" style="padding:.4rem 0;">No cases in this range.</div>
+      {% endfor %}
+    </div>
+    <div class="dash-chart-card">
+      <div class="dash-chart-title">Cases by unit</div>
+      {% for u in overview.by_unit %}
+      <div class="dash-bar-row">
+        <span class="dash-bar-label">{{ u.label }}</span>
+        <div class="dash-bar-track dash-bar-{{ u.code }}"><i style="width:{{ u.pct }}%"></i></div>
+        <span class="dash-bar-n">{{ u.count }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% for sec in sections %}
+<section class="dash-unit dash-{{ sec.kind }}">
+  <div class="dash-unit-head">
+    <span class="dash-dot"></span>
+    <h2>{{ sec.unit_label }}</h2>
+    <span class="dash-count">{{ sec.cards|length }} expert(s)</span>
+  </div>
+
+  <form method="get" class="dash-filter" data-autosubmit>
+    {% if overview %}
+      <input type="hidden" name="ov_from" value="{{ ov_raw_from }}">
+      <input type="hidden" name="ov_to" value="{{ ov_raw_to }}">
+    {% endif %}
+    {% for other in sections %}{% if other.unit != sec.unit %}
+      <input type="hidden" name="{{ other.unit|lower }}_from" value="{{ other.raw_from }}">
+      <input type="hidden" name="{{ other.unit|lower }}_to" value="{{ other.raw_to }}">
+    {% endif %}{% endfor %}
+    {% if scope == 'admin' or scope == 'general_manager' %}
+      {% with pf=sec.unit|lower|add:'_' %}
+      <div class="field"><label>From</label>
+        <input type="text" name="{{ pf }}from" value="{{ sec.raw_from }}" data-jalali-datetime placeholder="From date"></div>
+      <div class="field"><label>To</label>
+        <input type="text" name="{{ pf }}to" value="{{ sec.raw_to }}" data-jalali-datetime placeholder="To date"></div>
+      {% endwith %}
+    {% else %}
+      <div class="field"><label>From</label>
+        <input type="text" name="from" value="{{ sec.raw_from }}" data-jalali-datetime placeholder="From date"></div>
+      <div class="field"><label>To</label>
+        <input type="text" name="to" value="{{ sec.raw_to }}" data-jalali-datetime placeholder="To date"></div>
+    {% endif %}
+    <noscript><button class="btn btn-sm btn-primary" type="submit">Apply</button></noscript>
+  </form>
+
+  <div class="dash-cards">
+    {% for c in sec.cards %}
+      <a class="dash-card" href="{% url 'cases:archive' %}?{{ c.filter_key }}={{ c.id }}">
+        <div class="dc-top">
+          <div class="dc-avatar">{{ c.name|slice:":1"|upper }}</div>
+          <div class="dc-id">
+            <div class="dc-name">{{ c.name }}{% if c.is_manager %} <span class="dc-mgr">Manager</span>{% endif %}</div>
+            {% if c.code %}<div class="dc-code">{{ c.code }}</div>{% endif %}
+          </div>
+        </div>
+        <div class="dc-metrics">
+          {% if sec.kind == 'commercial' %}
+            <div class="dc-m"><span class="dc-v">{{ c.total }}</span><span class="dc-l">Total</span></div>
+            <div class="dc-m"><span class="dc-v">{{ c.sent_to_client }}</span><span class="dc-l">Sent to client</span></div>
+            <div class="dc-m"><span class="dc-v">{{ c.final_approved }}</span><span class="dc-l">Final approved</span></div>
+            <div class="dc-m"><span class="dc-v">{{ c.unsuppliable }}</span><span class="dc-l">Unsuppliable</span></div>
+            <div class="dc-m"><span class="dc-v">{{ c.cancelled }}</span><span class="dc-l">Cancelled</span></div>
+            <div class="dc-m dc-m-money"><span class="dc-v">{{ c.grand_total_display }}</span><span class="dc-l">Grand total</span></div>
+          {% elif sec.kind == 'technical' %}
+            <div class="dc-m"><span class="dc-v">{{ c.assigned }}</span><span class="dc-l">Assigned</span></div>
+            <div class="dc-m"><span class="dc-v">{{ c.in_inbox }}</span><span class="dc-l">In inbox now</span></div>
+          {% else %}
+            <div class="dc-m"><span class="dc-v">{{ c.assigned }}</span><span class="dc-l">Assigned</span></div>
+            <div class="dc-m"><span class="dc-v">{{ c.in_inbox }}</span><span class="dc-l">In inbox now</span></div>
+            <div class="dc-m"><span class="dc-v">{{ c.unsuppliable }}</span><span class="dc-l">Unsuppliable</span></div>
+          {% endif %}
+        </div>
+      </a>
+    {% empty %}
+      <div class="muted" style="padding:.6rem;">No experts in this unit.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+{% endblock %}
+{% block scripts %}
+<script>
+  document.querySelectorAll('form[data-autosubmit]').forEach(function (form) {
+    form.addEventListener('change', function (e) {
+      if (!(e.target && e.target.matches('input'))) return;
+      // Apply when both ends of a from/to pair are set, or when either is cleared
+      // (so clearing a date restores the unfiltered view).
+      var inputs = form.querySelectorAll('input[data-jalali-datetime], input[name$="_from"], input[name$="_to"], input[name="from"], input[name="to"], input[name="ov_from"], input[name="ov_to"]');
+      var fromEl = null, toEl = null;
+      inputs.forEach(function (inp) {
+        var n = inp.name || '';
+        if (n === 'from' || n === 'ov_from' || /_from$/.test(n)) fromEl = inp;
+        if (n === 'to' || n === 'ov_to' || /_to$/.test(n)) toEl = inp;
+      });
+      // Fallback: first two datetime inputs in the form.
+      if (!fromEl || !toEl) {
+        var dts = form.querySelectorAll('input[data-jalali-datetime]');
+        if (dts.length >= 2) { fromEl = dts[0]; toEl = dts[1]; }
+      }
+      var fv = fromEl ? (fromEl.value || '').trim() : '';
+      var tv = toEl ? (toEl.value || '').trim() : '';
+      if ((fv && tv) || (!fv && !tv) || (e.target.value || '').trim() === '') {
+        form.submit();
+      }
+    });
+  });
+</script>
+{% endblock %}

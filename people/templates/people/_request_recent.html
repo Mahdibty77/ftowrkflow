@@ -1,0 +1,148 @@
+{% load ft_extras %}
+{% if type_tabs %}
+<nav class="archive-status-tabs" id="{{ table_id }}TypeTabs" role="tablist" aria-label="Filter by request type">
+  {% for tab in type_tabs %}
+  <button type="button"
+          class="archive-status-tab{% if tab.active %} is-active{% endif %}"
+          role="tab"
+          data-status="{{ tab.label }}"
+          data-color="{{ tab.color }}"
+          style="--tab-sc:{{ tab.color }}"
+          aria-selected="{% if tab.active %}true{% else %}false{% endif %}"
+          title="{{ tab.label }}">
+    <span class="ast-dot" aria-hidden="true"></span>
+    <span class="ast-label"><span class="ast-w">{{ tab.label }}</span></span>
+    <span class="ast-count">{{ tab.count }}</span>
+  </button>
+  {% endfor %}
+  <button type="button"
+          class="archive-status-tab archive-status-tab-all{% if not type_tabs_active %} is-active{% endif %}"
+          role="tab"
+          data-status="ALL"
+          aria-selected="{% if not type_tabs_active %}true{% else %}false{% endif %}"
+          title="All types">
+    <span class="ast-label"><span class="ast-w">All</span></span>
+  </button>
+</nav>
+<select id="{{ table_id }}TypeFilter" hidden
+        data-filter-for="{{ table_id }}"
+        data-filter-colname="Type"
+        data-filter-mode="equals"
+        data-archive-status-filter="1"></select>
+{% endif %}
+
+<div class="card" style="margin-bottom:1rem;">
+  <div class="archive-filter-toolbar">
+    <button type="button" class="btn btn-sm" data-filter-clear="{{ table_id }}" title="Reset all filters">
+      <i class="fa-solid fa-eraser"></i> Clear filters
+    </button>
+    <span class="count"><span data-filter-count="{{ table_id }}">{{ rows|length }}</span> requests</span>
+  </div>
+  <div class="grid archive-filter-grid">
+    <div class="field">
+      <label><i class="fa-solid fa-hashtag"></i> Request no.</label>
+      <select data-combo data-placeholder="Search request no…"
+              data-filter-for="{{ table_id }}" data-filter-colname="Code" data-filter-mode="contains">
+        <option value=""></option>
+        {% for v in f_codes %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
+      </select>
+    </div>
+    {% if show_person %}
+    <div class="field">
+      <label><i class="fa-solid fa-user"></i> Requester</label>
+      <select data-combo data-placeholder="Search requester…"
+              data-filter-for="{{ table_id }}" data-filter-colname="Requester" data-filter-mode="contains">
+        <option value=""></option>
+        {% for v in f_people %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <div class="field">
+      <label><i class="fa-solid fa-layer-group"></i> Type</label>
+      <select data-combo data-placeholder="Search type…"
+              data-filter-for="{{ table_id }}" data-filter-colname="Type" data-filter-mode="equals">
+        <option value=""></option>
+        {% for v in f_types %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label><i class="fa-solid fa-circle-info"></i> Status</label>
+      <select data-combo data-placeholder="Search status…"
+              data-filter-for="{{ table_id }}" data-filter-colname="Status" data-filter-mode="equals">
+        <option value=""></option>
+        {% for v in f_statuses %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
+      </select>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h3><i class="fa-solid fa-clock-rotate-left"></i> Recent requests</h3></div>
+  <div class="vscroll vscroll-list">
+    <table class="data" id="{{ table_id }}" data-filter-table>
+      <thead>
+        <tr>
+          <th>Code</th>
+          {% if show_person %}<th>Requester</th>{% endif %}
+          <th>Type</th>
+          <th>Status</th>
+          <th>Submitted</th>
+          <th>Description</th>
+          <th>Response</th>
+          <th>Decided by</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr class="row-link" onclick="window.location='{% url 'people:request_detail' row.req.pk %}'" style="cursor:pointer;">
+          <td class="mono">{{ row.req.request_code|default:row.req.pk }}</td>
+          {% if show_person %}<td>{{ row.req.person.display_name }}</td>{% endif %}
+          <td>{{ row.req.request_type.title }}</td>
+          <td data-fval="{{ row.req.get_status_display }}">
+            {% if row.req.status == 'approved' %}<span class="pill pill-green">Approved</span>
+            {% elif row.req.status == 'rejected' %}<span class="pill pill-rejected">Rejected</span>
+            {% elif row.req.status == 'submitted' %}<span class="pill pill-submitted">Submitted</span>
+            {% else %}<span class="pill pill-grey">{{ row.req.get_status_display }}</span>{% endif %}
+          </td>
+          <td class="muted mono">{{ row.req.submitted_at|default:row.req.created_at|jalali:"Y.m.d H:i" }}</td>
+          <td class="muted">{{ row.req.comment|default:"—"|truncatechars:80 }}</td>
+          <td class="muted mono">{% if row.req.decided_at %}{{ row.req.decided_at|jalali:"Y.m.d H:i" }}{% else %}—{% endif %}</td>
+          <td class="muted">{{ row.decider }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="{% if show_person %}8{% else %}7{% endif %}" class="empty">No requests yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if type_tabs %}
+<script>
+(function () {
+  var tabs = document.getElementById("{{ table_id }}TypeTabs");
+  var sel = document.getElementById("{{ table_id }}TypeFilter");
+  if (!tabs || !sel) return;
+  var key = "ft-req-type-tab-{{ table_id }}";
+  function apply(status) {
+    Array.prototype.forEach.call(tabs.querySelectorAll(".archive-status-tab"), function (btn) {
+      var on = (btn.getAttribute("data-status") || "") === status;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    sel.value = (status && status !== "ALL") ? status : "";
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+    sel.dispatchEvent(new Event("input", { bubbles: true }));
+    try { localStorage.setItem(key, status || "ALL"); } catch (e) {}
+  }
+  tabs.addEventListener("click", function (e) {
+    var btn = e.target.closest(".archive-status-tab");
+    if (!btn || !tabs.contains(btn)) return;
+    apply(btn.getAttribute("data-status") || "ALL");
+  });
+  var saved = "ALL";
+  try { saved = localStorage.getItem(key) || "ALL"; } catch (e) {}
+  apply(saved);
+})();
+</script>
+{% endif %}

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{% if client %}Rename client{% else %}Add client{% endif %} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% if client %}Rename client{% else %}Add client{% endif %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{% if client %}Rename client{% else %}Add client{% endif %}</h1>
+  <div class="sub">{% if client %}The code <span class="mono">{{ client.code }}</span> stays the same.{% else %}A sequential code is assigned automatically.{% endif %}</div></div>
+</div>
+
+<form method="post" class="card form-narrow">
+  {% csrf_token %}
+  {% for field in form %}
+    <div class="field">
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.errors %}<ul class="errorlist">{% for e in field.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+  {% endfor %}
+  <div class="btn-row">
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a href="{% url 'cases:client_list' %}" class="btn btn-ghost">Cancel</a>
+  </div>
+</form>
+{% endblock %}

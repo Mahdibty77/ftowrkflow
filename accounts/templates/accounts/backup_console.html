@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Backups{% endblock %}
+{% block topbar %}Backups{% endblock %}
+
+{% block head_extra %}
+  {% if status.state == "running" %}<meta http-equiv="refresh" content="5">{% endif %}
+  <style>
+    .bk-wrap{max-width:920px;}
+    .bk-card{background:var(--paper);border:1px solid var(--line);border-radius:14px;
+      padding:18px 20px;margin-bottom:18px;box-shadow:var(--shadow);}
+    .bk-card h2{font-size:15px;margin:0 0 6px;color:var(--ink);}
+    .bk-note{font-size:12.5px;color:var(--muted);line-height:1.7;margin:0;}
+    .bk-note strong{color:var(--ink);}
+    .bk-status{display:flex;gap:10px;align-items:center;border-radius:10px;padding:11px 14px;font-size:13px;border:1px solid;}
+    .bk-running{background:var(--warnbg);border-color:var(--warnline);color:var(--warn);}
+    .bk-success{background:var(--okbg);border-color:var(--okline);color:var(--ok);}
+    .bk-error{background:var(--rejbg);border-color:var(--rejline);color:var(--rej);}
+    .bk-idle{background:var(--cloud);border-color:var(--line);color:var(--muted);}
+    .bk-actions{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;}
+    .bk-actions form{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+    table.bk{width:100%;border-collapse:collapse;font-size:13px;}
+    table.bk th,table.bk td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);color:var(--ink);}
+    table.bk th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;}
+    table.bk td.mono{font-family:'DejaVu Sans Mono',Consolas,monospace;font-size:12px;word-break:break-all;}
+    .bk-btns{display:flex;gap:8px;justify-content:flex-end;}
+    .btn-sm{font-size:12px;padding:6px 12px;border-radius:8px;text-decoration:none;border:1px solid;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-weight:600;}
+    .btn-dl{background:var(--accent-soft);color:var(--accent-strong);border-color:color-mix(in srgb,var(--accent) 32%,transparent);}
+    .btn-rs{background:var(--rejbg);color:var(--rej);border-color:var(--rejline);}
+    .bk-empty{font-size:13px;color:var(--muted);padding:14px 2px;}
+    input[type=file]{font-size:13px;color:var(--ink);}
+    .bk-warn{font-size:12px;color:var(--warn);background:var(--warnbg);border:1px solid var(--warnline);border-radius:8px;padding:9px 12px;margin-top:10px;}
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="bk-wrap">
+
+  <div class="bk-card">
+    <h2>Automatic backups</h2>
+    <p class="bk-note">
+      Backups run automatically around <strong>00:00 (Asia/Tehran)</strong>, stored in three folders
+      under the host <span class="mono">backups</span> directory (next to the project):
+    </p>
+    <ul class="bk-note" style="margin:8px 0 0;padding-left:18px;line-height:1.8;">
+      <li><strong>Every night</strong> — database (cases, people, seats, histories…) →
+        <span class="mono">backups/db/ftdb_*.tar.gz</span>.
+        The newest <strong>33</strong> days are kept; older daily files are deleted.</li>
+      <li><strong>Every 3 days</strong> — media (avatars, stamps, signatures) →
+        <span class="mono">backups/media/ftmedia_*.tar.gz</span>.
+        Kept for <strong>10</strong> days; older media archives are deleted.</li>
+      <li><strong>Every 3 days</strong> — large code SQLite tables → one file
+        <span class="mono">backups/code_db/ftcode_db.tar.gz</span> that <strong>replaces</strong>
+        the previous snapshot.</li>
+    </ul>
+    <p class="bk-note" style="margin-top:10px;">
+      Copy the whole <span class="mono">backups</span> folder to another drive for off-site safety.
+      The license is intentionally <strong>not</strong> included in backups.
+    </p>
+    <p class="bk-note" style="margin-top:10px;">
+      <strong>Run backup now</strong> takes an immediate snapshot of the
+      <strong>database</strong> and <strong>media</strong> on this server (code tables stay on the
+      3-day schedule). The page refreshes while it runs.
+    </p>
+  </div>
+
+  <div class="bk-card">
+    <h2>Status</h2>
+    {% if status %}
+      <div class="bk-status bk-{{ status.state|default:'idle' }}">
+        <span><strong>{{ status.state|default:'-'|capfirst }}</strong>{% if status.action %} &middot; {{ status.action }}{% endif %}
+        {% if status.message %} &middot; {{ status.message }}{% endif %}
+        {% if status.time %} &middot; <span style="opacity:.8">{{ status.time }}</span>{% endif %}</span>
+      </div>
+      {% if status.state == "running" %}<p class="bk-note" style="margin-top:8px;">This page refreshes automatically while the operation runs…</p>{% endif %}
+    {% else %}
+      <div class="bk-status bk-idle"><span>No operation has run yet.</span></div>
+    {% endif %}
+  </div>
+
+  <div class="bk-card">
+    <h2>Create / upload</h2>
+    <div class="bk-actions">
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="backup_now">
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Run backup now</button>
+        <span class="bk-note" style="margin:0;">Database + media → backups/db and backups/media</span>
+      </form>
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="upload">
+        <input type="file" name="backup_file" accept=".gz,.tar.gz" required>
+        <button type="submit" class="btn">Upload backup</button>
+      </form>
+    </div>
+    <div class="bk-warn">Uploading is for bringing in a backup file you saved elsewhere. After uploading, restore it from the list below.</div>
+  </div>
+
+  <div class="bk-card">
+    <h2>Available backups</h2>
+    {% if backups %}
+      <table class="bk">
+        <thead><tr><th>File</th><th>Type</th><th>Size</th><th>Created</th><th></th></tr></thead>
+        <tbody>
+          {% for b in backups %}
+            <tr>
+              <td class="mono">{{ b.name }}</td>
+              <td>{{ b.kind_label }}</td>
+              <td>{{ b.size_mb }} MB</td>
+              <td>{{ b.mtime }}</td>
+              <td>
+                <div class="bk-btns">
+                  <a class="btn-sm btn-dl" href="{% url 'accounts:backup_download' b.name %}">Download</a>
+                  <form method="post" onsubmit="return confirm('{% if b.kind == 'code_db' %}Restore code tables only?\n\nThis REPLACES the SQLite code databases (pipe/fitting/…).{% elif b.kind == 'media' %}Restore media only?\n\nThis REPLACES uploaded files (avatars, stamps, signatures).{% elif b.kind == 'db' %}Restore database only?\n\nThis REPLACES PostgreSQL data (cases, people, seats…). Media and code tables are unchanged.{% else %}Restore this backup?\n\nThis REPLACES the current database and uploaded files. Code tables are unchanged unless this is an older full archive that includes them.{% endif %}\n\nThis cannot be undone. The app may be briefly unavailable.');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="restore">
+                    <input type="hidden" name="name" value="{{ b.name }}">
+                    <button type="submit" class="btn-sm btn-rs">Restore</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="bk-empty">No backups yet. The first ones are created automatically shortly after startup, or click “Run backup now”.</div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

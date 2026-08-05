@@ -1,0 +1,213 @@
+/* tool-dark-mode.css
+ * Dark-theme overrides for the TO/PI tool. Kept as its own file deliberately — these are corrections layered on top of every rule above, not a separate concern; interleaving them into the files above would risk separating a rule from its override.
+ * Split out of the former monolithic style.css (2026-07 CSS reorg).
+ * No rule was changed, only relocated: concatenating tool-layout.css,
+ * tool-cells-status.css, tool-panels.css, tool-icons.css and
+ * tool-dark-mode.css in that order reproduces the old file byte for byte.
+ */
+/* ============================================================================
+   DARK THEME ? COMPLETE coverage for the to/pi grid (added).
+   Several cell editors, combo inputs, popover menus and the blue highlight text
+   kept a hard-coded light fill / dark-blue colour, so they stayed white or
+   unreadable in dark mode. Map them all onto the active theme surfaces. The
+   originals used !important, so these do too.
+   ============================================================================ */
+html[data-theme="dark"] td[data-col-name="???????"] textarea,
+html[data-theme="dark"] .cell-input,
+html[data-theme="dark"] #virtual-scroll-table input,
+html[data-theme="dark"] #virtual-scroll-table textarea,
+html[data-theme="dark"] #virtual-scroll-table input.pi-unit-input,
+html[data-theme="dark"] #virtual-scroll-table .pi-text-area,
+html[data-theme="dark"] #calculation-control-card .calc-section input[type="text"],
+html[data-theme="dark"] .gm-combo-input,
+html[data-theme="dark"] .gm-combo-menu,
+html[data-theme="dark"] .ff-combo input,
+html[data-theme="dark"] .ff-menu,
+html[data-theme="dark"] .pi-combo input,
+html[data-theme="dark"] .pi-manual input {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+/* Popover option rows + their hover, in dark */
+html[data-theme="dark"] .gm-combo-menu > div,
+html[data-theme="dark"] .ff-menu > div,
+html[data-theme="dark"] .pi-menu > div { color: var(--text); }
+html[data-theme="dark"] .gm-combo-menu > div:hover,
+html[data-theme="dark"] .ff-menu > div:hover,
+html[data-theme="dark"] .pi-menu > div:hover { background: var(--primary-soft) !important; }
+/* Highlighted words in description / Final Arranged Text: the dark blue is
+   invisible on a dark cell ? use a light blue in dark mode. */
+html[data-theme="dark"] .highlight-color,
+html[data-mode="dark"] .highlight-color { color: #6fb0f7 !important; }
+/* Misc light chips/buttons that floated white */
+html[data-theme="dark"] .to-chip-clear { background: var(--surface) !important; color: var(--rej) !important; border-color: var(--border) !important; }
+
+/* Remark columns in dark: the ?????? editor (white) + the read-only proforma
+   remark reference column (cream) were left light. */
+html[data-theme="dark"] td[data-col-name="??????"] textarea,
+html[data-theme="dark"] td[data-col-name="???????"] textarea,
+html[data-theme="dark"] .remark-revision-textarea {
+  background: var(--surface) !important; color: var(--text) !important; border-color: var(--border) !important;
+}
+html[data-theme="dark"] td[data-col-name="__proforma_remark__"] {
+  background: var(--surface-soft) !important; color: var(--warn) !important;
+}
+html[data-theme="dark"] td[data-col-name="__proforma_remark__"]:hover { background: var(--cloud) !important; }
+html[data-theme="dark"] td[data-col-name="__proforma_remark__"].copied {
+  background: rgba(34,197,138,.20) !important; color: #5fce9e !important;
+}
+
+/* ============================================================================
+   DARK THEME ? FULL parity with app.css (round 2).
+   The "#" column, disabled/locked inputs, counter chips, status icons, the
+   proforma notice bar and ALL cell text now follow the theme so the to/pi grid
+   reads exactly like the rest of the dark app. Every text is light & legible.
+   ============================================================================ */
+/* "#" row-number column ? same zebra as other cells in dark mode */
+html[data-theme="dark"] #virtual-scroll-table td[data-col-name="#"],
+html[data-mode="dark"] #virtual-scroll-table td[data-col-name="#"] {
+  background: inherit !important;
+  color: var(--muted) !important;
+}
+html[data-theme="dark"] #virtual-scroll-tbody tr.vs-row-odd td[data-col-name="#"],
+html[data-mode="dark"] #virtual-scroll-tbody tr.vs-row-odd td[data-col-name="#"] {
+  background: var(--surface) !important;
+}
+html[data-theme="dark"] #virtual-scroll-tbody tr.vs-row-even td[data-col-name="#"],
+html[data-mode="dark"] #virtual-scroll-tbody tr.vs-row-even td[data-col-name="#"] {
+  background: var(--surface-soft) !important;
+}
+
+/* FTCO / client description: default (black) words + plain separators ? light text;
+   rule colours (green / orange / blue) stay coloured and readable. */
+html[data-theme="dark"] #virtual-scroll-table td[data-col-name="Final Arranged Text"],
+html[data-theme="dark"] #virtual-scroll-table td[data-col-name="description"],
+html[data-mode="dark"] #virtual-scroll-table td[data-col-name="Final Arranged Text"],
+html[data-mode="dark"] #virtual-scroll-table td[data-col-name="description"] {
+  color: var(--text) !important;
+}
+html[data-theme="dark"] #virtual-scroll-table td[data-col-name="Final Arranged Text"] span[style*="color:black"],
+html[data-theme="dark"] #virtual-scroll-table td[data-col-name="Final Arranged Text"] span[style*="color: black"],
+html[data-theme="dark"] #virtual-scroll-table td[data-col-name="description"] span[style*="color:black"],
+html[data-theme="dark"] #virtual-scroll-table td[data-col-name="description"] span[style*="color: black"],
+html[data-mode="dark"] #virtual-scroll-table td[data-col-name="Final Arranged Text"] span[style*="color:black"],
+html[data-mode="dark"] #virtual-scroll-table td[data-col-name="Final Arranged Text"] span[style*="color: black"],
+html[data-mode="dark"] #virtual-scroll-table td[data-col-name="description"] span[style*="color:black"],
+html[data-mode="dark"] #virtual-scroll-table td[data-col-name="description"] span[style*="color: black"] {
+  color: var(--text) !important;
+}
+html[data-theme="dark"] #virtual-scroll-table td[data-col-name="Final Arranged Text"] span[style*="color:green"],
+html[data-theme="dark"] #virtual-scroll-table td[data-col-name="description"] span[style*="color:green"],
+html[data-mode="dark"] #virtual-scroll-table td[data-col-name="Final Arranged Text"] span[style*="color:green"],
+html[data-mode="dark"] #virtual-scroll-table td[data-col-name="description"] span[style*="color:green"] {
+  color: #4ade80 !important;
+}
+html[data-theme="dark"] #virtual-scroll-table td[data-col-name="Final Arranged Text"] span[style*="color:orange"],
+html[data-theme="dark"] #virtual-scroll-table td[data-col-name="description"] span[style*="color:orange"],
+html[data-mode="dark"] #virtual-scroll-table td[data-col-name="Final Arranged Text"] span[style*="color:orange"],
+html[data-mode="dark"] #virtual-scroll-table td[data-col-name="description"] span[style*="color:orange"] {
+  color: #fb923c !important;
+}
+html[data-theme="dark"] #virtual-scroll-table td[data-col-name="Final Arranged Text"] span[style*="color:blue"],
+html[data-theme="dark"] #virtual-scroll-table td[data-col-name="description"] span[style*="color:blue"],
+html[data-mode="dark"] #virtual-scroll-table td[data-col-name="Final Arranged Text"] span[style*="color:blue"],
+html[data-mode="dark"] #virtual-scroll-table td[data-col-name="description"] span[style*="color:blue"] {
+  color: #6fb0f7 !important;
+}
+html[data-theme="dark"] #virtual-scroll-table td[data-col-name="Final Arranged Text"] span[style*="#001aff"],
+html[data-theme="dark"] #virtual-scroll-table td[data-col-name="Final Arranged Text"] span[style*="color:#001aff"],
+html[data-theme="dark"] #virtual-scroll-table td[data-col-name="description"] span[style*="#001aff"],
+html[data-theme="dark"] #virtual-scroll-table td[data-col-name="description"] span[style*="color:#001aff"],
+html[data-mode="dark"] #virtual-scroll-table td[data-col-name="Final Arranged Text"] span[style*="#001aff"],
+html[data-mode="dark"] #virtual-scroll-table td[data-col-name="Final Arranged Text"] span[style*="color:#001aff"],
+html[data-mode="dark"] #virtual-scroll-table td[data-col-name="description"] span[style*="#001aff"],
+html[data-mode="dark"] #virtual-scroll-table td[data-col-name="description"] span[style*="color:#001aff"] {
+  color: #6fb0f7 !important;
+}
+html[data-theme="dark"] .highlight-color,
+html[data-mode="dark"] .highlight-color { color: #6fb0f7 !important; }
+html[data-theme="dark"] .highlight-red,
+html[data-mode="dark"] .highlight-red { color: #f3a59a !important; }
+/* Disabled / locked input fields (were light grey) */
+html[data-theme="dark"] #virtual-scroll-table input.pi-unit-input:disabled,
+html[data-theme="dark"] .pi-field-locked select,
+html[data-theme="dark"] .pi-field-locked textarea { background: var(--cloud) !important; color: var(--muted) !important; }
+/* Proforma notice bar */
+html[data-theme="dark"] #pf-notice { background: var(--warnbg) !important; border-color: var(--warnline) !important; color: var(--warn) !important; }
+html[data-theme="dark"] #pf-notice b { color: var(--warn) !important; }
+
+/* ALARM chips ? readable text; cell background matches other columns */
+html[data-theme="dark"] #virtual-scroll-table td[data-col-name="Alarm_Features"],
+html[data-mode="dark"] #virtual-scroll-table td[data-col-name="Alarm_Features"] {
+  background: inherit !important;
+}
+html[data-theme="dark"] #virtual-scroll-tbody tr.vs-row-odd td[data-col-name="Alarm_Features"],
+html[data-mode="dark"] #virtual-scroll-tbody tr.vs-row-odd td[data-col-name="Alarm_Features"] {
+  background: var(--surface) !important;
+}
+html[data-theme="dark"] #virtual-scroll-tbody tr.vs-row-even td[data-col-name="Alarm_Features"],
+html[data-mode="dark"] #virtual-scroll-tbody tr.vs-row-even td[data-col-name="Alarm_Features"] {
+  background: var(--surface-soft) !important;
+}
+html[data-theme="dark"] .alarm-chip,
+html[data-mode="dark"] .alarm-chip {
+  background: rgba(251, 191, 36, .24) !important;
+  color: #fde68a !important;
+  border-color: rgba(251, 191, 36, .55) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+}
+
+/* Counter chips (TO blue / PI green) */
+html[data-theme="dark"] .ft-rowcount-to .ft-rowcount-chip { background: rgba(59,130,246,.16) !important; }
+html[data-theme="dark"] .ft-rowcount-pi .ft-rowcount-chip { background: rgba(34,197,138,.16) !important; }
+html[data-theme="dark"] .ft-rowcount-to .ft-rowcount-chip i,
+html[data-theme="dark"] .ft-rowcount-to .ft-rowcount-chip b { color: #7ab0f5 !important; }
+html[data-theme="dark"] .ft-rowcount-pi .ft-rowcount-chip i,
+html[data-theme="dark"] .ft-rowcount-pi .ft-rowcount-chip b { color: #5fce9e !important; }
+/* Status icons / metric cards */
+html[data-theme="dark"] .pi-unsup-card .pi-nounit-ico { background: rgba(248,113,113,.18) !important; color: #f3a59a !important; }
+html[data-theme="dark"] .pi-remark-card .pi-nounit-ico { background: rgba(45,212,191,.16) !important; color: #5fd0d0 !important; }
+html[data-theme="dark"] .pi-remark-card .pi-nounit-num,
+html[data-theme="dark"] .pi-remark-card .to-metric-rows { color: #5fd0d0 !important; }
+html[data-theme="dark"] .to-metric-blue .to-metric-ico { background: rgba(59,130,246,.16) !important; color: #7ab0f5 !important; }
+html[data-theme="dark"] .to-metric-blue .to-metric-num { color: #7ab0f5 !important; }
+html[data-theme="dark"] .pi-target-out.pos { color: #5fce9e !important; background: rgba(34,197,138,.14) !important; border-color: rgba(34,197,138,.4) !important; }
+/* Copied remark cell */
+html[data-theme="dark"] #virtual-scroll-table td.pf-remark-cell.pf-copied { background: rgba(34,197,138,.18) !important; color: #5fce9e !important; }
+
+/* ============================================================
+   Same-FTCO sync badge (PI): link icon top-right on FTCO CODE only.
+   ============================================================ */
+#virtual-scroll-table td[data-col-name="??"],
+#virtual-scroll-table td[data-col-name="BRAND"],
+#virtual-scroll-table td[data-col-name="TIME"],
+#virtual-scroll-table td[data-col-name="??????"],
+#virtual-scroll-table td[data-col-name="UNIT PRICE"],
+#virtual-scroll-table td[data-calc-variable="unit_price"] {
+  position: relative;
+  overflow: visible;
+}
+#virtual-scroll-table td .same-code-badge {
+  position: absolute !important;
+  top: -5px !important;
+  right: 2px !important;
+  left: auto !important;
+  z-index: 7 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 50% !important;
+  background: #0f766e !important;
+  color: #fff !important;
+  font-size: .58rem !important;
+  line-height: 1 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.25) !important;
+  pointer-events: none !important;
+}
+html[data-theme="dark"] #virtual-scroll-table td .same-code-badge {
+  background: #14b8a6 !important;
+  color: #042f2e !important;
+}

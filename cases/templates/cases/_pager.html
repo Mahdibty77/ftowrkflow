@@ -1,0 +1,25 @@
+{% comment %}
+Reusable pager. Expects `page_obj` (a Django Page) and optional `base_query`
+(the current query string WITHOUT the `page` param, e.g. "q=foo&status=DRAFT").
+{% endcomment %}
+{% if page_obj.paginator.num_pages > 1 %}
+<nav class="pager" aria-label="Pagination">
+  {% if page_obj.has_previous %}
+    <a class="pager-btn" href="?{% if base_query %}{{ base_query }}&{% endif %}page={{ page_obj.previous_page_number }}">
+      <i class="fa-solid fa-arrow-left"></i> Prev
+    </a>
+  {% else %}
+    <span class="pager-btn is-disabled"><i class="fa-solid fa-arrow-left"></i> Prev</span>
+  {% endif %}
+
+  <span class="pager-info">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+  {% if page_obj.has_next %}
+    <a class="pager-btn" href="?{% if base_query %}{{ base_query }}&{% endif %}page={{ page_obj.next_page_number }}">
+      Next <i class="fa-solid fa-arrow-right-long"></i>
+    </a>
+  {% else %}
+    <span class="pager-btn is-disabled">Next <i class="fa-solid fa-arrow-right-long"></i></span>
+  {% endif %}
+</nav>
+{% endif %}

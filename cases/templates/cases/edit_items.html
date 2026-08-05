@@ -1,0 +1,747 @@
+{% extends "base.html" %}
+{% load ft_extras static %}
+{% block title %}{% if contacts_only %}Edit contacts{% elif editable_meta %}Edit case{% else %}Edit items{% endif %} · {{ case.doc_no }}{% endblock %}
+{% block topbar %}{% if contacts_only %}Edit contacts{% elif editable_meta %}Edit case{% else %}Edit items{% endif %} · {{ case.doc_no }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{% if contacts_only %}Edit client contacts{% elif editable_meta %}Edit case{% else %}Edit inquiry items{% endif %}</h1>
+    <div class="sub">Case <span class="mono">{{ case.doc_no }}</span>{% if editable_meta %} — same layout as New Case; save your changes before submitting.{% endif %}</div>
+  </div>
+</div>
+
+<form method="post" id="edit-form" autocomplete="off" {% if editable_meta %}enctype="multipart/form-data"{% endif %} novalidate>
+  {% csrf_token %}
+  {% if contacts_only %}<input type="hidden" name="contacts" value="1">{% endif %}
+  {% if edit_side %}<input type="hidden" name="edit_side" value="{{ edit_side }}">{% endif %}
+  {% if newver_mode %}
+    <input type="hidden" name="newver" value="1">
+    {% if edit_side %}<input type="hidden" name="side" value="{{ edit_side }}">{% endif %}
+    {% if nv_offer %}<input type="hidden" name="offer_type" value="{{ nv_offer }}">{% endif %}
+    {% if nv_price %}<input type="hidden" name="price_type" value="{{ nv_price }}">{% endif %}
+    {% if nv_currency %}<input type="hidden" name="currency_conversion" value="1">{% endif %}
+    {% if nv_update_price %}<input type="hidden" name="update_price" value="1">{% endif %}
+  {% endif %}
+  <div class="btn-row form-actions-top">
+    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> {% if contacts_only %}Save contacts{% elif editable_meta %}Save{% else %}Save items{% endif %}</button>
+    <a href="{% url 'cases:case_detail' case.pk %}" class="btn btn-ghost">Cancel</a>
+    {% if editable_meta %}
+    <span class="spacer"></span>
+    <span class="muted" style="font-size:.78rem;"><span class="req">*</span> Required</span>
+    {% endif %}
+  </div>
+
+  <div class="flash flash-error" id="inquiry-error" style="display:none;">
+    <strong><i class="fa-solid fa-triangle-exclamation"></i> </strong><span></span>
+  </div>
+
+  {% if contacts_only %}
+  <div class="card">
+    <div class="card-head"><h3>Client contacts</h3></div>
+    <div class="grid grid-2">
+      <div class="field"><label>Client commercial contact</label>
+        <input type="text" name="client_commercial_expert" value="{{ case.client_commercial_expert }}" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="field"><label>Client commercial phone (optional)</label>
+        <input type="text" name="client_commercial_phone" value="{{ case.client_commercial_phone }}" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="field"><label>Client technical contact</label>
+        <input type="text" name="client_technical_expert" value="{{ case.client_technical_expert }}" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="field"><label>Client technical phone (optional)</label>
+        <input type="text" name="client_technical_phone" value="{{ case.client_technical_phone }}" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+    </div>
+    <div class="help" style="margin-top:.3rem;">Only these four client contact fields. Inquiry rows are edited via New version.</div>
+  </div>
+
+  {% else %}
+  {% if newver_mode %}
+  <div class="alert-inline alert-warn" style="margin-bottom:.7rem;">
+    <i class="fa-solid fa-circle-info"></i>
+    <span>New version: a new inquiry version is saved <strong>only if you change the table</strong> (edit a cell, add or delete a row){% if nv_currency %}, or because <strong>Unit conversion</strong> is on{% endif %}{% if nv_update_price %}, or because <strong>Update price</strong> is on{% endif %}{% if nv_offer == 'TO_PI' %}, or because the two-stage upgrade is on{% endif %}, or if you add row comments. Deleting a row leaves a gap in <strong>#</strong>.</span>
+  </div>
+  {% if nv_offer == 'TO_PI' %}
+  <div style="margin-bottom:.7rem;padding:.6rem .8rem;border:1px solid var(--okline);border-left:4px solid var(--ok);background:var(--okbg);border-radius:6px;color:var(--ok);display:flex;gap:.5rem;align-items:flex-start;">
+    <i class="fa-solid fa-layer-group" style="margin-top:3px;"></i>
+    <span><strong>Two-stage upgrade is ON.</strong> Saving converts this case to <strong>TO &amp; PI (two-stage)</strong>, labels the version “· Two Stage”, and requires a fresh TO and PI before it can be sent to the client again — even if you don’t change the table.</span>
+  </div>
+  {% endif %}
+  {% if nv_currency %}
+  <div style="margin-bottom:.7rem;padding:.6rem .8rem;border:1px solid var(--infoline);border-left:4px solid var(--info);background:var(--infobg);border-radius:6px;color:var(--info);display:flex;gap:.5rem;align-items:flex-start;">
+    <i class="fa-solid fa-right-left" style="margin-top:3px;"></i>
+    <span><strong>Unit conversion is ON.</strong> If you leave the table unchanged (and do not upgrade TO&amp;PI / Update price), saving creates a new version labelled “· Unit conversion”. Only <strong>Cancel</strong> and <strong>Send to client</strong> will be available — you can convert Proforma currency again, then send.</span>
+  </div>
+  {% endif %}
+  {% if nv_update_price %}
+  <div style="margin-bottom:.7rem;padding:.6rem .8rem;border:1px solid var(--accent);border-left:4px solid var(--accent);background:var(--accent-soft);border-radius:6px;color:var(--accent-strong);display:flex;gap:.5rem;align-items:flex-start;">
+    <i class="fa-solid fa-tags" style="margin-top:3px;"></i>
+    <span><strong>Update price is ON.</strong> If you leave the table unchanged, the new version is labelled “· Update price”. If you edit / add / delete rows, the chip stays plain — Update price still appears in the timeline and when submitting to Technical.</span>
+  </div>
+  {% endif %}
+  {% endif %}
+  <input type="hidden" name="rows" id="rows-field" value="[]">
+  {% if editable_meta %}
+  <div class="card">
+    <div class="card-head"><h3><i class="fa-solid fa-building"></i> Client information</h3></div>
+    <div class="grid grid-3">
+      <div class="field"><label><i class="fa-solid fa-building"></i> Client<span class="req" title="Required">*</span></label>
+        <select name="client" data-combo data-placeholder="Search client by name or code…" data-required="1">
+          {% for c in clients %}<option value="{{ c.pk }}" {% if c.pk == case.client_id %}selected{% endif %}>{{ c.name }} ({{ c.code }})</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field"><label><i class="fa-solid fa-file-lines"></i> Order No. / Project Name<span class="req" title="Required">*</span></label>
+        <input type="text" name="order_no" value="{{ case.order_no }}" data-required="1" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="field"><label><i class="fa-solid fa-user"></i> Client commercial contact</label>
+        <input type="text" name="client_commercial_expert" value="{{ case.client_commercial_expert }}" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="field"><label><i class="fa-solid fa-phone"></i> Client commercial phone (optional)</label>
+        <input type="text" name="client_commercial_phone" value="{{ case.client_commercial_phone }}" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <div class="help">Optional.</div>
+      </div>
+      <div class="field"><label><i class="fa-solid fa-user-gear"></i> Client technical contact</label>
+        <input type="text" name="client_technical_expert" value="{{ case.client_technical_expert }}" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="field"><label><i class="fa-solid fa-phone"></i> Client technical phone (optional)</label>
+        <input type="text" name="client_technical_phone" value="{{ case.client_technical_phone }}" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <div class="help">Optional.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3><i class="fa-solid fa-sliders"></i> Offer details</h3></div>
+    <div class="grid grid-3">
+      <div class="field"><label><i class="fa-solid fa-tag"></i> Document kind<span class="req" title="Required">*</span></label>
+        <select name="kind" data-combo data-placeholder="Search document kind…" data-required="1">
+          {% for code,label in doc_kinds %}<option value="{{ code }}" {% if code == case.kind %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field"><label><i class="fa-solid fa-file-invoice-dollar"></i> Offer type<span class="req" title="Required">*</span></label>
+        <select name="offer_type" data-combo data-placeholder="Search offer type…" data-required="1">
+          {% for code,label in offer_types %}<option value="{{ code }}" {% if code == case.offer_type %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <div class="help">Choose “TO &amp; PI” when the case needs pricing by Supply.</div>
+      </div>
+      <div class="field"><label><i class="fa-solid fa-layer-group"></i> Price type<span class="req" title="Required">*</span></label>
+        <select name="price_type" data-combo data-placeholder="Search price type…" data-required="1">
+          {% for code,label in price_types %}<option value="{{ code }}" {% if code == case.price_type %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <div class="help">Internal, External, or both — splits the case into sub-streams.</div>
+      </div>
+      <div class="field"><label><i class="fa-solid fa-clock"></i> Deadline (Jalali) — optional</label>
+        <input type="text" name="deadline" data-jalali-datetime autocomplete="off" value="{{ case.deadline|jalali:'Y.m.d H:i' }}">
+        <div class="help">Optional. If set, it cannot be earlier than now.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h3>Inquiry items</h3>
+      <div class="btn-row">
+        <button type="button" class="btn btn-sm" id="add-row">+ Add row</button>
+        <button type="button" class="btn btn-sm" id="clear-rows">Clear</button>
+      </div>
+    </div>
+    <p class="muted" style="margin-top:0;font-size:.8rem;">
+      Paste rows straight from Excel (Description, Size, Qty, Unit) anywhere in the grid,
+      or add rows by hand. Alternatively upload an Excel file below.
+      Description ≥ 7 characters · Size ≤ 20 · Qty numbers only · Unit letters ( . / - _ % allowed).
+    </p>
+    <div class="table-wrap vscroll">
+      <table class="data" id="items-table">
+        <thead>
+          <tr><th class="inq-col-num" style="width:44px">#</th><th class="inq-col-num" style="width:64px">Item No.</th><th>Description</th><th style="width:140px">Size</th><th style="width:90px">Qty</th><th style="width:110px">Unit</th><th style="width:40px"></th></tr>
+        </thead>
+        <tbody id="items-body">
+          {% for it in line_items %}
+            <tr data-deleted="0" data-added="0">
+              <td class="mono client-no" data-client="{{ it.client_row|default:it.row_no }}">
+                <span class="client-no-text">{{ it.client_row|default:it.row_no }}</span>
+                <span class="row-mark row-mark-del" hidden title="Deleted">−</span>
+                <span class="row-mark row-mark-add" hidden title="Added">+</span>
+              </td>
+              <td class="mono row-no">{{ forloop.counter }}</td>
+              <td><input type="text" class="c-description" value="{{ it.description }}" autocomplete="off"></td>
+              <td><input type="text" class="c-size" maxlength="20" value="{{ it.size }}" autocomplete="off"></td>
+              <td><input type="text" class="c-quantity" inputmode="decimal" value="{{ it.quantity }}" autocomplete="off"></td>
+              <td><input type="text" class="c-unit" value="{{ it.unit }}" autocomplete="off"></td>
+              <td><button type="button" class="btn btn-sm btn-danger del-row" title="Remove">×</button></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="field" style="margin-top:1rem;max-width:520px;">
+      <label for="id_excel_file">…or upload Excel (first 4 columns: Description, Size, Qty, Unit)</label>
+      <div class="btn-row" style="align-items:center;">
+        <input type="file" name="excel_file" id="id_excel_file" accept=".xlsx,.xls,.csv">
+        <button type="button" class="btn btn-sm btn-primary" id="upload-excel-btn" style="display:none;"><i class="fa-solid fa-file-arrow-up"></i> Upload &amp; fill grid</button>
+        <span id="upload-status" class="muted" style="font-size:.78rem;"></span>
+      </div>
+    </div>
+  </div>
+
+  {% elif show_deadline %}
+  <div class="card">
+    <div class="card-head"><h3>Deadline</h3></div>
+    <div class="field" style="max-width:420px;"><label>Deadline (Jalali) — optional</label>
+      <input type="text" name="deadline" data-jalali-datetime autocomplete="off" value="{{ case.deadline|jalali:'Y.m.d H:i' }}">
+      <div class="help">Only the deadline can be changed for a new version (optional; cannot be in the past). Edit the items in the table below.</div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if not editable_meta %}
+  <div class="card">
+    <div class="card-head">
+      <h3>Items</h3>
+      <div class="btn-row">
+        {% if newver_mode %}
+        <button type="button" class="btn btn-sm btn-outline" id="inq-comment-open"><i class="fa-solid fa-comment-dots"></i> Add comment</button>
+        {% endif %}
+        <button type="button" class="btn btn-sm" id="add-row">+ Add row</button>
+      </div>
+    </div>
+    {% if newver_mode %}
+    <div id="inq-comment-card" class="inq-comment-card" hidden>
+      <div class="inq-comment-left">
+        <div class="inq-comment-head">
+          <div class="inq-comment-title"><i class="fa-solid fa-comment-dots"></i> Row comments</div>
+          <span class="inq-comment-target" id="inq-comment-target">No rows selected</span>
+        </div>
+        <div class="inq-comment-toolbar">
+          <button type="button" class="btn btn-sm inq-comment-all-btn" id="inq-comment-all" aria-pressed="false">
+            <i class="fa-solid fa-list-check"></i> Select all rows
+          </button>
+          <button type="button" class="btn btn-sm btn-ghost" id="inq-comment-clear-sel" hidden>
+            Clear selection
+          </button>
+        </div>
+        <textarea id="inq-comment-input" rows="3" placeholder="Write one comment for all selected rows…"></textarea>
+        <div id="inq-comment-error" class="inq-comment-error" hidden></div>
+        <div class="inq-comment-actions">
+          <button type="button" class="btn btn-sm btn-ghost" id="inq-comment-cancel">Cancel</button>
+          <button type="button" class="btn btn-sm btn-primary" id="inq-comment-confirm"><i class="fa-solid fa-check"></i> Confirm</button>
+        </div>
+        <div class="inq-comment-hint">Click a row’s <b>#</b> to select or deselect it. You can select several rows, then confirm one shared comment.</div>
+      </div>
+      <div class="inq-comment-right">
+        <div class="inq-comment-title"><i class="fa-solid fa-list-check"></i> Confirmed comments</div>
+        <ul id="inq-comment-list" class="inq-comment-list"></ul>
+        <div class="inq-comment-empty" id="inq-comment-empty">No comments yet</div>
+      </div>
+    </div>
+    {% endif %}
+    <p class="muted" style="margin-top:0;font-size:.8rem;">
+      Description ≥ 7 characters · Size ≤ 20 · Qty numbers only · Unit letters ( . / - _ % allowed).
+      You can paste Excel rows (Description, Size, Qty, Unit) into the grid.
+    </p>
+    <div class="table-wrap vscroll{% if newver_mode %} inq-comment-mode-host{% endif %}">
+      <table class="data" id="items-table">
+        <thead><tr><th class="inq-col-num" style="width:72px">#</th><th class="inq-col-num" style="width:64px">Item No.</th><th>CLIENT DISCRIPTION</th><th style="width:140px">Size</th><th style="width:90px">Qty</th><th style="width:110px">Unit</th><th style="width:40px"></th></tr></thead>
+        <tbody id="items-body">
+          {% for it in line_items %}
+            <tr class="{% if it.deleted %}row-soft-deleted{% elif it.added %} row-soft-added{% endif %}"
+                data-deleted="{% if it.deleted %}1{% else %}0{% endif %}"
+                data-added="{% if it.added %}1{% else %}0{% endif %}"
+                data-comm-comment="{{ it.comment|default:''|escape }}">
+              <td class="mono client-no" data-client="{{ it.client_row|default:it.row_no }}">
+                <span class="client-no-text">{{ it.client_row|default:it.row_no }}</span>
+                <span class="row-mark row-mark-del" {% if not it.deleted %}hidden{% endif %} title="Deleted">−</span>
+                <span class="row-mark row-mark-add" {% if it.deleted or not it.added %}hidden{% endif %} title="Added">+</span>
+              </td>
+              <td class="mono row-no">{{ forloop.counter }}</td>
+              <td><input type="text" class="c-description" value="{{ it.description }}" {% if it.deleted %}disabled{% endif %} autocomplete="off"></td>
+              <td><input type="text" class="c-size" maxlength="20" value="{{ it.size }}" {% if it.deleted %}disabled{% endif %} autocomplete="off"></td>
+              <td><input type="text" class="c-quantity" inputmode="decimal" value="{{ it.quantity }}" {% if it.deleted %}disabled{% endif %} autocomplete="off"></td>
+              <td><input type="text" class="c-unit" value="{{ it.unit }}" {% if it.deleted %}disabled{% endif %} autocomplete="off"></td>
+              <td><button type="button" class="btn btn-sm btn-danger del-row" title="Deactivate / restore">×</button></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
+</form>
+{% endblock %}
+
+{% block scripts %}
+{% if not contacts_only %}
+<script>window.FT_PREVIEW_URL = "{% url 'cases:preview_excel' %}";</script>
+<script src="{% static 'js/inquiry_grid_validate.js' %}?v=4"></script>
+<script>
+  (function () {
+    var body = document.getElementById('items-body');
+    if (!body) return;
+    var FRESH = {% if editable_meta %}true{% else %}false{% endif %};
+    var IG = window.FTInquiryGrid;
+    var banner = document.getElementById('inquiry-error');
+
+    function nextClientNo() {
+      var max = 0;
+      body.querySelectorAll('.client-no').forEach(function (c) {
+        var n = parseInt(c.getAttribute('data-client') || (c.querySelector('.client-no-text') || {}).textContent || '0', 10);
+        if (isFinite(n) && n > max) max = n;
+      });
+      return max + 1;
+    }
+    function rowHasAnyField(tr) {
+      return ['c-description', 'c-size', 'c-quantity', 'c-unit'].some(function (cls) {
+        var inp = tr.querySelector('.' + cls);
+        return inp && (inp.value || '').trim() !== '';
+      });
+    }
+    function paintMarks(tr) {
+      var del = tr.getAttribute('data-deleted') === '1';
+      var wasAdded = tr.getAttribute('data-added') === '1';
+      var add = wasAdded && !del;
+      tr.classList.toggle('row-soft-deleted', del);
+      tr.classList.toggle('row-soft-added', add);
+      var mDel = tr.querySelector('.row-mark-del');
+      var mAdd = tr.querySelector('.row-mark-add');
+      if (mDel) mDel.hidden = !del;
+      if (mAdd) mAdd.hidden = !add;
+      tr.querySelectorAll('input').forEach(function (inp) { inp.disabled = del; });
+    }
+    function renumber() {
+      body.querySelectorAll('tr').forEach(function (tr, i) {
+        var n = tr.querySelector('.row-no'); if (n) n.textContent = i + 1;
+        if (FRESH) {
+          var c = tr.querySelector('.client-no');
+          if (c) {
+            c.setAttribute('data-client', i + 1);
+            var t = c.querySelector('.client-no-text');
+            if (t) t.textContent = i + 1;
+          }
+        }
+      });
+      body.querySelectorAll('.c-size').forEach(function (inp) {
+        inp.setAttribute('maxlength', '20');
+      });
+    }
+    function rowTemplate(added) {
+      var tr = document.createElement('tr');
+      var cr = added && !FRESH ? nextClientNo() : '';
+      tr.setAttribute('data-deleted', '0');
+      tr.setAttribute('data-added', added && !FRESH ? '1' : '0');
+      if (added && !FRESH) {
+        tr.setAttribute('data-session-added', '1');
+        tr.className = 'row-soft-added';
+      }
+      tr.innerHTML = '<td class="mono client-no" data-client="' + cr + '">' +
+        '<span class="client-no-text">' + cr + '</span>' +
+        '<span class="row-mark row-mark-del" hidden title="Deleted">−</span>' +
+        '<span class="row-mark row-mark-add"' + (added && !FRESH ? '' : ' hidden') + ' title="Added">+</span>' +
+        '</td>' +
+        '<td class="mono row-no"></td>' +
+        '<td><input type="text" class="c-description" autocomplete="off"></td>' +
+        '<td><input type="text" class="c-size" maxlength="20" autocomplete="off"></td>' +
+        '<td><input type="text" class="c-quantity" inputmode="decimal" autocomplete="off"></td>' +
+        '<td><input type="text" class="c-unit" autocomplete="off"></td>' +
+        '<td><button type="button" class="btn btn-sm btn-danger del-row" title="' + (FRESH ? 'Remove' : 'Deactivate / restore') + '">×</button></td>';
+      return tr;
+    }
+    function fillRows(rows) {
+      body.innerHTML = '';
+      (rows || []).forEach(function (r) {
+        var tr = rowTemplate(false);
+        body.appendChild(tr);
+        if (r.description != null) tr.querySelector('.c-description').value = r.description;
+        if (r.size != null) tr.querySelector('.c-size').value = String(r.size).slice(0, 20);
+        if (r.quantity != null) {
+          var q = String(r.quantity);
+          if (IG) q = IG.qtyFilter(q);
+          tr.querySelector('.c-quantity').value = q;
+        }
+        if (r.unit != null) {
+          var u = String(r.unit);
+          if (IG) u = IG.unitFilter(u);
+          tr.querySelector('.c-unit').value = u;
+        }
+      });
+      if (!body.children.length) body.appendChild(rowTemplate(false));
+      renumber();
+    }
+
+    var addBtn = document.getElementById('add-row');
+    if (addBtn) addBtn.addEventListener('click', function () {
+      body.appendChild(rowTemplate(true)); renumber();
+    });
+    var clearBtn = document.getElementById('clear-rows');
+    if (clearBtn) clearBtn.addEventListener('click', function () {
+      body.innerHTML = '';
+      body.appendChild(rowTemplate(false));
+      renumber();
+    });
+    body.addEventListener('click', function (e) {
+      if (!e.target.classList.contains('del-row')) return;
+      var tr = e.target.closest('tr');
+      if (!tr) return;
+      if (FRESH) {
+        tr.remove();
+        if (!body.children.length) body.appendChild(rowTemplate(false));
+        renumber();
+        return;
+      }
+      if (tr.getAttribute('data-session-added') === '1') {
+        if (!rowHasAnyField(tr)) {
+          tr.remove();
+          renumber();
+          return;
+        }
+        var del = tr.getAttribute('data-deleted') === '1';
+        tr.setAttribute('data-deleted', del ? '0' : '1');
+        if (!del) tr.setAttribute('data-added', '1');
+        paintMarks(tr);
+        return;
+      }
+      var wasAdded = tr.getAttribute('data-added') === '1';
+      var on = tr.getAttribute('data-deleted') !== '1';
+      tr.setAttribute('data-deleted', on ? '1' : '0');
+      if (!on && wasAdded) tr.setAttribute('data-added', '1');
+      paintMarks(tr);
+    });
+    if (!body.children.length) { body.appendChild(rowTemplate(false)); renumber(); }
+    body.querySelectorAll('tr').forEach(paintMarks);
+
+    if (IG) {
+      IG.attachInputGuards(body);
+      IG.attachPaste(body, {
+        banner: banner,
+        newRow: function () {
+          var tr = rowTemplate(true);
+          body.appendChild(tr);
+          renumber();
+          return tr;
+        },
+        onRenumber: renumber
+      });
+    }
+
+    // Excel upload (fresh draft only — same as New Case)
+    var fileInput = document.getElementById('id_excel_file');
+    var uploadBtn = document.getElementById('upload-excel-btn');
+    var uploadStatus = document.getElementById('upload-status');
+    if (fileInput && uploadBtn && window.FT_PREVIEW_URL) {
+      fileInput.addEventListener('change', function () {
+        uploadBtn.style.display = fileInput.files && fileInput.files.length ? '' : 'none';
+        if (uploadStatus) uploadStatus.textContent = '';
+      });
+      uploadBtn.addEventListener('click', function () {
+        if (!fileInput.files || !fileInput.files.length) return;
+        var fd = new FormData();
+        fd.append('excel_file', fileInput.files[0]);
+        var token = (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '';
+        if (uploadStatus) uploadStatus.textContent = 'Reading…';
+        fetch(window.FT_PREVIEW_URL, {
+          method: 'POST',
+          headers: { 'X-CSRFToken': token },
+          body: fd
+        }).then(function (r) { return r.json(); }).then(function (data) {
+          if (data.ok) {
+            if (IG) {
+              var check = IG.validateRows(data.rows || []);
+              if (!check.ok) {
+                if (uploadStatus) uploadStatus.textContent = 'Upload rejected.';
+                IG.showBanner(banner, 'Upload cancelled — ' + check.message);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+              }
+              IG.hideBanner(banner);
+              IG.clearPaint(body);
+            }
+            fillRows(data.rows);
+            if (uploadStatus) uploadStatus.textContent = (data.rows || []).length + ' rows loaded.';
+            fileInput.value = '';
+            uploadBtn.style.display = 'none';
+          } else {
+            if (uploadStatus) uploadStatus.textContent = data.error || 'Upload failed.';
+            if (IG) IG.showBanner(banner, data.error || 'Upload failed.');
+          }
+        }).catch(function () {
+          if (uploadStatus) uploadStatus.textContent = 'Upload failed.';
+        });
+      });
+    }
+
+    document.getElementById('edit-form').addEventListener('submit', function (e) {
+      var rows = [];
+      body.querySelectorAll('tr').forEach(function (tr) {
+        var c = tr.querySelector('.client-no');
+        rows.push({
+          client_row: c ? String(c.getAttribute('data-client') || '').trim() || String((c.querySelector('.client-no-text') || {}).textContent || '').replace(/[−+\s]/g, '').trim() : '',
+          description: (tr.querySelector('.c-description') || {}).value || '',
+          size: (tr.querySelector('.c-size') || {}).value || '',
+          unit: (tr.querySelector('.c-unit') || {}).value || '',
+          quantity: (tr.querySelector('.c-quantity') || {}).value || '',
+          deleted: tr.getAttribute('data-deleted') === '1' ? '1' : '0',
+          added: tr.getAttribute('data-added') === '1' ? '1' : '0',
+          comment: (tr.getAttribute('data-comm-comment') || '').trim()
+        });
+      });
+      if (IG) {
+        var check = IG.validateRows(rows);
+        if (!check.ok) {
+          e.preventDefault();
+          e.stopPropagation();
+          IG.showBanner(banner, check.message);
+          IG.paintErrors(body, check.errors);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return false;
+        }
+        IG.hideBanner(banner);
+        IG.clearPaint(body);
+      }
+      document.getElementById('rows-field').value = JSON.stringify(rows);
+      if (fileInput) fileInput.value = '';
+    }, true);
+
+    // --- Commercial new-version row comments (multi-select) ---
+    var NEWVER = {% if newver_mode %}true{% else %}false{% endif %};
+    if (NEWVER) {
+      var selected = [];
+      var card = document.getElementById('inq-comment-card');
+      var openBtn = document.getElementById('inq-comment-open');
+      var allBtn = document.getElementById('inq-comment-all');
+      var clearSelBtn = document.getElementById('inq-comment-clear-sel');
+      var inp = document.getElementById('inq-comment-input');
+      var err = document.getElementById('inq-comment-error');
+      var list = document.getElementById('inq-comment-list');
+      var emptyEl = document.getElementById('inq-comment-empty');
+      var targetEl = document.getElementById('inq-comment-target');
+      var tableHost = document.querySelector('.inq-comment-mode-host');
+
+      function clientOf(tr) {
+        var c = tr && tr.querySelector('.client-no');
+        if (!c) return '';
+        return String(c.getAttribute('data-client') || (c.querySelector('.client-no-text') || {}).textContent || '').replace(/[−+\s]/g, '').trim();
+      }
+      function activeRows() {
+        return Array.prototype.filter.call(body.querySelectorAll('tr'), function (tr) {
+          return tr.getAttribute('data-deleted') !== '1';
+        });
+      }
+      function rebuildList() {
+        if (!list) return;
+        list.innerHTML = '';
+        var groups = {};
+        var order = [];
+        var activeCount = 0;
+        body.querySelectorAll('tr').forEach(function (tr) {
+          if (tr.getAttribute('data-deleted') === '1') return;
+          activeCount++;
+          var note = (tr.getAttribute('data-comm-comment') || '').trim();
+          if (!note) return;
+          var cr = clientOf(tr);
+          if (!groups[note]) {
+            groups[note] = [];
+            order.push(note);
+          }
+          if (cr) groups[note].push(cr);
+        });
+        order.forEach(function (note) {
+          var crs = groups[note] || [];
+          var label;
+          if (activeCount > 0 && crs.length >= activeCount) {
+            label = 'all row';
+          } else if (crs.length === 1) {
+            label = 'rows: #' + crs[0];
+          } else if (crs.length > 1) {
+            label = 'rows: #' + crs[0] + ' , ' + crs.slice(1).join(' , ');
+          } else {
+            label = 'rows';
+          }
+          var li = document.createElement('li');
+          li.innerHTML = '<span class="inq-c-item"></span><span class="inq-c-text"></span>';
+          li.querySelector('.inq-c-item').textContent = label;
+          li.querySelector('.inq-c-text').textContent = ': ' + note;
+          list.appendChild(li);
+        });
+        if (emptyEl) emptyEl.hidden = order.length > 0;
+      }
+      function paintSelection() {
+        body.querySelectorAll('tr.inq-row-selected').forEach(function (tr) {
+          tr.classList.remove('inq-row-selected');
+        });
+        selected.forEach(function (tr) {
+          if (tr.isConnected) tr.classList.add('inq-row-selected');
+        });
+        selected = selected.filter(function (tr) { return tr.isConnected && tr.getAttribute('data-deleted') !== '1'; });
+        var nums = selected.map(clientOf).filter(Boolean);
+        if (targetEl) {
+          if (!nums.length) targetEl.textContent = 'No rows selected';
+          else if (nums.length === 1) targetEl.textContent = '#' + nums[0];
+          else if (nums.length <= 6) targetEl.textContent = nums.map(function (n) { return '#' + n; }).join(', ');
+          else targetEl.textContent = nums.length + ' rows selected';
+        }
+        if (clearSelBtn) clearSelBtn.hidden = !selected.length;
+        var allActive = activeRows();
+        var allOn = allActive.length > 0 && selected.length === allActive.length;
+        if (allBtn) {
+          allBtn.setAttribute('aria-pressed', allOn ? 'true' : 'false');
+          allBtn.classList.toggle('is-on', allOn);
+          allBtn.innerHTML = allOn
+            ? '<i class="fa-solid fa-list-check"></i> All rows selected'
+            : '<i class="fa-solid fa-list-check"></i> Select all rows';
+        }
+      }
+      function clearSelection() {
+        selected = [];
+        if (inp) inp.value = '';
+        if (err) err.hidden = true;
+        paintSelection();
+      }
+      function setCommentMode(on) {
+        if (tableHost) tableHost.classList.toggle('inq-picking', !!on);
+        if (openBtn) openBtn.classList.toggle('is-active', !!on);
+      }
+      if (openBtn && card) {
+        openBtn.addEventListener('click', function () {
+          card.hidden = !card.hidden;
+          setCommentMode(!card.hidden);
+          if (!card.hidden) {
+            rebuildList();
+            paintSelection();
+            if (inp) inp.focus();
+          } else {
+            clearSelection();
+          }
+        });
+      }
+      if (allBtn) allBtn.addEventListener('click', function () {
+        var rows = activeRows();
+        var allOn = rows.length > 0 && selected.length === rows.length;
+        selected = allOn ? [] : rows.slice();
+        paintSelection();
+        if (inp) inp.focus();
+      });
+      if (clearSelBtn) clearSelBtn.addEventListener('click', function () {
+        clearSelection();
+        if (inp) inp.focus();
+      });
+      body.addEventListener('click', function (e) {
+        if (!card || card.hidden) return;
+        var cell = e.target.closest ? e.target.closest('.client-no') : null;
+        if (!cell) return;
+        e.preventDefault();
+        var tr = cell.closest('tr');
+        if (!tr || tr.getAttribute('data-deleted') === '1') return;
+        var idx = selected.indexOf(tr);
+        if (idx >= 0) selected.splice(idx, 1);
+        else selected.push(tr);
+        paintSelection();
+        if (inp) inp.focus();
+      });
+      var confirmBtn = document.getElementById('inq-comment-confirm');
+      var cancelBtn = document.getElementById('inq-comment-cancel');
+      if (confirmBtn) confirmBtn.addEventListener('click', function () {
+        var note = (inp && inp.value || '').trim();
+        if (!note) {
+          if (err) { err.textContent = 'Please enter a comment before confirming.'; err.hidden = false; }
+          if (inp) inp.focus();
+          return;
+        }
+        if (!selected.length) {
+          if (err) { err.textContent = 'Select one or more rows (click #), or Select all rows.'; err.hidden = false; }
+          return;
+        }
+        if (err) err.hidden = true;
+        selected.forEach(function (tr) { tr.setAttribute('data-comm-comment', note); });
+        clearSelection();
+        rebuildList();
+      });
+      if (cancelBtn) cancelBtn.addEventListener('click', function () {
+        clearSelection();
+        if (card) card.hidden = true;
+        setCommentMode(false);
+      });
+      rebuildList();
+    }
+  })();
+</script>
+<style>
+.inq-comment-card[hidden] { display: none !important; }
+.inq-comment-card {
+  display: grid; grid-template-columns: 1.15fr .85fr; gap: .85rem;
+  margin: 0 0 .85rem; padding: .85rem 1rem;
+  border: 1px solid var(--accent); border-radius: 10px;
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.inq-comment-head {
+  display: flex; align-items: center; justify-content: space-between; gap: .6rem;
+  margin-bottom: .55rem; flex-wrap: wrap;
+}
+.inq-comment-title {
+  font-size: .84rem; font-weight: 750; color: var(--accent-strong);
+  display: inline-flex; align-items: center; gap: .4rem;
+}
+.inq-comment-target {
+  font-size: .74rem; font-weight: 650; color: var(--accent-strong);
+  background: var(--paper); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--paper));
+  border-radius: 999px; padding: .18rem .55rem;
+}
+.inq-comment-toolbar { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: .5rem; }
+.inq-comment-all-btn {
+  border-color: var(--accent) !important; color: var(--accent-strong) !important;
+  background: var(--paper) !important;
+}
+.inq-comment-all-btn.is-on,
+.inq-comment-all-btn[aria-pressed="true"] {
+  background: var(--accent) !important; color: var(--on-accent, #fff) !important;
+  border-color: var(--accent) !important;
+}
+#inq-comment-open.is-active {
+  background: var(--accent); border-color: var(--accent); color: var(--on-accent, #fff);
+}
+.inq-comment-left textarea {
+  width: 100%; box-sizing: border-box; min-height: 78px; font: inherit;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line-soft));
+  border-radius: 8px; padding: .5rem .6rem; background: var(--paper);
+  color: var(--ink);
+}
+.inq-comment-left textarea:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.inq-comment-error { color: var(--rej); font-size: .78rem; margin: .3rem 0; }
+.inq-comment-actions { display: flex; gap: .4rem; margin-top: .5rem; }
+.inq-comment-hint { margin-top: .45rem; font-size: .73rem; color: var(--accent-strong); opacity: .85; }
+.inq-comment-list { list-style: none; margin: 0; padding: 0; max-height: 200px; overflow: auto; }
+.inq-comment-list li {
+  display: flex; gap: .5rem; padding: .4rem .15rem; font-size: .8rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.inq-comment-list .inq-c-item { font-weight: 750; color: var(--accent-strong); min-width: 2.2rem; white-space: nowrap; }
+.inq-comment-list .inq-c-text { white-space: pre-wrap; color: inherit; }
+.inq-comment-empty { font-size: .76rem; color: var(--accent-strong); opacity: .7; padding: .35rem 0; }
+.inq-comment-empty[hidden] { display: none !important; }
+
+/* # column picker + selected row (theme-aware, no border) */
+.inq-picking .client-no {
+  cursor: pointer;
+  transition: background .12s ease, color .12s ease;
+  border-radius: 6px;
+}
+.inq-picking .client-no:hover {
+  background: var(--accent) !important;
+  color: var(--on-accent, #fff) !important;
+}
+.inq-picking .client-no:hover .client-no-text { color: inherit !important; }
+tr.inq-row-selected td {
+  background: var(--accent-soft) !important;
+}
+tr.inq-row-selected .client-no {
+  background: color-mix(in srgb, var(--accent) 22%, var(--paper)) !important;
+  color: var(--accent-strong) !important;
+  font-weight: 750;
+}
+@media (max-width: 800px) { .inq-comment-card { grid-template-columns: 1fr; } }
+</style>
+{% endif %}
+{% endblock %}

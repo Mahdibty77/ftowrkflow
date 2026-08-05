@@ -1,0 +1,18 @@
+# Foolad Tabar Workflow platform - Python dependencies
+Django==5.2.7
+pandas>=2.0
+openpyxl>=3.1
+XlsxWriter>=3.2
+Pillow>=10.0
+# Production server (optional, used in the deployment guide)
+gunicorn>=21.2
+whitenoise>=6.6
+# PostgreSQL driver (optional, recommended for production / large code tables)
+psycopg2-binary>=2.9
+# Offline RSA license verification (RSA-PSS + SHA-256).
+cryptography>=42.0
+# Optional: only used if REDIS_URL is set (ftworkflow/settings.py falls back
+# to the existing database cache otherwise). Install it ahead of turning
+# REDIS_URL on so the switch is just an environment/compose change, not a
+# rebuild-and-hope.
+django-redis>=5.4

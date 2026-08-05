@@ -1,0 +1,2205 @@
+{
+ "flange": {
+  "Weldneck": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF2 Class1",
+      "ASTM A350 Gr.LF2 Class2",
+      "ASTM A350 Gr.LF3 Class1",
+      "ASTM A350 Gr.LF3 Class2",
+      "ASTM A516 Gr.60",
+      "ASTM A516 Gr.70",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52",
+      "ASTM A694 Gr.F60",
+      "ASTM A694 Gr.F65",
+      "ASTM A694 Gr.F70",
+      "ST37"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F310s",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F44",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F12 Class2",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A182 Gr.F92"
+     ]
+    },
+    "Nickel Alloy": {
+     "material": [
+      "ASTM B564 Gr.N04400",
+      "ASTM B564 Gr.N06600",
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08800",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ]
+    },
+    "Copper Alloy": {
+     "material": [
+      "CuAl10Ni5Fe4 (CC333G)",
+      "CuNi10Fe1Mn (CW352H)",
+      "CuSn5Zn5Pb5 (CC491K)",
+      "CuZn40 (CW509L)"
+     ],
+     "design_standard": [
+      "EN 1092-3"
+     ]
+    }
+   },
+   "flange_face": {
+    "RTJ": {
+     "design_standard": [
+      "API6A Type 6B",
+      "API6A Type 6BX"
+     ],
+     "pressure_class": [
+      "Class 10000",
+      "Class 15000",
+      "Class 2000",
+      "Class 20000",
+      "Class 5000"
+     ]
+    }
+   },
+   "design_standard": {
+    "EN 1092-3": {
+     "material_group": [
+      "Copper Alloy"
+     ],
+     "material": [
+      "CuAl10Ni5Fe4 (CC333G)",
+      "CuNi10Fe1Mn (CW352H)",
+      "CuSn5Zn5Pb5 (CC491K)",
+      "CuZn40 (CW509L)"
+     ]
+    },
+    "Asme B16.5": {
+     "flange_face": [
+      "Male & Female (M&F)",
+      "Tongue & Groove (T&G)"
+     ]
+    },
+    "API6A Type 6BX": {
+     "pressure_class": [
+      "Class 10000",
+      "Class 15000",
+      "Class 20000"
+     ]
+    },
+    "EN1092-1": {
+     "pressure_class": [
+      "PN100",
+      "PN160",
+      "PN2.5",
+      "PN25",
+      "PN250",
+      "PN320",
+      "PN40",
+      "PN400",
+      "PN63"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material_group": [
+      "Copper Alloy"
+     ]
+    }
+   }
+  },
+  "Slip on": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF2 Class1",
+      "ASTM A350 Gr.LF2 Class2",
+      "ASTM A350 Gr.LF3 Class1",
+      "ASTM A350 Gr.LF3 Class2",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52",
+      "ASTM A694 Gr.F60",
+      "ASTM A694 Gr.F65",
+      "ASTM A694 Gr.F70",
+      "ST37"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F310s",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F44",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53"
+     ]
+    },
+    "Nickel Alloy": {
+     "material": [
+      "ASTM B564 Gr.N04400",
+      "ASTM B564 Gr.N06600",
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08800",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ]
+    },
+    "Copper Alloy": {
+     "material": [
+      "CuAl10Ni5Fe4 (CC333G)",
+      "CuNi10Fe1Mn (CW352H)",
+      "CuSn5Zn5Pb5 (CC491K)",
+      "CuZn40 (CW509L)"
+     ],
+     "design_standard": [
+      "EN 1092-3"
+     ]
+    }
+   },
+   "design_standard": {
+    "EN 1092-3": {
+     "material_group": [
+      "Copper Alloy"
+     ],
+     "material": [
+      "CuAl10Ni5Fe4 (CC333G)",
+      "CuNi10Fe1Mn (CW352H)",
+      "CuSn5Zn5Pb5 (CC491K)",
+      "CuZn40 (CW509L)"
+     ]
+    },
+    "Asme B16.5": {
+     "flange_face": [
+      "Male & Female (M&F)",
+      "Tongue & Groove (T&G)"
+     ],
+     "pressure_class": [
+      "Class 150",
+      "Class 400"
+     ]
+    },
+    "EN1092-1": {
+     "pressure_class": [
+      "PN100",
+      "PN160",
+      "PN2.5",
+      "PN25",
+      "PN250",
+      "PN320",
+      "PN40",
+      "PN400",
+      "PN63"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material_group": [
+      "Copper Alloy"
+     ]
+    }
+   }
+  },
+  "Blind": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF2 Class1",
+      "ASTM A350 Gr.LF2 Class2",
+      "ASTM A350 Gr.LF3 Class1",
+      "ASTM A350 Gr.LF3 Class2",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52",
+      "ASTM A694 Gr.F60",
+      "ASTM A694 Gr.F65",
+      "ASTM A694 Gr.F70",
+      "ST37"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F310s",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F44",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53"
+     ]
+    },
+    "Nickel Alloy": {
+     "material": [
+      "ASTM B564 Gr.N04400",
+      "ASTM B564 Gr.N06600",
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08800",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ]
+    },
+    "Copper Alloy": {
+     "material": [
+      "CuAl10Ni5Fe4 (CC333G)",
+      "CuNi10Fe1Mn (CW352H)",
+      "CuSn5Zn5Pb5 (CC491K)",
+      "CuZn40 (CW509L)"
+     ],
+     "design_standard": [
+      "EN 1092-3"
+     ]
+    }
+   },
+   "design_standard": {
+    "EN 1092-3": {
+     "material_group": [
+      "Copper Alloy"
+     ],
+     "material": [
+      "CuAl10Ni5Fe4 (CC333G)",
+      "CuNi10Fe1Mn (CW352H)",
+      "CuSn5Zn5Pb5 (CC491K)",
+      "CuZn40 (CW509L)"
+     ]
+    },
+    "Asme B16.5": {
+     "flange_face": [
+      "Male & Female (M&F)",
+      "Tongue & Groove (T&G)"
+     ]
+    },
+    "EN1092-1": {
+     "pressure_class": [
+      "PN100",
+      "PN160",
+      "PN2.5",
+      "PN25",
+      "PN250",
+      "PN320",
+      "PN40",
+      "PN400",
+      "PN63"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material_group": [
+      "Copper Alloy"
+     ]
+    }
+   }
+  },
+  "Plate": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF2 Class1",
+      "ASTM A350 Gr.LF2 Class2",
+      "ASTM A350 Gr.LF3 Class1",
+      "ASTM A350 Gr.LF3 Class2",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52",
+      "ST37"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F310s",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F44",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53"
+     ]
+    },
+    "Nickel Alloy": {
+     "material": [
+      "ASTM B564 Gr.N04400",
+      "ASTM B564 Gr.N06600",
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08800",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ]
+    },
+    "Copper Alloy": {
+     "material": [
+      "CuAl10Ni5Fe4 (CC333G)",
+      "CuNi10Fe1Mn (CW352H)",
+      "CuSn5Zn5Pb5 (CC491K)",
+      "CuZn40 (CW509L)"
+     ],
+     "design_standard": [
+      "EN 1092-3"
+     ]
+    }
+   },
+   "design_standard": {
+    "EN1092-1": {
+     "material_group": [
+      "Nickel Alloy"
+     ],
+     "material": [
+      "ASTM A350 Gr.LF2 Class1",
+      "ASTM A350 Gr.LF2 Class2",
+      "ASTM A350 Gr.LF3 Class1",
+      "ASTM A350 Gr.LF3 Class2"
+     ],
+     "pressure_class": [
+      "PN100",
+      "PN160",
+      "PN2.5",
+      "PN25",
+      "PN250",
+      "PN320",
+      "PN40",
+      "PN400",
+      "PN63"
+     ]
+    },
+    "EN 1092-3": {
+     "material_group": [
+      "Copper Alloy"
+     ],
+     "material": [
+      "CuAl10Ni5Fe4 (CC333G)",
+      "CuNi10Fe1Mn (CW352H)",
+      "CuSn5Zn5Pb5 (CC491K)",
+      "CuZn40 (CW509L)"
+     ]
+    },
+    "AWWA - C207": {
+     "pressure_class": [
+      "Class 150",
+      "Class 300"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material_group": [
+      "Copper Alloy"
+     ]
+    }
+   }
+  },
+  "Threaded": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF2 Class1",
+      "ASTM A350 Gr.LF2 Class2",
+      "ASTM A350 Gr.LF3 Class1",
+      "ASTM A350 Gr.LF3 Class2",
+      "ASTM A516 Gr.60",
+      "ASTM A516 Gr.70",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52",
+      "ASTM A694 Gr.F60",
+      "ASTM A694 Gr.F65",
+      "ASTM A694 Gr.F70",
+      "ST37"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F310s",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F44",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F12 Class2",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A182 Gr.F92"
+     ]
+    },
+    "Nickel Alloy": {
+     "material": [
+      "ASTM B564 Gr.N04400",
+      "ASTM B564 Gr.N06600",
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08800",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ]
+    }
+   },
+   "flange_face": {
+    "RTJ": {
+     "design_standard": [
+      "API6A Type 6B",
+      "API6A Type 6BX"
+     ],
+     "pressure_class": [
+      "Class 10000",
+      "Class 15000",
+      "Class 2000",
+      "Class 20000",
+      "Class 5000"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.5": {
+     "flange_face": [
+      "Male & Female (M&F)",
+      "Tongue & Groove (T&G)"
+     ],
+     "pressure_class": [
+      "Class 150",
+      "Class 400"
+     ]
+    },
+    "API6A Type 6BX": {
+     "pressure_class": [
+      "Class 10000",
+      "Class 15000",
+      "Class 20000"
+     ]
+    },
+    "EN1092-1": {
+     "pressure_class": [
+      "PN10",
+      "PN100",
+      "PN16",
+      "PN160",
+      "PN2.5",
+      "PN25",
+      "PN250",
+      "PN320",
+      "PN40",
+      "PN400",
+      "PN6",
+      "PN63"
+     ]
+    }
+   }
+  },
+  "Socket Weld": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF2 Class1",
+      "ASTM A350 Gr.LF2 Class2",
+      "ASTM A350 Gr.LF3 Class1",
+      "ASTM A350 Gr.LF3 Class2",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52",
+      "ST37"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F310s",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F44",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53"
+     ]
+    },
+    "Nickel Alloy": {
+     "material": [
+      "ASTM B564 Gr.N04400",
+      "ASTM B564 Gr.N06600",
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08800",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ]
+    },
+    "Copper Alloy": {
+     "material": [
+      "CuAl10Ni5Fe4 (CC333G)",
+      "CuNi10Fe1Mn (CW352H)",
+      "CuSn5Zn5Pb5 (CC491K)",
+      "CuZn40 (CW509L)"
+     ],
+     "design_standard": [
+      "EN 1092-3"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.5": {
+     "material_group": [
+      "C.S",
+      "Nickel Alloy",
+      "S.S"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F310s",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F44",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53",
+      "ASTM A350 Gr.LF2 Class1",
+      "ASTM A350 Gr.LF2 Class2",
+      "ASTM A350 Gr.LF3 Class1",
+      "ASTM A350 Gr.LF3 Class2",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52",
+      "ASTM B564 Gr.N04400",
+      "ASTM B564 Gr.N06600",
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08800",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276",
+      "ST37"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ],
+     "flange_face": [
+      "Male & Female (M&F)",
+      "RTJ",
+      "Tongue & Groove (T&G)"
+     ],
+     "pressure_class": [
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 400",
+      "Class 600",
+      "Class 900"
+     ]
+    },
+    "EN 1092-3": {
+     "material_group": [
+      "Copper Alloy"
+     ],
+     "material": [
+      "CuAl10Ni5Fe4 (CC333G)",
+      "CuNi10Fe1Mn (CW352H)",
+      "CuSn5Zn5Pb5 (CC491K)",
+      "CuZn40 (CW509L)"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material_group": [
+      "Copper Alloy"
+     ]
+    }
+   }
+  },
+  "Reduce Flange": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF2 Class1",
+      "ASTM A350 Gr.LF2 Class2",
+      "ASTM A350 Gr.LF3 Class1",
+      "ASTM A350 Gr.LF3 Class2",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52",
+      "ASTM A694 Gr.F60",
+      "ASTM A694 Gr.F65",
+      "ASTM A694 Gr.F70",
+      "ST37"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F310s",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F44",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53"
+     ]
+    },
+    "Nickel Alloy": {
+     "material": [
+      "ASTM B564 Gr.N04400",
+      "ASTM B564 Gr.N06600",
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08800",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ]
+    },
+    "Copper Alloy": {
+     "material": [
+      "CuAl10Ni5Fe4 (CC333G)",
+      "CuNi10Fe1Mn (CW352H)",
+      "CuSn5Zn5Pb5 (CC491K)",
+      "CuZn40 (CW509L)"
+     ],
+     "design_standard": [
+      "EN 1092-3"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.5": {
+     "material_group": [
+      "C.S",
+      "Nickel Alloy",
+      "S.S"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F310s",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F44",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53",
+      "ASTM A350 Gr.LF2 Class1",
+      "ASTM A350 Gr.LF2 Class2",
+      "ASTM A350 Gr.LF3 Class1",
+      "ASTM A350 Gr.LF3 Class2",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52",
+      "ASTM A694 Gr.F60",
+      "ASTM A694 Gr.F65",
+      "ASTM A694 Gr.F70",
+      "ASTM B564 Gr.N04400",
+      "ASTM B564 Gr.N06600",
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08800",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276",
+      "ST37"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ],
+     "flange_face": [
+      "Male & Female (M&F)",
+      "Tongue & Groove (T&G)"
+     ],
+     "pressure_class": [
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 400",
+      "Class 600",
+      "Class 900"
+     ]
+    },
+    "EN 1092-3": {
+     "material_group": [
+      "Copper Alloy"
+     ],
+     "material": [
+      "CuAl10Ni5Fe4 (CC333G)",
+      "CuNi10Fe1Mn (CW352H)",
+      "CuSn5Zn5Pb5 (CC491K)",
+      "CuZn40 (CW509L)"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material_group": [
+      "Copper Alloy"
+     ]
+    }
+   }
+  },
+  "Figure8 Blank": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF2 Class1",
+      "ASTM A350 Gr.LF2 Class2",
+      "ASTM A350 Gr.LF3 Class1",
+      "ASTM A350 Gr.LF3 Class2",
+      "ASTM A516 Gr.60",
+      "ASTM A516 Gr.70",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52",
+      "ASTM A694 Gr.F60",
+      "ASTM A694 Gr.F65",
+      "ASTM A694 Gr.F70",
+      "ST37"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F310s",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F44",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53"
+     ]
+    },
+    "Nickel Alloy": {
+     "material": [
+      "ASTM B564 Gr.N04400",
+      "ASTM B564 Gr.N06600",
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08800",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.48": {
+     "material_group": [
+      "Nickel Alloy"
+     ]
+    }
+   }
+  },
+  "Paddle Blank & Spacer": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF2 Class1",
+      "ASTM A350 Gr.LF2 Class2",
+      "ASTM A350 Gr.LF3 Class1",
+      "ASTM A350 Gr.LF3 Class2",
+      "ASTM A516 Gr.60",
+      "ASTM A516 Gr.70",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52",
+      "ASTM A694 Gr.F60",
+      "ASTM A694 Gr.F65",
+      "ASTM A694 Gr.F70",
+      "ST37"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F310s",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F44",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53"
+     ]
+    },
+    "Nickel Alloy": {
+     "material": [
+      "ASTM B564 Gr.N04400",
+      "ASTM B564 Gr.N06600",
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08800",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.48": {
+     "material_group": [
+      "Nickel Alloy"
+     ]
+    }
+   }
+  },
+  "Lapped": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF2 Class1",
+      "ASTM A350 Gr.LF2 Class2",
+      "ASTM A350 Gr.LF3 Class1",
+      "ASTM A350 Gr.LF3 Class2",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52",
+      "ASTM A694 Gr.F60",
+      "ASTM A694 Gr.F65",
+      "ASTM A694 Gr.F70",
+      "ST37"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F310s",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F44",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53"
+     ]
+    },
+    "Nickel Alloy": {
+     "material": [
+      "ASTM B564 Gr.N04400",
+      "ASTM B564 Gr.N06600",
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08800",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ]
+    },
+    "Copper Alloy": {
+     "material": [
+      "CuAl10Ni5Fe4 (CC333G)",
+      "CuNi10Fe1Mn (CW352H)",
+      "CuSn5Zn5Pb5 (CC491K)",
+      "CuZn40 (CW509L)"
+     ],
+     "design_standard": [
+      "EN 1092-3"
+     ]
+    }
+   },
+   "flange_face": {
+    "RF": {
+     "material": [
+      "ASTM A694 Gr.F60",
+      "ASTM A694 Gr.F65",
+      "ASTM A694 Gr.F70"
+     ]
+    }
+   },
+   "design_standard": {
+    "EN 1092-3": {
+     "material_group": [
+      "Copper Alloy"
+     ],
+     "material": [
+      "CuAl10Ni5Fe4 (CC333G)",
+      "CuNi10Fe1Mn (CW352H)",
+      "CuSn5Zn5Pb5 (CC491K)",
+      "CuZn40 (CW509L)"
+     ]
+    },
+    "Asme B16.5": {
+     "material": [
+      "ASTM A694 Gr.F60",
+      "ASTM A694 Gr.F65",
+      "ASTM A694 Gr.F70"
+     ],
+     "pressure_class": [
+      "Class 1500",
+      "Class 2500",
+      "Class 400",
+      "Class 600",
+      "Class 900"
+     ]
+    },
+    "EN1092-1": {
+     "pressure_class": [
+      "PN100",
+      "PN160",
+      "PN2.5",
+      "PN25",
+      "PN250",
+      "PN320",
+      "PN40",
+      "PN400",
+      "PN63"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material_group": [
+      "Copper Alloy"
+     ]
+    }
+   }
+  },
+  "Oriffice": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF2 Class1",
+      "ASTM A350 Gr.LF2 Class2",
+      "ASTM A350 Gr.LF3 Class1",
+      "ASTM A350 Gr.LF3 Class2",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52",
+      "ASTM A694 Gr.F60",
+      "ASTM A694 Gr.F65",
+      "ASTM A694 Gr.F70"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F310s",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F44",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F12 Class2",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A182 Gr.F92"
+     ]
+    },
+    "Nickel Alloy": {
+     "material": [
+      "ASTM B564 Gr.N04400",
+      "ASTM B564 Gr.N06600",
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08800",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.5": {
+     "flange_face": [
+      "Male & Female (M&F)",
+      "Tongue & Groove (T&G)"
+     ],
+     "pressure_class": [
+      "Class 150",
+      "Class 400"
+     ]
+    }
+   }
+  },
+  "Victaulic": {
+   "material_group": {
+    "Ductile Iron": {
+     "material": [
+      "ASTM A536 Gr.60-40-18",
+      "ASTM A536 Gr.65-45-12",
+      "ASTM A536 Gr.80-55-06"
+     ],
+     "flange_face": [
+      "Bel & Spigot"
+     ],
+     "design_standard": [
+      "Asme B16.5",
+      "EN1092-1"
+     ],
+     "pressure_class": [
+      "Class 150",
+      "Class 300"
+     ]
+    }
+   },
+   "flange_face": {
+    "Bel & Spigot": {
+     "material_group": [
+      "Ductile Iron"
+     ],
+     "material": [
+      "ASTM A536 Gr.60-40-18",
+      "ASTM A536 Gr.65-45-12",
+      "ASTM A536 Gr.80-55-06"
+     ],
+     "design_standard": [
+      "Asme B16.5",
+      "EN1092-1"
+     ],
+     "pressure_class": [
+      "Class 150",
+      "Class 300"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.5": {
+     "pressure_class": [
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 400",
+      "Class 600",
+      "Class 900"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material_group": [
+      "Ductile Iron"
+     ],
+     "material": [
+      "ASTM A536 Gr.60-40-18",
+      "ASTM A536 Gr.65-45-12",
+      "ASTM A536 Gr.80-55-06"
+     ]
+    }
+   }
+  },
+  "Hydraulic-Square": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ],
+     "design_standard": [
+      "ISO6162"
+     ],
+     "pressure_class": [
+      "Class 3000",
+      "Class 6000",
+      "Class 9000"
+     ]
+    }
+   },
+   "design_standard": {
+    "ISO6162": {
+     "material_group": [
+      "C.S"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ],
+     "pressure_class": [
+      "Class 3000",
+      "Class 6000",
+      "Class 9000"
+     ]
+    }
+   }
+  },
+  "Hydraulic-SAE-Cutsplit": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ],
+     "design_standard": [
+      "ISO6162"
+     ],
+     "pressure_class": [
+      "Class 3000",
+      "Class 6000",
+      "Class 9000"
+     ]
+    }
+   },
+   "design_standard": {
+    "ISO6162": {
+     "material_group": [
+      "C.S"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ],
+     "pressure_class": [
+      "Class 3000",
+      "Class 6000",
+      "Class 9000"
+     ]
+    }
+   }
+  },
+  "Hydraulic-SAE-Uncutsplit": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ],
+     "design_standard": [
+      "ISO6162"
+     ],
+     "pressure_class": [
+      "Class 3000",
+      "Class 6000",
+      "Class 9000"
+     ]
+    }
+   },
+   "design_standard": {
+    "ISO6162": {
+     "material_group": [
+      "C.S"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ],
+     "pressure_class": [
+      "Class 3000",
+      "Class 6000",
+      "Class 9000"
+     ]
+    }
+   }
+  },
+  "Hydraulic-SAE-Weld On Head": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ],
+     "design_standard": [
+      "ISO6162"
+     ],
+     "pressure_class": [
+      "Class 3000",
+      "Class 6000",
+      "Class 9000"
+     ]
+    }
+   },
+   "design_standard": {
+    "ISO6162": {
+     "material_group": [
+      "C.S"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ],
+     "pressure_class": [
+      "Class 3000",
+      "Class 6000",
+      "Class 9000"
+     ]
+    }
+   }
+  },
+  "Hydraulic-SAE-90 Deg": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ],
+     "design_standard": [
+      "ISO6162"
+     ],
+     "pressure_class": [
+      "Class 3000",
+      "Class 6000",
+      "Class 9000"
+     ]
+    }
+   },
+   "design_standard": {
+    "ISO6162": {
+     "material_group": [
+      "C.S"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ],
+     "pressure_class": [
+      "Class 3000",
+      "Class 6000",
+      "Class 9000"
+     ]
+    }
+   }
+  },
+  "Hydraulic-SAE-Blind": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ],
+     "design_standard": [
+      "ISO6162"
+     ],
+     "pressure_class": [
+      "Class 3000",
+      "Class 6000",
+      "Class 9000"
+     ]
+    }
+   },
+   "design_standard": {
+    "ISO6162": {
+     "material_group": [
+      "C.S"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ],
+     "pressure_class": [
+      "Class 3000",
+      "Class 6000",
+      "Class 9000"
+     ]
+    }
+   }
+  },
+  "Stub Flange": {
+   "material_group": {
+    "Polymer": {
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE32",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R"
+     ],
+     "flange_face": [
+      "Flat",
+      "RF"
+     ],
+     "design_standard": [
+      "DIN 16962",
+      "DIN 16963",
+      "ISO 9624"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN20",
+      "PN25",
+      "PN6"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material_group": [
+      "Polymer"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE32",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R"
+     ]
+    }
+   }
+  },
+  "Long Neck Stub Flange": {
+   "material_group": {
+    "Polymer": {
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE63",
+      "PE80"
+     ],
+     "flange_face": [
+      "Flat",
+      "RF"
+     ],
+     "design_standard": [
+      "DIN 16963",
+      "ISO 9624"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN20",
+      "PN25"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material_group": [
+      "Polymer"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE63",
+      "PE80"
+     ]
+    }
+   }
+  },
+  "Short Neck Stub Flange": {
+   "material_group": {
+    "Polymer": {
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE32",
+      "PE40",
+      "PE63",
+      "PE80"
+     ],
+     "flange_face": [
+      "Flat"
+     ],
+     "design_standard": [
+      "DIN 16963",
+      "ISO 9624"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN6"
+     ]
+    }
+   },
+   "flange_face": {
+    "Flat": {
+     "material_group": [
+      "Polymer"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE32",
+      "PE40",
+      "PE63",
+      "PE80"
+     ],
+     "design_standard": [
+      "DIN 16963",
+      "ISO 9624"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN6"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material_group": [
+      "Polymer"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE32",
+      "PE40",
+      "PE63",
+      "PE80"
+     ]
+    }
+   }
+  },
+  "Loose Flange": {
+   "material_group": {
+    "Polymer": {
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE32",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R"
+     ],
+     "design_standard": [
+      "ISO 9624"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN20",
+      "PN25",
+      "PN6"
+     ]
+    }
+   },
+   "design_standard": {
+    "ISO 9624": {
+     "material_group": [
+      "Polymer"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE32",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN20",
+      "PN25",
+      "PN6"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material_group": [
+      "Polymer"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE32",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R"
+     ]
+    }
+   }
+  },
+  "Backing Ring": {
+   "material_group": {
+    "Polymer": {
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE32",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R"
+     ],
+     "design_standard": [
+      "ISO 9624"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN20",
+      "PN25",
+      "PN6"
+     ]
+    }
+   },
+   "design_standard": {
+    "ISO 9624": {
+     "material_group": [
+      "Polymer"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE32",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN20",
+      "PN25",
+      "PN6"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material_group": [
+      "Polymer"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE32",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R"
+     ]
+    }
+   }
+  },
+  "Van Stone Flange": {
+   "material_group": {
+    "Polymer": {
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R"
+     ],
+     "flange_face": [
+      "Flat"
+     ],
+     "design_standard": [
+      "DIN 16962",
+      "DIN 16963",
+      "ISO 9624"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN20",
+      "PN25",
+      "PN6"
+     ]
+    }
+   },
+   "flange_face": {
+    "Flat": {
+     "material_group": [
+      "Polymer"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R"
+     ],
+     "design_standard": [
+      "DIN 16962",
+      "DIN 16963",
+      "ISO 9624"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN20",
+      "PN25",
+      "PN6"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material_group": [
+      "Polymer"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R"
+     ]
+    }
+   }
+  },
+  "Full Face PE Flange": {
+   "material_group": {
+    "Polymer": {
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE63",
+      "PE80"
+     ],
+     "flange_face": [
+      "Flat",
+      "RF"
+     ],
+     "design_standard": [
+      "DIN 16963",
+      "ISO 9624"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN6"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material_group": [
+      "Polymer"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE63",
+      "PE80"
+     ]
+    }
+   }
+  },
+  "Flange Adapter": {
+   "material_group": {
+    "Polymer": {
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE32",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R"
+     ],
+     "flange_face": [
+      "Flat",
+      "RF"
+     ],
+     "design_standard": [
+      "DIN 16962",
+      "DIN 16963",
+      "ISO 9624"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN20",
+      "PN25",
+      "PN6"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material_group": [
+      "Polymer"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE32",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R"
+     ]
+    }
+   }
+  },
+  "Butt Fusion Flange": {
+   "material_group": {
+    "Polymer": {
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R"
+     ],
+     "flange_face": [
+      "Flat",
+      "RF"
+     ],
+     "design_standard": [
+      "DIN 16962",
+      "DIN 16963",
+      "ISO 9624"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN20",
+      "PN25",
+      "PN6"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material_group": [
+      "Polymer"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R"
+     ]
+    }
+   }
+  },
+  "Socket Fusion Flange": {
+   "material_group": {
+    "Polymer": {
+     "material": [
+      "PP-B",
+      "PP-H",
+      "PP-R"
+     ],
+     "flange_face": [
+      "Flat"
+     ],
+     "design_standard": [
+      "DIN 16962",
+      "ISO 9624"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN16",
+      "PN20",
+      "PN25",
+      "PN6"
+     ]
+    }
+   },
+   "flange_face": {
+    "Flat": {
+     "material_group": [
+      "Polymer"
+     ],
+     "material": [
+      "PP-B",
+      "PP-H",
+      "PP-R"
+     ],
+     "design_standard": [
+      "DIN 16962",
+      "ISO 9624"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN16",
+      "PN20",
+      "PN25",
+      "PN6"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material_group": [
+      "Polymer"
+     ],
+     "material": [
+      "PP-B",
+      "PP-H",
+      "PP-R"
+     ]
+    }
+   }
+  },
+  "Injection Molded Flange": {
+   "material_group": {
+    "Polymer": {
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R"
+     ],
+     "flange_face": [
+      "Flat",
+      "RF"
+     ],
+     "design_standard": [
+      "DIN 16962",
+      "DIN 16963",
+      "ISO 9624"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN20",
+      "PN6"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material_group": [
+      "Polymer"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R"
+     ]
+    }
+   }
+  },
+  "Long Weld Neck": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF2 Class1",
+      "ASTM A350 Gr.LF2 Class2",
+      "ASTM A350 Gr.LF3 Class1",
+      "ASTM A350 Gr.LF3 Class2",
+      "ASTM A516 Gr.60",
+      "ASTM A516 Gr.70",
+      "ASTM A694 Gr.F42",
+      "ASTM A694 Gr.F52",
+      "ASTM A694 Gr.F60",
+      "ASTM A694 Gr.F65",
+      "ASTM A694 Gr.F70",
+      "ST37"
+     ],
+     "coating": [
+      "CGLV",
+      "HDGLV"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F310s",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F44",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F12 Class2",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A182 Gr.F92"
+     ]
+    },
+    "Nickel Alloy": {
+     "material": [
+      "ASTM B564 Gr.N04400",
+      "ASTM B564 Gr.N06600",
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08800",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ]
+    }
+   },
+   "flange_face": {
+    "RTJ": {
+     "design_standard": [
+      "API6A Type 6B",
+      "API6A Type 6BX"
+     ],
+     "pressure_class": [
+      "Class 10000",
+      "Class 15000",
+      "Class 2000",
+      "Class 20000",
+      "Class 5000"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.5": {
+     "flange_face": [
+      "Male & Female (M&F)",
+      "Tongue & Groove (T&G)"
+     ]
+    },
+    "API6A Type 6BX": {
+     "pressure_class": [
+      "Class 10000",
+      "Class 15000",
+      "Class 20000"
+     ]
+    },
+    "EN1092-1": {
+     "pressure_class": [
+      "PN10",
+      "PN100",
+      "PN16",
+      "PN160",
+      "PN2.5",
+      "PN25",
+      "PN250",
+      "PN320",
+      "PN40",
+      "PN400",
+      "PN6",
+      "PN63"
+     ]
+    }
+   }
+  }
+ }
+}

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Import code table · Data Management{% endblock %}
+{% block topbar %}Import code table{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Import a group's code table</h1>
+  <div class="sub">Upload the group's coding-data file (CSV or Excel). You'll preview it before anything changes.</div></div>
+  <a class="btn btn-sm" href="{% url 'dm_home' %}"><i class="fa-solid fa-arrow-left"></i> Back</a>
+</div>
+<div class="card" style="max-width:620px;">
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="field"><label><i class="fa-solid fa-layer-group"></i> Group name <span class="req">*</span></label>
+      <input type="text" name="group" placeholder="e.g. pipe, fitting" required></div>
+    <div class="field"><label><i class="fa-solid fa-file-csv"></i> File (.csv / .xlsx) <span class="req">*</span></label>
+      <input type="file" name="file" accept=".csv,.xlsx,.xls" required></div>
+    <div class="help">Features (main / sub / info) are read from the file headers. Use <code>(not main)</code> or <code>(info)</code> only when a column is not a primary filter.</div>
+    <button class="btn btn-primary" type="submit"><i class="fa-solid fa-eye"></i> Preview</button>
+  </form>
+</div>
+{% endblock %}

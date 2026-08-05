@@ -1,0 +1,159 @@
+# ---------------------------------------------------------------------------
+# Foolad Tabar Workflow - production stack (PostgreSQL + Django/gunicorn)
+#
+#   1. Copy .env.example to .env and fill in the values.
+#   2. docker compose up -d --build
+#
+# Data that must survive restarts lives in named volumes:
+#   postgres_data  - the main application database (cases, users, forms, ...)
+#   media_data     - uploaded files (signatures, etc.)
+#   code_db_data   - itemcoder reference code tables (pipe/valve/...). Seeded on
+#                    first run from the data bundled in the image; admin uploads
+#                    afterwards are kept here.
+# ---------------------------------------------------------------------------
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ftworkflow}
+      POSTGRES_USER: ${POSTGRES_USER:-ftworkflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ftworkflow} -d ${POSTGRES_DB:-ftworkflow}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # Cache backend, ready but not required. Runs unconditionally (idle it's a
+  # few MB of RAM and no disk I/O), but nothing uses it until REDIS_URL is set
+  # on the web service above. No persistence on purpose — --save "" — since
+  # this only ever holds a cache: losing it costs nothing worth protecting.
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru --save ""
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # --- database ---
+      DJANGO_DB_ENGINE: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-ftworkflow}
+      POSTGRES_USER: ${POSTGRES_USER:-ftworkflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      # --- Django ---
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?set DJANGO_SECRET_KEY in .env}
+      DJANGO_DEBUG: "0"
+      # MUST be quoted: Compose/YAML otherwise keep only the first host token.
+      DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:-localhost 127.0.0.1}"
+      DJANGO_CSRF_TRUSTED_ORIGINS: "${DJANGO_CSRF_TRUSTED_ORIGINS:-}"
+      DJANGO_TIME_ZONE: ${DJANGO_TIME_ZONE:-Asia/Tehran}
+      # --- cache (optional) ---
+      # Off by default: the app falls back to the existing database-backed
+      # cache when this is unset, so adding the redis service below (already
+      # running, harmlessly idle) does not change anything until this line is
+      # uncommented too.
+      # REDIS_URL: redis://redis:6379/0
+      # --- offline license ---
+      # Where the sealed license state + cached machine fingerprint are stored
+      # (a persisted volume, so activation survives `docker compose up --build`).
+      LICENSE_STATE_DIR: /app/.license
+      # If you mount the host machine-id (see the commented bind-mount below),
+      # it is folded into the fingerprint to tie the license to this host.
+      LICENSE_HOST_MACHINE_ID_FILE: /host-machine-id
+      # --- backups ---
+      # Folder (inside the container) where backup archives live. It is bind-
+      # mounted to ./backups on the host so files are accessible and copyable.
+      BACKUP_DIR: /backups
+      # --- gunicorn ---
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-3}
+      # Large code-table imports (millions of rows) run inside one request, so
+      # give gunicorn a generous worker timeout. Without this a big "Import
+      # group" would be killed mid-build and surface as an Internal Server Error.
+      GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-600}
+      # Headless Chromium for TO/PI PDF export (installed in the image).
+      CHROME_PATH: /usr/bin/chromium
+      # --- optional first admin (leave blank to create manually later) ---
+      DJANGO_SUPERUSER_USERNAME: ${DJANGO_SUPERUSER_USERNAME:-}
+      DJANGO_SUPERUSER_PASSWORD: ${DJANGO_SUPERUSER_PASSWORD:-}
+      DJANGO_SUPERUSER_EMAIL: ${DJANGO_SUPERUSER_EMAIL:-}
+    volumes:
+      - media_data:/app/media
+      - code_db_data:/app/itemcoder/resources/db
+      # itemcoder JSON configs (offer_*.json, rules_*.json, data.json,
+      # asign_code.json, ...) are bind-mounted from the project folder so admin
+      # edits made in the running app are written straight back to these files
+      # on the host (immediately visible in VSCode/your editor) AND survive an
+      # image rebuild. Without this bind the JSON lives only inside the copied
+      # image, so edits appear in downloads but never in the project folder and
+      # are lost on `docker compose up --build`.
+      - ./itemcoder/resources/json:/app/itemcoder/resources/json
+      # License state (sealed) + cached machine fingerprint -> must persist.
+      - license_data:/app/.license
+      # Backup archives live OUTSIDE the project folder, one level up next to it
+      # (e.g. D:\Programing\ftworkflow\backups when the project is in
+      # D:\Programing\ftworkflow\ftworkflow). Docker creates it on first run.
+      # The web admin page and the backup service share this same host folder.
+      - ../backups:/backups
+      # OPTIONAL (Linux hosts only): tie the fingerprint to the host machine-id.
+      # On Windows/macOS Docker Desktop leave this commented out.
+      # - /etc/machine-id:/host-machine-id:ro
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+
+  # ---------------------------------------------------------------------------
+  # Nightly backups + on-demand backup/restore worker.
+  # Uses the same PostgreSQL 16 image as `db`, so pg_dump / psql versions match
+  # the database exactly. It writes to ./backups on the host and performs the
+  # backup/restore actions that the admin queues from the web "Backups" tab.
+  #
+  # Schedule (Asia/Tehran ~00:00), three folders under ../backups:
+  #   - Daily:  PostgreSQL -> backups/db/ftdb_*.tar.gz           (keep BACKUP_DB_KEEP)
+  #   - Every 3 days: media -> backups/media/ftmedia_*.tar.gz    (keep BACKUP_MEDIA_KEEP_DAYS)
+  #   - Every 3 days: code SQLite -> backups/code_db/ftcode_db.tar.gz (replaced)
+  # ---------------------------------------------------------------------------
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # 00:00 nightly backups follow this timezone.
+      TZ: ${DJANGO_TIME_ZONE:-Asia/Tehran}
+      # Connection details for pg_dump / psql (PG* are read automatically).
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-ftworkflow}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      PGDATABASE: ${POSTGRES_DB:-ftworkflow}
+      # Daily database archives to keep (older ones are deleted).
+      BACKUP_DB_KEEP: ${BACKUP_DB_KEEP:-33}
+      # Media archives older than this many days are deleted.
+      BACKUP_MEDIA_KEEP_DAYS: ${BACKUP_MEDIA_KEEP_DAYS:-10}
+    volumes:
+      - ../backups:/backups         # host folder one level above the project
+      - ./scripts:/scripts:ro       # backup/restore/scheduler scripts
+      - media_data:/data/media      # uploaded files (read + write for restore)
+      - code_db_data:/data/code_db  # code tables (read + write for restore)
+    entrypoint: ["/bin/sh", "/scripts/backup_service.sh"]
+
+volumes:
+  postgres_data:
+  media_data:
+  code_db_data:
+  license_data:

@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Importing · Data Management{% endblock %}
+{% block topbar %}Importing “{{ group }}”{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Importing — group “{{ group }}”</h1>
+  <div class="sub">Building the fast database. You can keep this tab open; very large files (millions of rows) may take several minutes.</div></div>
+</div>
+
+<div class="card" style="max-width:640px;">
+  <div class="card-head"><h3><i class="fa-solid fa-database"></i> Import progress</h3></div>
+
+  <div id="imp-label" class="muted" style="margin:.4rem 0 .8rem;">Starting import…</div>
+
+  <div style="height:14px;border-radius:8px;background:#e9edf3;overflow:hidden;">
+    <div id="imp-bar" style="height:100%;width:0;background:#2563eb;transition:width .3s ease;"></div>
+  </div>
+  <div id="imp-sub" class="muted" style="font-size:.8rem;margin-top:.5rem;">&nbsp;</div>
+
+  <div id="imp-actions" style="margin-top:1rem;display:none;">
+    <a id="imp-go" class="btn btn-primary" href="#"><i class="fa-solid fa-arrow-right"></i> View rows</a>
+    <a class="btn btn-sm" href="{% url 'dm_code_upload' %}">Import another file</a>
+  </div>
+
+  <div id="imp-error" class="flash flash-error" style="display:none;margin-top:1rem;">
+    <i class="fa-solid fa-triangle-exclamation"></i> <span id="imp-error-text"></span>
+    <div style="margin-top:.6rem;"><a class="btn btn-sm" href="{% url 'dm_code_upload' %}">Back to upload</a></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var statusUrl = "{% url 'dm_code_import_status' job_id=job_id %}";
+  var bar = document.getElementById('imp-bar');
+  var label = document.getElementById('imp-label');
+  var sub = document.getElementById('imp-sub');
+  var actions = document.getElementById('imp-actions');
+  var goBtn = document.getElementById('imp-go');
+  var errBox = document.getElementById('imp-error');
+  var errText = document.getElementById('imp-error-text');
+  var done = false;
+  var indeterminate = 6;
+
+  function fmt(n){ try { return Number(n).toLocaleString(); } catch(e){ return n; } }
+
+  function tick(){
+    if (done) return;
+    fetch(statusUrl, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(res){
+        var j = res.j || {};
+        var phase = j.phase || 'starting';
+        if (j.label) label.textContent = j.label;
+
+        if (phase === 'done'){
+          done = true;
+          bar.style.width = '100%';
+          bar.style.background = '#16a34a';
+          var detail = j.message || j.label || 'Completed successfully.';
+          if (j.verified) {
+            detail = '✓ ' + detail;
+          }
+          label.textContent = detail;
+          sub.textContent = (j.db_path
+            ? ('Verified file: ' + j.db_path + (j.db_size_mb != null ? (' (' + j.db_size_mb + ' MB)') : ''))
+            : 'Completed successfully.');
+          if (j.redirect_url){ goBtn.href = j.redirect_url; }
+          actions.style.display = '';
+          // Give the user time to read the verified path before redirecting.
+          setTimeout(function(){ if (j.redirect_url) window.location.href = j.redirect_url; }, 3500);
+          return;
+        }
+        if (phase === 'error' || (!res.ok && phase === 'unknown')){
+          done = true;
+          bar.style.background = '#dc2626';
+          errText.textContent = j.message || j.label || 'Import failed.';
+          errBox.style.display = '';
+          sub.textContent = '';
+          return;
+        }
+
+        var total = Number(j.total || 0);
+        var rows = Number(j.rows || 0);
+        if (phase === 'finalizing'){
+          bar.style.width = '96%';
+          sub.textContent = fmt(rows) + ' rows imported — finalizing…';
+        } else if (total > 0 && rows >= 0){
+          var pct = Math.max(2, Math.min(94, Math.round(rows / total * 100)));
+          bar.style.width = pct + '%';
+          sub.textContent = fmt(rows) + ' / ~' + fmt(total) + ' rows (' + pct + '%)';
+        } else {
+          // Unknown total: gentle indeterminate crawl.
+          indeterminate = Math.min(90, indeterminate + 2);
+          bar.style.width = indeterminate + '%';
+          sub.textContent = rows > 0 ? (fmt(rows) + ' rows imported…') : 'Working…';
+        }
+        setTimeout(tick, 1500);
+      })
+      .catch(function(){ setTimeout(tick, 2500); });
+  }
+  tick();
+})();
+</script>
+{% endblock %}

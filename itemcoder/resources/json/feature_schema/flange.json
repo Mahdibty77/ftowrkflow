@@ -1,0 +1,1250 @@
+{
+ "group": "flange",
+ "config": {
+  "tech_start": "7",
+  "tech_group": "03",
+  "item_start": "",
+  "item_group": "12",
+  "item_seq_digits": 6,
+  "item_feature_indexes": [
+   1,
+   3
+  ]
+ },
+ "features": [
+  {
+   "name": "type",
+   "position": 0,
+   "values": [
+    {
+     "value": "Weldneck",
+     "code": "01"
+    },
+    {
+     "value": "Slip on",
+     "code": "02"
+    },
+    {
+     "value": "Blind",
+     "code": "03"
+    },
+    {
+     "value": "Plate",
+     "code": "04"
+    },
+    {
+     "value": "Threaded",
+     "code": "05"
+    },
+    {
+     "value": "Socket Weld",
+     "code": "06"
+    },
+    {
+     "value": "Reduce Flange",
+     "code": "07"
+    },
+    {
+     "value": "Figure8 Blank",
+     "code": "08"
+    },
+    {
+     "value": "Paddle Blank & Spacer",
+     "code": "09"
+    },
+    {
+     "value": "Lapped",
+     "code": "10"
+    },
+    {
+     "value": "Oriffice",
+     "code": "11"
+    },
+    {
+     "value": "Victaulic",
+     "code": "12"
+    },
+    {
+     "value": "Hydraulic-Square",
+     "code": "13"
+    },
+    {
+     "value": "Hydraulic-SAE-Cutsplit",
+     "code": "14"
+    },
+    {
+     "value": "Hydraulic-SAE-Uncutsplit",
+     "code": "15"
+    },
+    {
+     "value": "Hydraulic-SAE-Weld On Head",
+     "code": "16"
+    },
+    {
+     "value": "Hydraulic-SAE-90 Deg",
+     "code": "17"
+    },
+    {
+     "value": "Hydraulic-SAE-Blind",
+     "code": "18"
+    },
+    {
+     "value": "Stub Flange",
+     "code": "19"
+    },
+    {
+     "value": "Long Neck Stub Flange",
+     "code": "20"
+    },
+    {
+     "value": "Short Neck Stub Flange",
+     "code": "21"
+    },
+    {
+     "value": "Loose Flange",
+     "code": "22"
+    },
+    {
+     "value": "Backing Ring",
+     "code": "23"
+    },
+    {
+     "value": "Van Stone Flange",
+     "code": "24"
+    },
+    {
+     "value": "Full Face PE Flange",
+     "code": "25"
+    },
+    {
+     "value": "Flange Adapter",
+     "code": "26"
+    },
+    {
+     "value": "Butt Fusion Flange",
+     "code": "27"
+    },
+    {
+     "value": "Socket Fusion Flange",
+     "code": "28"
+    },
+    {
+     "value": "Injection Molded Flange",
+     "code": "29"
+    },
+    {
+     "value": "Long Weld Neck",
+     "code": "30"
+    }
+   ]
+  },
+  {
+   "name": "material_group",
+   "position": 1,
+   "values": [
+    {
+     "value": "C.S",
+     "code": "01"
+    },
+    {
+     "value": "S.S",
+     "code": "02"
+    },
+    {
+     "value": "Alloy Steel",
+     "code": "03"
+    },
+    {
+     "value": "Ductile Iron",
+     "code": "04"
+    },
+    {
+     "value": "Polymer",
+     "code": "05"
+    },
+    {
+     "value": "Nickel Alloy",
+     "code": "06"
+    },
+    {
+     "value": "Copper Alloy",
+     "code": "07"
+    }
+   ]
+  },
+  {
+   "name": "material",
+   "position": 2,
+   "values": [
+    {
+     "value": "ST37",
+     "code": "01"
+    },
+    {
+     "value": "ASTM A105",
+     "code": "02"
+    },
+    {
+     "value": "ASTM A516 Gr.60",
+     "code": "03"
+    },
+    {
+     "value": "ASTM A516 Gr.70",
+     "code": "04"
+    },
+    {
+     "value": "ASTM A350 Gr.LF2 Class1",
+     "code": "05"
+    },
+    {
+     "value": "ASTM A694 Gr.F60",
+     "code": "06"
+    },
+    {
+     "value": "ASTM A694 Gr.F65",
+     "code": "07"
+    },
+    {
+     "value": "ASTM A694 Gr.F70",
+     "code": "08"
+    },
+    {
+     "value": "ASTM A182 Gr.F304",
+     "code": "09"
+    },
+    {
+     "value": "ASTM A182 Gr.F304L",
+     "code": "10"
+    },
+    {
+     "value": "ASTM A182 Gr.F316",
+     "code": "11"
+    },
+    {
+     "value": "ASTM A182 Gr.F316L",
+     "code": "12"
+    },
+    {
+     "value": "ASTM A182 Gr.F310s",
+     "code": "13"
+    },
+    {
+     "value": "ASTM A350 Gr.LF2 Class2",
+     "code": "14"
+    },
+    {
+     "value": "ASTM A182 Gr.F321",
+     "code": "15"
+    },
+    {
+     "value": "ASTM A350 Gr.LF3 Class1",
+     "code": "16"
+    },
+    {
+     "value": "ASTM A182 Gr.F22 Class1",
+     "code": "17"
+    },
+    {
+     "value": "ASTM A182 Gr.F22 Class3",
+     "code": "18"
+    },
+    {
+     "value": "ASTM A536 Gr.60-40-18",
+     "code": "19"
+    },
+    {
+     "value": "ASTM A536 Gr.65-45-12",
+     "code": "20"
+    },
+    {
+     "value": "ASTM A182 Gr.F11 Class1",
+     "code": "21"
+    },
+    {
+     "value": "ASTM A182 Gr.F11 Class2",
+     "code": "22"
+    },
+    {
+     "value": "ASTM A182 Gr.F11 Class3",
+     "code": "23"
+    },
+    {
+     "value": "ASTM A182 Gr.F1",
+     "code": "24"
+    },
+    {
+     "value": "ASTM A182 Gr.F9",
+     "code": "25"
+    },
+    {
+     "value": "ASTM A350 Gr.LF3 Class2",
+     "code": "26"
+    },
+    {
+     "value": "PE32",
+     "code": "27"
+    },
+    {
+     "value": "PE40",
+     "code": "28"
+    },
+    {
+     "value": "PE63",
+     "code": "29"
+    },
+    {
+     "value": "PE80",
+     "code": "30"
+    },
+    {
+     "value": "PE100",
+     "code": "31"
+    },
+    {
+     "value": "HDPE",
+     "code": "32"
+    },
+    {
+     "value": "PP-H",
+     "code": "33"
+    },
+    {
+     "value": "PP-B",
+     "code": "34"
+    },
+    {
+     "value": "PP-R",
+     "code": "35"
+    },
+    {
+     "value": "ASTM A694 Gr.F42",
+     "code": "36"
+    },
+    {
+     "value": "ASTM A694 Gr.F52",
+     "code": "37"
+    },
+    {
+     "value": "ASTM A182 Gr.F304H",
+     "code": "38"
+    },
+    {
+     "value": "ASTM A182 Gr.F316H",
+     "code": "39"
+    },
+    {
+     "value": "ASTM A182 Gr.F347",
+     "code": "40"
+    },
+    {
+     "value": "ASTM A182 Gr.F44",
+     "code": "41"
+    },
+    {
+     "value": "ASTM A182 Gr.F51",
+     "code": "42"
+    },
+    {
+     "value": "ASTM A182 Gr.F53",
+     "code": "43"
+    },
+    {
+     "value": "ASTM A182 Gr.F5",
+     "code": "44"
+    },
+    {
+     "value": "ASTM A182 Gr.F12 Class2",
+     "code": "45"
+    },
+    {
+     "value": "ASTM A182 Gr.F91",
+     "code": "46"
+    },
+    {
+     "value": "ASTM A182 Gr.F92",
+     "code": "47"
+    },
+    {
+     "value": "ASTM A536 Gr.80-55-06",
+     "code": "48"
+    },
+    {
+     "value": "ASTM B564 Gr.N04400",
+     "code": "49"
+    },
+    {
+     "value": "ASTM B564 Gr.N06600",
+     "code": "50"
+    },
+    {
+     "value": "ASTM B564 Gr.N06625",
+     "code": "51"
+    },
+    {
+     "value": "ASTM B564 Gr.N08800",
+     "code": "52"
+    },
+    {
+     "value": "ASTM B564 Gr.N08825",
+     "code": "53"
+    },
+    {
+     "value": "ASTM B564 Gr.N10276",
+     "code": "54"
+    },
+    {
+     "value": "CuZn40 (CW509L)",
+     "code": "55"
+    },
+    {
+     "value": "CuSn5Zn5Pb5 (CC491K)",
+     "code": "56"
+    },
+    {
+     "value": "CuAl10Ni5Fe4 (CC333G)",
+     "code": "57"
+    },
+    {
+     "value": "CuNi10Fe1Mn (CW352H)",
+     "code": "58"
+    }
+   ]
+  },
+  {
+   "name": "coating",
+   "position": 3,
+   "values": [
+    {
+     "value": "$coating$",
+     "code": "01"
+    },
+    {
+     "value": "HDGLV",
+     "code": "02"
+    },
+    {
+     "value": "CGLV",
+     "code": "03"
+    }
+   ]
+  },
+  {
+   "name": "flange_face",
+   "position": 4,
+   "values": [
+    {
+     "value": "Flat",
+     "code": "01"
+    },
+    {
+     "value": "RF",
+     "code": "02"
+    },
+    {
+     "value": "RTJ",
+     "code": "03"
+    },
+    {
+     "value": "Bel & Spigot",
+     "code": "04"
+    },
+    {
+     "value": "$face$",
+     "code": "05"
+    },
+    {
+     "value": "Tongue & Groove (T&G)",
+     "code": "06"
+    },
+    {
+     "value": "Male & Female (M&F)",
+     "code": "07"
+    }
+   ]
+  },
+  {
+   "name": "nace",
+   "position": 5,
+   "values": [
+    {
+     "value": "$nace$",
+     "code": "01"
+    },
+    {
+     "value": "NACE MR0175 / ISO 15156 (sour)",
+     "code": "02"
+    }
+   ]
+  },
+  {
+   "name": "design_standard",
+   "position": 6,
+   "values": [
+    {
+     "value": "Asme B16.5",
+     "code": "01"
+    },
+    {
+     "value": "Asme B16.47 Serie A",
+     "code": "02"
+    },
+    {
+     "value": "Asme B16.47 Serie B",
+     "code": "03"
+    },
+    {
+     "value": "Asme B16.48",
+     "code": "04"
+    },
+    {
+     "value": "Asme B16.36",
+     "code": "05"
+    },
+    {
+     "value": "EN1092-1",
+     "code": "06"
+    },
+    {
+     "value": "AWWA - C207",
+     "code": "07"
+    },
+    {
+     "value": "ISO6162",
+     "code": "08"
+    },
+    {
+     "value": "API6A Type 6B",
+     "code": "09"
+    },
+    {
+     "value": "API6A Type 6BX",
+     "code": "10"
+    },
+    {
+     "value": "API590",
+     "code": "11"
+    },
+    {
+     "value": "ISO 9624",
+     "code": "12"
+    },
+    {
+     "value": "DIN 16963",
+     "code": "13"
+    },
+    {
+     "value": "DIN 16962",
+     "code": "14"
+    },
+    {
+     "value": "EN 1092-3",
+     "code": "15"
+    }
+   ]
+  },
+  {
+   "name": "pressure_class",
+   "position": 7,
+   "values": [
+    {
+     "value": "Class 150",
+     "code": "01"
+    },
+    {
+     "value": "Class 300",
+     "code": "02"
+    },
+    {
+     "value": "Class 400",
+     "code": "03"
+    },
+    {
+     "value": "Class 600",
+     "code": "04"
+    },
+    {
+     "value": "cl 900",
+     "code": "05"
+    },
+    {
+     "value": "cl 1500",
+     "code": "06"
+    },
+    {
+     "value": "Class 2000",
+     "code": "07"
+    },
+    {
+     "value": "Class 2500",
+     "code": "08"
+    },
+    {
+     "value": "Class 3000",
+     "code": "09"
+    },
+    {
+     "value": "Class 5000",
+     "code": "10"
+    },
+    {
+     "value": "Class 6000",
+     "code": "11"
+    },
+    {
+     "value": "Class 9000",
+     "code": "12"
+    },
+    {
+     "value": "Class 10000",
+     "code": "13"
+    },
+    {
+     "value": "Class 15000",
+     "code": "14"
+    },
+    {
+     "value": "Class 20000",
+     "code": "15"
+    },
+    {
+     "value": "PN2.5",
+     "code": "16"
+    },
+    {
+     "value": "PN6",
+     "code": "17"
+    },
+    {
+     "value": "PN10",
+     "code": "18"
+    },
+    {
+     "value": "PN16",
+     "code": "19"
+    },
+    {
+     "value": "PN25",
+     "code": "20"
+    },
+    {
+     "value": "PN40",
+     "code": "21"
+    },
+    {
+     "value": "PN63",
+     "code": "22"
+    },
+    {
+     "value": "PN100",
+     "code": "23"
+    },
+    {
+     "value": "PN160",
+     "code": "24"
+    },
+    {
+     "value": "PN250",
+     "code": "25"
+    },
+    {
+     "value": "PN320",
+     "code": "26"
+    },
+    {
+     "value": "PN400",
+     "code": "27"
+    },
+    {
+     "value": "PN20",
+     "code": "28"
+    },
+    {
+     "value": "PN12.5",
+     "code": "29"
+    }
+   ]
+  },
+  {
+   "name": "size",
+   "position": 8,
+   "values": [
+    {
+     "value": "1/2\"",
+     "code": "001"
+    },
+    {
+     "value": "3/4\"",
+     "code": "002"
+    },
+    {
+     "value": "1\"",
+     "code": "003"
+    },
+    {
+     "value": "1 1/4\"",
+     "code": "004"
+    },
+    {
+     "value": "1 1/2\"",
+     "code": "005"
+    },
+    {
+     "value": "2\"",
+     "code": "006"
+    },
+    {
+     "value": "2 1/2\"",
+     "code": "007"
+    },
+    {
+     "value": "3\"",
+     "code": "008"
+    },
+    {
+     "value": "3 1/2\"",
+     "code": "009"
+    },
+    {
+     "value": "4\"",
+     "code": "010"
+    },
+    {
+     "value": "5\"",
+     "code": "011"
+    },
+    {
+     "value": "6\"",
+     "code": "012"
+    },
+    {
+     "value": "8\"",
+     "code": "013"
+    },
+    {
+     "value": "10\"",
+     "code": "014"
+    },
+    {
+     "value": "12\"",
+     "code": "015"
+    },
+    {
+     "value": "14\"",
+     "code": "016"
+    },
+    {
+     "value": "16\"",
+     "code": "017"
+    },
+    {
+     "value": "18\"",
+     "code": "018"
+    },
+    {
+     "value": "20\"",
+     "code": "019"
+    },
+    {
+     "value": "22\"",
+     "code": "020"
+    },
+    {
+     "value": "24\"",
+     "code": "021"
+    },
+    {
+     "value": "26\"",
+     "code": "022"
+    },
+    {
+     "value": "28\"",
+     "code": "023"
+    },
+    {
+     "value": "30\"",
+     "code": "024"
+    },
+    {
+     "value": "32\"",
+     "code": "025"
+    },
+    {
+     "value": "34\"",
+     "code": "026"
+    },
+    {
+     "value": "36\"",
+     "code": "027"
+    },
+    {
+     "value": "38\"",
+     "code": "028"
+    },
+    {
+     "value": "40\"",
+     "code": "029"
+    },
+    {
+     "value": "42\"",
+     "code": "030"
+    },
+    {
+     "value": "44\"",
+     "code": "031"
+    },
+    {
+     "value": "46\"",
+     "code": "032"
+    },
+    {
+     "value": "48\"",
+     "code": "033"
+    },
+    {
+     "value": "50\"",
+     "code": "034"
+    },
+    {
+     "value": "52\"",
+     "code": "035"
+    },
+    {
+     "value": "54\"",
+     "code": "036"
+    },
+    {
+     "value": "56\"",
+     "code": "037"
+    },
+    {
+     "value": "58\"",
+     "code": "038"
+    },
+    {
+     "value": "60\"",
+     "code": "039"
+    },
+    {
+     "value": "66\"",
+     "code": "040"
+    },
+    {
+     "value": "72\"",
+     "code": "041"
+    },
+    {
+     "value": "DN10",
+     "code": "042"
+    },
+    {
+     "value": "DN15",
+     "code": "043"
+    },
+    {
+     "value": "DN20",
+     "code": "044"
+    },
+    {
+     "value": "DN25",
+     "code": "045"
+    },
+    {
+     "value": "DN32",
+     "code": "046"
+    },
+    {
+     "value": "DN40",
+     "code": "047"
+    },
+    {
+     "value": "DN50",
+     "code": "048"
+    },
+    {
+     "value": "DN65",
+     "code": "049"
+    },
+    {
+     "value": "DN80",
+     "code": "050"
+    },
+    {
+     "value": "DN100",
+     "code": "051"
+    },
+    {
+     "value": "DN125",
+     "code": "052"
+    },
+    {
+     "value": "DN150",
+     "code": "053"
+    },
+    {
+     "value": "DN200",
+     "code": "054"
+    },
+    {
+     "value": "DN250",
+     "code": "055"
+    },
+    {
+     "value": "DN300",
+     "code": "056"
+    },
+    {
+     "value": "DN350",
+     "code": "057"
+    },
+    {
+     "value": "DN400",
+     "code": "058"
+    },
+    {
+     "value": "DN450",
+     "code": "059"
+    },
+    {
+     "value": "DN500",
+     "code": "060"
+    },
+    {
+     "value": "DN600",
+     "code": "061"
+    },
+    {
+     "value": "DN700",
+     "code": "062"
+    },
+    {
+     "value": "DN800",
+     "code": "063"
+    },
+    {
+     "value": "DN900",
+     "code": "064"
+    },
+    {
+     "value": "DN1000",
+     "code": "065"
+    },
+    {
+     "value": "DN1200",
+     "code": "066"
+    },
+    {
+     "value": "DN1400",
+     "code": "067"
+    },
+    {
+     "value": "DN1600",
+     "code": "068"
+    },
+    {
+     "value": "DN1800",
+     "code": "069"
+    },
+    {
+     "value": "DN2000",
+     "code": "070"
+    },
+    {
+     "value": "DN2200",
+     "code": "071"
+    },
+    {
+     "value": "DN2400",
+     "code": "072"
+    },
+    {
+     "value": "DN2600",
+     "code": "073"
+    },
+    {
+     "value": "DN2800",
+     "code": "074"
+    },
+    {
+     "value": "DN3000",
+     "code": "075"
+    },
+    {
+     "value": "DN3200",
+     "code": "076"
+    },
+    {
+     "value": "DN3400",
+     "code": "077"
+    },
+    {
+     "value": "DN3600",
+     "code": "078"
+    },
+    {
+     "value": "DN3800",
+     "code": "079"
+    },
+    {
+     "value": "DN4000",
+     "code": "080"
+    },
+    {
+     "value": "1 13/16\"",
+     "code": "081"
+    },
+    {
+     "value": "2 1/16\"",
+     "code": "082"
+    },
+    {
+     "value": "2 9/16\"",
+     "code": "083"
+    },
+    {
+     "value": "3 1/16\"",
+     "code": "084"
+    },
+    {
+     "value": "3 1/8\"",
+     "code": "085"
+    },
+    {
+     "value": "4 1/16\"",
+     "code": "086"
+    },
+    {
+     "value": "5 1/8\"",
+     "code": "087"
+    },
+    {
+     "value": "7 1/16\"",
+     "code": "088"
+    },
+    {
+     "value": "9\"",
+     "code": "089"
+    },
+    {
+     "value": "11\"",
+     "code": "090"
+    },
+    {
+     "value": "13 5/8\"",
+     "code": "091"
+    },
+    {
+     "value": "16 3/4\"",
+     "code": "092"
+    },
+    {
+     "value": "18 3/4\"",
+     "code": "093"
+    },
+    {
+     "value": "20 3/4\"",
+     "code": "094"
+    },
+    {
+     "value": "21 1/4\"",
+     "code": "095"
+    },
+    {
+     "value": "26 3/4\"",
+     "code": "096"
+    },
+    {
+     "value": "24\" × 20\"",
+     "code": "097"
+    },
+    {
+     "value": "20\" × 16\"",
+     "code": "098"
+    },
+    {
+     "value": "16\" × 12\"",
+     "code": "099"
+    },
+    {
+     "value": "12\" × 10\"",
+     "code": "100"
+    },
+    {
+     "value": "10\" × 8\"",
+     "code": "101"
+    },
+    {
+     "value": "8\" × 6\"",
+     "code": "102"
+    },
+    {
+     "value": "6\" × 4\"",
+     "code": "103"
+    },
+    {
+     "value": "4\" × 3\"",
+     "code": "104"
+    },
+    {
+     "value": "3\" × 2\"",
+     "code": "105"
+    },
+    {
+     "value": "2\" × 1 1/2\"",
+     "code": "106"
+    },
+    {
+     "value": "1 1/2\" × 1\"",
+     "code": "107"
+    },
+    {
+     "value": "1\" × 3/4\"",
+     "code": "108"
+    },
+    {
+     "value": "3/4\" × 1/2\"",
+     "code": "109"
+    }
+   ]
+  },
+  {
+   "name": "sdr",
+   "position": 9,
+   "values": [
+    {
+     "value": "$sdr$",
+     "code": "01"
+    },
+    {
+     "value": "SDR6",
+     "code": "02"
+    },
+    {
+     "value": "SDR7.4",
+     "code": "03"
+    },
+    {
+     "value": "SDR9",
+     "code": "04"
+    },
+    {
+     "value": "SDR11",
+     "code": "05"
+    },
+    {
+     "value": "SDR13.6",
+     "code": "06"
+    },
+    {
+     "value": "SDR17",
+     "code": "07"
+    },
+    {
+     "value": "SDR17.6",
+     "code": "08"
+    },
+    {
+     "value": "SDR21",
+     "code": "09"
+    },
+    {
+     "value": "SDR26",
+     "code": "10"
+    },
+    {
+     "value": "SDR33",
+     "code": "11"
+    },
+    {
+     "value": "SDR41",
+     "code": "12"
+    }
+   ]
+  },
+  {
+   "name": "schedule",
+   "position": 10,
+   "values": [
+    {
+     "value": "5",
+     "code": "01"
+    },
+    {
+     "value": "10",
+     "code": "02"
+    },
+    {
+     "value": "20",
+     "code": "03"
+    },
+    {
+     "value": "30",
+     "code": "04"
+    },
+    {
+     "value": "STD",
+     "code": "05"
+    },
+    {
+     "value": "40",
+     "code": "06"
+    },
+    {
+     "value": "60",
+     "code": "07"
+    },
+    {
+     "value": "XS",
+     "code": "08"
+    },
+    {
+     "value": "80",
+     "code": "09"
+    },
+    {
+     "value": "100",
+     "code": "10"
+    },
+    {
+     "value": "120",
+     "code": "11"
+    },
+    {
+     "value": "140",
+     "code": "12"
+    },
+    {
+     "value": "160",
+     "code": "13"
+    },
+    {
+     "value": "XXs",
+     "code": "14"
+    },
+    {
+     "value": "5S",
+     "code": "15"
+    },
+    {
+     "value": "10S",
+     "code": "16"
+    },
+    {
+     "value": "40S",
+     "code": "17"
+    },
+    {
+     "value": "80S",
+     "code": "18"
+    },
+    {
+     "value": "160S",
+     "code": "19"
+    },
+    {
+     "value": "$schedule$",
+     "code": "20"
+    }
+   ]
+  }
+ ]
+}

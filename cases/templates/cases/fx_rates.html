@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% load ft_extras %}
+{% block title %}FX Rates · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}FX Rates{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1><i class="fa-solid fa-coins"></i> FX Rates</h1>
+    <div class="sub">
+      Prices are in <strong>Iranian Rial</strong> per 1 unit of currency.
+      Last board update:
+      {% if latest_update %}<span class="mono">{{ latest_update|jalali:"Y.m.d H:i" }}</span>
+      {% else %}<span class="muted">never</span>{% endif %}
+      {% if fx_stale %}<span class="status-tag" style="--sc:#b42318;margin-left:.4rem;">Needs update (&gt;24h or empty)</span>{% endif %}
+    </div>
+  </div>
+  <a href="{% url 'cases:master_data_hub' %}" class="btn btn-sm"><i class="fa-solid fa-arrow-left"></i> Back</a>
+</div>
+
+{% if fx_stale %}
+<div class="flash flash-warning" style="margin-bottom:1rem;">
+  <i class="fa-solid fa-triangle-exclamation"></i>
+  <span>One or more exchange rates are outdated (more than 24 hours) or incomplete. Update them so Commercial and Supply can convert Proforma currencies.</span>
+</div>
+{% endif %}
+
+<div class="card" style="margin-bottom:1rem;">
+  <div class="card-head"><h3><i class="fa-solid fa-plus"></i> Add currency</h3></div>
+  <form method="post" action="{% url 'cases:fx_rate_add' %}" class="row-flex" style="gap:.6rem;flex-wrap:wrap;align-items:flex-end;">
+    {% csrf_token %}
+    <div class="field" style="min-width:220px;margin:0;">
+      <label>Currency</label>
+      <select name="code" data-combo data-placeholder="Search currency…" required>
+        <option value="">Select…</option>
+        {% for c in catalog %}
+          <option value="{{ c.code }}">{{ c.code|upper }} — {{ c.name }} ({{ c.symbol }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field" style="margin:0;">
+      <label>Price (Rial)</label>
+      <input type="text" name="rial_price" inputmode="numeric" placeholder="e.g. 1,700,000" required style="min-width:10rem;" class="fx-rial-input">
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus"></i> Add</button>
+  </form>
+</div>
+
+<form method="post" action="{% url 'cases:fx_rate_update_all' %}" id="fx-rates-board-form">
+  {% csrf_token %}
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th style="width:4.5rem;">Code</th>
+          <th>Currency</th>
+          <th style="width:16rem;">Price (Rial)</th>
+          <th style="width:9rem;">Last update</th>
+          <th style="width:5rem;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rates %}
+        <tr>
+          <td class="mono"><strong>{{ r.code|upper }}</strong></td>
+          <td>
+            <span style="font-size:1.1rem;margin-right:.35rem;font-weight:600;">{{ r.symbol|default:r.code|upper }}</span>
+            {{ r.name }}
+            {% if r.is_builtin %}<span class="muted" style="font-size:.72rem;">(default)</span>{% endif %}
+          </td>
+          <td>
+            <div class="row-flex" style="gap:.4rem;align-items:center;margin:0;flex-wrap:nowrap;">
+              <span class="muted" title="Rial">Rial</span>
+              <input type="text" name="rate_{{ r.pk }}" value="{{ r.rial_price_display }}"
+                     inputmode="numeric" class="fx-rial-input"
+                     style="width:9rem;font-variant-numeric:tabular-nums;" required
+                     aria-label="{{ r.code|upper }} price in Rial">
+            </div>
+          </td>
+          <td class="muted mono" style="font-size:.82rem;">
+            {% if r.rial_price and r.rial_price > 0 %}{{ r.updated_at|jalali:"Y.m.d H:i" }}{% else %}<span style="color:#b42318;">not set</span>{% endif %}
+          </td>
+          <td>
+            {% if not r.is_builtin and r.code != 'usd' and r.code != 'eur' %}
+            <button type="submit" form="fx-delete-{{ r.pk }}" class="btn btn-sm btn-ghost"
+                    title="Remove currency" style="color:#b42318;"
+                    onclick="return confirm('Remove {{ r.code|upper }} from the FX board?');">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="empty">No currencies yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if rates %}
+  <div style="display:flex;justify-content:flex-end;margin-top:.85rem;">
+    <button type="submit" class="btn btn-primary" title="Save every rate and restart the 24-hour timer">
+      <i class="fa-solid fa-rotate"></i> Update
+    </button>
+  </div>
+  {% endif %}
+</form>
+
+{% for r in rates %}
+  {% if not r.is_builtin and r.code != 'usd' and r.code != 'eur' %}
+  <form id="fx-delete-{{ r.pk }}" method="post" action="{% url 'cases:fx_rate_delete' r.pk %}" hidden>
+    {% csrf_token %}
+  </form>
+  {% endif %}
+{% endfor %}
+
+<script>
+(function () {
+  function digitsOnly(s) { return String(s || '').replace(/[^\d]/g, ''); }
+  function group(s) {
+    var d = digitsOnly(s);
+    if (!d) return '';
+    return d.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+  document.querySelectorAll('.fx-rial-input').forEach(function (inp) {
+    inp.addEventListener('input', function () {
+      var pos = inp.selectionStart;
+      var before = inp.value.length;
+      inp.value = group(inp.value);
+      var after = inp.value.length;
+      try { inp.setSelectionRange(Math.max(0, pos + (after - before)), Math.max(0, pos + (after - before))); } catch (_e) {}
+    });
+    inp.addEventListener('blur', function () { inp.value = group(inp.value); });
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load ft_extras %}
+{% block title %}EA item log · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Technical Assistant — item log{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Technical Assistant — item creation log</h1>
+    <div class="sub">Every database item created through the EA's "create this size" action —
+      read-only. EA may only ever add a Size to an attribute combination that already exists;
+      this is the record of exactly what it did, and who confirmed it.</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:1rem;">
+  <form method="get" class="btn-row" style="align-items:center;flex-wrap:wrap;gap:.5rem;">
+    <label for="ea-log-group" class="muted" style="font-size:.85rem;">Group</label>
+    <select id="ea-log-group" name="group" onchange="this.form.submit()">
+      <option value="">All groups</option>
+      {% for g in groups %}
+        <option value="{{ g }}" {% if g == group_filter %}selected{% endif %}>{{ g }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="table-wrap">
+  <table class="data">
+    <thead>
+      <tr>
+        <th>When</th><th>User</th><th>Group</th><th>Type</th>
+        <th>New size</th><th>Technical code</th><th>Item code</th><th>Case</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in entries %}
+        <tr>
+          <td class="muted">{{ e.created_at|jalali:"Y.m.d H:i" }}</td>
+          <td>{{ e.user.get_full_name|default:e.user_username|default:"—" }}</td>
+          <td><strong>{{ e.group }}</strong></td>
+          <td class="muted">{{ e.item_type|default:"—" }}</td>
+          <td>{{ e.new_value }}</td>
+          <td class="mono">{{ e.technical_code }}</td>
+          <td class="mono">{{ e.item_code }}</td>
+          <td>
+            {% if e.case_id %}<a href="/cases/{{ e.case_id }}/">#{{ e.case_id }}{% if e.row_client_no %} · row {{ e.row_client_no }}{% endif %}</a>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="empty">No items have been created via the Technical Assistant yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if entries.count >= 500 %}
+  <p class="muted" style="font-size:.82rem;margin-top:.6rem;">Showing the most recent 500 entries.</p>
+{% endif %}
+{% endblock %}

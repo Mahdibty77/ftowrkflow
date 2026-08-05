@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Request types · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Request types{% endblock %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-24">
+{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1><i class="fa-solid fa-clipboard-check"></i> Request types</h1>
+    <div class="sub">Open a type to assign it to people.</div>
+  </div>
+</div>
+
+<div class="grid grid-2 md-hub-cards" style="gap:1rem;max-width:960px;">
+  {% for t in request_types %}
+  <a href="{% url 'people:request_type_assign' t.pk %}" class="card md-hub-card ppl-req-type-card">
+    <div class="md-hub-card-top">
+      <span class="md-hub-ic" aria-hidden="true"><i class="fa-solid {{ t.icon }}"></i></span>
+      <h3>{{ t.title }}</h3>
+      {% if t.is_active %}<span class="pill pill-green">Active</span>
+      {% else %}<span class="pill pill-grey">Inactive</span>{% endif %}
+    </div>
+    <div class="muted md-hub-desc">{{ t.description }}</div>
+    <div class="ppl-req-card-foot">
+      <div class="md-hub-meta muted">
+        Assigned: <strong>{{ t.assigned_count }}</strong>
+      </div>
+      {% include "people/_request_type_route.html" %}
+    </div>
+  </a>
+  {% empty %}
+  <p class="muted">No request types yet.</p>
+  {% endfor %}
+</div>
+<style>
+  .ppl-req-type-card{
+    cursor:pointer;text-decoration:none;color:inherit;
+    transition:border-color .12s,box-shadow .12s;
+    display:flex;flex-direction:column;
+  }
+  .ppl-req-type-card:hover{
+    border-color:color-mix(in srgb,var(--accent) 40%,var(--line));
+    box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent);
+    text-decoration:none;color:inherit;
+  }
+</style>
+{% endblock %}

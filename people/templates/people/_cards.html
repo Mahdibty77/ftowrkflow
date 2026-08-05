@@ -1,0 +1,89 @@
+{% load people_tags %}{% comment %}
+Renders a spec-driven form as the stack of numbered cards the design shows.
+
+Walks `form.layout` (built by people.formbuild.add_card_fields), so the page
+shape comes from spec.py and this template never needs editing when a card
+gains a field. Row tables render from the card's `columns`, with one blank row
+always present so the table is usable without pressing Add first.
+
+Layout comes from the spec too: `col_class` is how many of the card's twelve
+columns a field takes, `newline` starts a fresh line so a group of related
+questions is never split across two, and `heading` prints a sub-heading above
+the field it is on. None of it is decided here — a template that made layout
+decisions would have to be edited every time a card changed, which is the whole
+thing this file exists to avoid.
+
+Expects: form, carrying .layout and .rows_initial
+
+Note on comments: no template in this module uses the hash form of a comment.
+Django's lexer has no DOTALL flag, so a hash comment that spans two lines is
+not recognised as a comment at all — it renders as visible text and swallows
+the rest of the page. Comment tags only, or nothing.
+{% endcomment %}
+{% for entry in form.layout %}
+  {% with card=entry.card %}
+  <section class="ppl-card{% if card.married_only %} ppl-married-only{% endif %}"
+           {% if card.married_only %}data-married-only hidden{% endif %}
+           {% if card.key == 'identity' %}data-identity-card{% endif %}>
+    <div class="ppl-card-head">
+      <span class="ppl-card-num">{{ card.index }}</span>
+      <h2 class="ppl-card-title">{{ card.title }}</h2>
+      {% if card.tag %}<span class="ppl-card-tag">{{ card.tag }}</span>{% endif %}
+    </div>
+    <div class="ppl-card-body">
+      {% if card.note %}<p class="ppl-card-note">{{ card.note }}</p>{% endif %}
+
+      {% if card.key == 'children' %}
+        <div class="field ppl-c4" style="margin-bottom:.75rem;">
+          <label for="id_children_count">تعداد فرزندان</label>
+          {{ form.children_count }}
+          {% if form.children_count.errors %}
+            <ul class="errorlist">{% for e in form.children_count.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+          {% endif %}
+        </div>
+      {% endif %}
+
+      {% if entry.columns %}
+        <div class="ppl-rows" data-rows="{{ card.key }}" style="--cols:{{ entry.columns|length }};">
+          <div class="ppl-row ppl-row-head">
+            {% for col in entry.columns %}<div>{{ col.label }}</div>{% endfor %}
+            <div></div>
+          </div>
+          <div data-rowbody>
+            {% for row in form.rows_initial|dictkey:card.key %}
+              {% include "people/_row.html" with card=card columns=entry.columns row=row %}
+            {% endfor %}
+            {% include "people/_row.html" with card=card columns=entry.columns row=None %}
+          </div>
+        </div>
+        <button type="button" class="ppl-add" data-add-row="{{ card.key }}">
+          <i class="fa-solid fa-plus"></i> {{ card.add_label }}
+        </button>
+
+      {% else %}
+        {% if card.fields_title %}<div class="ppl-group-title">{{ card.fields_title }}</div>{% endif %}
+        <div class="ppl-grid">
+          {% for item in entry.items %}
+            {% with field=form|formfield:item.name %}
+            {% if field %}
+              {% if item.heading %}<div class="ppl-group-title ppl-wide">{{ item.heading }}</div>{% endif %}
+              {% if item.newline and not item.heading %}<div class="ppl-linebreak" aria-hidden="true"></div>{% endif %}
+              <div class="field{% if field.errors %} is-error{% endif %}{% if item.wide %} ppl-wide{% elif item.col_class %} {{ item.col_class }}{% endif %}{% if item.name == 'p_military' %} ppl-military-field{% endif %}">
+                <label for="{{ field.id_for_label }}">
+                  {{ field.label }}{% if field.field.required %}<span class="ppl-req">*</span>{% endif %}
+                </label>
+                {{ field }}
+                {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+                {% if field.errors %}
+                  <ul class="errorlist">{% for e in field.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                {% endif %}
+              </div>
+            {% endif %}
+            {% endwith %}
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </section>
+  {% endwith %}
+{% endfor %}

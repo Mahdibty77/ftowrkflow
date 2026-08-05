@@ -1,0 +1,3954 @@
+{
+ "valve": {
+  "Solid Wedge": {
+   "material": {
+    "ASTM B564 Gr.N04400": {
+     "trim": [
+      "API Trim 11",
+      "API Trim 9"
+     ]
+    },
+    "ASTM A351 Gr.CN7M": {
+     "trim": [
+      "API Trim 13"
+     ]
+    }
+   },
+   "trim": {
+    "API Trim 13": {
+     "material": [
+      "ASTM A351 Gr.CN7M"
+     ]
+    },
+    "API Trim 16": {
+     "material": [
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A395 Gr.60-40-18"
+     ]
+    }
+   }
+  },
+  "Flexible Wedge": {
+   "material": {
+    "ASTM B564 Gr.N04400": {
+     "trim": [
+      "API Trim 11",
+      "API Trim 9"
+     ]
+    },
+    "ASTM A351 Gr.CN7M": {
+     "trim": [
+      "API Trim 13"
+     ]
+    }
+   },
+   "trim": {
+    "API Trim 13": {
+     "material": [
+      "ASTM A351 Gr.CN7M"
+     ]
+    },
+    "API Trim 16": {
+     "material": [
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A395 Gr.60-40-18"
+     ]
+    }
+   }
+  },
+  "Split Wedge": {
+   "material": {
+    "ASTM B564 Gr.N04400": {
+     "trim": [
+      "API Trim 11",
+      "API Trim 9"
+     ]
+    },
+    "ASTM A351 Gr.CN7M": {
+     "trim": [
+      "API Trim 13"
+     ]
+    }
+   },
+   "trim": {
+    "API Trim 13": {
+     "material": [
+      "ASTM A351 Gr.CN7M"
+     ]
+    },
+    "API Trim 16": {
+     "material": [
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A395 Gr.60-40-18"
+     ]
+    }
+   }
+  },
+  "Slab / Through-Conduit": {
+   "stem": {
+    "Rising Stem - OS&Y": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 600",
+      "Class 900"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover",
+      "Welded Bonnet"
+     ],
+     "yoke": [
+      "Bolted-on Yoke",
+      "Integral Yoke"
+     ],
+     "seat_type": [
+      "Integral Seat",
+      "Renewable - Seal-Welded ring",
+      "Renewable - Threaded"
+     ],
+     "trim": [
+      "API Trim 1",
+      "API Trim 10",
+      "API Trim 11",
+      "API Trim 12",
+      "API Trim 13",
+      "API Trim 14",
+      "API Trim 16",
+      "API Trim 17",
+      "API Trim 2",
+      "API Trim 4",
+      "API Trim 5",
+      "API Trim 8",
+      "API Trim 9"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Handwheel",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 600",
+      "API 6D",
+      "ASME B16.34",
+      "EN 1984"
+     ]
+    }
+   }
+  },
+  "Corrosion-Resistant Gate": {
+   "material": {
+    "ASTM A351 Gr.CN7M": {
+     "trim": [
+      "API Trim 13"
+     ]
+    }
+   },
+   "stem": {
+    "Rising Stem - OS&Y": {
+     "material": [
+      "ASTM A182 Gr.F316",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A351 Gr.CN7M",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A",
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 300",
+      "Class 600"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover",
+      "Welded Bonnet"
+     ],
+     "yoke": [
+      "Bolted-on Yoke",
+      "Integral Yoke"
+     ],
+     "seat_type": [
+      "Integral Seat",
+      "Renewable - Seal-Welded ring",
+      "Renewable - Threaded"
+     ],
+     "trim": [
+      "API Trim 1",
+      "API Trim 10",
+      "API Trim 11",
+      "API Trim 12",
+      "API Trim 13",
+      "API Trim 14",
+      "API Trim 16",
+      "API Trim 17",
+      "API Trim 2",
+      "API Trim 4",
+      "API Trim 5",
+      "API Trim 8",
+      "API Trim 9"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Handwheel",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 603",
+      "ASME B16.34",
+      "EN 1984"
+     ]
+    }
+   },
+   "trim": {
+    "API Trim 13": {
+     "material": [
+      "ASTM A351 Gr.CN7M"
+     ]
+    },
+    "API Trim 16": {
+     "material": [
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ]
+    }
+   }
+  },
+  "Knife Gate": {
+   "stem": {
+    "Sliding Stem": {
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Gr.B",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A395 Gr.60-40-18",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A"
+     ],
+     "rating": [
+      "Class 125",
+      "Class 150",
+      "Class 300"
+     ],
+     "end": [
+      "Flanged Flat Face (FF)",
+      "Flanged Raised Face (RF)",
+      "Lug",
+      "Wafer"
+     ],
+     "seat_type": [
+      "Soft / Resilient Insert"
+     ],
+     "trim": [
+      "API Trim 10",
+      "API Trim 12",
+      "Metal Seat",
+      "Resilient Liner - NBR"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Handwheel",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "ASME B16.34",
+      "BS 1873/1868/5163",
+      "EN 1171",
+      "EN 1984"
+     ]
+    }
+   },
+   "seat_type": {
+    "Soft / Resilient Insert": {
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Gr.B",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A395 Gr.60-40-18",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A"
+     ],
+     "rating": [
+      "Class 125",
+      "Class 150",
+      "Class 300"
+     ],
+     "end": [
+      "Flanged Flat Face (FF)",
+      "Flanged Raised Face (RF)",
+      "Lug",
+      "Wafer"
+     ],
+     "stem": [
+      "Sliding Stem"
+     ],
+     "trim": [
+      "API Trim 10",
+      "API Trim 12",
+      "Metal Seat",
+      "Resilient Liner - NBR"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Handwheel",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "ASME B16.34",
+      "BS 1873/1868/5163",
+      "EN 1171",
+      "EN 1984"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A395 Gr.60-40-18"
+     ]
+    }
+   }
+  },
+  "T-pattern": {
+   "material": {
+    "ASTM B62 Gr.C83600": {
+     "rating": [
+      "Class 200"
+     ],
+     "standard": [
+      "MSS SP-80"
+     ]
+    },
+    "ASTM B564 Gr.N04400": {
+     "trim": [
+      "API Trim 11",
+      "API Trim 9"
+     ]
+    },
+    "ASTM A351 Gr.CN7M": {
+     "trim": [
+      "API Trim 13"
+     ]
+    }
+   },
+   "trim": {
+    "API Trim 13": {
+     "material": [
+      "ASTM A351 Gr.CN7M"
+     ]
+    },
+    "API Trim 16": {
+     "material": [
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ]
+    },
+    "API Trim 2": {
+     "material": [
+      "ASTM B62 Gr.C83600"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A395 Gr.60-40-18",
+      "ASTM B62 Gr.C83600"
+     ]
+    }
+   }
+  },
+  "Y-pattern / Angle": {
+   "material": {
+    "ASTM B62 Gr.C83600": {
+     "rating": [
+      "Class 200"
+     ],
+     "standard": [
+      "MSS SP-80"
+     ]
+    },
+    "ASTM B564 Gr.N04400": {
+     "trim": [
+      "API Trim 11",
+      "API Trim 9"
+     ]
+    },
+    "ASTM A351 Gr.CN7M": {
+     "trim": [
+      "API Trim 13"
+     ]
+    }
+   },
+   "trim": {
+    "API Trim 13": {
+     "material": [
+      "ASTM A351 Gr.CN7M"
+     ]
+    },
+    "API Trim 16": {
+     "material": [
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ]
+    },
+    "API Trim 2": {
+     "material": [
+      "ASTM B62 Gr.C83600"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A395 Gr.60-40-18",
+      "ASTM B62 Gr.C83600"
+     ]
+    }
+   }
+  },
+  "Compact Forged Globe": {
+   "stem": {
+    "Rising Stem - OS&Y": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A350 Gr.LF2"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 1500",
+      "Class 300",
+      "Class 600",
+      "Class 800"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)",
+      "Socket-Weld (SW)",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover",
+      "Union / Screwed Bonnet",
+      "Welded Bonnet"
+     ],
+     "yoke": [
+      "Integral Yoke",
+      "Yokeless"
+     ],
+     "seat_type": [
+      "Integral Seat",
+      "Renewable - Seal-Welded ring",
+      "Renewable - Threaded"
+     ],
+     "trim": [
+      "API Trim 1",
+      "API Trim 10",
+      "API Trim 11",
+      "API Trim 12",
+      "API Trim 13",
+      "API Trim 14",
+      "API Trim 16",
+      "API Trim 17",
+      "API Trim 2",
+      "API Trim 4",
+      "API Trim 5",
+      "API Trim 8",
+      "API Trim 9"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Handwheel",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 602",
+      "ASME B16.34",
+      "EN 13709"
+     ]
+    }
+   }
+  },
+  "Floating Ball": {
+   "bonnet": {
+    "One-Piece / Top-Entry": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A",
+      "ASTM B564 Gr.N04400",
+      "ASTM B62 Gr.C83600"
+     ],
+     "construction": [
+      "1-Piece Body",
+      "2-Piece Body",
+      "3-Piece Body",
+      "Side-Entry"
+     ],
+     "bore": [
+      "Full Bore",
+      "Reduced Bore"
+     ],
+     "rating": [
+      "1000 WOG",
+      "2000 WOG",
+      "3000 WOG",
+      "6000 WOG",
+      "Class 150",
+      "Class 150 × Class 300",
+      "Class 150 × Class 600",
+      "Class 150 × Class 900",
+      "Class 300",
+      "Class 300 × Class 150",
+      "Class 300 × Class 600",
+      "Class 300 × Class 900",
+      "Class 600",
+      "Class 600 × Class 150",
+      "Class 600 × Class 300",
+      "Class 600 × Class 900",
+      "Class 900",
+      "Class 900 × Class 150",
+      "Class 900 × Class 300",
+      "Class 900 × Class 600"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "FF × RF",
+      "FF × RTJ",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)",
+      "RF × FF",
+      "RF × RF",
+      "RF × RTJ",
+      "RTJ × FF",
+      "RTJ × RF",
+      "RTJ × RTJ",
+      "Socket-Weld (SW)",
+      "Threaded (NPT)"
+     ],
+     "stem": [
+      "Quarter-Turn"
+     ],
+     "seat_type": [
+      "Soft / Resilient Insert"
+     ],
+     "trim": [
+      "Metal Seat",
+      "Soft Seat - PEEK",
+      "Soft Seat - PTFE",
+      "Soft Seat - RPTFE"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 608",
+      "API 6D",
+      "ASME B16.34",
+      "EN 1983",
+      "ISO 17292"
+     ]
+    }
+   },
+   "stem": {
+    "Quarter-Turn": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A",
+      "ASTM B564 Gr.N04400",
+      "ASTM B62 Gr.C83600"
+     ],
+     "construction": [
+      "1-Piece Body",
+      "2-Piece Body",
+      "3-Piece Body",
+      "Side-Entry"
+     ],
+     "bore": [
+      "Full Bore",
+      "Reduced Bore"
+     ],
+     "rating": [
+      "1000 WOG",
+      "2000 WOG",
+      "3000 WOG",
+      "6000 WOG",
+      "Class 150",
+      "Class 150 × Class 300",
+      "Class 150 × Class 600",
+      "Class 150 × Class 900",
+      "Class 300",
+      "Class 300 × Class 150",
+      "Class 300 × Class 600",
+      "Class 300 × Class 900",
+      "Class 600",
+      "Class 600 × Class 150",
+      "Class 600 × Class 300",
+      "Class 600 × Class 900",
+      "Class 900",
+      "Class 900 × Class 150",
+      "Class 900 × Class 300",
+      "Class 900 × Class 600"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "FF × RF",
+      "FF × RTJ",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)",
+      "RF × FF",
+      "RF × RF",
+      "RF × RTJ",
+      "RTJ × FF",
+      "RTJ × RF",
+      "RTJ × RTJ",
+      "Socket-Weld (SW)",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "One-Piece / Top-Entry"
+     ],
+     "seat_type": [
+      "Soft / Resilient Insert"
+     ],
+     "trim": [
+      "Metal Seat",
+      "Soft Seat - PEEK",
+      "Soft Seat - PTFE",
+      "Soft Seat - RPTFE"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 608",
+      "API 6D",
+      "ASME B16.34",
+      "EN 1983",
+      "ISO 17292"
+     ]
+    }
+   },
+   "seat_type": {
+    "Soft / Resilient Insert": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A",
+      "ASTM B564 Gr.N04400",
+      "ASTM B62 Gr.C83600"
+     ],
+     "construction": [
+      "1-Piece Body",
+      "2-Piece Body",
+      "3-Piece Body",
+      "Side-Entry"
+     ],
+     "bore": [
+      "Full Bore",
+      "Reduced Bore"
+     ],
+     "rating": [
+      "1000 WOG",
+      "2000 WOG",
+      "3000 WOG",
+      "6000 WOG",
+      "Class 150",
+      "Class 150 × Class 300",
+      "Class 150 × Class 600",
+      "Class 150 × Class 900",
+      "Class 300",
+      "Class 300 × Class 150",
+      "Class 300 × Class 600",
+      "Class 300 × Class 900",
+      "Class 600",
+      "Class 600 × Class 150",
+      "Class 600 × Class 300",
+      "Class 600 × Class 900",
+      "Class 900",
+      "Class 900 × Class 150",
+      "Class 900 × Class 300",
+      "Class 900 × Class 600"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "FF × RF",
+      "FF × RTJ",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)",
+      "RF × FF",
+      "RF × RF",
+      "RF × RTJ",
+      "RTJ × FF",
+      "RTJ × RF",
+      "RTJ × RTJ",
+      "Socket-Weld (SW)",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "One-Piece / Top-Entry"
+     ],
+     "stem": [
+      "Quarter-Turn"
+     ],
+     "trim": [
+      "Metal Seat",
+      "Soft Seat - PEEK",
+      "Soft Seat - PTFE",
+      "Soft Seat - RPTFE"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 608",
+      "API 6D",
+      "ASME B16.34",
+      "EN 1983",
+      "ISO 17292"
+     ]
+    }
+   },
+   "standard": {
+    "ASME B16.34": {
+     "material": [
+      "ASTM B62 Gr.C83600"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material": [
+      "ASTM B62 Gr.C83600"
+     ]
+    }
+   }
+  },
+  "Trunnion-Mounted Ball": {
+   "bonnet": {
+    "One-Piece / Top-Entry": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A"
+     ],
+     "construction": [
+      "2-Piece Body",
+      "Side-Entry",
+      "Top-Entry"
+     ],
+     "bore": [
+      "Full Bore",
+      "Reduced Bore"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 150 × Class 300",
+      "Class 150 × Class 600",
+      "Class 150 × Class 900",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 300 × Class 150",
+      "Class 300 × Class 600",
+      "Class 300 × Class 900",
+      "Class 600",
+      "Class 600 × Class 150",
+      "Class 600 × Class 300",
+      "Class 600 × Class 900",
+      "Class 900",
+      "Class 900 × Class 150",
+      "Class 900 × Class 300",
+      "Class 900 × Class 600"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "FF × RF",
+      "FF × RTJ",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)",
+      "Hub / Clamp",
+      "RF × FF",
+      "RF × RF",
+      "RF × RTJ",
+      "RTJ × FF",
+      "RTJ × RF",
+      "RTJ × RTJ"
+     ],
+     "stem": [
+      "Quarter-Turn"
+     ],
+     "seat_type": [
+      "Soft / Resilient Insert"
+     ],
+     "trim": [
+      "Metal Seat",
+      "Soft Seat - PEEK",
+      "Soft Seat - PTFE",
+      "Soft Seat - RPTFE"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 608",
+      "API 6D",
+      "ASME B16.34",
+      "EN 1983",
+      "ISO 17292"
+     ]
+    }
+   },
+   "stem": {
+    "Quarter-Turn": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A"
+     ],
+     "construction": [
+      "2-Piece Body",
+      "Side-Entry",
+      "Top-Entry"
+     ],
+     "bore": [
+      "Full Bore",
+      "Reduced Bore"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 150 × Class 300",
+      "Class 150 × Class 600",
+      "Class 150 × Class 900",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 300 × Class 150",
+      "Class 300 × Class 600",
+      "Class 300 × Class 900",
+      "Class 600",
+      "Class 600 × Class 150",
+      "Class 600 × Class 300",
+      "Class 600 × Class 900",
+      "Class 900",
+      "Class 900 × Class 150",
+      "Class 900 × Class 300",
+      "Class 900 × Class 600"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "FF × RF",
+      "FF × RTJ",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)",
+      "Hub / Clamp",
+      "RF × FF",
+      "RF × RF",
+      "RF × RTJ",
+      "RTJ × FF",
+      "RTJ × RF",
+      "RTJ × RTJ"
+     ],
+     "bonnet": [
+      "One-Piece / Top-Entry"
+     ],
+     "seat_type": [
+      "Soft / Resilient Insert"
+     ],
+     "trim": [
+      "Metal Seat",
+      "Soft Seat - PEEK",
+      "Soft Seat - PTFE",
+      "Soft Seat - RPTFE"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 608",
+      "API 6D",
+      "ASME B16.34",
+      "EN 1983",
+      "ISO 17292"
+     ]
+    }
+   },
+   "seat_type": {
+    "Soft / Resilient Insert": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A"
+     ],
+     "construction": [
+      "2-Piece Body",
+      "Side-Entry",
+      "Top-Entry"
+     ],
+     "bore": [
+      "Full Bore",
+      "Reduced Bore"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 150 × Class 300",
+      "Class 150 × Class 600",
+      "Class 150 × Class 900",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 300 × Class 150",
+      "Class 300 × Class 600",
+      "Class 300 × Class 900",
+      "Class 600",
+      "Class 600 × Class 150",
+      "Class 600 × Class 300",
+      "Class 600 × Class 900",
+      "Class 900",
+      "Class 900 × Class 150",
+      "Class 900 × Class 300",
+      "Class 900 × Class 600"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "FF × RF",
+      "FF × RTJ",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)",
+      "Hub / Clamp",
+      "RF × FF",
+      "RF × RF",
+      "RF × RTJ",
+      "RTJ × FF",
+      "RTJ × RF",
+      "RTJ × RTJ"
+     ],
+     "bonnet": [
+      "One-Piece / Top-Entry"
+     ],
+     "stem": [
+      "Quarter-Turn"
+     ],
+     "trim": [
+      "Metal Seat",
+      "Soft Seat - PEEK",
+      "Soft Seat - PTFE",
+      "Soft Seat - RPTFE"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 608",
+      "API 6D",
+      "ASME B16.34",
+      "EN 1983",
+      "ISO 17292"
+     ]
+    }
+   }
+  },
+  "Swing": {
+   "material": {
+    "ASTM B564 Gr.N04400": {
+     "trim": [
+      "API Trim 11",
+      "API Trim 9"
+     ]
+    },
+    "ASTM A351 Gr.CN7M": {
+     "trim": [
+      "API Trim 13"
+     ]
+    }
+   },
+   "bonnet": {
+    "Bolted Bonnet / Cover": {
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Gr.B",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A351 Gr.CN7M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A395 Gr.60-40-18",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A",
+      "ASTM B564 Gr.N04400",
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ],
+     "rating": [
+      "Class 125",
+      "Class 150",
+      "Class 1500",
+      "Class 250",
+      "Class 2500",
+      "Class 300",
+      "Class 600",
+      "Class 900"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)"
+     ],
+     "seat_type": [
+      "Integral Seat",
+      "Renewable - Seal-Welded ring",
+      "Renewable - Threaded"
+     ],
+     "trim": [
+      "API Trim 1",
+      "API Trim 10",
+      "API Trim 11",
+      "API Trim 12",
+      "API Trim 13",
+      "API Trim 14",
+      "API Trim 16",
+      "API Trim 17",
+      "API Trim 2",
+      "API Trim 4",
+      "API Trim 5",
+      "API Trim 8",
+      "API Trim 9"
+     ],
+     "standard": [
+      "API 594",
+      "ASME B16.34",
+      "BS 1873/1868/5163",
+      "EN 12334",
+      "EN 13709",
+      "EN 16767",
+      "MSS SP-70/71/85"
+     ]
+    }
+   },
+   "trim": {
+    "API Trim 13": {
+     "material": [
+      "ASTM A351 Gr.CN7M"
+     ]
+    },
+    "API Trim 16": {
+     "material": [
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A395 Gr.60-40-18"
+     ]
+    }
+   }
+  },
+  "Lift / Piston": {
+   "bonnet": {
+    "Bolted Bonnet / Cover": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 600",
+      "Class 900"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)",
+      "Socket-Weld (SW)",
+      "Threaded (NPT)"
+     ],
+     "seat_type": [
+      "Integral Seat",
+      "Renewable - Seal-Welded ring",
+      "Renewable - Threaded"
+     ],
+     "trim": [
+      "API Trim 1",
+      "API Trim 10",
+      "API Trim 11",
+      "API Trim 12",
+      "API Trim 13",
+      "API Trim 14",
+      "API Trim 16",
+      "API Trim 17",
+      "API Trim 2",
+      "API Trim 4",
+      "API Trim 5",
+      "API Trim 8",
+      "API Trim 9"
+     ],
+     "standard": [
+      "API 594",
+      "ASME B16.34",
+      "BS 1873/1868/5163",
+      "EN 13709",
+      "EN 16767"
+     ]
+    }
+   }
+  },
+  "Tilting-Disc": {
+   "bonnet": {
+    "Bolted Bonnet / Cover": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 300",
+      "Class 600",
+      "Class 900"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)"
+     ],
+     "seat_type": [
+      "Integral Seat",
+      "Renewable - Seal-Welded ring",
+      "Renewable - Threaded"
+     ],
+     "trim": [
+      "API Trim 1",
+      "API Trim 10",
+      "API Trim 11",
+      "API Trim 12",
+      "API Trim 13",
+      "API Trim 14",
+      "API Trim 16",
+      "API Trim 17",
+      "API Trim 2",
+      "API Trim 4",
+      "API Trim 5",
+      "API Trim 8",
+      "API Trim 9"
+     ],
+     "standard": [
+      "API 594",
+      "API 6D",
+      "ASME B16.34",
+      "EN 16767"
+     ]
+    }
+   }
+  },
+  "Ball Check": {
+   "bonnet": {
+    "Bolted Bonnet / Cover": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM B62 Gr.C83600"
+     ],
+     "rating": [
+      "1000 WOG",
+      "2000 WOG",
+      "3000 WOG",
+      "Class 150",
+      "Class 300",
+      "Class 600"
+     ],
+     "end": [
+      "Flanged Raised Face (RF)",
+      "Socket-Weld (SW)",
+      "Threaded (NPT)"
+     ],
+     "seat_type": [
+      "Soft / Resilient Insert"
+     ],
+     "trim": [
+      "Metal Seat",
+      "Soft Seat - PTFE"
+     ],
+     "standard": [
+      "API 594",
+      "ASME B16.34",
+      "EN 13709"
+     ]
+    }
+   },
+   "seat_type": {
+    "Soft / Resilient Insert": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM B62 Gr.C83600"
+     ],
+     "rating": [
+      "1000 WOG",
+      "2000 WOG",
+      "3000 WOG",
+      "Class 150",
+      "Class 300",
+      "Class 600"
+     ],
+     "end": [
+      "Flanged Raised Face (RF)",
+      "Socket-Weld (SW)",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover"
+     ],
+     "trim": [
+      "Metal Seat",
+      "Soft Seat - PTFE"
+     ],
+     "standard": [
+      "API 594",
+      "ASME B16.34",
+      "EN 13709"
+     ]
+    }
+   },
+   "standard": {
+    "ASME B16.34": {
+     "material": [
+      "ASTM B62 Gr.C83600"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material": [
+      "ASTM B62 Gr.C83600"
+     ]
+    }
+   }
+  },
+  "Compact Forged Check": {
+   "bonnet": {
+    "Bolted Bonnet / Cover": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A350 Gr.LF2"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 1500",
+      "Class 300",
+      "Class 600",
+      "Class 800"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)",
+      "Socket-Weld (SW)",
+      "Threaded (NPT)"
+     ],
+     "seat_type": [
+      "Integral Seat",
+      "Renewable - Seal-Welded ring",
+      "Renewable - Threaded"
+     ],
+     "trim": [
+      "API Trim 1",
+      "API Trim 10",
+      "API Trim 11",
+      "API Trim 12",
+      "API Trim 13",
+      "API Trim 14",
+      "API Trim 16",
+      "API Trim 17",
+      "API Trim 2",
+      "API Trim 4",
+      "API Trim 5",
+      "API Trim 8",
+      "API Trim 9"
+     ],
+     "standard": [
+      "API 602",
+      "ASME B16.34",
+      "EN 13709"
+     ]
+    }
+   }
+  },
+  "Concentric Resilient": {
+   "stem": {
+    "Quarter-Turn": {
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Gr.B",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A395 Gr.60-40-18",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A",
+      "ASTM B62 Gr.C83600"
+     ],
+     "rating": [
+      "Class 125",
+      "Class 150",
+      "Class 250",
+      "Class 300",
+      "PN10",
+      "PN16",
+      "PN6"
+     ],
+     "end": [
+      "Flanged Flat Face (FF)",
+      "Lug",
+      "Wafer"
+     ],
+     "seat_type": [
+      "Soft / Resilient Insert"
+     ],
+     "trim": [
+      "Resilient Liner - EPDM",
+      "Resilient Liner - NBR"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 609",
+      "ASME B16.34",
+      "EN 593"
+     ]
+    }
+   },
+   "seat_type": {
+    "Soft / Resilient Insert": {
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Gr.B",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A395 Gr.60-40-18",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A",
+      "ASTM B62 Gr.C83600"
+     ],
+     "rating": [
+      "Class 125",
+      "Class 150",
+      "Class 250",
+      "Class 300",
+      "PN10",
+      "PN16",
+      "PN6"
+     ],
+     "end": [
+      "Flanged Flat Face (FF)",
+      "Lug",
+      "Wafer"
+     ],
+     "stem": [
+      "Quarter-Turn"
+     ],
+     "trim": [
+      "Resilient Liner - EPDM",
+      "Resilient Liner - NBR"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 609",
+      "ASME B16.34",
+      "EN 593"
+     ]
+    }
+   },
+   "standard": {
+    "ASME B16.34": {
+     "material": [
+      "ASTM B62 Gr.C83600"
+     ]
+    },
+    "EN 593": {
+     "rating": [
+      "PN10",
+      "PN16",
+      "PN6"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A395 Gr.60-40-18",
+      "ASTM B62 Gr.C83600"
+     ]
+    }
+   }
+  },
+  "Double-Offset High-Performance": {
+   "stem": {
+    "Quarter-Turn": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A351 Gr.CN7M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A",
+      "ASTM B564 Gr.N04400",
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 300",
+      "Class 600",
+      "Class 900",
+      "PN10",
+      "PN16",
+      "PN25"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)",
+      "Lug",
+      "Wafer"
+     ],
+     "seat_type": [
+      "Soft / Resilient Insert"
+     ],
+     "trim": [
+      "Metal Seat",
+      "Soft Seat - PTFE",
+      "Soft Seat - RPTFE"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 609",
+      "ASME B16.34",
+      "EN 593"
+     ]
+    }
+   },
+   "seat_type": {
+    "Soft / Resilient Insert": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A351 Gr.CN7M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A",
+      "ASTM B564 Gr.N04400",
+      "ASTM B564 Gr.N06625",
+      "ASTM B564 Gr.N08825",
+      "ASTM B564 Gr.N10276"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 300",
+      "Class 600",
+      "Class 900",
+      "PN10",
+      "PN16",
+      "PN25"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)",
+      "Lug",
+      "Wafer"
+     ],
+     "stem": [
+      "Quarter-Turn"
+     ],
+     "trim": [
+      "Metal Seat",
+      "Soft Seat - PTFE",
+      "Soft Seat - RPTFE"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 609",
+      "ASME B16.34",
+      "EN 593"
+     ]
+    }
+   },
+   "standard": {
+    "EN 593": {
+     "rating": [
+      "PN10",
+      "PN16",
+      "PN25"
+     ]
+    }
+   }
+  },
+  "Triple-Offset Metal-Seat": {
+   "stem": {
+    "Quarter-Turn": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 1500",
+      "Class 300",
+      "Class 600",
+      "Class 900",
+      "PN16",
+      "PN25",
+      "PN40"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)",
+      "Lug",
+      "Wafer"
+     ],
+     "seat_type": [
+      "Integral Seat",
+      "Renewable - Seal-Welded ring"
+     ],
+     "trim": [
+      "Metal Seat"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 609",
+      "ASME B16.34",
+      "EN 593"
+     ]
+    }
+   },
+   "trim": {
+    "Metal Seat": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 1500",
+      "Class 300",
+      "Class 600",
+      "Class 900",
+      "PN16",
+      "PN25",
+      "PN40"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)",
+      "Lug",
+      "Wafer"
+     ],
+     "stem": [
+      "Quarter-Turn"
+     ],
+     "seat_type": [
+      "Integral Seat",
+      "Renewable - Seal-Welded ring"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 609",
+      "ASME B16.34",
+      "EN 593"
+     ]
+    }
+   },
+   "standard": {
+    "EN 593": {
+     "rating": [
+      "PN16",
+      "PN25",
+      "PN40"
+     ]
+    }
+   }
+  },
+  "Lubricated Plug": {
+   "bonnet": {
+    "One-Piece / Top-Entry": {
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Gr.B",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A395 Gr.60-40-18"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 600",
+      "Class 900"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)"
+     ],
+     "stem": [
+      "Quarter-Turn"
+     ],
+     "seat_type": [
+      "Integral Seat"
+     ],
+     "trim": [
+      "API Trim 1",
+      "API Trim 5",
+      "Metal Seat"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 599",
+      "API 6D",
+      "ASME B16.34"
+     ]
+    }
+   },
+   "stem": {
+    "Quarter-Turn": {
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Gr.B",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A395 Gr.60-40-18"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 600",
+      "Class 900"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)"
+     ],
+     "bonnet": [
+      "One-Piece / Top-Entry"
+     ],
+     "seat_type": [
+      "Integral Seat"
+     ],
+     "trim": [
+      "API Trim 1",
+      "API Trim 5",
+      "Metal Seat"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 599",
+      "API 6D",
+      "ASME B16.34"
+     ]
+    }
+   },
+   "seat_type": {
+    "Integral Seat": {
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Gr.B",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A395 Gr.60-40-18"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 600",
+      "Class 900"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)"
+     ],
+     "bonnet": [
+      "One-Piece / Top-Entry"
+     ],
+     "stem": [
+      "Quarter-Turn"
+     ],
+     "trim": [
+      "API Trim 1",
+      "API Trim 5",
+      "Metal Seat"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 599",
+      "API 6D",
+      "ASME B16.34"
+     ]
+    }
+   },
+   "trim": {
+    "Metal Seat": {
+     "material": [
+      "ASTM A182 Gr.F316",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M"
+     ]
+    }
+   },
+   "standard": {
+    "ASME B16.34": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A395 Gr.60-40-18"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A395 Gr.60-40-18"
+     ]
+    }
+   }
+  },
+  "Sleeved / Non-Lubricated Plug": {
+   "rating": {
+    "Class 600": {
+     "end": [
+      "Flanged Ring-Joint (RTJ)"
+     ]
+    }
+   },
+   "bonnet": {
+    "One-Piece / Top-Entry": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A"
+     ],
+     "rating": [
+      "1000 WOG",
+      "2000 WOG",
+      "3000 WOG",
+      "Class 150",
+      "Class 300",
+      "Class 600"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)"
+     ],
+     "stem": [
+      "Quarter-Turn"
+     ],
+     "seat_type": [
+      "Soft / Resilient Insert"
+     ],
+     "trim": [
+      "PTFE-Lined"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 599",
+      "API 6D",
+      "ASME B16.34"
+     ]
+    }
+   },
+   "stem": {
+    "Quarter-Turn": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A"
+     ],
+     "rating": [
+      "1000 WOG",
+      "2000 WOG",
+      "3000 WOG",
+      "Class 150",
+      "Class 300",
+      "Class 600"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)"
+     ],
+     "bonnet": [
+      "One-Piece / Top-Entry"
+     ],
+     "seat_type": [
+      "Soft / Resilient Insert"
+     ],
+     "trim": [
+      "PTFE-Lined"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 599",
+      "API 6D",
+      "ASME B16.34"
+     ]
+    }
+   },
+   "seat_type": {
+    "Soft / Resilient Insert": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A"
+     ],
+     "rating": [
+      "1000 WOG",
+      "2000 WOG",
+      "3000 WOG",
+      "Class 150",
+      "Class 300",
+      "Class 600"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)"
+     ],
+     "bonnet": [
+      "One-Piece / Top-Entry"
+     ],
+     "stem": [
+      "Quarter-Turn"
+     ],
+     "trim": [
+      "PTFE-Lined"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 599",
+      "API 6D",
+      "ASME B16.34"
+     ]
+    }
+   },
+   "trim": {
+    "PTFE-Lined": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A"
+     ],
+     "rating": [
+      "1000 WOG",
+      "2000 WOG",
+      "3000 WOG",
+      "Class 150",
+      "Class 300",
+      "Class 600"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)"
+     ],
+     "bonnet": [
+      "One-Piece / Top-Entry"
+     ],
+     "stem": [
+      "Quarter-Turn"
+     ],
+     "seat_type": [
+      "Soft / Resilient Insert"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 599",
+      "API 6D",
+      "ASME B16.34"
+     ]
+    }
+   }
+  },
+  "Eccentric Plug": {
+   "bonnet": {
+    "One-Piece / Top-Entry": {
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Gr.B",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A395 Gr.60-40-18"
+     ],
+     "rating": [
+      "Class 125",
+      "Class 150",
+      "Class 300"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)",
+      "Lug",
+      "Wafer"
+     ],
+     "stem": [
+      "Quarter-Turn"
+     ],
+     "seat_type": [
+      "Soft / Resilient Insert"
+     ],
+     "trim": [
+      "Metal Seat",
+      "Soft Seat - PTFE"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 599",
+      "API 6D",
+      "ASME B16.34"
+     ]
+    }
+   },
+   "stem": {
+    "Quarter-Turn": {
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Gr.B",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A395 Gr.60-40-18"
+     ],
+     "rating": [
+      "Class 125",
+      "Class 150",
+      "Class 300"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)",
+      "Lug",
+      "Wafer"
+     ],
+     "bonnet": [
+      "One-Piece / Top-Entry"
+     ],
+     "seat_type": [
+      "Soft / Resilient Insert"
+     ],
+     "trim": [
+      "Metal Seat",
+      "Soft Seat - PTFE"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 599",
+      "API 6D",
+      "ASME B16.34"
+     ]
+    }
+   },
+   "seat_type": {
+    "Soft / Resilient Insert": {
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Gr.B",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A395 Gr.60-40-18"
+     ],
+     "rating": [
+      "Class 125",
+      "Class 150",
+      "Class 300"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)",
+      "Lug",
+      "Wafer"
+     ],
+     "bonnet": [
+      "One-Piece / Top-Entry"
+     ],
+     "stem": [
+      "Quarter-Turn"
+     ],
+     "trim": [
+      "Metal Seat",
+      "Soft Seat - PTFE"
+     ],
+     "operation": [
+      "Electric Actuator",
+      "Gear Operator",
+      "Lever",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "API 599",
+      "API 6D",
+      "ASME B16.34"
+     ]
+    }
+   },
+   "standard": {
+    "ASME B16.34": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A395 Gr.60-40-18"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A395 Gr.60-40-18"
+     ]
+    }
+   }
+  },
+  "Weir": {
+   "rating": {
+    "Class 150": {
+     "material": [
+      "ASTM A216 Gr.WCB",
+      "ASTM A351 Gr.CF8M"
+     ]
+    }
+   },
+   "bonnet": {
+    "Bolted Bonnet / Cover": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A216 Gr.WCB",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A395 Gr.60-40-18"
+     ],
+     "rating": [
+      "Class 125",
+      "Class 150"
+     ],
+     "end": [
+      "Flanged Flat Face (FF)",
+      "Flanged Raised Face (RF)",
+      "Threaded (NPT)"
+     ],
+     "stem": [
+      "Rising Stem - Inside Screw"
+     ],
+     "trim": [
+      "PTFE-Lined"
+     ],
+     "operation": [
+      "Handwheel",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "ASME B16.34"
+     ]
+    }
+   },
+   "stem": {
+    "Rising Stem - Inside Screw": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A216 Gr.WCB",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A395 Gr.60-40-18"
+     ],
+     "rating": [
+      "Class 125",
+      "Class 150"
+     ],
+     "end": [
+      "Flanged Flat Face (FF)",
+      "Flanged Raised Face (RF)",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover"
+     ],
+     "trim": [
+      "PTFE-Lined"
+     ],
+     "operation": [
+      "Handwheel",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "ASME B16.34"
+     ]
+    }
+   },
+   "trim": {
+    "PTFE-Lined": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A216 Gr.WCB",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A395 Gr.60-40-18"
+     ],
+     "rating": [
+      "Class 125",
+      "Class 150"
+     ],
+     "end": [
+      "Flanged Flat Face (FF)",
+      "Flanged Raised Face (RF)",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover"
+     ],
+     "stem": [
+      "Rising Stem - Inside Screw"
+     ],
+     "operation": [
+      "Handwheel",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "ASME B16.34"
+     ]
+    }
+   },
+   "standard": {
+    "ASME B16.34": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A216 Gr.WCB",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A395 Gr.60-40-18"
+     ],
+     "rating": [
+      "Class 125",
+      "Class 150"
+     ],
+     "end": [
+      "Flanged Flat Face (FF)",
+      "Flanged Raised Face (RF)",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover"
+     ],
+     "stem": [
+      "Rising Stem - Inside Screw"
+     ],
+     "trim": [
+      "PTFE-Lined"
+     ],
+     "operation": [
+      "Handwheel",
+      "Pneumatic Actuator"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A395 Gr.60-40-18"
+     ]
+    }
+   }
+  },
+  "Straight-Through": {
+   "rating": {
+    "Class 150": {
+     "material": [
+      "ASTM A216 Gr.WCB",
+      "ASTM A351 Gr.CF8M"
+     ]
+    }
+   },
+   "bonnet": {
+    "Bolted Bonnet / Cover": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A216 Gr.WCB",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A395 Gr.60-40-18"
+     ],
+     "rating": [
+      "Class 125",
+      "Class 150"
+     ],
+     "end": [
+      "Flanged Flat Face (FF)",
+      "Flanged Raised Face (RF)",
+      "Threaded (NPT)"
+     ],
+     "stem": [
+      "Rising Stem - Inside Screw"
+     ],
+     "trim": [
+      "PTFE-Lined"
+     ],
+     "operation": [
+      "Handwheel",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "ASME B16.34"
+     ]
+    }
+   },
+   "stem": {
+    "Rising Stem - Inside Screw": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A216 Gr.WCB",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A395 Gr.60-40-18"
+     ],
+     "rating": [
+      "Class 125",
+      "Class 150"
+     ],
+     "end": [
+      "Flanged Flat Face (FF)",
+      "Flanged Raised Face (RF)",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover"
+     ],
+     "trim": [
+      "PTFE-Lined"
+     ],
+     "operation": [
+      "Handwheel",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "ASME B16.34"
+     ]
+    }
+   },
+   "trim": {
+    "PTFE-Lined": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A216 Gr.WCB",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A395 Gr.60-40-18"
+     ],
+     "rating": [
+      "Class 125",
+      "Class 150"
+     ],
+     "end": [
+      "Flanged Flat Face (FF)",
+      "Flanged Raised Face (RF)",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover"
+     ],
+     "stem": [
+      "Rising Stem - Inside Screw"
+     ],
+     "operation": [
+      "Handwheel",
+      "Pneumatic Actuator"
+     ],
+     "standard": [
+      "ASME B16.34"
+     ]
+    }
+   },
+   "standard": {
+    "ASME B16.34": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A216 Gr.WCB",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A395 Gr.60-40-18"
+     ],
+     "rating": [
+      "Class 125",
+      "Class 150"
+     ],
+     "end": [
+      "Flanged Flat Face (FF)",
+      "Flanged Raised Face (RF)",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover"
+     ],
+     "stem": [
+      "Rising Stem - Inside Screw"
+     ],
+     "trim": [
+      "PTFE-Lined"
+     ],
+     "operation": [
+      "Handwheel",
+      "Pneumatic Actuator"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A395 Gr.60-40-18"
+     ]
+    }
+   }
+  },
+  "Needle": {
+   "stem": {
+    "Rising Stem - OS&Y": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF8M"
+     ],
+     "rating": [
+      "3000 WOG",
+      "6000 WOG",
+      "Class 1500",
+      "Class 2500",
+      "Class 600"
+     ],
+     "end": [
+      "Socket-Weld (SW)",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover",
+      "Union / Screwed Bonnet"
+     ],
+     "seat_type": [
+      "Integral Seat"
+     ],
+     "trim": [
+      "API Trim 1",
+      "API Trim 10"
+     ],
+     "operation": [
+      "Handwheel"
+     ],
+     "standard": [
+      "ASME B16.34"
+     ]
+    }
+   },
+   "seat_type": {
+    "Integral Seat": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF8M"
+     ],
+     "rating": [
+      "3000 WOG",
+      "6000 WOG",
+      "Class 1500",
+      "Class 2500",
+      "Class 600"
+     ],
+     "end": [
+      "Socket-Weld (SW)",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover",
+      "Union / Screwed Bonnet"
+     ],
+     "stem": [
+      "Rising Stem - OS&Y"
+     ],
+     "trim": [
+      "API Trim 1",
+      "API Trim 10"
+     ],
+     "operation": [
+      "Handwheel"
+     ],
+     "standard": [
+      "ASME B16.34"
+     ]
+    }
+   },
+   "trim": {
+    "API Trim 10": {
+     "material": [
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A351 Gr.CF8M"
+     ]
+    }
+   },
+   "operation": {
+    "Handwheel": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF8M"
+     ],
+     "rating": [
+      "3000 WOG",
+      "6000 WOG",
+      "Class 1500",
+      "Class 2500",
+      "Class 600"
+     ],
+     "end": [
+      "Socket-Weld (SW)",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover",
+      "Union / Screwed Bonnet"
+     ],
+     "stem": [
+      "Rising Stem - OS&Y"
+     ],
+     "seat_type": [
+      "Integral Seat"
+     ],
+     "trim": [
+      "API Trim 1",
+      "API Trim 10"
+     ],
+     "standard": [
+      "ASME B16.34"
+     ]
+    }
+   },
+   "standard": {
+    "ASME B16.34": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF8M"
+     ],
+     "rating": [
+      "3000 WOG",
+      "6000 WOG",
+      "Class 1500",
+      "Class 2500",
+      "Class 600"
+     ],
+     "end": [
+      "Socket-Weld (SW)",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover",
+      "Union / Screwed Bonnet"
+     ],
+     "stem": [
+      "Rising Stem - OS&Y"
+     ],
+     "seat_type": [
+      "Integral Seat"
+     ],
+     "trim": [
+      "API Trim 1",
+      "API Trim 10"
+     ],
+     "operation": [
+      "Handwheel"
+     ]
+    }
+   }
+  },
+  "Conventional": {
+   "bonnet": {
+    "Bolted Bonnet / Cover": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 150 × Class 300",
+      "Class 150 × Class 600",
+      "Class 150 × Class 900",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 300 × Class 150",
+      "Class 300 × Class 600",
+      "Class 300 × Class 900",
+      "Class 600",
+      "Class 600 × Class 150",
+      "Class 600 × Class 300",
+      "Class 600 × Class 900",
+      "Class 900",
+      "Class 900 × Class 150",
+      "Class 900 × Class 300",
+      "Class 900 × Class 600"
+     ],
+     "end": [
+      "FF × RF",
+      "FF × RTJ",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)",
+      "RF × FF",
+      "RF × RF",
+      "RF × RTJ",
+      "RTJ × FF",
+      "RTJ × RF",
+      "RTJ × RTJ",
+      "Threaded (NPT)"
+     ],
+     "seat_type": [
+      "Nozzle"
+     ],
+     "trim": [
+      "API Trim 10",
+      "API Trim 16",
+      "API Trim 5"
+     ],
+     "standard": [
+      "API 526"
+     ]
+    }
+   },
+   "seat_type": {
+    "Nozzle": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 150 × Class 300",
+      "Class 150 × Class 600",
+      "Class 150 × Class 900",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 300 × Class 150",
+      "Class 300 × Class 600",
+      "Class 300 × Class 900",
+      "Class 600",
+      "Class 600 × Class 150",
+      "Class 600 × Class 300",
+      "Class 600 × Class 900",
+      "Class 900",
+      "Class 900 × Class 150",
+      "Class 900 × Class 300",
+      "Class 900 × Class 600"
+     ],
+     "end": [
+      "FF × RF",
+      "FF × RTJ",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)",
+      "RF × FF",
+      "RF × RF",
+      "RF × RTJ",
+      "RTJ × FF",
+      "RTJ × RF",
+      "RTJ × RTJ",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover"
+     ],
+     "trim": [
+      "API Trim 10",
+      "API Trim 16",
+      "API Trim 5"
+     ],
+     "standard": [
+      "API 526"
+     ]
+    }
+   },
+   "standard": {
+    "API 526": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 150 × Class 300",
+      "Class 150 × Class 600",
+      "Class 150 × Class 900",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 300 × Class 150",
+      "Class 300 × Class 600",
+      "Class 300 × Class 900",
+      "Class 600",
+      "Class 600 × Class 150",
+      "Class 600 × Class 300",
+      "Class 600 × Class 900",
+      "Class 900",
+      "Class 900 × Class 150",
+      "Class 900 × Class 300",
+      "Class 900 × Class 600"
+     ],
+     "end": [
+      "FF × RF",
+      "FF × RTJ",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)",
+      "RF × FF",
+      "RF × RF",
+      "RF × RTJ",
+      "RTJ × FF",
+      "RTJ × RF",
+      "RTJ × RTJ",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover"
+     ],
+     "seat_type": [
+      "Nozzle"
+     ],
+     "trim": [
+      "API Trim 10",
+      "API Trim 16",
+      "API Trim 5"
+     ]
+    }
+   }
+  },
+  "Balanced-Bellows": {
+   "bonnet": {
+    "Bellows-Seal Bonnet": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 150 × Class 300",
+      "Class 150 × Class 600",
+      "Class 150 × Class 900",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 300 × Class 150",
+      "Class 300 × Class 600",
+      "Class 300 × Class 900",
+      "Class 600",
+      "Class 600 × Class 150",
+      "Class 600 × Class 300",
+      "Class 600 × Class 900",
+      "Class 900",
+      "Class 900 × Class 150",
+      "Class 900 × Class 300",
+      "Class 900 × Class 600"
+     ],
+     "end": [
+      "FF × RF",
+      "FF × RTJ",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)",
+      "RF × FF",
+      "RF × RF",
+      "RF × RTJ",
+      "RTJ × FF",
+      "RTJ × RF",
+      "RTJ × RTJ",
+      "Threaded (NPT)"
+     ],
+     "seat_type": [
+      "Nozzle"
+     ],
+     "trim": [
+      "API Trim 10",
+      "API Trim 16",
+      "API Trim 5"
+     ],
+     "standard": [
+      "API 526"
+     ]
+    }
+   },
+   "seat_type": {
+    "Nozzle": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 150 × Class 300",
+      "Class 150 × Class 600",
+      "Class 150 × Class 900",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 300 × Class 150",
+      "Class 300 × Class 600",
+      "Class 300 × Class 900",
+      "Class 600",
+      "Class 600 × Class 150",
+      "Class 600 × Class 300",
+      "Class 600 × Class 900",
+      "Class 900",
+      "Class 900 × Class 150",
+      "Class 900 × Class 300",
+      "Class 900 × Class 600"
+     ],
+     "end": [
+      "FF × RF",
+      "FF × RTJ",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)",
+      "RF × FF",
+      "RF × RF",
+      "RF × RTJ",
+      "RTJ × FF",
+      "RTJ × RF",
+      "RTJ × RTJ",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "Bellows-Seal Bonnet"
+     ],
+     "trim": [
+      "API Trim 10",
+      "API Trim 16",
+      "API Trim 5"
+     ],
+     "standard": [
+      "API 526"
+     ]
+    }
+   },
+   "standard": {
+    "API 526": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 150 × Class 300",
+      "Class 150 × Class 600",
+      "Class 150 × Class 900",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 300 × Class 150",
+      "Class 300 × Class 600",
+      "Class 300 × Class 900",
+      "Class 600",
+      "Class 600 × Class 150",
+      "Class 600 × Class 300",
+      "Class 600 × Class 900",
+      "Class 900",
+      "Class 900 × Class 150",
+      "Class 900 × Class 300",
+      "Class 900 × Class 600"
+     ],
+     "end": [
+      "FF × RF",
+      "FF × RTJ",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)",
+      "RF × FF",
+      "RF × RF",
+      "RF × RTJ",
+      "RTJ × FF",
+      "RTJ × RF",
+      "RTJ × RTJ",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "Bellows-Seal Bonnet"
+     ],
+     "seat_type": [
+      "Nozzle"
+     ],
+     "trim": [
+      "API Trim 10",
+      "API Trim 16",
+      "API Trim 5"
+     ]
+    }
+   }
+  },
+  "Pilot-Operated": {
+   "bonnet": {
+    "Bolted Bonnet / Cover": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 150 × Class 300",
+      "Class 150 × Class 600",
+      "Class 150 × Class 900",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 300 × Class 150",
+      "Class 300 × Class 600",
+      "Class 300 × Class 900",
+      "Class 600",
+      "Class 600 × Class 150",
+      "Class 600 × Class 300",
+      "Class 600 × Class 900",
+      "Class 900",
+      "Class 900 × Class 150",
+      "Class 900 × Class 300",
+      "Class 900 × Class 600"
+     ],
+     "end": [
+      "FF × RF",
+      "FF × RTJ",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)",
+      "RF × FF",
+      "RF × RF",
+      "RF × RTJ",
+      "RTJ × FF",
+      "RTJ × RF",
+      "RTJ × RTJ",
+      "Threaded (NPT)"
+     ],
+     "seat_type": [
+      "Nozzle"
+     ],
+     "trim": [
+      "API Trim 10",
+      "API Trim 16",
+      "API Trim 5"
+     ],
+     "standard": [
+      "API 526"
+     ]
+    }
+   },
+   "seat_type": {
+    "Nozzle": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 150 × Class 300",
+      "Class 150 × Class 600",
+      "Class 150 × Class 900",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 300 × Class 150",
+      "Class 300 × Class 600",
+      "Class 300 × Class 900",
+      "Class 600",
+      "Class 600 × Class 150",
+      "Class 600 × Class 300",
+      "Class 600 × Class 900",
+      "Class 900",
+      "Class 900 × Class 150",
+      "Class 900 × Class 300",
+      "Class 900 × Class 600"
+     ],
+     "end": [
+      "FF × RF",
+      "FF × RTJ",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)",
+      "RF × FF",
+      "RF × RF",
+      "RF × RTJ",
+      "RTJ × FF",
+      "RTJ × RF",
+      "RTJ × RTJ",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover"
+     ],
+     "trim": [
+      "API Trim 10",
+      "API Trim 16",
+      "API Trim 5"
+     ],
+     "standard": [
+      "API 526"
+     ]
+    }
+   },
+   "standard": {
+    "API 526": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC"
+     ],
+     "rating": [
+      "Class 150",
+      "Class 150 × Class 300",
+      "Class 150 × Class 600",
+      "Class 150 × Class 900",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 300 × Class 150",
+      "Class 300 × Class 600",
+      "Class 300 × Class 900",
+      "Class 600",
+      "Class 600 × Class 150",
+      "Class 600 × Class 300",
+      "Class 600 × Class 900",
+      "Class 900",
+      "Class 900 × Class 150",
+      "Class 900 × Class 300",
+      "Class 900 × Class 600"
+     ],
+     "end": [
+      "FF × RF",
+      "FF × RTJ",
+      "Flanged Raised Face (RF)",
+      "Flanged Ring-Joint (RTJ)",
+      "RF × FF",
+      "RF × RF",
+      "RF × RTJ",
+      "RTJ × FF",
+      "RTJ × RF",
+      "RTJ × RTJ",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover"
+     ],
+     "seat_type": [
+      "Nozzle"
+     ],
+     "trim": [
+      "API Trim 10",
+      "API Trim 16",
+      "API Trim 5"
+     ]
+    }
+   }
+  },
+  "Y-Type": {
+   "standard": {
+    "ASME B16.34": {
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Gr.B",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A395 Gr.60-40-18",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A"
+     ],
+     "rating": [
+      "1000 WOG",
+      "2000 WOG",
+      "3000 WOG",
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 600",
+      "Class 900"
+     ],
+     "end": [
+      "Flanged Raised Face (RF)",
+      "Socket-Weld (SW)",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover",
+      "Union / Screwed Bonnet"
+     ],
+     "mesh": [
+      "Monel mesh/perforated screen",
+      "Perforated carbon steel screen",
+      "SS304 mesh/perforated screen",
+      "SS316 mesh/perforated screen"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A395 Gr.60-40-18"
+     ]
+    }
+   }
+  },
+  "T-Type / Tee": {
+   "standard": {
+    "ASME B16.34": {
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Gr.B",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A395 Gr.60-40-18",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A"
+     ],
+     "rating": [
+      "1000 WOG",
+      "2000 WOG",
+      "3000 WOG",
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 600",
+      "Class 900"
+     ],
+     "end": [
+      "Butt-Weld (BW)",
+      "Flanged Raised Face (RF)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover",
+      "Union / Screwed Bonnet"
+     ],
+     "mesh": [
+      "Monel mesh/perforated screen",
+      "Perforated carbon steel screen",
+      "SS304 mesh/perforated screen",
+      "SS316 mesh/perforated screen"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A395 Gr.60-40-18"
+     ]
+    }
+   }
+  },
+  "Basket": {
+   "end": {
+    "Flanged Raised Face (RF)": {
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Gr.B",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A395 Gr.60-40-18",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A"
+     ],
+     "rating": [
+      "1000 WOG",
+      "2000 WOG",
+      "3000 WOG",
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 600",
+      "Class 900"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover",
+      "Union / Screwed Bonnet"
+     ],
+     "mesh": [
+      "Monel mesh/perforated screen",
+      "Perforated carbon steel screen",
+      "SS304 mesh/perforated screen",
+      "SS316 mesh/perforated screen"
+     ],
+     "standard": [
+      "ASME B16.34"
+     ]
+    }
+   },
+   "standard": {
+    "ASME B16.34": {
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Gr.B",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A395 Gr.60-40-18",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A"
+     ],
+     "rating": [
+      "1000 WOG",
+      "2000 WOG",
+      "3000 WOG",
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 600",
+      "Class 900"
+     ],
+     "end": [
+      "Flanged Raised Face (RF)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover",
+      "Union / Screwed Bonnet"
+     ],
+     "mesh": [
+      "Monel mesh/perforated screen",
+      "Perforated carbon steel screen",
+      "SS304 mesh/perforated screen",
+      "SS316 mesh/perforated screen"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A395 Gr.60-40-18"
+     ]
+    }
+   }
+  },
+  "Duplex": {
+   "standard": {
+    "ASME B16.34": {
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Gr.B",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F316",
+      "ASTM A216 Gr.WCB",
+      "ASTM A216 Gr.WCC",
+      "ASTM A217 Gr.C12A",
+      "ASTM A217 Gr.C5",
+      "ASTM A217 Gr.WC6",
+      "ASTM A217 Gr.WC9",
+      "ASTM A350 Gr.LF2",
+      "ASTM A351 Gr.CF3",
+      "ASTM A351 Gr.CF3M",
+      "ASTM A351 Gr.CF8",
+      "ASTM A351 Gr.CF8C",
+      "ASTM A351 Gr.CF8M",
+      "ASTM A352 Gr.LCB",
+      "ASTM A352 Gr.LCC",
+      "ASTM A395 Gr.60-40-18",
+      "ASTM A995 Gr.4A",
+      "ASTM A995 Gr.5A",
+      "ASTM A995 Gr.6A"
+     ],
+     "rating": [
+      "1000 WOG",
+      "2000 WOG",
+      "3000 WOG",
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 600",
+      "Class 900"
+     ],
+     "end": [
+      "Flanged Raised Face (RF)",
+      "Socket-Weld (SW)",
+      "Threaded (NPT)"
+     ],
+     "bonnet": [
+      "Bolted Bonnet / Cover",
+      "Union / Screwed Bonnet"
+     ],
+     "mesh": [
+      "Monel mesh/perforated screen",
+      "Perforated carbon steel screen",
+      "SS304 mesh/perforated screen",
+      "SS316 mesh/perforated screen"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "material": [
+      "ASTM A126 Gr.B",
+      "ASTM A395 Gr.60-40-18"
+     ]
+    }
+   }
+  }
+ }
+}

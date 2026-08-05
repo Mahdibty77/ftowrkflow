@@ -1,0 +1,2507 @@
+/* tool-panels.css
+ * Interactive panels and toolbars: pipe/valve tools modal, PI pricing bar, calculation card, TO engineering header and detail panels, technical tool tiles, collapsible chip panels.
+ * Split out of the former monolithic style.css (2026-07 CSS reorg).
+ * No rule was changed, only relocated: concatenating tool-layout.css,
+ * tool-cells-status.css, tool-panels.css, tool-icons.css and
+ * tool-dark-mode.css in that order reproduces the old file byte for byte.
+ */
+/* ?? Valve trim chart table (pipe tools modal) ?????????????????????????? */
+.ft-pt-vt-out { margin-top: 4px; }
+.ft-pt-vt-scroll { max-height: 46vh; overflow: auto; border: 1px solid var(--border, #dfe4ec); border-radius: 10px; }
+.ft-pt-vt-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.ft-pt-vt-table th {
+  position: sticky; top: 0; z-index: 1; background: #eef1f7; color: #33405c;
+  text-align: left; font-weight: 800; font-size: .68rem; text-transform: uppercase;
+  letter-spacing: .03em; padding: 7px 8px; border-bottom: 1px solid #d3dae6; white-space: nowrap;
+}
+.ft-pt-vt-table td { padding: 6px 8px; border-bottom: 1px solid #edf0f5; vertical-align: top; }
+.ft-pt-vt-table tbody tr:nth-child(even) { background: #f8fafc; }
+.ft-pt-vt-no { font-weight: 800; color: #6d28d9; white-space: nowrap; }
+.ft-pt-vt-svc { color: #55607a; }
+html[data-theme="dark"] .ft-pt-vt-scroll, html[data-mode="dark"] .ft-pt-vt-scroll { border-color: #33415e; }
+html[data-theme="dark"] .ft-pt-vt-table th, html[data-mode="dark"] .ft-pt-vt-table th { background: #22304b; color: #c7d3e8; border-bottom-color: #33415e; }
+html[data-theme="dark"] .ft-pt-vt-table td, html[data-mode="dark"] .ft-pt-vt-table td { border-bottom-color: #263450; }
+html[data-theme="dark"] .ft-pt-vt-table tbody tr:nth-child(even), html[data-mode="dark"] .ft-pt-vt-table tbody tr:nth-child(even) { background: #1c2740; }
+html[data-theme="dark"] .ft-pt-vt-no, html[data-mode="dark"] .ft-pt-vt-no { color: #c4b5fd; }
+html[data-theme="dark"] .to-tool-ico-purple { background: rgba(167,139,250,.16) !important; color: #c4b5fd !important; }
+
+/* ?? Pipe tools modal ??????????????????????????????????????????????????? */
+.ft-pt-overlay {
+  position: fixed; inset: 0; z-index: 1200; display: flex; align-items: center; justify-content: center;
+  padding: 18px; background: rgba(8, 12, 22, .55); backdrop-filter: blur(3px);
+}
+.ft-pt-overlay[hidden] { display: none !important; }
+body.ft-pt-open { overflow: hidden; }
+.ft-pt-dialog {
+  width: min(560px, 100%); max-height: min(88vh, 720px); overflow: auto;
+  background: var(--surface, #fff); color: var(--text, #1f2a44);
+  border: 1px solid var(--border, #e1e6ee); border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0,0,0,.28);
+  display: flex; flex-direction: column;
+}
+.ft-pt-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 16px 10px; border-bottom: 1px solid var(--border, #eef0f4);
+}
+.ft-pt-head h3 {
+  margin: 0; font-size: 1rem; font-weight: 800; display: flex; align-items: center; gap: 8px;
+}
+.ft-pt-head h3 i { color: var(--primary, #4456e6); }
+.ft-pt-close {
+  width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--border, #e1e6ee);
+  background: var(--surface, #fff); color: var(--text-soft, #8a96ac); cursor: pointer;
+  display: grid; place-items: center;
+}
+.ft-pt-close:hover { color: var(--text, #1f2a44); border-color: var(--primary, #4456e6); }
+.ft-pt-tabs {
+  display: flex; gap: 4px; padding: 10px 12px 0; flex-wrap: wrap;
+}
+.ft-pt-tab {
+  border: 1px solid transparent; background: transparent; color: var(--text-soft, #8a96ac);
+  padding: 7px 12px; border-radius: 999px; font: inherit; font-size: .78rem; font-weight: 700;
+  cursor: pointer;
+}
+.ft-pt-tab:hover { color: var(--text, #1f2a44); background: var(--cloud, #f4f6fa); }
+.ft-pt-tab.active {
+  color: var(--primary, #4456e6); background: var(--primary-soft, #eef2ff);
+  border-color: rgba(68,86,230,.25);
+}
+.ft-pt-body { padding: 12px 16px 18px; }
+.ft-pt-hint {
+  margin: 0 0 12px; font-size: .78rem; color: var(--text-soft, #8a96ac); line-height: 1.45;
+}
+.ft-pt-field { margin-bottom: 10px; }
+.ft-pt-field label {
+  display: block; font-size: .72rem; font-weight: 700; color: var(--text-soft, #8a96ac);
+  margin-bottom: 4px; letter-spacing: .02em;
+}
+.ft-pt-field input, .ft-pt-field select,
+.ft-pt-unitrow input, .ft-pt-unitrow select {
+  width: 100%; box-sizing: border-box;
+  border: 1px solid var(--border, #d8dde6); border-radius: 9px;
+  background: var(--surface, #fff); color: var(--text, #1f2a44);
+  padding: 9px 11px; font: inherit; font-size: .9rem;
+}
+.ft-pt-field input:focus, .ft-pt-field select:focus,
+.ft-pt-unitrow input:focus, .ft-pt-unitrow select:focus {
+  outline: none; border-color: var(--primary, #4456e6);
+  box-shadow: 0 0 0 3px var(--primary-soft, #eef2ff);
+}
+.ft-pt-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ft-pt-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+@media (max-width: 520px) {
+  .ft-pt-grid2, .ft-pt-grid3 { grid-template-columns: 1fr; }
+}
+.ft-pt-unitrow { display: flex; gap: 6px; }
+.ft-pt-unitrow input { flex: 1 1 auto; min-width: 0; }
+.ft-pt-unitrow select { flex: 0 0 88px; }
+.ft-pt-result {
+  margin-top: 8px; padding: 12px 14px; border-radius: 12px;
+  background: var(--primary-soft, #eef2ff); border: 1px solid rgba(68,86,230,.18);
+}
+.ft-pt-kv {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px;
+}
+.ft-pt-kv div {
+  display: flex; flex-direction: column; gap: 2px; text-align: center;
+  background: var(--surface, #fff); border-radius: 9px; padding: 8px 6px;
+  border: 1px solid var(--border, #eef0f4);
+}
+.ft-pt-kv b { font-size: .68rem; color: var(--text-soft, #8a96ac); font-weight: 700; }
+.ft-pt-kv span { font-size: .95rem; font-weight: 800; color: var(--text, #1f2a44); }
+.ft-pt-line {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: .82rem; font-weight: 600; color: var(--text, #1f2a44);
+}
+.ft-pt-copy {
+  border: 1px solid var(--border, #d8dde6); background: var(--surface, #fff);
+  color: var(--primary, #4456e6); border-radius: 7px; width: 28px; height: 28px;
+  display: grid; place-items: center; cursor: pointer; flex: none;
+}
+.ft-pt-copy:hover, .ft-pt-copy.ok { background: var(--primary, #4456e6); color: #fff; border-color: var(--primary, #4456e6); }
+.ft-pt-miss { color: #b45309; font-weight: 600; font-size: .84rem; }
+.ft-pt-note { margin: 8px 0 0; font-size: .7rem; color: var(--text-soft, #8a96ac); line-height: 1.4; }
+.ft-pt-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.ft-pt-chip {
+  border: 1px solid var(--border, #d8dde6); background: var(--surface, #fff);
+  color: var(--text, #1f2a44); border-radius: 999px; padding: 4px 10px;
+  font: inherit; font-size: .72rem; font-weight: 600; cursor: pointer;
+}
+.ft-pt-chip:hover { border-color: var(--primary, #4456e6); }
+.ft-pt-chip.on { background: var(--primary, #4456e6); color: #fff; border-color: var(--primary, #4456e6); }
+.ft-pt-swap {
+  margin-top: 10px; border: 1px solid var(--border, #d8dde6); background: var(--surface, #fff);
+  color: var(--text, #1f2a44); border-radius: 9px; padding: 8px 12px;
+  font: inherit; font-size: .82rem; font-weight: 700; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.ft-pt-swap:hover { border-color: var(--primary, #4456e6); color: var(--primary, #4456e6); }
+
+html[data-theme="dark"] .ft-pt-dialog,
+html[data-mode="dark"] .ft-pt-dialog {
+  background: var(--surface, #141d2b); border-color: var(--border, #243044);
+}
+html[data-theme="dark"] .ft-pt-field input,
+html[data-theme="dark"] .ft-pt-field select,
+html[data-theme="dark"] .ft-pt-unitrow input,
+html[data-theme="dark"] .ft-pt-unitrow select,
+html[data-theme="dark"] .ft-pt-close,
+html[data-theme="dark"] .ft-pt-copy,
+html[data-theme="dark"] .ft-pt-chip,
+html[data-theme="dark"] .ft-pt-swap,
+html[data-mode="dark"] .ft-pt-field input,
+html[data-mode="dark"] .ft-pt-field select {
+  background: var(--surface, #141d2b); color: var(--text, #e6edf6); border-color: var(--border, #243044);
+}
+html[data-theme="dark"] .ft-pt-result,
+html[data-mode="dark"] .ft-pt-result {
+  background: rgba(59,130,246,.14); border-color: rgba(59,130,246,.3);
+}
+html[data-theme="dark"] .ft-pt-kv div,
+html[data-mode="dark"] .ft-pt-kv div {
+  background: rgba(255,255,255,.04); border-color: var(--border, #243044);
+}
+html[data-theme="dark"] .to-tool-ico-teal { background: rgba(45,212,191,.16) !important; color: #5eead4 !important; }
+html[data-theme="dark"] .to-tool-ico-cyan { background: rgba(34,211,238,.16) !important; color: #67e8f9 !important; }
+html[data-theme="dark"] .to-tool-ico-amber { background: rgba(251,191,36,.16) !important; color: #fcd34d !important; }
+html[data-theme="dark"] .to-tool-ico-green { background: rgba(74,222,128,.16) !important; color: #86efac !important; }
+
+/* ============ #1/#2/#6/#7: compact page top + collapsible PI tool panels ============ */
+/* Single, centered, compact page title (the duplicate section <h2> is gone) */
+.tool-page-title {
+  text-align: center; font-size: 1.25rem; font-weight: 800; letter-spacing: -.01em;
+  margin: .35rem 0 .6rem; color: var(--text, #1f2a44);
+}
+h1.tool-page-title { line-height: 1.2; }
+
+/* Language dropdown inside the builder bar */
+.tool-bar .lang-switch {
+  padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border, #d8dde6);
+  background: #fff; font-size: .82rem; font-weight: 600; color: var(--text, #1f2a44); cursor: pointer;
+}
+
+/* Pull the TO panels up + keep them tight */
+.to-top-grid { margin-top: .1rem; }
+
+/* ---- PI collapsible toolbar: chips + panels (all collapsed by default) ---- */
+#pi-pricing-bar { display: block; margin-bottom: .5rem; }
+.pi-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.pi-chip {
+  display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px; cursor: pointer;
+  border: 1px solid var(--border, #d8dde6); border-radius: 999px; background: var(--surface, #fff);
+  font-size: .82rem; font-weight: 700; color: var(--text-soft, #51607a); transition: all .12s;
+}
+.pi-chip i { color: var(--primary, #4456e6); }
+.pi-chip:hover { border-color: var(--primary, #4456e6); box-shadow: 0 0 0 3px var(--primary-soft, #eef2ff); }
+.pi-chip.active { background: var(--primary, #4456e6); color: #fff; border-color: var(--primary, #4456e6); }
+.pi-chip.active i { color: #fff; }
+.pi-panel {
+  border: 1px solid var(--border, #e3e7ee); border-radius: 12px; padding: 11px 13px;
+  background: var(--surface, #fff); box-shadow: 0 1px 2px rgba(16,24,40,.04); margin-bottom: 8px;
+}
+/* calc card folded into the toolbar: drop its own outer chrome, stay compact */
+#calculation-control-card.pi-panel { margin-bottom: 8px; }
+#calculation-control-card.pi-panel h3 { font-size: .9rem; margin: 0 0 6px; }
+
+/* Independent grand-total strip above the table, aligned to the right (over the
+   price columns). Always visible, very compact. */
+.pi-grand-strip {
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+  margin: 0 0 6px; padding: 7px 16px; border-radius: 11px;
+  background: linear-gradient(135deg, var(--primary, #4456e6), #2f3fbf); color: #fff;
+  box-shadow: 0 3px 10px rgba(68,86,230,.22);
+}
+.pi-grand-strip-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; opacity: .92; display: inline-flex; align-items: center; gap: 7px; }
+.pi-grand-strip strong { font-size: 1.3rem; font-weight: 800; }
+
+/* ============ compact calc card + pricing fields (PI) ============ */
+/* Stop the grid from stretching every section to the tallest one */
+#calculation-control-card .calc-grid { align-items: start; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+#calculation-control-card .calc-section { padding: 8px 10px; gap: 5px; }
+#calculation-control-card .calc-section-title { padding-bottom: 4px; font-size: .68rem; }
+#calculation-control-card .calc-section label { font-size: .68rem; gap: 2px; }
+#calculation-control-card .calc-section select,
+#calculation-control-card .calc-section input { padding: 4px 7px; font-size: .78rem; }
+/* currency + decimals on one compact row */
+#calculation-control-card .calc-section:first-child { }
+#calc-decimal-controls { gap: 5px; }
+#calc-decimal-controls label { flex-direction: row; align-items: center; gap: 4px; font-size: .66rem; }
+#calc-decimal-controls .calc-decimals { width: 44px !important; }
+/* global margin inline + compact */
+#global-margin-list { display: flex; flex-wrap: wrap; gap: 5px; }
+#global-margin-list .global-margin-percent { width: 70px; padding: 4px 7px; font-size: .78rem; }
+.calc-actions button { width: 28px; padding: 4px 0; }
+.calc-toggle { padding: 5px 10px; font-size: .76rem; }
+.calc-hint { font-size: .64rem; }
+
+/* ===== Unit conversion (left) + combined Margin (Issues 5 & 6) ===== */
+.calc-grid-2 { grid-template-columns: minmax(240px, 1fr) minmax(300px, 1.4fr) !important; }
+@media (max-width: 780px) { .calc-grid-2 { grid-template-columns: 1fr !important; } }
+.calc-rate-wrap { display: inline-flex; flex-direction: column; gap: 3px; font-size: .78rem; cursor: not-allowed; }
+.calc-rate-wrap[hidden] { display: none !important; }
+.calc-rate-field { display: inline-flex; align-items: center; gap: 5px; cursor: not-allowed; }
+.calc-rate-wrap input,
+.calc-rate-wrap input.calc-rate-locked {
+  width: 132px;
+  background: var(--surface-2, #eef1f6);
+  color: var(--text, #1a2332);
+  cursor: not-allowed !important;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  opacity: .95;
+  font-variant-numeric: tabular-nums;
+}
+.calc-rate-unit { font-size: .7rem; color: var(--text-soft, #6b778c); font-weight: 700; white-space: nowrap; cursor: not-allowed; }
+#calc-convert-rate.is-invalid { border-color: #c0392b !important; background: #fdecea; box-shadow: 0 0 0 2px rgba(192,57,43,.15); }
+.calc-rate-warn { margin-top: 5px; font-size: .68rem; color: #c0392b; display: flex; align-items: center; gap: 5px; }
+.gm-save { width: auto !important; padding: 4px 10px !important; font-size: .74rem; background: var(--primary, #4456e6); color: #fff; border: none; border-radius: 6px; font-weight: 700; }
+.gm-clear { padding: 3px 9px; font-size: .68rem; background: transparent; color: #c0392b; border: 1px solid #e6b0aa; border-radius: 6px; }
+.gm-report-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.gm-perrow-row { margin: 0; }
+.gm-report { margin-top: 8px; overflow: auto; }
+.gm-rep-table { width: 100%; border-collapse: collapse; font-size: .72rem; }
+.gm-rep-table th, .gm-rep-table td { border: 1px solid var(--border, #e3e7ee); padding: 3px 7px; text-align: left; }
+.gm-rep-table thead th { background: var(--surface-2, #f5f7fb); font-size: .64rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-soft, #6b778c); }
+.gm-rep-grp { font-weight: 700; }
+.gm-rep-pct.up { color: #1c7a43; font-weight: 700; }
+.gm-rep-pct.down { color: #c0392b; font-weight: 700; }
+.gm-rep-amt { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.gm-rep-amt.up { color: #1c7a43; font-weight: 700; }
+.gm-rep-amt.down { color: #c0392b; font-weight: 700; }
+.gm-rep-table tfoot td { background: var(--surface-2, #f5f7fb); font-weight: 800; }
+.gm-rep-empty { color: var(--text-soft, #6b778c); font-style: italic; text-align: center !important; }
+html[data-theme="dark"] #calc-convert-rate.is-invalid { background: rgba(248,113,113,.14); }
+html[data-theme="dark"] .gm-rep-table thead th,
+html[data-theme="dark"] .gm-rep-table tfoot td { background: rgba(255,255,255,.05); }
+
+/* pricing & fields: tight, side-by-side, no tall stacks */
+#pi-panel-pricing .pi-fields-grid { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-end; }
+#pi-panel-pricing .pi-field { flex: 1 1 165px; min-width: 150px; gap: 3px; }
+#pi-panel-pricing .pi-field > label { font-size: .66rem; }
+#pi-panel-pricing .pi-field-row input { padding: 5px 8px; font-size: .8rem; }
+#pi-panel-pricing .pi-btn { padding: 5px 10px; font-size: .78rem; }
+.pi-combo { min-width: 160px; }
+.pi-combo input { padding: 5px 8px; font-size: .8rem; }
+/* the no-unit-price card sits inline to the right of the fields, compact */
+#pi-panel-pricing .pi-statusline { margin-top: 8px; }
+#pi-panel-pricing .pi-statusline .ft-stat-card { margin: 0; padding: 7px 12px; font-size: .78rem; }
+#pi-panel-pricing .pi-statusline .ft-stat-card .ft-stat-ico { width: 26px; height: 26px; font-size: 12px; }
+
+/* ============ TO #1: alarm chips fit / wrap, never bleed ============ */
+.alarm-chip { font-size: .68rem; padding: 1px 6px; margin: 1px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+#virtual-scroll-table td[data-col-name="Alarm_Features"] { padding: 3px 5px; }
+
+/* ============ #6: badge spacing from the text ============ */
+tr.row-issue td[data-col-name="Final Arranged Text"]::after,
+tr.row-unsuppliable td[data-col-name="Final Arranged Text"]::after { margin-inline-start: 10px; margin-right: 0; }
+
+/* ============ #7: flag toggle active vs inactive looks clearly different ============ */
+.ic-box .ic-flag { transition: color .12s, opacity .12s; }
+tr.row-issue td[data-col-name="Item Code"] .ic-box,
+tr.row-unsuppliable td[data-col-name="Item Code"] .ic-box { font-weight: 700; }
+tr.row-issue td[data-col-name="Item Code"] .ic-flag { color: #8e44ad; opacity: 1; }
+tr.row-unsuppliable td[data-col-name="Item Code"] .ic-flag { color: #c0392b; opacity: 1; }
+tr.row-unsuppliable td[data-col-name="Item Code"] .ic-box { background: rgba(192,57,43,.16); border-color: rgba(192,57,43,.5); color: #a5281b; }
+
+/* indent notice in the builder bar */
+.tool-bar .indent-note {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 7px;
+  background: #fff4d6; color: #8a5a00; border: 1px solid #e6c66a; font-size: .74rem; font-weight: 600;
+}
+.tool-bar .tb-attach {
+  display: inline-flex; align-items: center; gap: .35rem;
+  font-size: .78rem; font-weight: 650; color: var(--muted, #64748b);
+  padding: .2rem .55rem; border-radius: 7px;
+  border: 1px solid var(--line, #dde4ee);
+  background: var(--cloud, #f8fafd);
+}
+.tool-bar .tb-attach i { color: var(--accent, #2563c9); font-size: .72rem; }
+
+/* ============ ROUND 4 fixes ============ */
+/* #6: grand-total strip ? simple, elegant (no heavy gradient), first above table */
+.pi-grand-strip {
+  background: transparent; border: 0; box-shadow: none; padding: 0;
+  flex-wrap: wrap; gap: 10px;
+}
+.pi-grand-strip-label { color: var(--text-soft, #51607a); }
+.pi-grand-strip-label i { color: var(--primary, #4456e6); }
+.pi-grand-strip strong { color: var(--primary, #4456e6); font-size: 1.35rem; }
+/* Each total gets its own lightweight, bordered card — the same visual
+   language as the exported document's info-card boxes (thin border, subtle
+   fill, rounded corners) — rather than sharing one undivided strip. */
+.pi-tot-pill {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  min-width: 7.5rem;
+  border: 1px solid var(--border, #e3e7ee);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  padding: .5rem .75rem;
+  box-shadow: 0 1px 2px rgba(16,24,40,.04);
+}
+.pi-tot-pill .pi-grand-strip-label { font-size: .66rem; text-transform: uppercase; letter-spacing: .05em; }
+.pi-tot-pill strong { font-size: 1.05rem; color: var(--text, #1f2a44); }
+.pi-tot-pill-grand {
+  border-color: var(--primary, #4456e6);
+  border-width: 1.5px;
+  background: var(--primary-soft, rgba(68, 86, 230, .05));
+  margin-inline-start: auto;
+}
+.pi-tot-pill-grand strong { color: var(--primary, #4456e6); font-size: 1.35rem; }
+
+/* #5: number stays on one line, only the unit may wrap */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"],
+#virtual-scroll-table td[data-col-name="TOTAL PRICE"] { white-space: normal; overflow: hidden; text-overflow: clip; }
+.calc-num { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.calc-unit { color: var(--text-soft, #6b778c); font-size: .82em; }
+
+/* #3: calc sections equal height + compact; global margin horizontal */
+#calculation-control-card .calc-grid { align-items: stretch; }
+#calculation-control-card .calc-section { justify-content: flex-start; }
+.gm-row { display: flex; align-items: flex-end; gap: 8px; }
+.gm-row > label { flex: 0 0 auto; min-width: 78px; }
+.gm-list { display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto; min-width: 0; }
+.gm-list .global-margin-row { margin: 0; }
+.gm-list .global-margin-percent { width: 100%; }
+.gm-actions { flex-direction: column; gap: 3px; }
+.gm-actions button { width: 26px; height: 22px; }
+
+/* #2: pricing fields shorter; no-unit card compact + inline */
+#pi-panel-pricing .pi-field { flex: 0 1 150px; min-width: 132px; }
+#pi-panel-pricing .pi-field-row input { width: 100%; }
+#pi-panel-pricing .pi-statusline { margin: 0; display: flex; align-items: flex-end; }
+.pi-nounit-card {
+  display: inline-flex; align-items: center; gap: 9px; padding: 6px 11px; border-radius: 10px;
+  border: 1px solid var(--border, #e6e9ef); border-left: 4px solid #e0a800; background: var(--surface, #fff);
+}
+.pi-nounit-ico { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; background: #fff4d6; color: #b8860b; font-size: 12px; }
+.pi-nounit-body { display: flex; flex-direction: column; line-height: 1.1; }
+.pi-nounit-num { font-size: 1.1rem; font-weight: 800; color: #b8860b; }
+.pi-nounit-label { font-size: .66rem; color: var(--text-soft, #6b778c); }
+.pi-nounit-card .ft-switch { width: 38px; height: 21px; }
+.pi-nounit-card .ft-switch-slider::before { height: 15px; width: 15px; }
+.pi-nounit-card .ft-switch input:checked + .ft-switch-slider { background: #e0a800; }
+.pi-nounit-card .ft-switch input:checked + .ft-switch-slider::before { transform: translateX(17px); }
+
+/* ===== Issue 7: PI FTCO DISCRIPTION is reference-only ? plain text colour =====
+   Colour highlighting of the arranged description belongs to the Technical
+   Offer. In the Proforma the same column is a plain reference (no coloured
+   spans). Do NOT force background:transparent here ? that would cancel the
+   zebra (odd/even) row tint that every other column uses. */
+body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="Final Arranged Text"],
+body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="Final Arranged Text"] * {
+  color: var(--text, #1f2a44) !important;
+}
+body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="Final Arranged Text"] * {
+  background: transparent !important;
+}
+
+/* ===== PI live status bar (frozen at top of the builder) ===== */
+.pi-status-bar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  padding: 8px 14px; border-radius: 10px; margin: 0 0 8px;
+  font-size: .82rem; border: 1px solid var(--border, #e3e7ee); box-sizing: border-box;
+}
+.pi-status-bar.ok { background: #e8f7ee; border-color: #b6e3c6; color: #1c7a43; }
+.pi-status-bar.warn { background: #fff6e6; border-color: #f0d089; color: #8a5a00; }
+.pi-status-ico { font-size: 1rem; display: inline-flex; }
+.pi-status-bar.ok .pi-status-ico { color: #1c9a52; }
+.pi-status-bar.warn .pi-status-ico { color: #d18f00; }
+.pi-status-lead { font-weight: 700; }
+.pi-status-chip {
+  display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 20px;
+  background: rgba(0,0,0,.045); font-size: .76rem; border: 1px solid rgba(0,0,0,.06);
+}
+.pi-status-chip b { font-weight: 800; }
+
+/* ===== PI filter cards (in the Filter panel, horizontal, equal width) ===== */
+.pi-fcards { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.pi-fcard {
+  flex: 1 1 0; min-width: 118px;
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px;
+  border: 1px solid var(--border, #e6e9ef); border-left: 4px solid #94a3b8; background: var(--surface, #fff);
+}
+.pi-fcard-ico { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; background: #eef1f6; color: #64748b; font-size: 12px; flex: none; }
+.pi-fcard-body { display: flex; flex-direction: column; line-height: 1.1; flex: 1 1 auto; min-width: 0; }
+.pi-fcard-num { font-size: 1.1rem; font-weight: 800; color: var(--text, #1f2a44); }
+.pi-fcard-label { font-size: .64rem; color: var(--text-soft, #6b778c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pi-fcard .ft-switch { width: 38px; height: 21px; flex: none; }
+.pi-fcard .ft-switch-slider::before { height: 15px; width: 15px; }
+.pi-fcard .ft-switch input:checked + .ft-switch-slider::before { transform: translateX(17px); }
+/* per-card accents + matching toggle colour */
+.pi-fcard--del { border-left-color: #c0392b; }
+.pi-fcard--del .pi-fcard-ico { background: #fdecea; color: #c0392b; }
+.pi-fcard--del .ft-switch input:checked + .ft-switch-slider { background: #c0392b; }
+.pi-fcard--add { border-left-color: #1c9a52; }
+.pi-fcard--add .pi-fcard-ico { background: #e8f7ee; color: #1c9a52; }
+.pi-fcard--add .ft-switch input:checked + .ft-switch-slider { background: #1c9a52; }
+.pi-fcard--nounit { border-left-color: #e0a800; }
+.pi-fcard--nounit .pi-fcard-ico { background: #fff4d6; color: #b8860b; }
+.pi-fcard--nounit .ft-switch input:checked + .ft-switch-slider { background: #e0a800; }
+.pi-fcard--nobrand { border-left-color: #4456e6; }
+.pi-fcard--nobrand .pi-fcard-ico { background: #e8ebfe; color: #4456e6; }
+.pi-fcard--nobrand .ft-switch input:checked + .ft-switch-slider { background: #4456e6; }
+.pi-fcard--notime { border-left-color: #8e44ad; }
+.pi-fcard--notime .pi-fcard-ico { background: #f3e8fa; color: #8e44ad; }
+.pi-fcard--notime .ft-switch input:checked + .ft-switch-slider { background: #8e44ad; }
+.pi-fcard--unsup { border-left-color: #c0392b; }
+.pi-fcard--unsup .pi-fcard-ico { background: #fdecea; color: #c0392b; }
+.pi-fcard--unsup .ft-switch input:checked + .ft-switch-slider { background: #c0392b; }
+.pi-fcard--remark { border-left-color: #0f8a8a; }
+.pi-fcard--remark .pi-fcard-ico { background: #e3f6f6; color: #0f8a8a; }
+.pi-fcard--remark .ft-switch input:checked + .ft-switch-slider { background: #0f8a8a; }
+.pi-fcard--similar { border-left-color: #0f766e; }
+.pi-fcard--similar .pi-fcard-ico { background: #ccfbf1; color: #0f766e; }
+.pi-fcard--similar .ft-switch input:checked + .ft-switch-slider { background: #0f766e; }
+
+/* Duplicate-FTCO group highlight while the "similar codes" filter is on */
+#virtual-scroll-table tr.row.same-code-hilite > td {
+  background-color: var(--same-code-bg, rgba(14, 165, 233, 0.16)) !important;
+}
+html[data-theme="dark"] .pi-fcard-ico { background: rgba(148,163,184,.16); }
+html[data-theme="dark"] .pi-status-chip { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.08); }
+html[data-theme="dark"] .pi-status-bar.ok { background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.3); color: #7ee2a8; }
+html[data-theme="dark"] .pi-status-bar.warn { background: rgba(234,179,8,.12); border-color: rgba(234,179,8,.3); color: #f0d089; }
+
+/* ============ ROUND 5: equal widths + field spread ============ */
+/* All PI blocks share the exact width of the table so everything lines up */
+#pi-pricing-bar, .pi-grand-strip {
+  width: 100%; max-width: calc(100vw - 32px); margin-left: 0; margin-right: 0; box-sizing: border-box;
+}
+@media (max-width: 900px) {
+  #pi-pricing-bar, .pi-grand-strip { max-width: calc(100vw - 16px); }
+}
+.pi-panel { width: 100%; box-sizing: border-box; }
+.pi-chips { width: 100%; box-sizing: border-box; }
+
+/* #5: spread the pricing fields across the full width (no empty right gap) */
+#pi-panel-pricing .pi-fields-grid { justify-content: space-between; align-items: stretch; }
+#pi-panel-pricing .pi-fields-grid > #pi-list-host,
+#pi-panel-pricing .pi-fields-grid > .pi-field,
+#pi-panel-pricing .pi-fields-grid > .pi-statusline { flex: 1 1 0; min-width: 150px; }
+#pi-panel-pricing .pi-statusline { justify-content: center; }
+#pi-panel-pricing .pi-nounit-card { width: 100%; justify-content: space-between; }
+.pi-combo { width: 100%; }
+
+/* ============ #1: always-on cell inputs (BRAND / TIME) ============ */
+#virtual-scroll-table td.col-BRAND,
+#virtual-scroll-table td.col-TIME,
+#virtual-scroll-table td[data-col-name="BRAND"],
+#virtual-scroll-table td[data-col-name="TIME"] { padding: 2px 4px; }
+.cell-input {
+  width: 100%; box-sizing: border-box; padding: 4px 6px; font: inherit; font-size: .8rem;
+  border: 1px solid var(--border, #dfe4ec); border-radius: 5px; background: #fff; color: inherit;
+}
+.cell-input:hover { border-color: var(--primary-light, #93a4ff); }
+.cell-input:focus { outline: none; border-color: var(--primary, #4456e6); box-shadow: 0 0 0 2px var(--primary-soft, #eef2ff); }
+
+/* ============================================================
+   ROUND 6 ? always-on inputs, layout, UNIT PRICE, SIZE, REMARK
+   ============================================================ */
+
+/* --- 1. pi-unit-input: always-on input inside UNIT PRICE cell --- */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"],
+#virtual-scroll-table td[data-calc-variable="unit_price"] {
+  padding: 2px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1px;
+}
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] input.pi-unit-input,
+#virtual-scroll-table td[data-calc-variable="unit_price"] input.pi-unit-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+/* Keep the price-src badge compact below the input */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] .price-src,
+#virtual-scroll-table td[data-calc-variable="unit_price"] .price-src {
+  font-size: .58rem;
+  line-height: 1;
+}
+/* Hide the calculation display span when pi-unit-input is present */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] .calc-display-value,
+#virtual-scroll-table td[data-calc-variable="unit_price"] .calc-display-value {
+  display: none;
+}
+
+/* --- 2. BRAND / TIME always-on: click anywhere in cell focuses input --- */
+#virtual-scroll-table td[data-col-name="BRAND"],
+#virtual-scroll-table td[data-col-name="TIME"] {
+  padding: 2px 4px;
+  cursor: text;
+}
+#virtual-scroll-table td[data-col-name="BRAND"] .cell-input,
+#virtual-scroll-table td[data-col-name="TIME"] .cell-input {
+  width: 100%;
+}
+
+/* --- 3. SIZE column ? wider + word-wrap so 1 1/2" * 1 1/4" fits --- */
+#virtual-scroll-table td[data-col-name="size"],
+#virtual-scroll-table th[data-col-name="size"] {
+  white-space: normal;
+  word-break: break-word;
+  overflow: visible;
+}
+
+/* --- 4. Layout: all PI blocks share the exact same width as the table.
+         Consistent margin alignment with the body (body { padding: 16px }). --- */
+#pi-pricing-bar {
+  width: 100%;
+  max-width: calc(100vw - 32px);
+  margin: 0 0 8px;
+  padding: 0;
+  box-sizing: border-box;
+}
+.pi-grand-strip {
+  width: 100%;
+  max-width: calc(100vw - 32px);
+  margin: 0 0 6px;
+  box-sizing: border-box;
+}
+/* Ensure calc card has no extra side margins when folded into the bar */
+#calculation-control-card.pi-panel {
+  margin: 0 0 8px;
+  box-sizing: border-box;
+}
+
+/* --- 5. Pricing & Fields panel: spread fields across the full width, no wrap --- */
+#pi-panel-pricing .pi-fields-grid {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px 12px;
+  align-items: stretch;
+}
+#pi-panel-pricing .pi-fields-grid > #pi-list-host,
+#pi-panel-pricing .pi-fields-grid > .pi-field,
+#pi-panel-pricing .pi-fields-grid > .pi-statusline {
+  flex: 1 1 0;
+  min-width: 0;
+}
+#pi-panel-pricing .pi-statusline {
+  margin: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+#pi-panel-pricing .pi-nounit-card {
+  width: 100%;
+  justify-content: space-between;
+}
+.pi-combo {
+  width: 100%;
+}
+
+/* --- 6. Grand Total strip always sits flush above the table --- */
+.pi-grand-strip {
+  width: 100%;
+  max-width: calc(100vw - 32px);
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* --- 7. TO form: SIZE column auto-wraps; reduce overflow clipping --- */
+#virtual-scroll-table td[data-col-name="size"] input {
+  white-space: normal;
+  word-break: break-word;
+}
+
+@media (max-width: 900px) {
+  #pi-pricing-bar, .pi-grand-strip {
+    max-width: calc(100vw - 16px);
+  }
+  #pi-panel-pricing .pi-fields-grid {
+    flex-wrap: wrap;
+  }
+}
+
+/* ============================================================
+   ROUND 7 ? comprehensive fixes from console diagnostics
+   ============================================================ */
+
+/* ?? 1. UNIT PRICE td: REMOVE the broken display:flex, use normal table-cell ?? */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"],
+#virtual-scroll-table td[data-calc-variable="unit_price"] {
+  display: table-cell !important; /* override any earlier display:flex */
+  padding: 2px 4px;
+  vertical-align: top;
+  overflow: hidden;
+  white-space: nowrap; /* price column never wraps */
+}
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] input.pi-unit-input,
+#virtual-scroll-table td[data-calc-variable="unit_price"] input.pi-unit-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+}
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] .price-src,
+#virtual-scroll-table td[data-calc-variable="unit_price"] .price-src {
+  display: block;
+  font-size: .56rem;
+  line-height: 1;
+  margin-top: 1px;
+  white-space: nowrap;
+}
+
+/* ?? 2. No-wrap columns: FT code, size, qty, unit, prices ?? */
+#virtual-scroll-table td[data-col-name="??"],
+#virtual-scroll-table th[data-col-name="??"] {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#virtual-scroll-table td[data-col-name="size"],
+#virtual-scroll-table th[data-col-name="size"],
+#virtual-scroll-table td[data-col-name="qty"],
+#virtual-scroll-table th[data-col-name="qty"],
+#virtual-scroll-table td[data-col-name="unit"],
+#virtual-scroll-table th[data-col-name="unit"] {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#virtual-scroll-table td[data-col-name="TOTAL PRICE"],
+#virtual-scroll-table td[data-calc-variable="total_price"] {
+  white-space: nowrap; overflow: hidden;
+}
+
+/* ?? 3. BRAND / TIME: textarea wraps, cell clips overflow ?? */
+#virtual-scroll-table td[data-col-name="BRAND"],
+#virtual-scroll-table td[data-col-name="TIME"] {
+  padding: 2px 4px;
+  overflow: hidden;
+  white-space: normal;
+  vertical-align: top;
+}
+#virtual-scroll-table td[data-col-name="BRAND"] .pi-text-area,
+#virtual-scroll-table td[data-col-name="TIME"] .pi-text-area {
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  border: 1px solid var(--border, #dfe4ec);
+  border-radius: 4px;
+  background: transparent;
+  font: inherit;
+  font-size: .8rem;
+  padding: 2px 5px;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.3;
+  min-height: 22px;
+}
+#virtual-scroll-table td[data-col-name="BRAND"] .pi-text-area:focus,
+#virtual-scroll-table td[data-col-name="TIME"] .pi-text-area:focus {
+  outline: none;
+  border-color: var(--primary, #4456e6);
+  box-shadow: 0 0 0 2px var(--primary-soft, #eef2ff);
+}
+
+/* ?? 4. Item Code icons: FA icons instead of Unicode flag ?? */
+.ic-flag { display: inline-block; line-height: 1; }
+.ic-flag-ico { pointer-events: none; }
+tr.row-issue td[data-col-name="Item Code"] .ic-flag { color: #e67e22; opacity: 1; }
+tr.row-unsuppliable td[data-col-name="Item Code"] .ic-flag { color: #c0392b; opacity: 1; }
+
+/* ?? 5. Filter panel: compact horizontal grid ?? */
+.pi-filter-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border, #e3e7ee);
+}
+.pi-filter-title {
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--text-soft, #51607a);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pi-chip-clear {
+  padding: 3px 10px;
+  font-size: .72rem;
+  border-radius: 6px;
+  border: 1px solid var(--danger, #c0392b);
+  background: transparent;
+  cursor: pointer;
+  color: var(--danger, #c0392b);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background .12s, color .12s;
+}
+.pi-chip-clear:hover { background: var(--danger, #c0392b); color: #fff; }
+.pi-filter-row {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  gap: 10px;
+  align-items: start;
+}
+.pi-filter-group-col .pi-combo { width: 100%; }
+#pi-filter-feats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 6px 8px;
+  align-items: end;
+}
+#pi-filter-feats .pi-combo { width: 100%; min-width: 0; }
+#pi-filter-feats .pi-combo label { font-size: .62rem; margin-bottom: 2px; }
+#pi-filter-feats .pi-combo input { padding: 4px 6px; font-size: .76rem; }
+
+/* ?? 6. Calculation & margin: professional compact layout ?? */
+#calculation-control-card.pi-panel {
+  margin: 0 0 8px;
+  padding: 10px 14px;
+  box-sizing: border-box;
+}
+#calculation-control-card .calc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+  align-items: start; /* sections compact to their own height */
+}
+#calculation-control-card .calc-section {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface-alt, #f7f8fb);
+  border: 1px solid var(--border, #e3e7ee);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+#calculation-control-card .calc-section-title {
+  font-size: .68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-soft, #51607a);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border, #e3e7ee);
+  margin-bottom: 4px;
+}
+#calculation-control-card .calc-section label {
+  font-size: .72rem;
+  color: var(--text, #1f2a44);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+#calculation-control-card .calc-section select,
+#calculation-control-card .calc-section input[type="number"],
+#calculation-control-card .calc-section input[type="text"] {
+  padding: 4px 7px;
+  font-size: .78rem;
+  border-radius: 5px;
+  border: 1px solid var(--border, #dfe4ec);
+}
+/* Target total section spans full width if it's the last */
+#calculation-control-card .calc-section:last-child {
+  grid-column: 1 / -1;
+}
+/* Pi-target-out badge */
+.pi-target-out { 
+  font-weight: 700; font-size: .9rem; min-width: 52px;
+  text-align: center; cursor: pointer;
+  padding: 4px 8px; border-radius: 6px;
+  border: 1px solid var(--border, #e3e7ee);
+}
+.pi-target-out.pos { color: #27ae60; border-color: #27ae60; background: #eafaf1; }
+.pi-target-out.neg { color: #c0392b; border-color: #c0392b; background: #fdf3f0; }
+
+/* ?? 7. case_detail: warning for TO blocked by issues ?? */
+.alert-inline {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: .82rem;
+}
+.alert-warn {
+  background: #fff8e6;
+  border: 1px solid #e6c96a;
+  color: #7a5c00;
+}
+.alert-warn i { color: #e0a800; flex-shrink: 0; margin-top: 2px; }
+
+/* ?? 8. pi-text-area (BRAND/TIME): same base style as cell-input ?? */
+.pi-text-area {
+  font: inherit;
+  resize: none;
+  overflow: hidden;
+  word-break: break-word;
+  background: transparent;
+  color: inherit;
+}
+.pi-text-area:focus { outline: none; }
+
+/* ?? 9. Remove old ROUND 6 flex on UNIT PRICE (final override) ?? */
+#virtual-scroll-table td[data-calc-variable="unit_price"] {
+  flex-direction: unset;
+  align-items: unset;
+  gap: unset;
+}
+
+@media (max-width: 900px) {
+  .pi-filter-row { grid-template-columns: 1fr; }
+  #pi-filter-feats { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+}
+
+/* ============================================================
+   ROUND 8 ? FINAL authoritative overrides (loaded last, wins all)
+   Resolves the three competing .calc-grid rules + cell-fill for
+   BRAND / TIME / UNIT PRICE, and the counter row-number chips.
+   ============================================================ */
+
+/* ?????????????????????????????????????????????????????????????
+   Calculation & margin layout (PI):
+   Target (left) + Unit conversion (middle) = 30%
+   Margin (right) = 70%
+   ????????????????????????????????????????????????????????????? */
+#calculation-control-card.pi-panel,
+#calculation-control-card {
+  direction: ltr !important;
+  padding: 12px 14px !important;
+}
+#calculation-control-card .calc-grid-pi,
+#calculation-control-card .calc-grid {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: stretch !important;
+  gap: 10px !important;
+  grid-template-columns: none !important;
+}
+#calculation-control-card .calc-section-target {
+  flex: 0 0 15% !important;
+  max-width: 15% !important;
+  min-width: 140px !important;
+}
+#calculation-control-card .calc-section-convert {
+  flex: 0 0 15% !important;
+  max-width: 15% !important;
+  min-width: 160px !important;
+}
+#calculation-control-card .calc-section-margin {
+  flex: 1 1 70% !important;
+  min-width: 280px !important;
+}
+#calculation-control-card .calc-grid > .calc-section {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  margin: 0 !important;
+  padding: 10px 12px !important;
+  gap: 6px !important;
+  background: var(--surface-soft, #f7f8fb) !important;
+  border: 1px solid var(--border, #e3e7ee) !important;
+  border-radius: 10px !important;
+  vertical-align: top !important;
+  min-height: 0 !important;
+  box-sizing: border-box !important;
+}
+#calculation-control-card .calc-section-title {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-size: .68rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .05em !important;
+  color: var(--primary, #4456e6) !important;
+  padding-bottom: 6px !important;
+  margin-bottom: 2px !important;
+  border-bottom: 1px solid var(--border, #e3e7ee) !important;
+  white-space: nowrap !important;
+}
+#calculation-control-card .calc-section label {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 3px !important;
+  font-size: .72rem !important;
+  color: var(--text, #1f2a44) !important;
+}
+#calculation-control-card .calc-section select,
+#calculation-control-card .calc-section input[type="number"],
+#calculation-control-card .calc-section input[type="text"] {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  min-height: 30px !important;
+  padding: 5px 8px !important;
+  font-size: .78rem !important;
+  border: 1px solid var(--border-strong, #cfd6e4) !important;
+  border-radius: 6px !important;
+  background: #fff !important;
+}
+#calculation-control-card select:disabled {
+  opacity: .85 !important;
+  background: #eef1f6 !important;
+  cursor: not-allowed !important;
+}
+#calculation-control-card .calc-inline {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+#calculation-control-card .calc-inline > label { width: 100% !important; }
+#calculation-control-card .calc-conv-actions {
+  display: flex !important;
+  justify-content: flex-start !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+  margin-top: 4px !important;
+}
+#calculation-control-card #calc-convert-confirm,
+#calculation-control-card #calc-convert-reset {
+  width: auto !important;
+  min-width: 0 !important;
+  padding: 5px 12px !important;
+}
+
+/* Margin section: controls on the left of the section, report table on the right */
+#calculation-control-card .gm-layout {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+  width: 100% !important;
+}
+#calculation-control-card .gm-controls {
+  flex: 0 0 auto !important;
+  width: 220px !important;
+  max-width: 42% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+#calculation-control-card .gm-row {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 6px !important;
+  min-width: 0 !important;
+}
+#calculation-control-card .gm-row > label { min-width: 0 !important; width: 100% !important; }
+#calculation-control-card .gm-list { width: 100% !important; }
+#calculation-control-card .gm-list .global-margin-percent { width: 100% !important; }
+#calculation-control-card .gm-actions {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  max-width: 100% !important;
+}
+#calculation-control-card .gm-actions button {
+  width: 30px !important; height: 26px !important;
+  border-radius: 6px !important;
+  flex: 0 0 auto !important;
+}
+#calculation-control-card .gm-actions .gm-save {
+  width: auto !important;
+  min-width: 64px !important;
+  max-width: 100% !important;
+  padding: 0 10px !important;
+  font-size: .72rem !important;
+  box-sizing: border-box !important;
+}
+#calculation-control-card .gm-report {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: auto !important;
+  margin: 0 !important;
+}
+#calculation-control-card .gm-report table {
+  width: 100% !important;
+  font-size: .72rem !important;
+}
+#calculation-control-card .gm-report-actions {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  align-items: stretch !important;
+}
+#calculation-control-card .gm-clear {
+  width: auto !important;
+  align-self: flex-start !important;
+  white-space: nowrap !important;
+}
+
+#calculation-control-card #pi-target-input { flex: 1 1 auto !important; }
+.pi-target-out {
+  display: inline-flex !important; align-items: center !important; justify-content: center !important;
+}
+
+@media (max-width: 1100px) {
+  #calculation-control-card .calc-grid-pi,
+  #calculation-control-card .calc-grid { flex-wrap: wrap !important; }
+  #calculation-control-card .calc-section-target,
+  #calculation-control-card .calc-section-convert {
+    flex: 1 1 45% !important;
+    max-width: none !important;
+  }
+  #calculation-control-card .calc-section-margin {
+    flex: 1 1 100% !important;
+  }
+}
+@media (max-width: 720px) {
+  #calculation-control-card .calc-grid > .calc-section {
+    flex: 1 1 100% !important;
+    max-width: none !important;
+  }
+  #calculation-control-card .gm-layout { flex-direction: column !important; }
+  #calculation-control-card .gm-controls { width: 100% !important; max-width: none !important; }
+}
+
+/* ?????????????????????????????????????????????????????????????
+   #5 ? BRAND / TIME / UNIT PRICE: the writable field fills the
+   WHOLE cell (no empty strip beneath), and BRAND/TIME wrap with
+   the row growing to fit. This OVERRIDES the ROUND 6 flex rules.
+   ????????????????????????????????????????????????????????????? */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"],
+#virtual-scroll-table td[data-calc-variable="unit_price"],
+#virtual-scroll-table td[data-col-name="BRAND"],
+#virtual-scroll-table td[data-col-name="TIME"] {
+  display: table-cell !important;
+  vertical-align: top !important;
+  padding: 2px !important;
+  height: auto !important;
+}
+
+/* UNIT PRICE ? single-line input filling the cell + source badge under it */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] input.pi-unit-input,
+#virtual-scroll-table td[data-calc-variable="unit_price"] input.pi-unit-input {
+  display: block !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 4px 6px !important;
+  min-height: 26px !important;
+  font: inherit !important;
+  font-size: .82rem !important;
+  font-variant-numeric: tabular-nums !important;
+  border: 1px solid var(--border, #dfe4ec) !important;
+  border-radius: 5px !important;
+  background: #fff !important;
+  text-align: left !important;
+  white-space: nowrap !important;
+}
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] input.pi-unit-input:focus,
+#virtual-scroll-table td[data-calc-variable="unit_price"] input.pi-unit-input:focus {
+  outline: none !important;
+  border-color: var(--primary, #4456e6) !important;
+  box-shadow: 0 0 0 2px var(--primary-soft, #eef2ff) !important;
+}
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] .price-src,
+#virtual-scroll-table td[data-calc-variable="unit_price"] .price-src {
+  display: block !important;
+  margin: 2px 0 0 !important;
+  font-size: .56rem !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+
+/* BRAND / TIME ? textarea fills the cell, wraps, row grows */
+#virtual-scroll-table td[data-col-name="BRAND"] .pi-text-area,
+#virtual-scroll-table td[data-col-name="TIME"] .pi-text-area {
+  display: block !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 4px 6px !important;
+  min-height: 26px !important;
+  font: inherit !important;
+  font-size: .8rem !important;
+  line-height: 1.3 !important;
+  border: 1px solid var(--border, #dfe4ec) !important;
+  border-radius: 5px !important;
+  background: #fff !important;
+  resize: none !important;
+  overflow: hidden !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  vertical-align: top !important;
+}
+#virtual-scroll-table td[data-col-name="BRAND"] .pi-text-area:focus,
+#virtual-scroll-table td[data-col-name="TIME"] .pi-text-area:focus {
+  outline: none !important;
+  border-color: var(--primary, #4456e6) !important;
+  box-shadow: 0 0 0 2px var(--primary-soft, #eef2ff) !important;
+}
+/* Let the row height follow the tallest cell content */
+#virtual-scroll-table td[data-col-name="BRAND"],
+#virtual-scroll-table td[data-col-name="TIME"] {
+  white-space: normal !important;
+  overflow: visible !important;
+}
+
+/* ?????????????????????????????????????????????????????????????
+   #4 ? Counter row-number chips (#1, 5) under each metric label
+   ????????????????????????????????????????????????????????????? */
+.to-metric-rows {
+  display: block;
+  font-size: .64rem;
+  font-weight: 600;
+  color: var(--primary, #4456e6);
+  margin-top: 1px;
+  letter-spacing: .02em;
+  word-break: break-word;
+}
+.pi-nounit-body .to-metric-rows { color: #b8860b; }
+.pi-unsup-card .to-metric-rows { color: #c0392b; }
+
+/* Not-suppliable card mirrors the no-unit card, red accent */
+.pi-unsup-card {
+  border-left: 4px solid #c0392b !important;
+}
+.pi-unsup-card .pi-nounit-ico { background: #fdecea !important; color: #c0392b !important; }
+.pi-unsup-card .pi-nounit-num { color: #c0392b !important; }
+.pi-unsup-card .ft-switch input:checked + .ft-switch-slider { background: #c0392b !important; }
+
+/* Two status cards sit side by side in the statusline */
+#pi-panel-pricing .pi-statusline {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  align-items: stretch !important;
+}
+
+/* ?????????????????????????????????????????????????????????????
+   #2 ? Item Code flag affordance: show a faint wrench/ban on
+   hover so the user knows the cell is clickable to flag.
+   ????????????????????????????????????????????????????????????? */
+#virtual-scroll-table td[data-col-name="Item Code"] .ic-box {
+  cursor: pointer;
+  position: relative;
+}
+/* Inactive flag icon is faint until hovered or active */
+#virtual-scroll-table tr:not(.row-issue):not(.row-unsuppliable) td[data-col-name="Item Code"] .ic-flag {
+  opacity: 0;
+  transition: opacity .12s;
+}
+#virtual-scroll-table tr:not(.row-issue):not(.row-unsuppliable) td[data-col-name="Item Code"] .ic-box:hover .ic-flag {
+  opacity: .45;
+}
+.ic-box:hover .ic-flag-ico { color: var(--primary, #4456e6); }
+
+/* ?????????????????????????????????????????????????????????????
+   Saved TO/PI tables: tint flagged rows (read-only view)
+   ????????????????????????????????????????????????????????????? */
+table.data tr.row-issue td { background: rgba(142, 68, 173, .10); }
+table.data tr.row-unsuppliable td { background: rgba(192, 57, 43, .10); }
+table.data tr.row-issue td:first-child { box-shadow: inset 3px 0 0 #8e44ad; }
+table.data tr.row-unsuppliable td:first-child { box-shadow: inset 3px 0 0 #c0392b; }
+
+/* ============================================================
+   ROUND 9 ? UNIT PRICE single box (value + unit), no badge,
+   no split. Overrides ROUND 6/7/8 price-cell rules.
+   ============================================================ */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"],
+#virtual-scroll-table td[data-calc-variable="unit_price"] {
+  display: table-cell !important;
+  vertical-align: middle !important;
+  padding: 2px !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+}
+/* The one input fills the whole cell; shows "1,234 Rial" when blurred. */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] input.pi-unit-input,
+#virtual-scroll-table td[data-calc-variable="unit_price"] input.pi-unit-input {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 5px 7px !important;
+  min-height: 30px !important;
+  font: inherit !important;
+  font-size: .82rem !important;
+  font-variant-numeric: tabular-nums !important;
+  border: 1px solid var(--border, #dfe4ec) !important;
+  border-radius: 5px !important;
+  background: #fff !important;
+  text-align: left !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] input.pi-unit-input:focus,
+#virtual-scroll-table td[data-calc-variable="unit_price"] input.pi-unit-input:focus {
+  outline: none !important;
+  border-color: var(--primary, #4456e6) !important;
+  box-shadow: 0 0 0 2px var(--primary-soft, #eef2ff) !important;
+}
+/* The source badge is no longer shown inside the price cell. */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] .price-src,
+#virtual-scroll-table td[data-calc-variable="unit_price"] .price-src,
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] .calc-display-value,
+#virtual-scroll-table td[data-calc-variable="unit_price"] .calc-display-value {
+  display: none !important;
+}
+
+/* BRAND / TIME single box filling the cell, wraps, row grows */
+#virtual-scroll-table td[data-col-name="BRAND"],
+#virtual-scroll-table td[data-col-name="TIME"] {
+  display: table-cell !important;
+  vertical-align: top !important;
+  padding: 2px !important;
+  white-space: normal !important;
+  overflow: visible !important;
+}
+#virtual-scroll-table td[data-col-name="BRAND"] .pi-text-area,
+#virtual-scroll-table td[data-col-name="TIME"] .pi-text-area {
+  display: block !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 5px 7px !important;
+  min-height: 30px !important;
+  font: inherit !important;
+  font-size: .8rem !important;
+  line-height: 1.3 !important;
+  border: 1px solid var(--border, #dfe4ec) !important;
+  border-radius: 5px !important;
+  background: #fff !important;
+  resize: none !important;
+  overflow: hidden !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+}
+#virtual-scroll-table td[data-col-name="BRAND"] .pi-text-area:focus,
+#virtual-scroll-table td[data-col-name="TIME"] .pi-text-area:focus {
+  outline: none !important;
+  border-color: var(--primary, #4456e6) !important;
+  box-shadow: 0 0 0 2px var(--primary-soft, #eef2ff) !important;
+}
+
+/* ============================================================
+   ROUND 9b ? Item Code flag icon: distinct, visible symbol
+   ============================================================ */
+.ic-box .ic-flag-ico {
+  font-size: .72rem;
+  transition: color .12s, opacity .12s, transform .12s;
+}
+/* Idle rows: icon hidden until hover, then a clear hint of the action */
+#virtual-scroll-table tr:not(.row-issue):not(.row-unsuppliable) td[data-col-name="Item Code"] .ic-flag {
+  opacity: 0;
+}
+#virtual-scroll-table tr:not(.row-issue):not(.row-unsuppliable) td[data-col-name="Item Code"] .ic-box:hover .ic-flag {
+  opacity: .65;
+}
+#virtual-scroll-table tr:not(.row-issue):not(.row-unsuppliable) td[data-col-name="Item Code"] .ic-box:hover .ic-flag-ico {
+  color: var(--primary, #4456e6);
+  transform: scale(1.12);
+}
+/* Flagged rows: icon solid + colored */
+tr.row-issue td[data-col-name="Item Code"] .ic-flag-ico { color: #8e44ad !important; opacity: 1 !important; }
+tr.row-unsuppliable td[data-col-name="Item Code"] .ic-flag-ico { color: #c0392b !important; opacity: 1 !important; }
+
+/* ============================================================
+   ROUND 10 ? FINAL fixes: flag icon always visible, BRAND/TIME
+   vertically centered & filling cell, manual badge restored.
+   This block is loaded LAST so it wins every earlier rule.
+   ============================================================ */
+
+/* ---- 1. Item Code flag icon: ALWAYS visible (idle = faint grey,
+          hover = blue, flagged = solid colored). No more opacity:0. ---- */
+#virtual-scroll-table td[data-col-name="Item Code"] .ic-box {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  cursor: pointer !important;
+}
+#virtual-scroll-table td[data-col-name="Item Code"] .ic-flag {
+  opacity: 1 !important;          /* never fully hidden */
+  display: inline-flex !important;
+  align-items: center !important;
+}
+#virtual-scroll-table td[data-col-name="Item Code"] .ic-flag-ico {
+  font-size: .85rem !important;
+  color: #8a93a3 !important;       /* clearly visible grey when idle */
+  opacity: 1 !important;
+  transition: color .12s, transform .12s !important;
+}
+/* Hover (idle row): hint the action in blue */
+#virtual-scroll-table tr:not(.row-issue):not(.row-unsuppliable) td[data-col-name="Item Code"] .ic-box:hover .ic-flag-ico {
+  color: var(--primary, #4456e6) !important;
+  transform: scale(1.15) !important;
+}
+/* Flagged rows: solid, bright, colored icon */
+#virtual-scroll-table tr.row-issue td[data-col-name="Item Code"] .ic-flag-ico {
+  color: #8e44ad !important;       /* purple = Technical Problem */
+  transform: scale(1.1) !important;
+}
+#virtual-scroll-table tr.row-unsuppliable td[data-col-name="Item Code"] .ic-flag-ico {
+  color: #c0392b !important;       /* red = Not Suppliable */
+  transform: scale(1.1) !important;
+}
+
+/* ---- 2. BRAND / TIME: textarea vertically centered, fills the cell ---- */
+#virtual-scroll-table td[data-col-name="BRAND"],
+#virtual-scroll-table td[data-col-name="TIME"] {
+  vertical-align: middle !important;
+  padding: 3px !important;
+  height: auto !important;
+}
+#virtual-scroll-table td[data-col-name="BRAND"] .pi-text-area,
+#virtual-scroll-table td[data-col-name="TIME"] .pi-text-area {
+  display: block !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 6px 7px !important;
+  min-height: 32px !important;
+  font: inherit !important;
+  font-size: .8rem !important;
+  line-height: 1.35 !important;
+  border: 1px solid var(--border, #dfe4ec) !important;
+  border-radius: 5px !important;
+  background: #fff !important;
+  resize: none !important;
+  overflow: hidden !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  vertical-align: middle !important;
+  text-align: left !important;
+}
+
+/* ---- 3. UNIT PRICE: input fills the cell, vertically centered ---- */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"],
+#virtual-scroll-table td[data-calc-variable="unit_price"] {
+  vertical-align: middle !important;
+  padding: 3px !important;
+  position: relative !important;
+}
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] input.pi-unit-input,
+#virtual-scroll-table td[data-calc-variable="unit_price"] input.pi-unit-input {
+  display: block !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 6px 7px !important;
+  min-height: 32px !important;
+}
+/* ---- 4. Manual badge: a small dot on the top-right of a manually-set
+          unit-price cell, so the user sees it was a manual entry. ---- */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"][data-price-source="manual"]::after,
+#virtual-scroll-table td[data-calc-variable="unit_price"][data-price-source="manual"]::after {
+  content: "M";
+  position: absolute;
+  top: 1px;
+  right: 2px;
+  font-size: .52rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  background: #e67e22;
+  padding: 1px 3px;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 2;
+}
+/* List-price source badge (shows the short list tag, e.g. "L") */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"][data-price-source]:not([data-price-source=""]):not([data-price-source="manual"])::after,
+#virtual-scroll-table td[data-calc-variable="unit_price"][data-price-source]:not([data-price-source=""]):not([data-price-source="manual"])::after {
+  content: "L";
+  position: absolute;
+  top: 1px;
+  right: 2px;
+  font-size: .52rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  background: #2e86c1;
+  padding: 1px 3px;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ============================================================
+   ROUND 11 ? UNIT PRICE source chip = full label (Manual / list
+   name), centered; input fills cell; no value duplicated below.
+   Loaded last ? wins. Removes the ROUND 10 M/L ::after badges.
+   ============================================================ */
+
+/* Kill the old single-letter M / L pseudo-badges from ROUND 10 */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"][data-price-source]::after,
+#virtual-scroll-table td[data-calc-variable="unit_price"][data-price-source]::after,
+#virtual-scroll-table td[data-col-name="UNIT PRICE"][data-price-source="manual"]::after,
+#virtual-scroll-table td[data-calc-variable="unit_price"][data-price-source="manual"]::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* The price cell is a vertical stack: input on top, source chip centered below */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"],
+#virtual-scroll-table td[data-calc-variable="unit_price"] {
+  display: table-cell !important;
+  vertical-align: middle !important;
+  padding: 3px 4px !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+}
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] input.pi-unit-input,
+#virtual-scroll-table td[data-calc-variable="unit_price"] input.pi-unit-input {
+  display: block !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  margin: 0 auto !important;
+  padding: 6px 7px !important;
+  min-height: 30px !important;
+  text-align: center !important;
+  font-variant-numeric: tabular-nums !important;
+}
+/* Source chip: a small, centered pill UNDER the input (Manual / Aria / ...) */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] .price-src,
+#virtual-scroll-table td[data-calc-variable="unit_price"] .price-src {
+  display: inline-block !important;
+  margin: 3px auto 0 !important;
+  padding: 1px 7px !important;
+  font-size: .58rem !important;
+  font-weight: 700 !important;
+  line-height: 1.4 !important;
+  letter-spacing: .02em !important;
+  border-radius: 9px !important;
+  white-space: nowrap !important;
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+/* Manual = orange pill, list = blue pill */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] .price-src[data-kind="manual"],
+#virtual-scroll-table td[data-calc-variable="unit_price"] .price-src[data-kind="manual"] {
+  color: #fff !important;
+  background: #e67e22 !important;
+}
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] .price-src[data-kind="list"],
+#virtual-scroll-table td[data-calc-variable="unit_price"] .price-src[data-kind="list"] {
+  color: #fff !important;
+  background: #2e86c1 !important;
+}
+/* Make sure the calc display span never reappears in the price cell */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] .calc-display-value,
+#virtual-scroll-table td[data-calc-variable="unit_price"] .calc-display-value {
+  display: none !important;
+}
+
+/* ============================================================
+   ROUND 13 ? Variable-height rows that GROW with wrapped content.
+   BRAND / TIME / remark / revision wrap and push the row taller
+   (no inner scroll, no flicker). The virtual-scroll engine now
+   measures real row heights, so scrolling reaches the true bottom
+   and stops there (no bounce).
+   ============================================================ */
+#virtual-scroll-tbody tr.row {
+  height: auto !important;          /* row grows with its tallest cell */
+}
+#virtual-scroll-tbody tr.row > td {
+  height: auto !important;
+  vertical-align: middle !important;
+  overflow: visible !important;
+}
+
+/* Textareas (remark / revision / BRAND / TIME): wrap and grow the row.
+   The auto-sizing JS sets the exact pixel height inline (ta.style.height =
+   scrollHeight). We must NOT put `height` here (especially not !important) or it
+   overrides that inline height and the text spills under the box. We only set
+   min-height + wrapping + no inner scroll, and let JS own the height. */
+#virtual-scroll-tbody tr.row > td textarea {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  min-height: 28px !important;
+  resize: none !important;
+  overflow: hidden !important;       /* no inner scroll ? row height shows all */
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  line-height: 1.35 !important;
+  vertical-align: top !important;
+}
+
+/* BRAND / TIME centered and filling the cell */
+#virtual-scroll-table td[data-col-name="BRAND"],
+#virtual-scroll-table td[data-col-name="TIME"] {
+  vertical-align: middle !important;
+  padding: 3px !important;
+}
+#virtual-scroll-table td[data-col-name="BRAND"] .pi-text-area,
+#virtual-scroll-table td[data-col-name="TIME"] .pi-text-area {
+  display: block !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 6px 7px !important;
+  min-height: 30px !important;
+  font: inherit !important;
+  font-size: .8rem !important;
+  line-height: 1.35 !important;
+  border: 1px solid var(--border, #dfe4ec) !important;
+  border-radius: 5px !important;
+  background: #fff !important;
+  resize: none !important;
+  overflow: hidden !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+}
+
+/* UNIT PRICE: single input filling the cell; the Manual/list chip overlays at
+   the bottom edge (absolute) so it never adds row height nor sits as a 2nd
+   stacked value. */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"],
+#virtual-scroll-table td[data-calc-variable="unit_price"] {
+  vertical-align: middle !important;
+  padding: 3px 4px !important;
+  text-align: center !important;
+  position: relative !important;
+  overflow: visible !important;
+}
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] input.pi-unit-input,
+#virtual-scroll-table td[data-calc-variable="unit_price"] input.pi-unit-input {
+  display: block !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  margin: 0 auto !important;
+  padding: 6px 7px !important;
+  min-height: 30px !important;
+  text-align: center !important;
+  font-variant-numeric: tabular-nums !important;
+}
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] .price-src,
+#virtual-scroll-table td[data-calc-variable="unit_price"] .price-src {
+  position: absolute !important;
+  bottom: -6px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  margin: 0 !important;
+  z-index: 5 !important;
+  font-size: .54rem !important;
+  padding: 0 6px !important;
+  line-height: 1.5 !important;
+  white-space: nowrap !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.2) !important;
+}
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] .calc-display-value,
+#virtual-scroll-table td[data-calc-variable="unit_price"] .calc-display-value {
+  display: none !important;
+}
+
+/* ============================================================
+   ROUND 14 ? UNIT PRICE / BRAND / TIME locked when the row's remark
+   has content (or NOT-SUPPLIABLE). Same grey look + not-allowed cursor.
+   ============================================================ */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"][data-locked="1"] input.pi-unit-input,
+#virtual-scroll-table td[data-calc-variable="unit_price"][data-locked="1"] input.pi-unit-input,
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] input.pi-unit-input:disabled,
+#virtual-scroll-table td[data-calc-variable="unit_price"] input.pi-unit-input:disabled,
+#virtual-scroll-table td[data-col-name="BRAND"][data-locked="1"] textarea,
+#virtual-scroll-table td[data-col-name="TIME"][data-locked="1"] textarea,
+#virtual-scroll-table td[data-col-name="BRAND"] textarea:disabled,
+#virtual-scroll-table td[data-col-name="TIME"] textarea:disabled,
+#virtual-scroll-table td[data-col-name="BRAND"] textarea:read-only,
+#virtual-scroll-table td[data-col-name="TIME"] textarea:read-only {
+  background: #f1f3f6 !important;
+  color: #aeb6c2 !important;
+  border-color: #e1e5ec !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
+}
+#virtual-scroll-table td[data-col-name="UNIT PRICE"][data-locked="1"],
+#virtual-scroll-table td[data-calc-variable="unit_price"][data-locked="1"],
+#virtual-scroll-table td[data-col-name="BRAND"][data-locked="1"],
+#virtual-scroll-table td[data-col-name="TIME"][data-locked="1"] {
+  cursor: not-allowed !important;
+  background: #f7f8fa !important;
+}
+#virtual-scroll-table td[data-col-name="UNIT PRICE"][data-locked="1"]::before,
+#virtual-scroll-table td[data-calc-variable="unit_price"][data-locked="1"]::before,
+#virtual-scroll-table td[data-col-name="BRAND"][data-locked="1"]::before,
+#virtual-scroll-table td[data-col-name="TIME"][data-locked="1"]::before {
+  content: "\f023";  /* fa-lock */
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  font-size: .62rem;
+  color: #c0c7d2;
+  pointer-events: none;
+  z-index: 4;
+}
+#virtual-scroll-table td[data-col-name="BRAND"],
+#virtual-scroll-table td[data-col-name="TIME"],
+#virtual-scroll-table td[data-col-name="UNIT PRICE"],
+#virtual-scroll-table td[data-calc-variable="unit_price"] {
+  position: relative;
+}
+
+/* ============================================================
+   ROUND 15 ? Per-row margin panel inside UNIT PRICE works again.
+   The panel sits below the price input in normal flow; the cell &
+   row grow to fit it, and all its inputs/buttons are clickable
+   (above the price input, never overlaid).
+   ============================================================ */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] .row-margin-panel,
+#virtual-scroll-table td[data-calc-variable="unit_price"] .row-margin-panel {
+  position: relative !important;
+  z-index: 10 !important;
+  pointer-events: auto !important;
+  margin-top: 6px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] .row-margin-panel input,
+#virtual-scroll-table td[data-calc-variable="unit_price"] .row-margin-panel input,
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] .row-margin-panel button,
+#virtual-scroll-table td[data-calc-variable="unit_price"] .row-margin-panel button {
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: 11 !important;
+}
+/* When a margin panel is present the cell must allow its full height (the row
+   grows with it) ? never clip it. */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"]:has(.row-margin-panel),
+#virtual-scroll-table td[data-calc-variable="unit_price"]:has(.row-margin-panel) {
+  vertical-align: top !important;
+  overflow: visible !important;
+}
+/* Keep the source chip from sitting on top of the margin panel: when a panel is
+   shown, drop the chip back into flow under the input. */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"]:has(.row-margin-panel) .price-src,
+#virtual-scroll-table td[data-calc-variable="unit_price"]:has(.row-margin-panel) .price-src {
+  position: relative !important;
+  bottom: auto !important;
+  left: auto !important;
+  transform: none !important;
+  display: inline-block !important;
+  margin: 3px auto 0 !important;
+}
+
+/* Per-row margin toggle rendered as a switch (matches not-suppliable) */
+.calc-switch-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  cursor: pointer !important;
+  padding: 2px 0 !important;
+}
+.calc-switch-label { font-size: .74rem; color: var(--text, #1f2a44); }
+
+/* ============================================================
+   ROUND 16 ? PI filter polish: fields fill the row width with no
+   empty gap on the right, and the Group field is visually distinct.
+   ============================================================ */
+/* Feature fields stretch to fill the whole horizontal space evenly */
+#pi-filter-feats {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important;
+  gap: 8px 10px !important;
+  align-items: end !important;
+  width: 100% !important;
+}
+#pi-filter-feats .pi-combo { width: 100% !important; min-width: 0 !important; }
+#pi-filter-feats .pi-combo input { width: 100% !important; box-sizing: border-box !important; }
+
+/* Group field ? distinct accent so it reads as the primary selector */
+.pi-filter-group-col .pi-combo label,
+#pi-filter-group ~ * label { font-weight: 700 !important; }
+#pi-filter-group .pi-combo input,
+.pi-filter-group-col .pi-combo input {
+  border: 2px solid var(--primary, #4456e6) !important;
+  background: var(--primary-soft, #eef2ff) !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+}
+.pi-filter-group-col .pi-combo label {
+  color: var(--primary, #4456e6) !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .03em !important;
+  font-size: .66rem !important;
+}
+/* A small "primary" tint band behind the group column */
+.pi-filter-group-col {
+  background: linear-gradient(180deg, rgba(68,86,230,.06), transparent) !important;
+  border-radius: 10px !important;
+  padding: 4px 6px !important;
+}
+
+/* ============================================================
+   ROUND 17 ? Global-margin Group: searchable combo (like filter).
+   ============================================================ */
+.gm-combo { position: relative; width: 100%; }
+.gm-combo-input {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 5px 8px !important;
+  font-size: .78rem !important;
+  border: 1px solid var(--border-strong, #cfd6e4) !important;
+  border-radius: 6px !important;
+  background: #fff !important;
+}
+.gm-combo-input:focus {
+  outline: none !important;
+  border-color: var(--primary, #4456e6) !important;
+  box-shadow: 0 0 0 2px var(--primary-soft, #eef2ff) !important;
+}
+.gm-combo-menu {
+  position: absolute; left: 0; right: 0; top: 100%;
+  margin-top: 3px; z-index: 50;
+  background: #fff; border: 1px solid var(--border, #e3e7ee);
+  border-radius: 7px; box-shadow: 0 8px 22px rgba(0,0,0,.14);
+  max-height: 200px; overflow-y: auto;
+}
+.gm-combo-menu > div {
+  padding: 6px 10px; font-size: .78rem; cursor: pointer;
+}
+.gm-combo-menu > div:hover { background: var(--primary-soft, #eef2ff); }
+.gm-combo-empty { color: #9aa3b2; cursor: default !important; }
+
+/* ============================================================
+   ROUND 18 ? Item Code flag icon: GUARANTEED visible.
+   Final override block (loaded last). Idle = clear grey, hover =
+   blue + grow, flagged = solid colored (purple TP / red unsup).
+   ============================================================ */
+#virtual-scroll-table td[data-col-name="Item Code"] .ic-box {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  padding: 2px 6px !important;
+  border-radius: 7px !important;
+}
+#virtual-scroll-table td[data-col-name="Item Code"] .ic-flag {
+  display: inline-flex !important;
+  align-items: center !important;
+  opacity: 1 !important;
+}
+#virtual-scroll-table td[data-col-name="Item Code"] .ic-flag-ico {
+  display: inline-block !important;
+  font-size: .9rem !important;
+  color: #7b8696 !important;          /* clearly visible idle grey */
+  opacity: 1 !important;
+  transition: color .12s, transform .12s !important;
+}
+#virtual-scroll-table tr:not(.row-issue):not(.row-unsuppliable) td[data-col-name="Item Code"] .ic-box:hover .ic-flag-ico {
+  color: var(--primary, #4456e6) !important;
+  transform: scale(1.18) !important;
+}
+#virtual-scroll-table tr.row-issue td[data-col-name="Item Code"] .ic-flag-ico {
+  color: #8e44ad !important; transform: scale(1.1) !important;
+}
+#virtual-scroll-table tr.row-unsuppliable td[data-col-name="Item Code"] .ic-flag-ico {
+  color: #c0392b !important; transform: scale(1.1) !important;
+}
+
+/* ============================================================
+   ROUND 19 ? Source chip top-right of the UNIT PRICE cell (not
+   bottom-center) + remark counter card accent.
+   ============================================================ */
+#virtual-scroll-tbody tr.row > td[data-col-name="UNIT PRICE"],
+#virtual-scroll-tbody tr.row > td[data-calc-variable="unit_price"],
+#virtual-scroll-table td[data-col-name="UNIT PRICE"],
+#virtual-scroll-table td[data-calc-variable="unit_price"] {
+  position: relative !important;
+  overflow: visible !important;
+}
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] .price-src,
+#virtual-scroll-table td[data-calc-variable="unit_price"] .price-src,
+#virtual-scroll-tbody tr.row > td[data-col-name="UNIT PRICE"] .price-src,
+#virtual-scroll-tbody tr.row > td[data-calc-variable="unit_price"] .price-src {
+  position: absolute !important;
+  top: -6px !important;
+  right: 2px !important;
+  left: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+  margin: 0 !important;
+  z-index: 6 !important;
+  font-size: .54rem !important;
+  font-weight: 700 !important;
+  padding: 1px 6px !important;
+  line-height: 1.45 !important;
+  border-radius: 8px !important;
+  white-space: nowrap !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.22) !important;
+}
+
+/* Remark counter card ? teal accent to distinguish it */
+.pi-remark-card { border-left: 4px solid #0f8a8a !important; }
+.pi-remark-card .pi-nounit-ico { background: #e3f6f6 !important; color: #0f8a8a !important; }
+.pi-remark-card .pi-nounit-num { color: #0f8a8a !important; }
+.pi-remark-card .ft-switch input:checked + .ft-switch-slider { background: #0f8a8a !important; }
+.pi-remark-card .to-metric-rows { color: #0f8a8a !important; }
+
+/* ============================================================
+   ROUND 20 ? TO read-only "Proforma remark" column (styling now
+   handled by ROUND 28 ? inherits normal TO column look).
+   ============================================================ */
+#virtual-scroll-table td.pf-remark-cell {
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  vertical-align: middle !important;
+}
+
+/* ============================================================
+   ROUND 21 ? TO filter panel (mirrors the PI filter) + matched
+   count badges on both filters.
+   ============================================================ */
+#to-filter-bar { margin: 8px 0; position: relative; z-index: 3000; }
+.to-filter-chips { display: flex; gap: 8px; }
+.to-chip {
+  font: inherit; cursor: pointer; border: 1px solid var(--border, #d8deea);
+  background: var(--surface-soft, #f4f6fb); color: var(--text, #1f2a44);
+  border-radius: 8px; padding: 7px 14px; font-size: .82rem; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.to-chip.active { border-color: var(--primary, #4456e6); background: var(--primary-soft, #eef2ff); color: var(--primary, #4456e6); }
+.to-filter-badge, .pi-filter-badge { font-weight: 500; opacity: .8; font-size: .92em; }
+.to-filter-badge b, .pi-filter-badge b { color: var(--primary, #4456e6); }
+.to-filter-panel {
+  margin-top: 8px; padding: 12px 14px; position: relative; z-index: 3000; overflow: visible;
+  background: var(--surface, #fff); border: 1px solid var(--border, #e3e7ee);
+  border-radius: 10px;
+}
+.to-filter-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.to-filter-title { font-size: .84rem; font-weight: 700; color: var(--text, #1f2a44); display: inline-flex; align-items: center; gap: 8px; }
+.to-chip-clear {
+  font: inherit; cursor: pointer; border: 1px solid var(--border, #e3e7ee);
+  background: #fff; color: #c0392b; border-radius: 7px; padding: 4px 10px; font-size: .76rem;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.to-filter-row { display: grid; grid-template-columns: 180px 1fr; gap: 12px; align-items: start; }
+.to-feats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px 10px; align-items: end; }
+.ff-combo { position: relative; width: 100%; }
+.ff-combo > label {
+  display: block; font-size: .64rem; font-weight: 700; margin-bottom: 3px;
+  color: var(--text-soft, #5a647a); text-transform: uppercase; letter-spacing: .02em;
+}
+.ff-combo-box { position: relative; }
+.ff-combo input {
+  width: 100%; box-sizing: border-box; padding: 5px 8px; font-size: .78rem;
+  border: 1px solid var(--border-strong, #cfd6e4); border-radius: 6px; background: #fff;
+}
+.ff-combo input:focus { outline: none; border-color: var(--primary, #4456e6); box-shadow: 0 0 0 2px var(--primary-soft, #eef2ff); }
+.ff-menu {
+  position: absolute; left: 0; right: 0; top: 100%; margin-top: 3px; z-index: 4000;
+  background: #fff; border: 1px solid var(--border, #e3e7ee); border-radius: 7px;
+  box-shadow: 0 8px 22px rgba(0,0,0,.14); max-height: 200px; overflow-y: auto;
+}
+.ff-menu > div { padding: 6px 10px; font-size: .78rem; cursor: pointer; }
+.ff-menu > div:hover { background: var(--primary-soft, #eef2ff); }
+.ff-empty, .ff-hint { color: #9aa3b2; padding: 6px 10px; font-size: .76rem; cursor: default; }
+/* Group field distinct (same accent as PI) */
+.to-filter-group-col .ff-combo input {
+  border: 2px solid var(--primary, #4456e6); background: var(--primary-soft, #eef2ff);
+  font-weight: 600; border-radius: 8px;
+}
+.to-filter-group-col .ff-combo > label { color: var(--primary, #4456e6); font-weight: 800; }
+.to-filter-group-col {
+  background: linear-gradient(180deg, rgba(68,86,230,.06), transparent);
+  border-radius: 10px; padding: 4px 6px;
+}
+
+/* ============================================================
+   ROUND 22 ? TO-only offer: locked Proforma price columns + notice.
+   ============================================================ */
+#pi-lock-note {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 10px; padding: 9px 13px;
+  background: #fff4e5; border: 1px solid #ffd9a8; border-radius: 8px;
+  color: #8a5a00; font-size: .82rem;
+}
+#pi-lock-note i { color: #c77700; }
+/* Locked price input: greyed + not editable */
+#virtual-scroll-table td[data-price-locked="1"] input.pi-unit-input,
+#virtual-scroll-table td[data-price-locked="1"] input.pi-unit-input:disabled {
+  background: #f1f3f6 !important;
+  color: #aeb6c2 !important;
+  border-color: #e1e5ec !important;
+  cursor: not-allowed !important;
+}
+#virtual-scroll-table td[data-price-locked="1"]::after {
+  content: "\f023";   /* fa-lock */
+  font-family: "Font Awesome 6 Free"; font-weight: 900;
+  position: absolute; top: 50%; right: 5px; transform: translateY(-50%);
+  font-size: .6rem; color: #c0c7d2; pointer-events: none;
+}
+
+/* ============================================================
+   ROUND 23 ? PI: size / qty / unit are read-only display cells
+   (no rounded border, no hover box) ? plain like CLIENT DESCRIPTION.
+   ============================================================ */
+body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="size"],
+body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="qty"],
+body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="unit"] {
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  cursor: default !important;
+}
+body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="size"]:hover,
+body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="qty"]:hover,
+body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="unit"]:hover {
+  box-shadow: none !important;
+}
+
+/* ============================================================
+   ROUND 24 ? Filtered-row count: blue metric (TO) + green chip (PI).
+   "N item" instead of "N shown", placed in the top-left card.
+   ============================================================ */
+.to-metric-blue { border-left-color: #2563c9; }
+.to-metric-blue .to-metric-ico { background: #e6efff; color: #2563c9; }
+.to-metric-blue .to-metric-num { color: #2563c9; }
+.to-metric-blue .ft-switch input:checked + .ft-switch-slider { background: #2563c9; }
+
+/* PI green count chip inside the grand-total strip */
+.pi-rowcount-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-left: auto;
+  background: #e6f7ec; color: #138a4e; border: 1px solid #b6e7c9;
+  border-radius: 999px; padding: 3px 12px; font-size: .82rem; font-weight: 700;
+}
+.pi-rowcount-chip b { font-weight: 800; }
+/* amber proforma-remark metric (TO) reuses amber palette but distinct from no-code */
+.to-metric-proforma { border-left-color: #c77700; }
+.to-metric-proforma .to-metric-ico { background: #fff1dc; color: #c77700; }
+.to-metric-proforma .to-metric-num { color: #c77700; }
+.to-metric-proforma .ft-switch input:checked + .ft-switch-slider { background: #c77700; }
+
+/* ============================================================
+   ROUND 25 ? Source chip on the BOTTOM BORDER LINE of the UNIT
+   PRICE cell, centered (like r13): absolutely positioned so it
+   overlaps the row divider and never shrinks the cell/input.
+   ============================================================ */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"],
+#virtual-scroll-table td[data-calc-variable="unit_price"],
+#virtual-scroll-tbody tr.row > td[data-col-name="UNIT PRICE"],
+#virtual-scroll-tbody tr.row > td[data-calc-variable="unit_price"] {
+  position: relative !important;
+  overflow: visible !important;
+}
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] .price-src,
+#virtual-scroll-table td[data-calc-variable="unit_price"] .price-src,
+#virtual-scroll-tbody tr.row > td[data-col-name="UNIT PRICE"] .price-src,
+#virtual-scroll-tbody tr.row > td[data-calc-variable="unit_price"] .price-src {
+  display: block !important;
+  position: absolute !important;
+  bottom: -8px !important;            /* sit on the row divider line */
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  top: auto !important;
+  right: auto !important;
+  margin: 0 !important;
+  z-index: 6 !important;
+  text-align: center !important;
+  width: fit-content !important;
+  font-size: .54rem !important;
+  font-weight: 700 !important;
+  padding: 1px 7px !important;
+  line-height: 1.5 !important;
+  border-radius: 8px !important;
+  white-space: nowrap !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.22) !important;
+}
+
+/* ============================================================
+   ROUND 26 ? Hide the language <select> entirely. The visible
+   control is the toggle button (#lang-toggle-btn); the select is
+   only kept for the translator's wiring, never shown.
+   ============================================================ */
+.lang-switch,
+.tool-bar .lang-switch,
+select.lang-switch[hidden] {
+  display: none !important;
+}
+
+/* ============================================================
+   ROUND 27 ? Row-count line above the table. Borderless (no small
+   pill box) ? just a colored icon + "N item". Green for PI, blue TO.
+   ============================================================ */
+/* Filtered-item counter: a small rounded chip sitting at the top-LEFT just
+   above the table (green in PI, blue in TO). Compact box, not full width. */
+.ft-rowcount-bar {
+  margin: 2px 0 6px; padding: 0;
+  display: flex; justify-content: flex-start;
+}
+.ft-rowcount-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: .82rem; font-weight: 700;
+  padding: 3px 12px !important;
+  border-radius: 999px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.ft-rowcount-chip b { font-weight: 800; font-size: .92rem; }
+/* PI = green box */
+.ft-rowcount-pi .ft-rowcount-chip {
+  color: #0f7a44 !important;
+  background: #e6f6ec !important;
+  border: 1px solid #b7e4c7 !important;
+}
+.ft-rowcount-pi .ft-rowcount-chip i,
+.ft-rowcount-pi .ft-rowcount-chip b { color: #0f7a44 !important; }
+/* TO = blue box */
+.ft-rowcount-to .ft-rowcount-chip {
+  color: #1f54a8 !important;
+  background: #e8f0fc !important;
+  border: 1px solid #bcd4f5 !important;
+}
+.ft-rowcount-to .ft-rowcount-chip i,
+.ft-rowcount-to .ft-rowcount-chip b { color: #1f54a8 !important; }
+
+/* ============================================================
+   ROUND 28 ? PF remark column is a NORMAL TO column: same row
+   colors, same BLUE header ? only difference is the hand cursor
+   (it's copyable) and a brief green flash on copy. We add NO
+   background/color/header overrides so it inherits everything.
+   ============================================================ */
+#virtual-scroll-table td.pf-remark-cell { cursor: pointer !important; }
+#virtual-scroll-table td.pf-remark-cell:hover { cursor: pointer !important; }
+#virtual-scroll-table td.pf-remark-cell.pf-copied {
+  outline: 2px solid #2ec47a !important;
+  background: #e7f9ef !important;
+}
+
+/* ============================================================
+   ROUND 29 ? Client row (#) column in TO/PI grids: narrow,
+   read-only, muted ? the very first column.
+   ============================================================ */
+#virtual-scroll-table th[data-col-name="#"],
+#virtual-scroll-table td[data-col-name="#"] {
+  /* ~3 digits (999) — freed space goes to CLIENT / FTCO / REMARK */
+  width: 28px !important;
+  min-width: 26px !important;
+  max-width: 30px !important;
+  text-align: center !important;
+  color: #8a93a6 !important;
+  font-weight: 700 !important;
+  background: #fafbfc !important;
+  cursor: default !important;
+}
+#virtual-scroll-table th[data-col-name="#"] {
+  background: var(--primary) !important;
+  color: #fff !important;
+}
+
+/* ============================================================
+   ROUND 20 ? Narrow "#" (client-row) column + tighter Item No.
+   Cap at ~3 digits so it never sprawls. Applies to both TO and PI.
+   ============================================================ */
+#virtual-scroll-table td[data-col-name="#"],
+#virtual-scroll-table th[data-col-name="#"] {
+  max-width: 30px !important;
+  width: 28px !important;
+  min-width: 26px !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  padding: 0.15rem 0.05rem !important;
+  position: relative !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+}
+
+/* Price columns: center numbers. */
+#virtual-scroll-table td[data-col-name="UNIT PRICE"] input.pi-unit-input,
+#virtual-scroll-table td[data-calc-variable="unit_price"] input.pi-unit-input,
+#virtual-scroll-table td[data-col-name="SERVICE PRICE"] input.svc-price-input,
+#virtual-scroll-table td[data-col-name="TOTAL PRICE"],
+#virtual-scroll-table td[data-calc-variable="total_price"] {
+  text-align: center !important;
+}
+#virtual-scroll-table td[data-col-name="TOTAL PRICE"] .svc-total-wrap,
+#virtual-scroll-table td[data-calc-variable="total_price"] .svc-total-wrap {
+  align-items: center !important;
+}
+/* Item No. cell: number + small flag icon. Wide enough that the "No." header
+   never clips. */
+body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="Item Code"],
+body[data-tool-kind="PI"] #virtual-scroll-table th[data-col-name="Item Code"] {
+  max-width: 92px !important;
+  min-width: 64px !important;
+  white-space: nowrap !important;
+}
+
+/* ============================================================
+   ROUND 20b ? PI: BRAND / TIME / UNIT PRICE look like the plain
+   ?????? column. No resting box outline, no green hover ring ?
+   just a clean cell with its always-on input inside.
+   ============================================================ */
+body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="UNIT PRICE"]:not([data-editing="1"]),
+body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="BRAND"]:not([data-editing="1"]),
+body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="TIME"]:not([data-editing="1"]) {
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="UNIT PRICE"]:hover,
+body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="BRAND"]:hover,
+body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="TIME"]:hover {
+  box-shadow: none !important;
+}
+/* Also neutralise the generic editable-cell hover ring in PI for these. */
+body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="UNIT PRICE"][data-editable="1"]:hover,
+body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="BRAND"][data-editable="1"]:hover,
+body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="TIME"][data-editable="1"]:hover {
+  box-shadow: none !important;
+}
+
+/* ============================================================
+   ROUND 31 ? TO-only PI: price-list + manual price locked, but
+   the Pricing panel stays open (Brand / Delivery time editable).
+   ============================================================ */
+.pi-field-locked { opacity: .55; }
+.pi-field-locked input, .pi-field-locked button,
+.pi-field-locked select, .pi-field-locked textarea {
+  cursor: not-allowed !important;
+  background: #f1f3f6 !important;
+}
+.pi-inline-lock-note {
+  display: flex; align-items: center; gap: 6px;
+  font-size: .76rem; color: #8a5a00;
+  background: #fff7e6; border: 1px solid #ffe2a8;
+  border-radius: 7px; padding: 6px 10px; margin-bottom: 10px;
+}
+.pi-inline-lock-note i { color: #b07514; }
+
+/* ============================================================
+   SERVICE PRICE (قیمت خدمات) — PI only. Added 2026-07.
+   Same layout/weight as .tp-reason-card (Technical Problem box) so it reads
+   as part of the same design language, but built from the app's own theme
+   variables (--paper/--ink/--accent/--line/--muted) instead of hardcoded
+   colours, so — unlike the box it's modeled on — it is correct in all three
+   skins and both light/dark modes without a separate dark-mode override file.
+   ============================================================ */
+.svc-toggle-row {
+  display: flex; align-items: center; gap: .6rem;
+  margin: 0 0 .5rem;
+}
+.svc-toggle-row .svc-toggle-label {
+  font-size: .82rem; font-weight: 700; color: var(--ink);
+}
+.svc-toggle-row .svc-toggle-hint {
+  font-size: .74rem; color: var(--muted);
+}
+
+.svc-card[hidden] { display: none !important; }
+.svc-card {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: .85rem;
+  margin: 0 0 .7rem;
+  padding: .75rem .9rem;
+  border: 1px solid var(--accent-soft);
+  border-radius: var(--radius, 9px);
+  background: var(--mist, var(--paper));
+  box-shadow: 0 1px 2px rgba(16,24,40,.04);
+}
+.svc-left, .svc-right {
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius, 9px) - 2px);
+  background: var(--paper);
+  padding: .65rem .75rem;
+  min-width: 0;
+}
+.svc-title {
+  font-size: .72rem; font-weight: 800; color: var(--accent-strong, var(--accent));
+  text-transform: uppercase; letter-spacing: .04em; margin-bottom: .4rem;
+}
+.svc-row-picker {
+  display: flex; align-items: center; gap: .45rem; flex-wrap: wrap;
+  margin-bottom: .55rem;
+}
+.svc-row-picker .svc-picked-count {
+  font-size: .78rem; color: var(--muted); margin-inline-start: .15rem;
+}
+.svc-chip-btn {
+  display: inline-flex; align-items: center; gap: .4rem;
+  border: 1px solid var(--line, #d8dee9);
+  background: var(--paper, #fff);
+  color: var(--ink, #1f2a44);
+  border-radius: 999px;
+  padding: .32rem .75rem;
+  font-size: .76rem;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1.2;
+  box-shadow: 0 1px 1px rgba(16,24,40,.04);
+}
+.svc-chip-btn i { font-size: .72rem; opacity: .85; }
+.svc-chip-btn:hover {
+  border-color: var(--accent, #4456e6);
+  color: var(--accent-strong, #4456e6);
+  background: var(--accent-soft, rgba(68,86,230,.06));
+}
+.svc-chip-btn-muted {
+  color: var(--muted, #667085);
+  background: var(--mist, #f5f7fb);
+}
+.svc-chip-btn-muted:hover {
+  border-color: var(--line, #d8dee9);
+  color: var(--ink, #1f2a44);
+  background: var(--paper, #fff);
+}
+.svc-pick-tag {
+  display: inline-block;
+  margin-inline-start: .35rem;
+  padding: .05rem .35rem;
+  border-radius: 999px;
+  font-size: .62rem;
+  font-weight: 800;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  color: var(--accent-strong, #4456e6);
+  background: var(--accent-soft, rgba(68,86,230,.12));
+  vertical-align: middle;
+}
+.svc-left textarea {
+  width: 100%; min-height: 4.2rem; max-height: 7rem; resize: vertical;
+  border: 1px solid var(--line); border-radius: calc(var(--radius, 9px) - 2px);
+  padding: .5rem .6rem; font-size: .84rem; box-sizing: border-box;
+  background: var(--paper); color: var(--ink);
+}
+.svc-left textarea:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.svc-error {
+  margin-top: .35rem; padding: .35rem .55rem; border-radius: 8px;
+  font-size: .78rem; font-weight: 600;
+  color: var(--rej, #b42318); background: var(--rejbg, #fef3f2);
+  border: 1px solid var(--rejline, #fecdca);
+}
+.svc-actions {
+  display: flex; gap: .45rem; margin-top: .55rem; justify-content: flex-end;
+}
+.svc-actions .btn {
+  border-radius: 999px; min-width: 5.5rem; font-weight: 700; padding: .35rem .9rem;
+}
+.svc-actions #svc-confirm {
+  background: var(--accent); border-color: var(--accent); color: var(--on-accent, #fff);
+}
+.svc-actions #svc-confirm:hover { filter: brightness(1.05); }
+.svc-actions #svc-clear-selected {
+  background: var(--paper); border: 1px solid var(--line); color: var(--muted);
+}
+
+.svc-list {
+  list-style: none; margin: 0; padding: .2rem .45rem;
+  max-height: 7.2rem; overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius, 9px) - 2px);
+  background: var(--mist, var(--paper));
+}
+.svc-list li {
+  display: grid; grid-template-columns: minmax(3.2rem, auto) 1fr auto; gap: .45rem;
+  align-items: start;
+  padding: .32rem .15rem; border-bottom: 1px solid var(--line);
+  font-size: .82rem;
+}
+.svc-list li .svc-item { white-space: normal; word-break: break-word; }
+.svc-list li:last-child { border-bottom: 0; }
+.svc-list .svc-item { font-weight: 700; color: var(--accent-strong, var(--accent)); }
+.svc-list .svc-text { white-space: pre-wrap; color: var(--ink); }
+.svc-list .svc-row-clear {
+  border: 0; background: transparent; color: var(--muted); cursor: pointer;
+  font-size: .78rem; padding: 2px 5px;
+}
+.svc-list .svc-row-clear:hover { color: var(--rej, #b42318); }
+.svc-empty { font-size: .8rem; color: var(--muted); padding: .3rem .15rem; }
+
+/* Picking: only Client Description → FTCO Description (never Item Code / ban). */
+body.svc-picking td[data-col-name="Description"],
+body.svc-picking td[data-col-name="description"],
+body.svc-picking td[data-col-name="CLIENT DESCRIPTION"],
+body.svc-picking td[data-col-name="CLIENT DISCRIPTION"],
+body.svc-picking td[data-col-name="Final Arranged Text"],
+body.svc-picking td[data-col-name="FTCO DISCRIPTION"],
+body.svc-picking td[data-col-name="FTCO DESCRIPTION"] {
+  cursor: pointer;
+}
+/* Soft row tint only — the bordered SERVICE chip on FTCO Description is the signal. */
+tr.svc-row-selected td {
+  background: var(--accent-soft, rgba(68,86,230,.05)) !important;
+}
+/* Attached SERVICE rows — match SERVICE tag indigo (#4456e6). */
+#virtual-scroll-tbody tr.row-service:not(.row-unsuppliable):not(.row-issue) > td {
+  background: rgba(68, 86, 230, .08) !important;
+}
+#virtual-scroll-tbody tr.row-service:not(.row-unsuppliable):not(.row-issue) > td:first-child {
+  box-shadow: inset 3px 0 0 #4456e6;
+}
+table.data tr.row-service:not(.row-unsuppliable):not(.row-issue) td {
+  background: rgba(68, 86, 230, .10);
+}
+table.data tr.row-service:not(.row-unsuppliable):not(.row-issue) td:first-child {
+  box-shadow: inset 3px 0 0 #4456e6;
+}
+
+/* SERVICE chip in FTCO Description — same language as NOT SUPPLIABLE chip. */
+.svc-ftco-tag {
+  display: inline-block;
+  margin-inline-start: 8px;
+  padding: 1px 8px;
+  border-radius: 6px;
+  background: rgba(68, 86, 230, .12);
+  color: #4456e6 !important;
+  border: 1px solid rgba(68, 86, 230, .5);
+  font-weight: 800;
+  font-size: .66rem !important;
+  letter-spacing: .04em;
+  vertical-align: middle;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.svc-ftco-tag.svc-attached {
+  background: rgba(68, 86, 230, .10);
+  border-color: rgba(68, 86, 230, .4);
+}
+
+/* SERVICE PRICE column: match UNIT PRICE chrome; only visible when body.svc-col-visible. */
+body:not(.svc-col-visible) th[data-col-name="SERVICE PRICE"],
+body:not(.svc-col-visible) td[data-col-name="SERVICE PRICE"] {
+  display: none !important;
+}
+body.svc-col-visible #virtual-scroll-table th[data-col-name="SERVICE PRICE"],
+body.svc-col-visible #virtual-scroll-table td[data-col-name="SERVICE PRICE"],
+body.svc-col-visible #virtual-scroll-table td[data-col-name="SERVICE PRICE"] input.svc-price-input {
+  white-space: nowrap !important;
+}
+body.svc-col-visible #virtual-scroll-table th[data-col-name="SERVICE PRICE"],
+body.svc-col-visible #virtual-scroll-table td[data-col-name="SERVICE PRICE"] {
+  min-width: 7.5rem;
+  width: 7.5rem;
+  max-width: 9rem;
+  vertical-align: middle !important;
+  padding: 2px !important;
+  overflow: hidden !important;
+}
+/* Steal a little width from wide description columns when the service column is on. */
+body.svc-col-visible #virtual-scroll-table td[data-col-name="Final Arranged Text"],
+body.svc-col-visible #virtual-scroll-table th[data-col-name="Final Arranged Text"],
+body.svc-col-visible #virtual-scroll-table td[data-col-name="description"],
+body.svc-col-visible #virtual-scroll-table th[data-col-name="description"],
+body.svc-col-visible #virtual-scroll-table td[data-col-name="Description"],
+body.svc-col-visible #virtual-scroll-table th[data-col-name="Description"] {
+  max-width: 18rem;
+}
+#virtual-scroll-table td[data-col-name="SERVICE PRICE"] input.svc-price-input {
+  display: block !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 5px 7px !important;
+  min-height: 30px !important;
+  font: inherit !important;
+  font-size: .82rem !important;
+  font-variant-numeric: tabular-nums !important;
+  border: 1px solid var(--border, #dfe4ec) !important;
+  border-radius: 5px !important;
+  background: #fff !important;
+  color: var(--ink, #1f2a44) !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  pointer-events: auto !important;
+}
+#virtual-scroll-table td[data-col-name="SERVICE PRICE"] input.svc-price-input:focus {
+  outline: none !important;
+  border-color: var(--primary, #4456e6) !important;
+  box-shadow: 0 0 0 2px var(--primary-soft, #eef2ff) !important;
+}
+#virtual-scroll-table td[data-col-name="SERVICE PRICE"]:not(.svc-locked) input.svc-price-input {
+  background: #fff !important;
+  opacity: 1 !important;
+  cursor: text !important;
+  pointer-events: auto !important;
+}
+td[data-col-name="SERVICE PRICE"].svc-locked {
+  background: var(--mist, var(--cloud)); opacity: .65;
+}
+td[data-col-name="SERVICE PRICE"].svc-locked input.svc-price-input {
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  background: transparent !important;
+}
+
+/* TOTAL PRICE: unit×qty on top, service×qty wrapped below. */
+.svc-total-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  line-height: 1.2;
+}
+.svc-total-base {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.svc-total-svc {
+  white-space: nowrap;
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--accent-strong, #4456e6);
+  font-variant-numeric: tabular-nums;
+}
+.svc-total-svc::before {
+  content: 'svc ';
+  font-weight: 600;
+  opacity: .75;
+  text-transform: lowercase;
+}
+
+/* Totals strip: Subtotal / Total service / VAT / Grand — grouped on the right,
+   Grand is the rightmost cell. */
+.pi-grand-strip {
+  justify-content: flex-end !important;
+}
+.pi-grand-strip > .pi-tot-pill:first-child {
+  margin-inline-start: auto;
+}
+.pi-tot-pill-grand {
+  margin-inline-start: 0 !important;
+}
+
+@media (max-width: 900px) {
+  .svc-card { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   Proforma pricing hidden from Technical unit users. Added 2026-07.
+   The actual security boundary is server-side (bridge.mask_price_columns
+   empties these cells before the HTML ever reaches the page — a browser's
+   dev tools cannot recover a value that was never sent). This CSS is a
+   presentation-only step on top of that: it collapses the now-empty
+   columns entirely (header included) so the page reads as "there is no
+   pricing here" rather than "here are some odd empty columns".
+   ============================================================ */
+body[data-hide-pricing="1"] th[data-col-name="UNIT PRICE"],
+body[data-hide-pricing="1"] td[data-col-name="UNIT PRICE"],
+body[data-hide-pricing="1"] th[data-col-name="SERVICE PRICE"],
+body[data-hide-pricing="1"] td[data-col-name="SERVICE PRICE"],
+body[data-hide-pricing="1"] th[data-col-name="TOTAL PRICE"],
+body[data-hide-pricing="1"] td[data-col-name="TOTAL PRICE"] {
+  display: none !important;
+}
+.pi-pricing-applied-badge {
+  display: flex; align-items: center; gap: .5rem;
+  margin: 0 0 .7rem;
+  padding: .55rem .85rem;
+  border: 1px solid var(--okline, #bbe6cb);
+  border-radius: var(--radius, 9px);
+  background: var(--okbg, #eaf7ef);
+  color: var(--ok, #15803d);
+  font-size: .85rem;
+  font-weight: 700;
+}
+.pi-pricing-applied-badge i { font-size: .95rem; }

@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% load ft_extras %}
+{% block title %}{{ group }} features · Data Management{% endblock %}
+{% block topbar %}Features: {{ group }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>“{{ group }}” features &amp; columns</h1>
+  <div class="sub">Main = primary attributes (have codes, drive the code, cascade by rules). Sub = secondary (no code). Info = price/weight/data (no code).</div></div>
+  <div class="btn-row">
+    <a class="btn btn-sm btn-primary" href="{% url 'dm_item_new' group %}"><i class="fa-solid fa-plus"></i> Add one item</a>
+    <a class="btn btn-sm" href="{% url 'dm_code_rows' group %}"><i class="fa-solid fa-table-list"></i> Browse / edit rows</a>
+    <a class="btn btn-sm" href="{% url 'dm_offer' group %}"><i class="fa-solid fa-diagram-project"></i> Offer</a>
+    <a class="btn btn-sm" href="{% url td_home_url_name %}">Back</a>
+  </div>
+</div>
+
+{% if config %}
+<div class="card" style="margin-bottom:1rem;">
+  <div class="card-head"><h3>Code construction</h3></div>
+  <div class="muted" style="font-size:.84rem;line-height:1.7;">
+    Technical (big) code = <code>{{ config.tech_start }}</code> + <code>{{ config.tech_group }}</code> + codes of the <b>main</b> features.<br>
+    Item (small) code = <code>{{ config.item_start }}</code> + <code>{{ config.item_group }}</code> + codes of the small-code features + a {{ config.item_seq_digits }}-digit sequence.
+    Sub &amp; info columns never change the code.
+  </div>
+</div>
+{% endif %}
+
+<!-- Per-group actions. The rules file for THIS group can be downloaded or
+     replaced here. The offer builder has its own page (with its own offer file
+     controls), so it is only linked — no duplicate file box on this page. -->
+<div class="card fx-files">
+  <div class="fx-files-row">
+    <a class="btn btn-sm btn-primary" href="{% url 'dm_offer' group %}"><i class="fa-solid fa-diagram-project"></i> Open offer builder</a>
+    <span class="fx-files-sep"></span>
+    <span class="fx-files-lbl"><i class="fa-solid fa-sliders"></i> rules_{{ group }}.json</span>
+    <a class="btn btn-sm btn-outline" href="{% url 'dm_rules_download' group %}"><i class="fa-solid fa-file-arrow-up"></i> Download</a>
+    <form method="post" action="{% url 'dm_rules_upload' group %}" enctype="multipart/form-data" class="fx-inline-form">
+      {% csrf_token %}
+      <input type="file" name="rules_file" accept=".json,application/json" required>
+      <button type="submit" class="btn btn-sm"><i class="fa-solid fa-upload"></i> Replace</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  {% if features %}
+  <table class="data">
+    <thead><tr><th class="num">col</th><th>Name</th><th>Kind</th><th class="num">Values</th><th>Small code (1/2)</th><th></th></tr></thead>
+    <tbody>
+      {% for f in features %}
+        <tr>
+          <td class="num muted">{{ f.column_index }}</td>
+          <td><strong>{{ f.name }}</strong></td>
+          <td>
+            <span class="pill {% if f.kind == 'main' %}pill-blue{% elif f.kind == 'sub' %}pill-amber{% else %}pill-grey{% endif %}">{{ f.kind }}</span>
+          </td>
+          <td class="num">{% if f.kind == 'main' %}{{ counts|get_item:f.name }}{% else %}—{% endif %}</td>
+          <td>
+            {% if f.kind == 'main' %}
+              <form method="post" style="margin:0;">{% csrf_token %}
+                <input type="hidden" name="action" value="toggle_small"><input type="hidden" name="feature" value="{{ f.name }}">
+                <button class="btn btn-sm {% if f.small_order %}btn-primary{% else %}btn-ghost{% endif %}" type="submit" title="Click to cycle priority 1 / 2 / none">
+                  {% if f.small_order %}{{ f.small_order }}{% else %}—{% endif %}
+                </button>
+              </form>
+            {% else %}<span class="muted">—</span>{% endif %}
+          </td>
+          <td>{% if f.kind == 'main' %}<a class="btn btn-sm" href="{% url 'dm_feature_values' group f.name %}">Values &amp; codes</a>{% endif %}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <div class="muted" style="margin-top:.6rem;">No columns detected yet. Import a coding table first.</div>
+  {% endif %}
+
+  <!-- Secondary action, tucked under the table so it doesn't clutter the page.
+       Collapsed by default; opens only when the admin actually needs it. -->
+  <details class="fx-add-sub">
+    <summary><i class="fa-solid fa-plus"></i> Add a sub / info column</summary>
+    <form method="post" class="fx-add-sub-form">{% csrf_token %}
+      <input type="hidden" name="action" value="add_sub">
+      <div class="fx-add-sub-grid">
+        <div class="field"><label>Column name</label>
+          <input type="text" name="title" placeholder="e.g. diameter" required></div>
+        <div class="field"><label>Kind</label>
+          <select name="kind">
+            <option value="sub">Sub feature (shown when defining an item, no code)</option>
+            <option value="info">Info column (price / weight / data only)</option>
+          </select></div>
+        <button class="btn btn-primary" type="submit"><i class="fa-solid fa-plus"></i> Add</button>
+      </div>
+      <div class="help">Neither kind affects the code. Sub features appear after the main features; info columns are per-row data.</div>
+    </form>
+  </details>
+</div>
+
+<style>
+  .fx-files{padding:.6rem .8rem;}
+  .fx-files-row{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;}
+  .fx-files-sep{width:1px;height:22px;background:var(--line);margin:0 .3rem;}
+  .fx-files-lbl{font-size:.8rem;color:var(--muted);font-family:monospace;}
+  .fx-inline-form{display:inline-flex;gap:.4rem;align-items:center;margin:0;}
+  .fx-inline-form input[type=file]{font-size:.78rem;max-width:190px;}
+  .fx-add-sub{margin-top:1rem;border-top:1px solid var(--line);padding-top:.6rem;}
+  .fx-add-sub>summary{cursor:pointer;font-weight:600;font-size:.85rem;color:var(--accent-strong);
+    list-style:none;display:inline-flex;align-items:center;gap:.4rem;padding:.3rem 0;}
+  .fx-add-sub>summary::-webkit-details-marker{display:none;}
+  .fx-add-sub-form{margin-top:.7rem;max-width:640px;}
+  .fx-add-sub-grid{display:flex;gap:.6rem;align-items:end;flex-wrap:wrap;}
+  .fx-add-sub-grid .field{margin:0;}
+  .fx-add-sub-grid .field label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:.25rem;}
+  .fx-add-sub-grid input,.fx-add-sub-grid select{padding:.45rem .55rem;border:1px solid var(--line);
+    border-radius:7px;background:var(--paper);color:var(--ink);font-size:.84rem;}
+</style>
+{% endblock %}

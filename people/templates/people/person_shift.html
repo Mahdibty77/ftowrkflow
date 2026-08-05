@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Work shift · {{ person.display_name }}{% endblock %}
+{% block topbar %}Work shift · {{ person.display_name }}{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-22">
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1><i class="fa-solid fa-hourglass-half"></i> Work shift</h1>
+    <div class="sub">
+      {{ person.display_name }} · Detail code <span class="ppl-code">{{ person.detail_code }}</span>
+      · Tracking from <span class="mono">{{ tracking_label }}</span>
+    </div>
+  </div>
+  <div class="btn-row">
+    <a href="{% url 'people:person_detail' person.pk %}" class="btn btn-sm">
+      <i class="fa-solid fa-arrow-left"></i> Back to details
+    </a>
+  </div>
+</div>
+
+<div class="card ppl-shift-card">
+  <div class="card-head"><h3><i class="fa-solid fa-hourglass-half"></i> Daily hours</h3></div>
+  <p class="muted" style="font-size:.86rem;margin:0 0 1rem;line-height:1.5;">
+    Login is allowed only between these times (Asia/Tehran). Weekends are
+    Thursday and Friday; official Jalali holidays are also excluded from planned hours.
+    Hours are counted only from the tracking start date above — earlier days are not planned.
+    <strong>Floating time</strong> lets a late arrival within the grace window still count from Start.
+    Changing the shift only updates the <strong>current</strong> month.
+  </p>
+
+  {% if pending_confirm %}
+  <div class="ppl-confirm" data-confirm-box style="margin-bottom:1rem;">
+    <span class="ppl-confirm-q">
+      Confirm shift change to
+      <strong class="mono">{{ work_start }}</strong>–<strong class="mono">{{ work_end }}</strong>
+      · Floating time <strong class="mono">{{ float_mmss }}</strong>
+      · Reconnect time <strong class="mono">{{ grace_mmss }}</strong>
+      ({{ hours_per_day }} h/day)? This recalculates only the current month.
+    </span>
+    <span class="ppl-confirm-act">
+      <form method="post" style="display:inline;">
+        {% csrf_token %}
+        <input type="hidden" name="work_start" value="{{ work_start }}">
+        <input type="hidden" name="work_end" value="{{ work_end }}">
+        <input type="hidden" name="float_time" value="{{ float_mmss }}">
+        <input type="hidden" name="reconnect_time" value="{{ grace_mmss }}">
+        <input type="hidden" name="confirm_step" value="2">
+        <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-check"></i> Confirm save</button>
+      </form>
+      <a href="{% url 'people:person_shift' person.pk %}" class="btn btn-sm btn-ghost">Cancel</a>
+    </span>
+  </div>
+  {% else %}
+  <form method="post" id="shiftHoursForm">
+    {% csrf_token %}
+    <input type="hidden" name="confirm_step" value="1">
+    <div class="ppl-shift-times">
+      <div class="field ppl-time-wrap">
+        <label for="id_work_start_h">Start</label>
+        <div class="ppl-hm">
+          <i class="fa-solid fa-hourglass-half ppl-hm-ic" aria-hidden="true"></i>
+          <select name="work_start_h" id="id_work_start_h" class="ppl-theme-select" required aria-label="Start hour">
+            {% for h in hour_choices %}
+              <option value="{{ h }}"{% if h == start_h %} selected{% endif %}>{{ h }}</option>
+            {% endfor %}
+          </select>
+          <span class="ppl-hm-sep">:</span>
+          <select name="work_start_m" id="id_work_start_m" class="ppl-theme-select" required aria-label="Start minute">
+            {% for m in minute_choices %}
+              <option value="{{ m }}"{% if m == start_m %} selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="field ppl-time-wrap">
+        <label for="id_work_end_h">End</label>
+        <div class="ppl-hm">
+          <i class="fa-solid fa-hourglass-half ppl-hm-ic" aria-hidden="true"></i>
+          <select name="work_end_h" id="id_work_end_h" class="ppl-theme-select" required aria-label="End hour">
+            {% for h in hour_choices %}
+              <option value="{{ h }}"{% if h == end_h %} selected{% endif %}>{{ h }}</option>
+            {% endfor %}
+          </select>
+          <span class="ppl-hm-sep">:</span>
+          <select name="work_end_m" id="id_work_end_m" class="ppl-theme-select" required aria-label="End minute">
+            {% for m in minute_choices %}
+              <option value="{{ m }}"{% if m == end_m %} selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="field ppl-time-wrap">
+        <label for="id_float_m">Floating time</label>
+        <div class="ppl-hm">
+          <i class="fa-solid fa-clock ppl-hm-ic" aria-hidden="true"></i>
+          <select name="float_m" id="id_float_m" class="ppl-theme-select" required aria-label="Floating minutes">
+            {% for m in float_minute_choices %}
+              <option value="{{ m }}"{% if m == float_m %} selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+          </select>
+          <span class="ppl-hm-sep">:</span>
+          <select name="float_s" id="id_float_s" class="ppl-theme-select" required aria-label="Floating seconds">
+            {% for m in minute_choices %}
+              <option value="{{ m }}"{% if m == float_s %} selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="field ppl-time-wrap">
+        <label for="id_grace_m">Reconnect time</label>
+        <div class="ppl-hm">
+          <i class="fa-solid fa-rotate-right ppl-hm-ic" aria-hidden="true"></i>
+          <select name="grace_m" id="id_grace_m" class="ppl-theme-select" required aria-label="Reconnect minutes">
+            {% for m in float_minute_choices %}
+              <option value="{{ m }}"{% if m == grace_m %} selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+          </select>
+          <span class="ppl-hm-sep">:</span>
+          <select name="grace_s" id="id_grace_s" class="ppl-theme-select" required aria-label="Reconnect seconds">
+            {% for m in minute_choices %}
+              <option value="{{ m }}"{% if m == grace_s %} selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+    <p class="muted" style="font-size:.8rem;margin:.65rem 0 0;">
+      Shift length: <strong>{{ hours_per_day }}</strong> hours / working day
+      · Arrive by Start + Floating time to still count from Start
+    </p>
+    <div class="btn-row" style="margin-top:1.1rem;">
+      <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save shift</button>
+      <a href="{% url 'people:person_detail' person.pk %}" class="btn btn-ghost">Cancel</a>
+    </div>
+  </form>
+  {% endif %}
+</div>
+
+<div class="ppl-shift-branch">
+  <div class="ppl-month-grid">
+    {% for y in year_cards %}
+      <div class="ppl-month-card{% if y.is_current %} is-current{% endif %}{% if y.frozen %} is-frozen{% endif %}">
+        <div class="ppl-month-head">
+          <strong>Year {{ y.jalali_year }}</strong>
+          {% if y.is_current %}<span class="pill pill-green">Current</span>
+          {% else %}<span class="pill pill-grey">Frozen</span>{% endif %}
+        </div>
+        <div class="ppl-month-stats">
+          <div><span class="muted">Plan</span><strong>{{ y.planned_hours }} h</strong></div>
+          <div><span class="muted">Done</span><strong>{{ y.worked_hours }} h{% if y.excess_hours %} <span class="ppl-ot-chip">{{ y.excess_hours }}h (OT)</span>{% endif %}</strong></div>
+          <div><span class="muted">Work days</span><strong>{{ y.working_days }}</strong></div>
+          <div><span class="muted">Off days</span><strong>{{ y.off_days }}</strong></div>
+        </div>
+        <div class="ppl-month-bar ppl-bar-tall" title="{{ y.worked_hours }} / {{ y.planned_hours }} h">
+          <span style="width:{{ y.bar_pct }}%;"></span>
+          <em class="ppl-bar-pct">{{ y.bar_pct }}%</em>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="ppl-month-branch">
+    <div class="ppl-month-branch-head">
+      <h3><i class="fa-solid fa-chart-line"></i> Monthly hours</h3>
+      <span class="count">Year {{ report_year }}</span>
+    </div>
+    <p class="muted" style="font-size:.84rem;margin:0 0 .85rem;line-height:1.45;">
+      Click a month to open its daily cards.
+    </p>
+    <div class="ppl-month-grid">
+      {% for m in month_cards %}
+        {% if m.status == 'idle' %}
+          <div class="ppl-month-card is-idle">
+            <div class="ppl-month-head">
+              <strong>{{ m.name }}</strong>
+              <span class="pill pill-grey">—</span>
+            </div>
+            <div class="ppl-month-idle muted">Not started</div>
+          </div>
+        {% else %}
+          <a href="{% url 'people:person_shift_month' person.pk report_year m.month %}"
+             class="ppl-month-card is-{{ m.status }} ppl-month-link">
+            <div class="ppl-month-head">
+              <strong>{{ m.name }}</strong>
+              {% if m.status == 'current' %}<span class="pill pill-green">Current</span>
+              {% elif m.status == 'frozen' %}<span class="pill pill-grey">Frozen</span>
+              {% elif m.status == 'upcoming' %}<span class="pill pill-grey">Soon</span>{% endif %}
+            </div>
+            <div class="ppl-month-stats">
+              <div><span class="muted">Plan</span><strong>{{ m.planned_hours }} h</strong></div>
+              <div><span class="muted">Done</span><strong>{{ m.worked_hours }} h{% if m.excess_hours %} <span class="ppl-ot-chip">{{ m.excess_hours }}h (OT)</span>{% endif %}</strong></div>
+              <div><span class="muted">Work days</span><strong>{{ m.working_days }}</strong></div>
+              <div><span class="muted">Off days</span><strong>{{ m.off_days }}</strong></div>
+            </div>
+            <div class="ppl-month-bar ppl-bar-tall" title="{{ m.worked_hours }} / {{ m.planned_hours }} h">
+              <span style="width:{{ m.bar_pct }}%;"></span>
+              <em class="ppl-bar-pct">{{ m.bar_pct }}%</em>
+            </div>
+            <div class="ppl-month-foot muted">{{ m.hours_per_day }} h / day · {{ m.shift_label }}</div>
+          </a>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'people/js/people.js' %}?v=ppl-13"></script>
+{% endblock %}

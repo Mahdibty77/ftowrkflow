@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ person.display_name }} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Details · {{ person.display_name }}{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-12">
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Details · {{ person.display_name }}</h1>
+    <div class="sub">
+      Detail code <span class="ppl-code">{{ person.detail_code }}</span>
+      {% if person.username %} · <span class="mono">{{ person.username }}</span>{% endif %}
+    </div>
+  </div>
+  <div class="btn-row">
+    <a href="{% url 'people:person_seats' person.pk %}" class="btn btn-sm">
+      <i class="fa-solid fa-sitemap"></i> Seats
+      {% if person.role_count %}<span class="count">{{ person.role_count }}</span>{% endif %}
+    </a>
+    <a href="{% url 'people:person_list' %}" class="btn btn-sm">
+      <i class="fa-solid fa-arrow-left"></i> Back to people
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h3>Record</h3>
+    {% if person.is_active %}
+      <span class="pill pill-green">Active</span>
+    {% else %}
+      <span class="pill pill-grey">Departed</span>
+    {% endif %}
+  </div>
+  <dl class="kv">
+    <dt>Detail code</dt><dd><span class="ppl-code">{{ person.detail_code }}</span></dd>
+    <dt>Username</dt>
+    <dd>
+      {% if person.username %}
+        <span class="mono">{{ person.username }}</span>
+      {% else %}
+        <span class="muted">Fill in the Latin name to generate one.</span>
+      {% endif %}
+    </dd>
+    <dt>Internal code</dt>
+    <dd>{% if person.internal_code %}<span class="mono">{{ person.internal_code }}</span>{% else %}<span class="muted">—</span>{% endif %}</dd>
+    <dt>Roles</dt>
+    <dd>
+      {% with roles=person.roles.all %}
+      {% if roles %}
+        <span class="chips-row">
+          {% for role in roles %}
+            <span class="chip ppl-seat-chip">
+              {% if role.seat_code %}<span class="mono">{{ role.seat_code }}</span>{% endif %}
+              <span class="ppl-chip-role">{{ role.title_line }}</span>
+            </span>
+          {% endfor %}
+        </span>
+      {% else %}
+        <span class="muted">None yet —
+          <a href="{% url 'people:person_seats' person.pk %}">assign one</a>.</span>
+      {% endif %}
+      {% endwith %}
+    </dd>
+    <dt>Work shift</dt>
+    <dd class="mono">{{ shift_label }}</dd>
+  </dl>
+</div>
+
+<div class="grid grid-3 md-hub-cards" style="gap:1rem;max-width:1100px;margin-top:.25rem;">
+  <a href="{% url 'people:person_profile' person.pk %}" class="card md-hub-card">
+    <div class="md-hub-card-top">
+      <span class="md-hub-ic md-hub-ic-profile" aria-hidden="true"><i class="fa-solid fa-user-tie"></i></span>
+      <h3>Profile</h3>
+    </div>
+    <div class="muted md-hub-desc">Identity, contact, education, dependants, bank details and guarantees for this person.</div>
+  </a>
+
+  <a href="{% url 'people:person_shift' person.pk %}" class="card md-hub-card">
+    <div class="md-hub-card-top">
+      <span class="md-hub-ic md-hub-ic-shift" aria-hidden="true"><i class="fa-solid fa-hourglass-half"></i></span>
+      <h3>Work shift</h3>
+    </div>
+    <div class="muted md-hub-desc">Daily hours, holidays, monthly and yearly work-hour reports.</div>
+    <div class="md-hub-meta"><i class="fa-solid fa-hourglass-half"></i> {{ shift_label }}</div>
+  </a>
+
+  <a href="{% url 'people:person_access' person.pk %}" class="card md-hub-card">
+    <div class="md-hub-card-top">
+      <span class="md-hub-ic" aria-hidden="true"><i class="fa-solid fa-user-check"></i></span>
+      <h3>Access</h3>
+    </div>
+    <div class="muted md-hub-desc">Request types granted to this person (Overtime, Leave, Purchase) and assignment links.</div>
+  </a>
+</div>
+{% endblock %}

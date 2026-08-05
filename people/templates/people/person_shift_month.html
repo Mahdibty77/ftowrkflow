@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ month_name }} {{ jalali_year }} · Work shift · {{ person.display_name }}{% endblock %}
+{% block topbar %}{{ month_name }} {{ jalali_year }} · {{ person.display_name }}{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-22">
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ month_name }} {{ jalali_year }}</h1>
+    <div class="sub">Daily attendance cards</div>
+  </div>
+  <div class="btn-row">
+    <a href="{% url 'people:person_shift' person.pk %}" class="btn btn-sm">
+      <i class="fa-solid fa-arrow-left"></i> Back to work shift
+    </a>
+  </div>
+</div>
+
+<div class="ppl-day-summary">
+  <div class="ppl-day-field">
+    <span class="ppl-day-field-label">Person</span>
+    <strong class="ppl-day-field-value">{{ person.display_name }}</strong>
+  </div>
+  <div class="ppl-day-field">
+    <span class="ppl-day-field-label">Month</span>
+    <strong class="ppl-day-field-value">{{ month_name }} {{ jalali_year }}</strong>
+  </div>
+  {% if month_card %}
+  <div class="ppl-day-field">
+    <span class="ppl-day-field-label">Plan</span>
+    <strong class="ppl-day-field-value mono">{{ month_card.planned_hours }} h</strong>
+  </div>
+  <div class="ppl-day-field">
+    <span class="ppl-day-field-label">Done</span>
+    <strong class="ppl-day-field-value mono">{{ month_card.worked_hours }} h{% if month_card.excess_hours %} <span class="ppl-ot-chip">{{ month_card.excess_hours }}h (OT)</span>{% endif %}</strong>
+  </div>
+  <div class="ppl-day-field">
+    <span class="ppl-day-field-label">Work days</span>
+    <strong class="ppl-day-field-value mono">{{ month_card.working_days }}</strong>
+  </div>
+  <div class="ppl-day-field">
+    <span class="ppl-day-field-label">Off days</span>
+    <strong class="ppl-day-field-value mono">{{ month_card.off_days }}</strong>
+  </div>
+  <div class="ppl-day-field">
+    <span class="ppl-day-field-label">Hours / day</span>
+    <strong class="ppl-day-field-value mono">{{ month_card.hours_per_day }} h</strong>
+  </div>
+  <div class="ppl-day-field">
+    <span class="ppl-day-field-label">Shift</span>
+    <strong class="ppl-day-field-value mono">{{ month_card.shift_label }}</strong>
+  </div>
+  {% endif %}
+</div>
+
+<div class="ppl-day-grid" role="list">
+  {% for d in days %}
+    <div class="ppl-day-card is-{{ d.status }}{% if d.is_off %} is-offday{% endif %}{% if d.is_holiday %} is-holiday{% endif %}{% if d.is_weekend %} is-weekend{% endif %}"
+         role="listitem">
+      <div class="ppl-day-card-top">
+        <div class="ppl-day-card-day">
+          <strong>Day {{ d.jalali_day }}</strong>
+          <span class="ppl-day-weekday">{{ d.weekday_short }}</span>
+        </div>
+        <div class="ppl-day-card-tags">
+          {% if d.ot_request_url %}
+          <a href="{{ d.ot_request_url }}" class="ppl-ot-tag" title="{{ d.ot_request_code|default:'Overtime request' }}">OT</a>
+          {% endif %}
+          {% if d.status == 'today' %}<span class="pill pill-green">Today</span>
+          {% elif d.status == 'ended' %}<span class="pill pill-grey">Ended</span>
+          {% elif d.status == 'soon' %}<span class="pill pill-grey">Soon</span>
+          {% elif d.status == 'off' %}<span class="pill pill-red">Off</span>
+          {% elif d.status == 'complete' %}<span class="pill pill-green"><i class="fa-solid fa-check"></i> Done</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="ppl-day-card-body">
+        {% if d.status == 'ended' %}
+          <div class="ppl-day-card-note muted">Ended · before tracking</div>
+        {% elif d.status == 'soon' %}
+          <div class="ppl-day-card-note muted">Upcoming</div>
+        {% elif d.status == 'off' %}
+          <div class="ppl-day-card-note ppl-day-off-label">{{ d.off_reason|default:"Off" }}</div>
+        {% else %}
+          <div class="ppl-day-hours-line">
+            <span class="mono">{{ d.worked_hours }}</span>
+            <span class="muted">of</span>
+            <span class="mono">{{ d.planned_hours }} h</span>
+            {% if d.excess_hours %}
+              <span class="ppl-ot-chip" title="Hours beyond plan">
+                <i class="fa-solid fa-stopwatch"></i> +{{ d.excess_hours }} h (OT)
+              </span>
+            {% endif %}
+          </div>
+          <div class="ppl-day-io">
+            <div class="ppl-day-io-cell">
+              <span class="ppl-day-io-label">In</span>
+              <span class="ppl-day-io-time mono">{{ d.login }}</span>
+            </div>
+            <div class="ppl-day-io-sep" aria-hidden="true">–</div>
+            <div class="ppl-day-io-cell">
+              <span class="ppl-day-io-label">Out</span>
+              <span class="ppl-day-io-time mono">{{ d.logout }}</span>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  {% empty %}
+    <p class="muted">No days for this month.</p>
+  {% endfor %}
+</div>
+{% endblock %}

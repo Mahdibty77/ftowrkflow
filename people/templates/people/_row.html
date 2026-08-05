@@ -1,0 +1,30 @@
+{% load people_tags %}{% comment %}
+One row of a repeating table. Inputs post as `<cardkey>__<column>[]`, which is
+the shape people.formbuild.collect_rows reads back.
+
+`row` is a dict of existing values, or None for the blank row that always sits
+at the bottom so the table can be filled in without pressing Add first.
+{% endcomment %}
+<div class="ppl-row">
+  {% for col in columns %}
+    <div>
+      {% if col.kind == "select" %}
+        <select name="{{ card.key }}__{{ col.name }}[]">
+          <option value="">—</option>
+          {% for opt in col.options %}
+            <option value="{{ opt }}"{% if row and row|dictkey:col.name == opt %} selected{% endif %}>{{ opt }}</option>
+          {% endfor %}
+        </select>
+      {% else %}
+        <input type="text" name="{{ card.key }}__{{ col.name }}[]"
+               value="{% if row %}{{ row|dictkey:col.name }}{% endif %}"
+               {% if col.placeholder %}placeholder="{{ col.placeholder }}"{% endif %}
+               {% if col.numeric %}inputmode="numeric"{% endif %}
+               autocomplete="off">
+      {% endif %}
+    </div>
+  {% endfor %}
+  <div>
+    <button type="button" class="ppl-row-del" data-del-row title="حذف ردیف" aria-label="حذف ردیف">×</button>
+  </div>
+</div>

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load ft_extras %}
+{% block title %}Coding Reference · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Coding Reference{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Coding reference data</h1>
+    <div class="sub">Browse each group's items, manage feature values, and configure offer rules. You can add and edit data; only the platform administrator can delete or wipe records.</div></div>
+  <a class="btn btn-sm" href="{% url 'dm_ea_item_log' %}"><i class="fa-solid fa-gears"></i> Technical Assistant log</a>
+</div>
+
+{% if code_tables %}
+<div class="grid grid-3">
+  {% for t in code_tables %}
+  <div class="card">
+    <div class="card-head"><h3><i class="fa-solid fa-cubes"></i> {{ t.group }}</h3><span class="muted" style="font-size:.78rem;">{{ t.row_count }} items</span></div>
+    <div class="btn-row" style="margin-top:.4rem;flex-wrap:wrap;gap:.4rem;">
+      <a class="btn btn-sm" href="{% url 'dm_code_rows' t.group %}"><i class="fa-solid fa-table-list"></i> Browse</a>
+      <a class="btn btn-sm" href="{% url 'dm_features' t.group %}"><i class="fa-solid fa-sliders"></i> Features</a>
+      <a class="btn btn-sm" href="{% url 'dm_offer' t.group %}"><i class="fa-solid fa-diagram-project"></i> Offer</a>
+      <a class="btn btn-sm btn-primary" href="{% url 'dm_item_new' t.group %}"><i class="fa-solid fa-plus"></i> Add item</a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card"><div class="muted" style="font-size:.85rem;">No groups have been imported yet. Ask the platform administrator to import a coding table first.</div></div>
+{% endif %}
+{% endblock %}

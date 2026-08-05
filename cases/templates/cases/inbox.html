@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load ft_extras %}
+{% block title %}Inbox · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Inbox{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Inbox</h1>
+    <div class="sub">
+      {% if scope == 'commercial' %}Live status of every case — nearest deadline first.
+      {% elif scope == 'technical' %}Cases currently with the Technical unit — nearest deadline first.
+      {% elif scope == 'supply' %}Pricing queue — nearest deadline first.
+      {% else %}Your cases — nearest deadline first.{% endif %}
+    </div>
+  </div>
+  {% if can_create %}<a href="{% url 'cases:case_create' %}" class="btn btn-primary">New Case</a>{% endif %}
+</div>
+
+{% if fx_stale %}
+<div class="flash flash-warning" style="margin-bottom:1rem;">
+  <i class="fa-solid fa-triangle-exclamation"></i>
+  <span>FX rates are outdated (more than 24 hours) or incomplete.
+    <a href="{% url 'cases:fx_rates' %}"><strong>Update exchange rates</strong></a>
+    so Proforma currency conversion can run.</span>
+</div>
+{% endif %}
+
+<div class="card" style="margin-bottom:1rem;">
+  <div class="grid grid-4">
+    <div class="field"><label><i class="fa-solid fa-hashtag"></i> Document No.</label>
+      <input type="text" data-filter-for="inboxTable" data-filter-colname="Document No." placeholder="e.g. 503, 1256" autocomplete="off">
+    </div>
+    {% if unit != 'SUPPLY' %}
+    <div class="field"><label><i class="fa-solid fa-building"></i> Client</label>
+      <input type="text" data-filter-for="inboxTable" data-filter-colname="Client" data-filter-mode="contains" placeholder="Search client…" autocomplete="off">
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if summary %}
+<div class="row-flex" style="margin-bottom:1rem;">
+  {% for label, count in summary.items %}
+    <span class="sum-chip">{{ label }}: {{ count }}</span>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="table-wrap vscroll vscroll-list">
+  <table class="data" id="inboxTable" data-filter-table>
+    <thead>
+      <tr>
+        <th>Document No.</th>{% if unit != 'SUPPLY' %}<th>Client</th>{% endif %}<th>Status</th>
+        <th>Deadline</th><th>Offer type</th><th>Updated</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in cases %}
+        <tr class="row-link" onclick="window.location='{% url 'cases:case_detail' c.pk %}'">
+          <td>
+            <span class="docno-line">
+              <span class="docno"><span>{{ c.doc_no }}</span></span>{% if c.is_delegated %} <span class="pill pill-delegated">Delegated</span>{% endif %}
+            </span>
+          </td>
+          {% if unit != 'SUPPLY' %}<td>{{ c.client.name }} <span class="muted mono">({{ c.client.code }})</span></td>{% endif %}
+          <td>{% for s_label, s_status, s_color in c.inbox_status_rows %}<div{% if not forloop.last %} style="margin-bottom:.2rem;"{% endif %}><span class="status-tag" style="--sc:{{ s_color }}">{% if s_label %}{{ s_label }}: {% endif %}{{ s_status }}</span></div>{% endfor %}</td>
+          <td>{% if c.deadline %}{{ c.deadline|jalali:"Y.m.d H:i" }}{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td><span class="offer-cell">{{ c.offer_type_label|default:"—" }}</span></td>
+          <td class="muted">{{ c.updated_at|jalali:"Y.m.d H:i" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="{% if unit == 'SUPPLY' %}5{% else %}6{% endif %}" class="empty">Your inbox is empty.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

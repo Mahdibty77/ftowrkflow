@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}People · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}People{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-2">
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>People</h1>
+    <div class="sub">
+      Everyone on the organisation's books. A person is recorded here whether or
+      not they use the platform; the accounts they hold are assigned separately.
+    </div>
+  </div>
+  <div class="btn-row">
+    <a href="{% url 'people:person_create' %}" class="btn btn-primary">
+      <i class="fa-solid fa-user-plus"></i> New person
+    </a>
+  </div>
+</div>
+
+{% if reveal_credential %}
+  <div class="cred-reveal">
+    <div class="cred-reveal-head"><i class="fa-solid fa-circle-check"></i> {{ reveal_credential.label }}</div>
+    <p class="cred-reveal-text">
+      This password is shown once. The person must set their own password at first sign-in.
+    </p>
+    <div class="cred-row">
+      <span class="cred-label">Username</span>
+      <span class="cred-value mono">{{ reveal_credential.username }}</span>
+    </div>
+    <div class="cred-row">
+      <span class="cred-label">Temporary password</span>
+      <span class="cred-value mono" id="credPwValue">{{ reveal_credential.password }}</span>
+      <button type="button" class="btn btn-sm" id="credCopyBtn"><i class="fa-solid fa-copy"></i> Copy</button>
+    </div>
+  </div>
+{% endif %}
+
+<div class="card ppl-filter-card">
+  {% comment %}
+  A GET form with no submit button: the list narrows as you type. The form is a
+  real form all the same, so with scripting off Enter still submits it and the
+  page still filters — the behaviour degrades, the capability does not.
+  {% endcomment %}
+  <form method="get" class="ppl-filter-grid" data-live-filter
+        data-results="#ppl-results"
+        data-url="{% url 'people:person_list' %}">
+    <div class="field">
+      <label for="{{ form.q.id_for_label }}">{{ form.q.label }}</label>{{ form.q }}
+    </div>
+    <div class="field">
+      <label for="{{ form.status.id_for_label }}">{{ form.status.label }}</label>{{ form.status }}
+    </div>
+    <div class="field">
+      <label for="{{ form.seats.id_for_label }}">{{ form.seats.label }}</label>{{ form.seats }}
+    </div>
+    <div class="btn-row ppl-filter-actions">
+      <span class="ppl-filter-busy" data-filter-busy hidden>Filtering…</span>
+      <a href="{% url 'people:person_list' %}" class="btn btn-sm btn-ghost" data-filter-reset>Reset</a>
+    </div>
+  </form>
+</div>
+
+<div id="ppl-results" aria-live="polite">
+  {% include "people/_person_rows.html" %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'people/js/people.js' %}?v=ppl-2"></script>
+  <script>
+  (function () {
+    var btn = document.getElementById('credCopyBtn');
+    var val = document.getElementById('credPwValue');
+    if (!btn || !val) return;
+    btn.addEventListener('click', function () {
+      var text = val.textContent;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () {
+          var original = btn.innerHTML;
+          btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied';
+          setTimeout(function () { btn.innerHTML = original; }, 1500);
+        });
+      }
+    });
+  })();
+  </script>
+  <style>
+  .cred-reveal{background:var(--okbg);border:1px solid var(--okline);border-radius:12px;padding:1rem 1.2rem;margin:0 0 1.1rem}
+  .cred-reveal-head{font-weight:750;color:var(--ok);display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem}
+  .cred-reveal-text{font-size:.86rem;margin:0 0 .7rem;line-height:1.5;color:var(--ink)}
+  .cred-row{display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem;flex-wrap:wrap}
+  .cred-label{font-size:.78rem;color:var(--muted);min-width:9rem}
+  .cred-value{font-size:.92rem;font-weight:700;color:var(--ink);background:var(--paper);border:1px solid var(--okline);border-radius:6px;padding:.25rem .6rem}
+  .ppl-actions form{display:inline;margin:0}
+  .ppl-actions .btn{margin:.1rem .15rem .1rem 0}
+  </style>
+{% endblock %}

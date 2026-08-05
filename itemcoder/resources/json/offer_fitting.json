@@ -1,0 +1,8774 @@
+{
+ "fitting": {
+  "Elbow 45°": {
+   "material_group": {
+    "Polymer": {
+     "conection": [
+      "BF"
+     ],
+     "design_standard": [
+      "ASTM D2467",
+      "DIN 16963",
+      "DIN 8063",
+      "DIN 8077 / 8078",
+      "ISO 15494"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN20",
+      "PN25",
+      "PN4",
+      "PN5",
+      "PN6.3",
+      "PN8"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE32",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R",
+      "PVC-C",
+      "PVC-U"
+     ]
+    },
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "C.S": {
+     "design_standard": [
+      "AWWA - C208"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2",
+      "ASTM A420 Gr.WPL6",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70"
+     ]
+    },
+    "S.S": {
+     "design_standard": [
+      "MSS SP-43"
+     ],
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A860 Gr.WPHY"
+     ]
+    },
+    "Nickel": {
+     "material": [
+      "ASTM B366 Gr.WPHC276",
+      "ASTM B366 Gr.WPN08020",
+      "ASTM B366 Gr.WPNC",
+      "ASTM B366 Gr.WPNC625",
+      "ASTM B366 Gr.WPNCI",
+      "ASTM B366 Gr.WPNCMC",
+      "ASTM B366 Gr.WPNIC825"
+     ]
+    },
+    "Titanium": {
+     "material": [
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Aluminum": {
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "BF": {
+     "material_group": [
+      "Polymer"
+     ],
+     "design_standard": [
+      "ASTM D2467",
+      "DIN 16963",
+      "DIN 8063",
+      "DIN 8077 / 8078",
+      "ISO 15494"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN20",
+      "PN25",
+      "PN4",
+      "PN5",
+      "PN6.3",
+      "PN8"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE32",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R",
+      "PVC-C",
+      "PVC-U"
+     ]
+    },
+    "BW": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "design_standard": [
+      "AWWA - C208"
+     ],
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "DIN 8063": {
+     "material": [
+      "PVC-U"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    },
+    "PVC-C": {
+     "design_standard": [
+      "ASTM D2467"
+     ]
+    },
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Elbow 90° LR": {
+   "material_group": {
+    "Polymer": {
+     "conection": [
+      "BF"
+     ],
+     "design_standard": [
+      "ASTM D2467",
+      "DIN 16963",
+      "DIN 8063",
+      "DIN 8077 / 8078",
+      "ISO 15494"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN4",
+      "PN5",
+      "PN6.3",
+      "PN8"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R",
+      "PVC-C",
+      "PVC-U"
+     ]
+    },
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "C.S": {
+     "design_standard": [
+      "AWWA - C208"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2",
+      "ASTM A420 Gr.WPL6",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70"
+     ]
+    },
+    "S.S": {
+     "design_standard": [
+      "MSS SP-43"
+     ],
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A860 Gr.WPHY"
+     ]
+    },
+    "Nickel": {
+     "material": [
+      "ASTM B366 Gr.WPHC276",
+      "ASTM B366 Gr.WPN08020",
+      "ASTM B366 Gr.WPNC",
+      "ASTM B366 Gr.WPNC625",
+      "ASTM B366 Gr.WPNCI",
+      "ASTM B366 Gr.WPNCMC",
+      "ASTM B366 Gr.WPNIC825"
+     ]
+    },
+    "Titanium": {
+     "material": [
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Aluminum": {
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "BF": {
+     "material_group": [
+      "Polymer"
+     ],
+     "design_standard": [
+      "ASTM D2467",
+      "DIN 16963",
+      "DIN 8063",
+      "DIN 8077 / 8078",
+      "ISO 15494"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN4",
+      "PN5",
+      "PN6.3",
+      "PN8"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R",
+      "PVC-C",
+      "PVC-U"
+     ]
+    },
+    "BW": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "design_standard": [
+      "AWWA - C208"
+     ],
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "DIN 8063": {
+     "material": [
+      "PVC-U"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    },
+    "PVC-C": {
+     "design_standard": [
+      "ASTM D2467"
+     ]
+    },
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Elbow 90° SR": {
+   "material_group": {
+    "Polymer": {
+     "conection": [
+      "BF"
+     ],
+     "design_standard": [
+      "DIN 16963",
+      "DIN 8063",
+      "DIN 8077 / 8078",
+      "ISO 15494"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN6.3",
+      "PN8"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R",
+      "PVC-U"
+     ]
+    },
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "C.S": {
+     "design_standard": [
+      "AWWA - C208"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2",
+      "ASTM A420 Gr.WPL6",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70"
+     ]
+    },
+    "S.S": {
+     "design_standard": [
+      "MSS SP-43"
+     ],
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A860 Gr.WPHY"
+     ]
+    },
+    "Nickel": {
+     "material": [
+      "ASTM B366 Gr.WPHC276",
+      "ASTM B366 Gr.WPN08020",
+      "ASTM B366 Gr.WPNC",
+      "ASTM B366 Gr.WPNC625",
+      "ASTM B366 Gr.WPNCI",
+      "ASTM B366 Gr.WPNCMC",
+      "ASTM B366 Gr.WPNIC825"
+     ]
+    },
+    "Titanium": {
+     "material": [
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Aluminum": {
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "BF": {
+     "material_group": [
+      "Polymer"
+     ],
+     "design_standard": [
+      "DIN 16963",
+      "DIN 8063",
+      "DIN 8077 / 8078",
+      "ISO 15494"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN6.3",
+      "PN8"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R",
+      "PVC-U"
+     ]
+    },
+    "BW": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "design_standard": [
+      "AWWA - C208"
+     ],
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "DIN 8063": {
+     "material": [
+      "PVC-U"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "PVC-U": {
+     "design_standard": [
+      "DIN 8063"
+     ]
+    },
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    },
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Return 180° LR": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ]
+    },
+    "S.S": {
+     "design_standard": [
+      "MSS SP-43"
+     ],
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760"
+     ]
+    },
+    "C.S": {
+     "material": [
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A420 Gr.WPL6",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A860 Gr.WPHY"
+     ]
+    },
+    "Nickel": {
+     "material": [
+      "ASTM B366 Gr.WPHC276",
+      "ASTM B366 Gr.WPN08020",
+      "ASTM B366 Gr.WPNC",
+      "ASTM B366 Gr.WPNC625",
+      "ASTM B366 Gr.WPNCI",
+      "ASTM B366 Gr.WPNCMC",
+      "ASTM B366 Gr.WPNIC825"
+     ]
+    },
+    "Titanium": {
+     "material": [
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Aluminum": {
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063"
+     ]
+    }
+   },
+   "conection": {
+    "BW": {
+     "material_group": [
+      "Alloy Steel",
+      "Aluminum",
+      "C.S",
+      "Nickel",
+      "S.S",
+      "Titanium"
+     ],
+     "design_standard": [
+      "Asme B16.11",
+      "Asme B16.9",
+      "MSS SP-43",
+      "MSS SP-75"
+     ],
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A420 Gr.WPL6",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760",
+      "ASTM A860 Gr.WPHY",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70",
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9",
+      "ASTM B366 Gr.WPHC276",
+      "ASTM B366 Gr.WPN08020",
+      "ASTM B366 Gr.WPNC",
+      "ASTM B366 Gr.WPNC625",
+      "ASTM B366 Gr.WPNCI",
+      "ASTM B366 Gr.WPNCMC",
+      "ASTM B366 Gr.WPNIC825"
+     ]
+    },
+    "Solder": {
+     "material_group": [
+      "Copper"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "material": [
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A420 Gr.WPL6",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760",
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    }
+   }
+  },
+  "Return 180° SR": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ]
+    },
+    "S.S": {
+     "design_standard": [
+      "MSS SP-43"
+     ],
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760"
+     ]
+    },
+    "C.S": {
+     "material": [
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A420 Gr.WPL6",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A860 Gr.WPHY"
+     ]
+    },
+    "Nickel": {
+     "material": [
+      "ASTM B366 Gr.WPHC276",
+      "ASTM B366 Gr.WPN08020",
+      "ASTM B366 Gr.WPNC",
+      "ASTM B366 Gr.WPNC625",
+      "ASTM B366 Gr.WPNCI",
+      "ASTM B366 Gr.WPNCMC",
+      "ASTM B366 Gr.WPNIC825"
+     ]
+    },
+    "Titanium": {
+     "material": [
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Aluminum": {
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063"
+     ]
+    }
+   },
+   "conection": {
+    "BW": {
+     "material_group": [
+      "Alloy Steel",
+      "Aluminum",
+      "C.S",
+      "Nickel",
+      "S.S",
+      "Titanium"
+     ],
+     "design_standard": [
+      "ASME B16.28",
+      "Asme B16.11",
+      "Asme B16.9",
+      "MSS SP-43",
+      "MSS SP-75"
+     ],
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A420 Gr.WPL6",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760",
+      "ASTM A860 Gr.WPHY",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70",
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9",
+      "ASTM B366 Gr.WPHC276",
+      "ASTM B366 Gr.WPN08020",
+      "ASTM B366 Gr.WPNC",
+      "ASTM B366 Gr.WPNC625",
+      "ASTM B366 Gr.WPNCI",
+      "ASTM B366 Gr.WPNCMC",
+      "ASTM B366 Gr.WPNIC825"
+     ]
+    },
+    "Solder": {
+     "material_group": [
+      "Copper"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "material": [
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A234 Gr.WPC",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760",
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    }
+   }
+  },
+  "Street Elbow 90°": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Alloy Steel",
+      "C.S",
+      "Cast Iron",
+      "Nickel",
+      "S.S"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.3",
+      "ASME B16.4",
+      "Asme B16.11",
+      "Asme B16.9",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Class B",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    },
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Street Elbow 45°": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Alloy Steel",
+      "C.S",
+      "Cast Iron",
+      "Nickel",
+      "S.S"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.3",
+      "ASME B16.4",
+      "Asme B16.11",
+      "Asme B16.9",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Class B",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    },
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Elbow Reducing 90°": {
+   "material_group": {
+    "Cast Iron": {
+     "conection": [
+      "NPT"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "conection": [
+      "NPT"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    }
+   }
+  },
+  "Side Outlet Elbows": {
+   "material_group": {
+    "Cast Iron": {
+     "conection": [
+      "NPT"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "conection": [
+      "NPT"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    }
+   }
+  },
+  "Long Sweep Bend": {
+   "material_group": {
+    "Cast Iron": {
+     "conection": [
+      "NPT"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "conection": [
+      "NPT"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    }
+   }
+  },
+  "Equal Tee 90°": {
+   "material_group": {
+    "Polymer": {
+     "conection": [
+      "BF"
+     ],
+     "design_standard": [
+      "ASTM D2467",
+      "DIN 16963",
+      "DIN 8063",
+      "DIN 8077 / 8078",
+      "ISO 15494"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN4",
+      "PN5",
+      "PN6.3",
+      "PN8"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE32",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R",
+      "PVC-C",
+      "PVC-U"
+     ]
+    },
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "C.S": {
+     "design_standard": [
+      "AWWA - C208"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2",
+      "ASTM A420 Gr.WPL6",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70"
+     ]
+    },
+    "S.S": {
+     "design_standard": [
+      "MSS SP-43"
+     ],
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A860 Gr.WPHY"
+     ]
+    },
+    "Nickel": {
+     "material": [
+      "ASTM B366 Gr.WPHC276",
+      "ASTM B366 Gr.WPN08020",
+      "ASTM B366 Gr.WPNC",
+      "ASTM B366 Gr.WPNC625",
+      "ASTM B366 Gr.WPNCI",
+      "ASTM B366 Gr.WPNCMC",
+      "ASTM B366 Gr.WPNIC825"
+     ]
+    },
+    "Titanium": {
+     "material": [
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Aluminum": {
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "BF": {
+     "material_group": [
+      "Polymer"
+     ],
+     "design_standard": [
+      "ASTM D2467",
+      "DIN 16963",
+      "DIN 8063",
+      "DIN 8077 / 8078",
+      "ISO 15494"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN4",
+      "PN5",
+      "PN6.3",
+      "PN8"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE32",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R",
+      "PVC-C",
+      "PVC-U"
+     ]
+    },
+    "BW": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "design_standard": [
+      "AWWA - C208"
+     ],
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "DIN 8063": {
+     "material": [
+      "PVC-U"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    },
+    "PVC-C": {
+     "design_standard": [
+      "ASTM D2467"
+     ]
+    },
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Equal Tee 45°": {
+   "material_group": {
+    "Polymer": {
+     "conection": [
+      "BF"
+     ],
+     "design_standard": [
+      "DIN 16963",
+      "DIN 8063",
+      "DIN 8077 / 8078",
+      "ISO 15494"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN6.3",
+      "PN8"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R",
+      "PVC-U"
+     ]
+    },
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "C.S": {
+     "design_standard": [
+      "AWWA - C208"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2",
+      "ASTM A420 Gr.WPL6",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70"
+     ]
+    },
+    "S.S": {
+     "design_standard": [
+      "MSS SP-43"
+     ],
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A860 Gr.WPHY"
+     ]
+    },
+    "Nickel": {
+     "material": [
+      "ASTM B366 Gr.WPHC276",
+      "ASTM B366 Gr.WPN08020",
+      "ASTM B366 Gr.WPNC",
+      "ASTM B366 Gr.WPNC625",
+      "ASTM B366 Gr.WPNCI",
+      "ASTM B366 Gr.WPNCMC",
+      "ASTM B366 Gr.WPNIC825"
+     ]
+    },
+    "Titanium": {
+     "material": [
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Aluminum": {
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "BF": {
+     "material_group": [
+      "Polymer"
+     ],
+     "design_standard": [
+      "DIN 16963",
+      "DIN 8063",
+      "DIN 8077 / 8078",
+      "ISO 15494"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN6.3",
+      "PN8"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R",
+      "PVC-U"
+     ]
+    },
+    "BW": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "design_standard": [
+      "AWWA - C208"
+     ],
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "DIN 8063": {
+     "material": [
+      "PVC-U"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "conection": [
+      "NPT"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "PVC-U": {
+     "design_standard": [
+      "DIN 8063"
+     ]
+    },
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    },
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Tee Reduce 90°": {
+   "material_group": {
+    "Polymer": {
+     "conection": [
+      "BF"
+     ],
+     "design_standard": [
+      "ASTM D2467",
+      "DIN 16963",
+      "DIN 8063",
+      "DIN 8077 / 8078",
+      "ISO 15494"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN4",
+      "PN5",
+      "PN6.3",
+      "PN8"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R",
+      "PVC-C",
+      "PVC-U"
+     ]
+    },
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "C.S": {
+     "design_standard": [
+      "AWWA - C208"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2",
+      "ASTM A420 Gr.WPL6",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70"
+     ]
+    },
+    "S.S": {
+     "design_standard": [
+      "MSS SP-43"
+     ],
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A860 Gr.WPHY"
+     ]
+    },
+    "Nickel": {
+     "material": [
+      "ASTM B366 Gr.WPHC276",
+      "ASTM B366 Gr.WPN08020",
+      "ASTM B366 Gr.WPNC",
+      "ASTM B366 Gr.WPNC625",
+      "ASTM B366 Gr.WPNCI",
+      "ASTM B366 Gr.WPNCMC",
+      "ASTM B366 Gr.WPNIC825"
+     ]
+    },
+    "Titanium": {
+     "material": [
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Aluminum": {
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "BF": {
+     "material_group": [
+      "Polymer"
+     ],
+     "design_standard": [
+      "ASTM D2467",
+      "DIN 16963",
+      "DIN 8063",
+      "DIN 8077 / 8078",
+      "ISO 15494"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN4",
+      "PN5",
+      "PN6.3",
+      "PN8"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R",
+      "PVC-C",
+      "PVC-U"
+     ]
+    },
+    "BW": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "design_standard": [
+      "AWWA - C208"
+     ],
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "DIN 8063": {
+     "material": [
+      "PVC-U"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "material": {
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    },
+    "PVC-C": {
+     "design_standard": [
+      "ASTM D2467"
+     ]
+    },
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Tee Reduce 45°": {
+   "material_group": {
+    "Polymer": {
+     "conection": [
+      "BF"
+     ],
+     "design_standard": [
+      "DIN 16963",
+      "DIN 8063",
+      "DIN 8077 / 8078",
+      "ISO 15494"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN6.3",
+      "PN8"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R",
+      "PVC-U"
+     ]
+    },
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "C.S": {
+     "design_standard": [
+      "AWWA - C208"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2",
+      "ASTM A420 Gr.WPL6",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70"
+     ]
+    },
+    "S.S": {
+     "design_standard": [
+      "MSS SP-43"
+     ],
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A860 Gr.WPHY"
+     ]
+    },
+    "Nickel": {
+     "material": [
+      "ASTM B366 Gr.WPHC276",
+      "ASTM B366 Gr.WPN08020",
+      "ASTM B366 Gr.WPNC",
+      "ASTM B366 Gr.WPNC625",
+      "ASTM B366 Gr.WPNCI",
+      "ASTM B366 Gr.WPNCMC",
+      "ASTM B366 Gr.WPNIC825"
+     ]
+    },
+    "Titanium": {
+     "material": [
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Aluminum": {
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "BF": {
+     "material_group": [
+      "Polymer"
+     ],
+     "design_standard": [
+      "DIN 16963",
+      "DIN 8063",
+      "DIN 8077 / 8078",
+      "ISO 15494"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN6.3",
+      "PN8"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R",
+      "PVC-U"
+     ]
+    },
+    "BW": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "design_standard": [
+      "AWWA - C208"
+     ],
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "DIN 8063": {
+     "material": [
+      "PVC-U"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "conection": [
+      "NPT"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "PVC-U": {
+     "design_standard": [
+      "DIN 8063"
+     ]
+    },
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    },
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Concentric Reducer": {
+   "material_group": {
+    "Polymer": {
+     "conection": [
+      "BF"
+     ],
+     "design_standard": [
+      "ASTM D2467",
+      "DIN 16963",
+      "DIN 8063",
+      "DIN 8077 / 8078",
+      "ISO 15494"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN4",
+      "PN5",
+      "PN6.3",
+      "PN8"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE32",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R",
+      "PVC-C",
+      "PVC-U"
+     ]
+    },
+    "Copper": {
+     "conection": [
+      "Solder"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "S.S": {
+     "design_standard": [
+      "MSS SP-43"
+     ],
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760"
+     ]
+    },
+    "C.S": {
+     "material": [
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A420 Gr.WPL6",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A860 Gr.WPHY"
+     ]
+    },
+    "Nickel": {
+     "material": [
+      "ASTM B366 Gr.WPHC276",
+      "ASTM B366 Gr.WPN08020",
+      "ASTM B366 Gr.WPNC",
+      "ASTM B366 Gr.WPNC625",
+      "ASTM B366 Gr.WPNCI",
+      "ASTM B366 Gr.WPNCMC",
+      "ASTM B366 Gr.WPNIC825"
+     ]
+    },
+    "Titanium": {
+     "material": [
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Aluminum": {
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063"
+     ]
+    }
+   },
+   "conection": {
+    "BW": {
+     "material_group": [
+      "Alloy Steel",
+      "Aluminum",
+      "C.S",
+      "Nickel",
+      "S.S",
+      "Titanium"
+     ],
+     "design_standard": [
+      "Asme B16.11",
+      "Asme B16.9",
+      "MSS SP-43",
+      "MSS SP-75"
+     ],
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A420 Gr.WPL6",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760",
+      "ASTM A860 Gr.WPHY",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70",
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9",
+      "ASTM B366 Gr.WPHC276",
+      "ASTM B366 Gr.WPN08020",
+      "ASTM B366 Gr.WPNC",
+      "ASTM B366 Gr.WPNC625",
+      "ASTM B366 Gr.WPNCI",
+      "ASTM B366 Gr.WPNCMC",
+      "ASTM B366 Gr.WPNIC825"
+     ]
+    },
+    "BF": {
+     "material_group": [
+      "Polymer"
+     ],
+     "design_standard": [
+      "ASTM D2467",
+      "DIN 16963",
+      "DIN 8063",
+      "DIN 8077 / 8078",
+      "ISO 15494"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN4",
+      "PN5",
+      "PN6.3",
+      "PN8"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE32",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R",
+      "PVC-C",
+      "PVC-U"
+     ]
+    },
+    "Solder": {
+     "material_group": [
+      "Copper"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "material": [
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A420 Gr.WPL6",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760",
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "DIN 8063": {
+     "material": [
+      "PVC-U"
+     ]
+    }
+   },
+   "material": {
+    "PVC-C": {
+     "design_standard": [
+      "ASTM D2467"
+     ]
+    }
+   }
+  },
+  "Eccentric Reducer": {
+   "material_group": {
+    "Polymer": {
+     "conection": [
+      "BF"
+     ],
+     "design_standard": [
+      "DIN 16963",
+      "DIN 8063",
+      "DIN 8077 / 8078",
+      "ISO 15494"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN4",
+      "PN5",
+      "PN6.3",
+      "PN8"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R",
+      "PVC-U"
+     ]
+    },
+    "Copper": {
+     "conection": [
+      "Solder"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "S.S": {
+     "design_standard": [
+      "MSS SP-43"
+     ],
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760"
+     ]
+    },
+    "C.S": {
+     "material": [
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A420 Gr.WPL6",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A860 Gr.WPHY"
+     ]
+    },
+    "Nickel": {
+     "material": [
+      "ASTM B366 Gr.WPHC276",
+      "ASTM B366 Gr.WPN08020",
+      "ASTM B366 Gr.WPNC",
+      "ASTM B366 Gr.WPNC625",
+      "ASTM B366 Gr.WPNCI",
+      "ASTM B366 Gr.WPNCMC",
+      "ASTM B366 Gr.WPNIC825"
+     ]
+    },
+    "Titanium": {
+     "material": [
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Aluminum": {
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063"
+     ]
+    }
+   },
+   "conection": {
+    "BW": {
+     "material_group": [
+      "Alloy Steel",
+      "Aluminum",
+      "C.S",
+      "Nickel",
+      "S.S",
+      "Titanium"
+     ],
+     "design_standard": [
+      "Asme B16.11",
+      "Asme B16.9",
+      "MSS SP-43",
+      "MSS SP-75"
+     ],
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A420 Gr.WPL6",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760",
+      "ASTM A860 Gr.WPHY",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70",
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9",
+      "ASTM B366 Gr.WPHC276",
+      "ASTM B366 Gr.WPN08020",
+      "ASTM B366 Gr.WPNC",
+      "ASTM B366 Gr.WPNC625",
+      "ASTM B366 Gr.WPNCI",
+      "ASTM B366 Gr.WPNCMC",
+      "ASTM B366 Gr.WPNIC825"
+     ]
+    },
+    "BF": {
+     "material_group": [
+      "Polymer"
+     ],
+     "design_standard": [
+      "DIN 16963",
+      "DIN 8063",
+      "DIN 8077 / 8078",
+      "ISO 15494"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN4",
+      "PN5",
+      "PN6.3",
+      "PN8"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R",
+      "PVC-U"
+     ]
+    },
+    "Solder": {
+     "material_group": [
+      "Copper"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "material": [
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A420 Gr.WPL6",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760",
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "DIN 8063": {
+     "material": [
+      "PVC-U"
+     ]
+    }
+   },
+   "material": {
+    "PVC-U": {
+     "design_standard": [
+      "DIN 8063"
+     ]
+    }
+   }
+  },
+  "Lap Joint Stub end": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ]
+    },
+    "C.S": {
+     "design_standard": [
+      "MSS SP-75"
+     ],
+     "material": [
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70"
+     ]
+    },
+    "S.S": {
+     "design_standard": [
+      "MSS SP-43"
+     ],
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760"
+     ]
+    },
+    "Nickel": {
+     "material": [
+      "ASTM B366 Gr.WPHC276",
+      "ASTM B366 Gr.WPN08020",
+      "ASTM B366 Gr.WPNC",
+      "ASTM B366 Gr.WPNC625",
+      "ASTM B366 Gr.WPNCI",
+      "ASTM B366 Gr.WPNCMC",
+      "ASTM B366 Gr.WPNIC825"
+     ]
+    },
+    "Titanium": {
+     "material": [
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Aluminum": {
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063"
+     ]
+    }
+   },
+   "conection": {
+    "BW": {
+     "material_group": [
+      "Aluminum",
+      "C.S",
+      "Nickel",
+      "S.S",
+      "Titanium"
+     ],
+     "design_standard": [
+      "Asme B16.11",
+      "Asme B16.9",
+      "MSS SP-43",
+      "MSS SP-75"
+     ],
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70",
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9",
+      "ASTM B366 Gr.WPHC276",
+      "ASTM B366 Gr.WPN08020",
+      "ASTM B366 Gr.WPNC",
+      "ASTM B366 Gr.WPNC625",
+      "ASTM B366 Gr.WPNCI",
+      "ASTM B366 Gr.WPNCMC",
+      "ASTM B366 Gr.WPNIC825"
+     ]
+    },
+    "Solder": {
+     "material_group": [
+      "Copper"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "material": [
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760",
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    }
+   }
+  },
+  "Cross": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2",
+      "ASTM A420 Gr.WPL6",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A860 Gr.WPHY"
+     ]
+    },
+    "Nickel": {
+     "material": [
+      "ASTM B366 Gr.WPHC276",
+      "ASTM B366 Gr.WPN08020",
+      "ASTM B366 Gr.WPNC",
+      "ASTM B366 Gr.WPNC625",
+      "ASTM B366 Gr.WPNCI",
+      "ASTM B366 Gr.WPNCMC",
+      "ASTM B366 Gr.WPNIC825"
+     ]
+    },
+    "Titanium": {
+     "material": [
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Aluminum": {
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "SW": {
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A420 Gr.WPL6",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760",
+      "ASTM A860 Gr.WPHY",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A420 Gr.WPL6",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760",
+      "ASTM A860 Gr.WPHY",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70",
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    },
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Crossover": {
+   "material_group": {
+    "Cast Iron": {
+     "conection": [
+      "NPT"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "conection": [
+      "NPT"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    }
+   }
+  },
+  "Cap": {
+   "material_group": {
+    "Polymer": {
+     "conection": [
+      "BF"
+     ],
+     "design_standard": [
+      "ASTM D2467",
+      "DIN 16963",
+      "DIN 8063",
+      "DIN 8077 / 8078",
+      "ISO 15494"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN4",
+      "PN5",
+      "PN6.3",
+      "PN8"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE32",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R",
+      "PVC-C",
+      "PVC-U"
+     ]
+    },
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "BF": {
+     "material_group": [
+      "Polymer"
+     ],
+     "design_standard": [
+      "ASTM D2467",
+      "DIN 16963",
+      "DIN 8063",
+      "DIN 8077 / 8078",
+      "ISO 15494"
+     ],
+     "pressure_class": [
+      "PN10",
+      "PN12.5",
+      "PN16",
+      "PN4",
+      "PN5",
+      "PN6.3",
+      "PN8"
+     ],
+     "material": [
+      "HDPE",
+      "PE100",
+      "PE32",
+      "PE40",
+      "PE63",
+      "PE80",
+      "PP-B",
+      "PP-H",
+      "PP-R",
+      "PVC-C",
+      "PVC-U"
+     ]
+    },
+    "BW": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "DIN 8063": {
+     "material": [
+      "PVC-U"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    },
+    "PVC-C": {
+     "design_standard": [
+      "ASTM D2467"
+     ]
+    },
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Full Coupling": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    },
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Half Coupling": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "design_standard": [
+      "ASME B16.15"
+     ],
+     "pressure_class": [
+      "150"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "material": {
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Full Coupling Reduce": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    },
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Half Coupling Reduce": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "material": {
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Square Head Plug": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "C.S": {
+     "design_standard": [
+      "ASME B16.14"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Alloy Steel",
+      "C.S",
+      "Cast Iron",
+      "Nickel",
+      "S.S"
+     ],
+     "design_standard": [
+      "ASME B16.14",
+      "ASME B16.15",
+      "ASME B16.3",
+      "ASME B16.4",
+      "Asme B16.11",
+      "Asme B16.9",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Class B",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    },
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Hexagonal Head Plug": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "C.S": {
+     "design_standard": [
+      "ASME B16.14"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Alloy Steel",
+      "C.S",
+      "Cast Iron",
+      "Nickel",
+      "S.S"
+     ],
+     "design_standard": [
+      "ASME B16.14",
+      "ASME B16.15",
+      "ASME B16.3",
+      "ASME B16.4",
+      "Asme B16.11",
+      "Asme B16.9",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Class B",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    },
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Round Head Plug": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "C.S": {
+     "design_standard": [
+      "ASME B16.14"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Alloy Steel",
+      "C.S",
+      "Cast Iron",
+      "Nickel",
+      "S.S"
+     ],
+     "design_standard": [
+      "ASME B16.14",
+      "ASME B16.15",
+      "ASME B16.3",
+      "ASME B16.4",
+      "Asme B16.11",
+      "Asme B16.9",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Class B",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    },
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Hexagonal Head Bushing": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "C.S": {
+     "design_standard": [
+      "ASME B16.14"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Alloy Steel",
+      "C.S",
+      "Cast Iron",
+      "Nickel",
+      "S.S"
+     ],
+     "design_standard": [
+      "ASME B16.14",
+      "ASME B16.15",
+      "ASME B16.3",
+      "ASME B16.4",
+      "Asme B16.11",
+      "Asme B16.9",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Class B",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    },
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Flush Bushing": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "C.S": {
+     "design_standard": [
+      "ASME B16.14"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Alloy Steel",
+      "C.S",
+      "Nickel",
+      "S.S"
+     ],
+     "design_standard": [
+      "ASME B16.14",
+      "ASME B16.15",
+      "Asme B16.11",
+      "Asme B16.9"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "material": {
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Hexagonal Nipple Reduce": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Alloy Steel",
+      "C.S",
+      "Cast Iron",
+      "Nickel",
+      "S.S"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.3",
+      "ASME B16.4",
+      "Asme B16.11",
+      "Asme B16.9",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Class B",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    },
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Hexagonal Nipple": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Alloy Steel",
+      "C.S",
+      "Cast Iron",
+      "Nickel",
+      "S.S"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.3",
+      "ASME B16.4",
+      "Asme B16.11",
+      "Asme B16.9",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A126 Class B",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4",
+      "EN10242 Class A",
+      "EN10242 Class B"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    },
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Union": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "Cast Iron": {
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.3",
+      "ASME B16.4"
+     ],
+     "pressure_class": [
+      "150"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ]
+    },
+    "ASME B16.3": {
+     "material": [
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ]
+    },
+    "ASME B16.4": {
+     "material": [
+      "ASTM A126 Class B"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "pressure_class": {
+    "150": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.3",
+      "ASME B16.4"
+     ],
+     "material": [
+      "ASTM A126 Class B",
+      "ASTM A47 Gr.32510",
+      "EN-GJMB-300-5",
+      "EN-GJMB-350-10",
+      "EN-GJMB-400-15",
+      "EN-GJMW-350-4"
+     ],
+     "conection & material_group": "NPT & Cast Iron"
+    }
+   },
+   "material": {
+    "ASTM A126 Class B": {
+     "design_standard": [
+      "ASME B16.4"
+     ]
+    },
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Sockolet": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347"
+     ]
+    },
+    "Copper": {
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    }
+   },
+   "conection": {
+    "SW": {
+     "material_group": [
+      "Alloy Steel",
+      "C.S",
+      "Nickel",
+      "S.S"
+     ],
+     "design_standard": [
+      "MSS-SP97"
+     ],
+     "pressure_class": [
+      "3000",
+      "6000",
+      "9000"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    }
+   },
+   "design_standard": {
+    "MSS-SP97": {
+     "material_group": [
+      "Alloy Steel",
+      "C.S",
+      "S.S"
+     ],
+     "conection": [
+      "SW"
+     ],
+     "pressure_class": [
+      "3000",
+      "6000",
+      "9000"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    }
+   }
+  },
+  "Weldolet": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347"
+     ]
+    },
+    "Copper": {
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    }
+   },
+   "conection": {
+    "BW": {
+     "material_group": [
+      "Alloy Steel",
+      "Aluminum",
+      "C.S",
+      "Nickel",
+      "S.S",
+      "Titanium"
+     ],
+     "design_standard": [
+      "MSS-SP97"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    }
+   },
+   "design_standard": {
+    "MSS-SP97": {
+     "material_group": [
+      "Alloy Steel",
+      "C.S",
+      "S.S"
+     ],
+     "conection": [
+      "BW"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    }
+   }
+  },
+  "Thrdolet": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347"
+     ]
+    },
+    "Copper": {
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Alloy Steel",
+      "C.S",
+      "Copper",
+      "Nickel",
+      "S.S"
+     ],
+     "design_standard": [
+      "MSS-SP97"
+     ],
+     "pressure_class": [
+      "2000",
+      "3000",
+      "6000",
+      "9000"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2",
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    }
+   },
+   "design_standard": {
+    "MSS-SP97": {
+     "material_group": [
+      "Alloy Steel",
+      "C.S",
+      "S.S"
+     ],
+     "conection": [
+      "NPT"
+     ],
+     "pressure_class": [
+      "3000",
+      "6000",
+      "9000"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    }
+   }
+  },
+  "Latrolet": {
+   "material_group": {
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347"
+     ]
+    },
+    "Copper": {
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    }
+   },
+   "conection": {
+    "BW": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ]
+    },
+    "SW": {
+     "pressure_class": [
+      "3000",
+      "6000",
+      "9000"
+     ]
+    }
+   },
+   "design_standard": {
+    "MSS-SP97": {
+     "material_group": [
+      "Alloy Steel",
+      "C.S",
+      "S.S"
+     ],
+     "conection": [
+      "BW",
+      "SW"
+     ],
+     "pressure_class": [
+      "3000",
+      "6000",
+      "9000"
+     ],
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    }
+   }
+  },
+  "Elbowlet": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "material": {
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Concentric Swage Nipple": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A106 Gr.B",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A312 Gr.304",
+      "ASTM A312 Gr.304L",
+      "ASTM A312 Gr.310s",
+      "ASTM A312 Gr.316",
+      "ASTM A312 Gr.316L",
+      "ASTM A312 Gr.321",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91"
+     ]
+    },
+    "Nickel": {
+     "material": [
+      "ASTM B366 Gr.WPHC276",
+      "ASTM B366 Gr.WPN08020",
+      "ASTM B366 Gr.WPNC",
+      "ASTM B366 Gr.WPNC625",
+      "ASTM B366 Gr.WPNCI",
+      "ASTM B366 Gr.WPNCMC",
+      "ASTM B366 Gr.WPNIC825"
+     ]
+    },
+    "Titanium": {
+     "material": [
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Aluminum": {
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063"
+     ]
+    }
+   },
+   "conection": {
+    "Solder": {
+     "material_group": [
+      "Copper"
+     ],
+     "design_standard": [
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70",
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "MSS-SP95": {
+     "conection": [
+      "BE",
+      "BE × PE",
+      "BE × TE",
+      "PE",
+      "PE × BE",
+      "PE × TE",
+      "TE",
+      "TE × BE",
+      "TE × PE"
+     ],
+     "material": [
+      "ASTM A106 Gr.B",
+      "ASTM A312 Gr.304",
+      "ASTM A312 Gr.304L",
+      "ASTM A312 Gr.310s",
+      "ASTM A312 Gr.316",
+      "ASTM A312 Gr.316L",
+      "ASTM A312 Gr.321"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "material": {
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Eccentric Swage Nipple": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A106 Gr.B",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A312 Gr.304",
+      "ASTM A312 Gr.304L",
+      "ASTM A312 Gr.310s",
+      "ASTM A312 Gr.316",
+      "ASTM A312 Gr.316L",
+      "ASTM A312 Gr.321",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91"
+     ]
+    },
+    "Nickel": {
+     "material": [
+      "ASTM B366 Gr.WPHC276",
+      "ASTM B366 Gr.WPN08020",
+      "ASTM B366 Gr.WPNC",
+      "ASTM B366 Gr.WPNC625",
+      "ASTM B366 Gr.WPNCI",
+      "ASTM B366 Gr.WPNCMC",
+      "ASTM B366 Gr.WPNIC825"
+     ]
+    },
+    "Titanium": {
+     "material": [
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "Aluminum": {
+     "material": [
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063"
+     ]
+    }
+   },
+   "conection": {
+    "Solder": {
+     "material_group": [
+      "Copper"
+     ],
+     "design_standard": [
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ],
+     "material": [
+      "ASTM A 403 Gr.WP304",
+      "ASTM A 403 Gr.WP304L",
+      "ASTM A 403 Gr.WP310s",
+      "ASTM A 403 Gr.WP316",
+      "ASTM A 403 Gr.WP316L",
+      "ASTM A 403 Gr.WP321",
+      "ASTM A234 Gr.WP1",
+      "ASTM A234 Gr.WP11 Class1",
+      "ASTM A234 Gr.WP12",
+      "ASTM A234 Gr.WP22 Class1",
+      "ASTM A234 Gr.WP5",
+      "ASTM A234 Gr.WP9",
+      "ASTM A234 Gr.WP91",
+      "ASTM A234 Gr.WPB",
+      "ASTM A234 Gr.WPC",
+      "ASTM A403 Gr.WP304H",
+      "ASTM A403 Gr.WP309",
+      "ASTM A403 Gr.WP310",
+      "ASTM A403 Gr.WP316H",
+      "ASTM A403 Gr.WP317",
+      "ASTM A403 Gr.WP321H",
+      "ASTM A403 Gr.WP347",
+      "ASTM A815 Gr.S31803",
+      "ASTM A815 Gr.S32205",
+      "ASTM A815 Gr.S32750",
+      "ASTM A815 Gr.S32760",
+      "ASTM A860 Gr.WPHY-52",
+      "ASTM A860 Gr.WPHY-60",
+      "ASTM A860 Gr.WPHY-65",
+      "ASTM A860 Gr.WPHY-70",
+      "ASTM B361 Gr.WP3003",
+      "ASTM B361 Gr.WP5083",
+      "ASTM B361 Gr.WP6061",
+      "ASTM B361 Gr.WP6063",
+      "ASTM B363 Gr.WPT1",
+      "ASTM B363 Gr.WPT11",
+      "ASTM B363 Gr.WPT12",
+      "ASTM B363 Gr.WPT2",
+      "ASTM B363 Gr.WPT7",
+      "ASTM B363 Gr.WPT9"
+     ]
+    },
+    "MSS-SP95": {
+     "conection": [
+      "BE",
+      "BE × PE",
+      "BE × TE",
+      "PE",
+      "PE × BE",
+      "PE × TE",
+      "TE",
+      "TE × BE",
+      "TE × PE"
+     ],
+     "material": [
+      "ASTM A106 Gr.B",
+      "ASTM A312 Gr.304",
+      "ASTM A312 Gr.304L",
+      "ASTM A312 Gr.310s",
+      "ASTM A312 Gr.316",
+      "ASTM A312 Gr.316L",
+      "ASTM A312 Gr.321"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "material": {
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  },
+  "Nipple": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ]
+    },
+    "C.S": {
+     "material": [
+      "ASTM A106 Gr.B"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A312 Gr.304",
+      "ASTM A312 Gr.304L",
+      "ASTM A312 Gr.310s",
+      "ASTM A312 Gr.316",
+      "ASTM A312 Gr.316L",
+      "ASTM A312 Gr.321"
+     ]
+    }
+   },
+   "conection": {
+    "Solder": {
+     "material_group": [
+      "Copper"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ]
+    },
+    "ASME B36.10": {
+     "conection": [
+      "BE",
+      "BE × PE",
+      "BE × TE",
+      "PE",
+      "PE × BE",
+      "PE × TE",
+      "TE",
+      "TE × BE",
+      "TE × PE"
+     ],
+     "material": [
+      "ASTM A106 Gr.B",
+      "ASTM A312 Gr.304",
+      "ASTM A312 Gr.304L",
+      "ASTM A312 Gr.310s",
+      "ASTM A312 Gr.316",
+      "ASTM A312 Gr.316L",
+      "ASTM A312 Gr.321"
+     ]
+    }
+   },
+   "material": {
+    "ASTM A106 Gr.B": {
+     "material_group": [
+      "C.S"
+     ]
+    }
+   }
+  },
+  "Boss": {
+   "material_group": {
+    "Copper": {
+     "conection": [
+      "Solder"
+     ],
+     "design_standard": [
+      "ASME B16.15",
+      "ASME B16.18",
+      "ASME B16.22"
+     ],
+     "material": [
+      "C12200",
+      "C83600",
+      "C84400"
+     ]
+    },
+    "C.S": {
+     "material": [
+      "ASTM A105",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347"
+     ]
+    }
+   },
+   "conection": {
+    "NPT": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   },
+   "design_standard": {
+    "Asme B16.9": {
+     "material_group": [
+      "Aluminum",
+      "Titanium"
+     ]
+    },
+    "Asme B16.11": {
+     "material": [
+      "ASTM A105",
+      "ASTM A182 Gr.304",
+      "ASTM A182 Gr.304L",
+      "ASTM A182 Gr.310",
+      "ASTM A182 Gr.316",
+      "ASTM A182 Gr.316L",
+      "ASTM A182 Gr.321",
+      "ASTM A182 Gr.F1",
+      "ASTM A182 Gr.F11 Class1",
+      "ASTM A182 Gr.F11 Class2",
+      "ASTM A182 Gr.F11 Class3",
+      "ASTM A182 Gr.F22 Class1",
+      "ASTM A182 Gr.F22 Class3",
+      "ASTM A182 Gr.F304H",
+      "ASTM A182 Gr.F316H",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91",
+      "ASTM A350 Gr.LF1",
+      "ASTM A350 Gr.LF2 Class 1",
+      "ASTM A350 Gr.LF2 Class 2",
+      "ASTM A350 Gr.LF3 Class 1",
+      "ASTM A350 Gr.LF3 Class 2"
+     ]
+    },
+    "ASME B16.22": {
+     "material": [
+      "C12200"
+     ]
+    },
+    "ASME B16.18": {
+     "material": [
+      "C83600"
+     ]
+    },
+    "ASME B16.15": {
+     "material": [
+      "C84400"
+     ]
+    }
+   },
+   "material": {
+    "C12200": {
+     "design_standard": [
+      "ASME B16.22"
+     ]
+    },
+    "C83600": {
+     "design_standard": [
+      "ASME B16.18"
+     ]
+    },
+    "C84400": {
+     "design_standard": [
+      "ASME B16.15"
+     ]
+    }
+   }
+  }
+ }
+}

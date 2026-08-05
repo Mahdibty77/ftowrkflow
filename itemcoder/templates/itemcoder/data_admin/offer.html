@@ -1,0 +1,508 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ group }} offer · Data Management{% endblock %}
+{% block topbar %}Offer: {{ group }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>“{{ group }}” offer builder</h1>
+  <div class="sub">Pick a feature and one of its values (the value the tool should auto-fill), then pick each feature whose values should trigger it and tick those values. Any ticked value is enough to trigger the auto-fill. Every change is written straight into offer_{{ group }}.json.</div></div>
+  <div class="btn-row">
+    <a class="btn btn-sm" href="{% url 'dm_features' group %}">Back to features</a>
+    <a class="btn btn-sm" href="{% url td_home_url_name %}">Home</a>
+  </div>
+</div>
+
+<div class="card ob-filecard">
+  <div class="ob-filerow">
+    <span class="ob-filelbl"><i class="fa-solid fa-file-lines"></i> offer_{{ group }}.json</span>
+    <a class="btn btn-sm btn-outline" href="{% url 'dm_offer_download' group %}"><i class="fa-solid fa-file-arrow-up"></i> Download</a>
+    <form method="post" action="{% url 'dm_offer_upload' group %}" enctype="multipart/form-data" class="ob-inline-form">
+      {% csrf_token %}
+      <input type="file" name="offer_file" accept=".json,application/json" required>
+      <button type="submit" class="btn btn-sm"><i class="fa-solid fa-upload"></i> Replace</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="ob-pickrow">
+    <div class="ob-pick">
+      <label class="ob-label">Feature to auto-fill</label>
+      <select id="ob-feature" data-combo data-placeholder="Search feature…">
+        <option value=""></option>
+      </select>
+    </div>
+    <div class="ob-pick" id="ob-value-wrap" style="display:none;">
+      <label class="ob-label">Its value</label>
+      <select id="ob-value" data-combo data-placeholder="Search value…">
+        <option value=""></option>
+      </select>
+    </div>
+  </div>
+
+  <div id="ob-cond-area" style="display:none;">
+    <div class="ob-cond-head">
+      <h3><i class="fa-solid fa-diagram-project"></i> Conditions for <span class="ob-target"></span></h3>
+      <span class="ob-hint">Choose a feature on the left, then tick the values on the right that should trigger the auto-fill. Switch the feature to add more — every feature you tick is saved together, and any one ticked value is enough.</span>
+    </div>
+
+    <div class="ob-cond ob-maincard">
+      <div class="ob-cond-top">
+        <span class="ob-cond-kind single">If value is one of</span>
+      </div>
+      <div class="ob-single-grid">
+        <div class="ob-single-feat">
+          <label class="ob-label">Feature</label>
+          <select id="ob-cond-feature" data-combo data-placeholder="Search feature…">
+            <option value=""></option>
+          </select>
+          <div id="ob-single-summary" class="ob-summary"></div>
+        </div>
+        <div class="ob-single-vals">
+          <label class="ob-label">Values<span id="ob-vals-feat" class="ob-muted"></span></label>
+          <div id="ob-checklist" class="ob-checklist">
+            <div class="ob-empty-note">Choose a feature to see its values.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ob-and-section">
+      <div class="ob-and-head">
+        <span class="ob-and-label"><i class="fa-solid fa-link"></i> Combined (AND) conditions</span>
+        <span class="ob-hint">All parts of one AND row must match together. Add as many rows as you need.</span>
+      </div>
+      <div id="ob-and-cards"></div>
+      <button type="button" class="btn btn-sm ob-add-and" id="ob-add-and"><i class="fa-solid fa-plus"></i> Add combined (AND) condition</button>
+    </div>
+
+    <div id="ob-or-preserved"></div>
+
+    <div class="ob-saverow">
+      <button type="button" class="btn btn-primary btn-sm" id="ob-save"><i class="fa-solid fa-floppy-disk"></i> Save to offer_{{ group }}.json</button>
+      <span id="ob-msg" class="ob-msg"></span>
+    </div>
+  </div>
+</div>
+
+<style>
+  .ob-filecard{padding:.55rem .8rem;}
+  .ob-filerow{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;}
+  .ob-filelbl{font-family:monospace;font-size:.8rem;color:var(--muted);}
+  .ob-inline-form{display:inline-flex;gap:.4rem;align-items:center;margin:0;}
+  .ob-inline-form input[type=file]{font-size:.78rem;max-width:190px;}
+
+  .ob-pickrow{display:flex;gap:1rem;flex-wrap:wrap;}
+  .ob-pick{min-width:240px;flex:1;max-width:340px;}
+  .ob-label{display:block;font-weight:650;font-size:.82rem;margin-bottom:.4rem;color:var(--ink);}
+
+  .ob-cond-head{margin:1.2rem 0 .5rem;border-top:1px solid var(--line);padding-top:.9rem;}
+  .ob-cond-head h3{margin:0 0 .2rem;font-size:.95rem;}
+  .ob-target{color:var(--accent-strong);}
+  .ob-hint{color:var(--muted);font-size:.8rem;}
+
+  /* One condition = one compact card. */
+  .ob-cond{border:1px solid var(--line);border-radius:10px;padding:.6rem .7rem;margin:.55rem 0;background:var(--paper);}
+  .ob-cond-top{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.5rem;}
+  .ob-cond-kind{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;
+    padding:.12rem .5rem;border-radius:100px;}
+  .ob-cond-kind.single{background:var(--accent-soft);color:var(--accent-strong);}
+  .ob-cond-kind.and{background:#fef3c7;color:#92400e;}
+  .ob-x{cursor:pointer;border:0;background:transparent;color:var(--muted);font-size:.95rem;padding:.1rem .3rem;border-radius:6px;}
+  .ob-x:hover{color:var(--danger);background:var(--cloud);}
+
+  /* AND-card term pickers reuse the SAME searchable combo as "Feature to
+     auto-fill" (FTBuildCombo): type to search, click to pick, no popup box. */
+  .ob-and-term{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;}
+  .ob-and-cell{flex:1;min-width:170px;max-width:230px;}
+  .ob-and-cell .combo{width:100%;}
+  .ob-and-sep{font-size:.72rem;font-weight:700;color:#92400e;}
+  .ob-and-add{align-self:flex-start;}
+
+  .ob-addbtns{display:flex;gap:.5rem;flex-wrap:wrap;margin:.6rem 0 .2rem;}
+
+  /* Single "If value is one of" card: feature combo (left) + value tick list
+     (right). One card handles every feature; ticks accumulate per feature. */
+  .ob-maincard{margin-top:.4rem;}
+  .ob-single-grid{display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-start;}
+  .ob-single-feat{width:250px;min-width:220px;flex:0 0 auto;}
+  .ob-single-vals{flex:1;min-width:260px;}
+  .ob-muted{color:var(--muted);font-weight:500;}
+
+  /* Feature-selected summary chips (what will be saved). */
+  .ob-summary{margin-top:.7rem;display:flex;flex-direction:column;gap:.3rem;}
+  .ob-sum-title{font-size:.74rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
+  .ob-sum-chip{display:inline-flex;align-items:center;gap:.4rem;background:var(--accent-soft);color:var(--accent-strong);
+    border-radius:100px;padding:.2rem .3rem .2rem .6rem;font-size:.78rem;font-weight:600;width:fit-content;cursor:pointer;}
+  .ob-sum-chip.active{outline:2px solid var(--accent-strong);}
+  .ob-sum-x{border:0;background:transparent;color:inherit;cursor:pointer;font-size:1rem;line-height:1;padding:0 .15rem;border-radius:50%;}
+  .ob-sum-x:hover{background:rgba(0,0,0,.08);}
+
+  /* Searchable value checklist (right side). */
+  .ob-checklist{border:1px solid var(--line);border-radius:9px;padding:.4rem;background:var(--paper);min-height:64px;}
+  .ob-cl-search{width:100%;padding:.4rem .55rem;border:1px solid var(--line);border-radius:7px;background:var(--paper);
+    color:var(--ink);font-size:.83rem;margin-bottom:.35rem;}
+  .ob-cl-list{max-height:230px;overflow:auto;display:flex;flex-direction:column;gap:1px;}
+  .ob-cl-opt{display:flex;align-items:center;gap:.5rem;padding:.34rem .5rem;border-radius:6px;cursor:pointer;font-size:.85rem;
+    border:1px solid transparent;user-select:none;}
+  .ob-cl-opt:hover{background:var(--cloud);}
+  /* Tick-style selection (no native checkbox) — matches the features section:
+     a check mark appears and the row is tinted when a value is picked. */
+  .ob-cl-tick{width:14px;text-align:center;color:var(--accent-strong);opacity:0;font-size:.8rem;transition:opacity .12s;}
+  .ob-cl-opt.sel .ob-cl-tick{opacity:1;}
+  .ob-cl-opt.sel{background:var(--accent-soft);color:var(--accent-strong);font-weight:600;border-color:var(--accent-strong);}
+  .ob-cl-count{font-size:.74rem;color:var(--muted);padding:.2rem .1rem 0;}
+
+  /* AND section (restored): each card is one AND row of feature=value terms. */
+  .ob-and-section{margin-top:1.1rem;border-top:1px solid var(--line);padding-top:.9rem;}
+  .ob-and-head{display:flex;flex-direction:column;gap:.15rem;margin-bottom:.5rem;}
+  .ob-and-label{font-size:.85rem;font-weight:700;}
+  .ob-and-terms{display:flex;flex-direction:column;gap:.4rem;}
+  .ob-add-and{margin-top:.5rem;}
+
+  /* OR conditions preserved verbatim from an uploaded file (read-only chips). */
+  .ob-adv{margin-top:1rem;}
+  .ob-adv-title{font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.03em;}
+  .ob-adv-chip{display:flex;align-items:center;justify-content:space-between;gap:.6rem;border:1px solid var(--line);
+    border-radius:8px;padding:.45rem .7rem;margin:.35rem 0;background:#fef3c7;color:#92400e;font-size:.83rem;}
+  .ob-adv-chip code{font-family:monospace;}
+
+  .ob-saverow{display:flex;align-items:center;gap:.6rem;margin-top:.9rem;border-top:1px solid var(--line);padding-top:.8rem;}
+  .ob-msg{font-size:.83rem;} .ob-msg.ok{color:#1f7a5a;} .ob-msg.err{color:#c0392b;}
+  .ob-empty-note{color:var(--muted);font-size:.83rem;padding:.5rem 0;}
+</style>
+
+{{ mains|json_script:"mains-data" }}
+<script>
+(function(){
+  var GROUP = "{{ group }}";
+  var MAINS = JSON.parse(document.getElementById('mains-data').textContent);
+  var URL_FEATURE_VALUES = "{% url 'dm_offer_feature_values_api' group %}";
+  var URL_CONDITIONS = "{% url 'dm_offer_conditions_api' group %}";
+  var URL_SAVE = "{% url 'dm_offer_conditions_save_api' group %}";
+  function csrf(){ var m=document.cookie.match(/csrftoken=([^;]+)/); return m?m[1]:''; }
+
+  // Normalize any value list into [{value,label}]. Plain strings become
+  // {value:s,label:s}; the API returns {value,label} objects already (so
+  // placeholders like $coating$ show as "NO COATING").
+  function asItems(arr){
+    return (arr||[]).map(function(v){
+      if(v && typeof v==='object') return {value:String(v.value), label:String(v.label!=null?v.label:v.value)};
+      return {value:String(v), label:String(v)};
+    });
+  }
+
+  // ---- value cache (per feature), returns [{value,label}] --------------------
+  var valuesCache = {};
+  function fetchValues(feature){
+    if(valuesCache[feature]) return Promise.resolve(valuesCache[feature]);
+    var qs = 'feature='+encodeURIComponent(feature);
+    return fetch(URL_FEATURE_VALUES+'?'+qs, {headers:{'X-Requested-With':'XMLHttpRequest'}})
+      .then(function(r){return r.json();})
+      .then(function(res){ var v=asItems((res && res.values)||[]); valuesCache[feature]=v; return v; });
+  }
+
+  // Condition values WITH cross-value exclusion: a value already offered under
+  // another value of the target feature is hidden here (a value belongs to only
+  // one target value). Depends on (targetFeature, targetValue), so cache per pair.
+  var condCache = {};
+  function fetchCondValues(feature){
+    var key = targetFeature+'\u0001'+targetValue+'\u0001'+feature;
+    if(condCache[key]) return Promise.resolve(condCache[key]);
+    var qs = 'feature='+encodeURIComponent(feature)
+           +'&target='+encodeURIComponent(targetFeature)
+           +'&target_value='+encodeURIComponent(targetValue);
+    return fetch(URL_FEATURE_VALUES+'?'+qs, {headers:{'X-Requested-With':'XMLHttpRequest'}})
+      .then(function(r){return r.json();})
+      .then(function(res){ var v=asItems((res && res.values)||[]); condCache[key]=v; return v; });
+  }
+  function labelFor(feature, value){
+    var list = valuesCache[feature]||[];
+    for(var i=0;i<list.length;i++){ if(list[i].value===String(value)) return list[i].label; }
+    return String(value);
+  }
+
+  // ---- searchable combo field (reuses the site-wide FTBuildCombo) ------------
+  // Builds a <select data-combo> INSIDE `parent`, so a picker behaves EXACTLY
+  // like the "Feature to auto-fill" combo: type to search, click to pick — no
+  // separate popup box. Items are {value,label} (or plain strings).
+  function makeComboField(parent, placeholder, items, onChange){
+    var sel=document.createElement('select');
+    sel.setAttribute('data-combo','');
+    sel.setAttribute('data-placeholder', placeholder||'Search…');
+    sel.className='ob-and-select';
+    parent.appendChild(sel);
+    function build(){ if(window.FTBuildCombo){ window.FTBuildCombo(sel); } }
+    function fill(list, keep){
+      var cur = keep ? sel.value : '';
+      sel.innerHTML='<option value=""></option>';
+      asItems(list).forEach(function(it){
+        var o=document.createElement('option'); o.value=it.value; o.textContent=it.label; sel.appendChild(o);
+      });
+      var has=Array.prototype.some.call(sel.options, function(o){ return o.value===cur; });
+      sel.value = has ? cur : '';
+      build();
+    }
+    fill(items||[], false);
+    if(onChange){ sel.addEventListener('change', function(){ onChange(sel.value); }); }
+    return {
+      sel: sel,
+      getValue: function(){ return sel.value; },
+      setValue: function(v){ sel.value=v||''; build(); },
+      setItems: function(list){ fill(list||[], true); },
+    };
+  }
+
+  function normKey(s){ return String(s==null?'':s).toLowerCase().replace(/[^0-9a-z\u0600-\u06ff]/g,''); }
+
+  // ---- top: target feature + value pickers (reuse the site combo) ------------
+  var featSel = document.getElementById('ob-feature');
+  var valueSel = document.getElementById('ob-value');
+  var valueWrap = document.getElementById('ob-value-wrap');
+  MAINS.forEach(function(f){ var o=document.createElement('option'); o.value=f; o.textContent=f; featSel.appendChild(o); });
+  if(window.FTBuildCombo){ window.FTBuildCombo(featSel); }
+
+  var condArea = document.getElementById('ob-cond-area');
+  var condFeatureSel = document.getElementById('ob-cond-feature');
+  var checklist = document.getElementById('ob-checklist');
+  var valsFeatLbl = document.getElementById('ob-vals-feat');
+  var summaryBox = document.getElementById('ob-single-summary');
+  var andCards = document.getElementById('ob-and-cards');
+  var orBox = document.getElementById('ob-or-preserved');
+  var msg = document.getElementById('ob-msg');
+
+  var targetFeature='', targetValue='';
+  var singleState = {};   // feature -> [ticked values]  (accumulates across features)
+  var orConds = [];       // OR conditions preserved verbatim from an uploaded file
+
+  featSel.addEventListener('change', function(){
+    targetFeature = featSel.value; targetValue=''; condArea.style.display='none'; msg.textContent='';
+    valueSel.innerHTML='<option value=""></option>'; valueSel.value='';
+    if(window.FTBuildCombo){ window.FTBuildCombo(valueSel); }
+    if(!targetFeature){ valueWrap.style.display='none'; return; }
+    valueWrap.style.display='';
+    fetchValues(targetFeature).then(function(items){
+      valueSel.innerHTML='<option value=""></option>';
+      items.forEach(function(it){ var o=document.createElement('option'); o.value=it.value; o.textContent=it.label; valueSel.appendChild(o); });
+      valueSel.value='';
+      if(window.FTBuildCombo){ window.FTBuildCombo(valueSel); }
+      if(!items.length){ msg.className='ob-msg err'; msg.textContent='This feature has no saved values yet. Add values under Features → Values & codes first.'; }
+    });
+  });
+
+  valueSel.addEventListener('change', function(){
+    targetValue = valueSel.value; msg.textContent=''; condCache={};
+    if(!targetValue){ condArea.style.display='none'; return; }
+    document.querySelector('.ob-target').textContent = targetFeature+' = '+labelFor(targetFeature, targetValue);
+    condArea.style.display='';
+    // Rebuild the condition-feature combo to exclude the target feature.
+    condFeatureSel.innerHTML='<option value=""></option>';
+    otherFeatures().forEach(function(f){ var o=document.createElement('option'); o.value=f; o.textContent=f; condFeatureSel.appendChild(o); });
+    condFeatureSel.value='';
+    if(window.FTBuildCombo){ window.FTBuildCombo(condFeatureSel); }
+    checklist.innerHTML='<div class="ob-empty-note">Loading…</div>';
+    andCards.innerHTML=''; orBox.innerHTML=''; singleState={}; orConds=[];
+    var qs='feature='+encodeURIComponent(targetFeature)+'&value='+encodeURIComponent(targetValue);
+    fetch(URL_CONDITIONS+'?'+qs, {headers:{'X-Requested-With':'XMLHttpRequest'}})
+      .then(function(r){return r.json();})
+      .then(function(res){ renderConditions((res && res.conditions)||[]); });
+  });
+
+  // Other features = everything except the target feature.
+  function otherFeatures(){ return MAINS.filter(function(f){ return f!==targetFeature; }); }
+
+  // ==== single card: ONE searchable feature combo + right-side value ticker ===
+  // Ticks accumulate per feature in singleState; switching the combo just shows
+  // a different feature's values (previous ticks are kept and re-shown).
+  condFeatureSel.addEventListener('change', function(){ renderChecklist(condFeatureSel.value); });
+
+  function renderChecklist(feature){
+    valsFeatLbl.textContent = feature ? (' — ' + feature) : '';
+    if(!feature){ checklist.innerHTML='<div class="ob-empty-note">Choose a feature to see its values.</div>'; return; }
+    checklist.innerHTML='<div class="ob-empty-note">Loading…</div>';
+    fetchCondValues(feature).then(function(items){ buildChecklist(feature, items); });
+  }
+
+  function buildChecklist(feature, items){
+    checklist.innerHTML='';
+    if(!items.length){ checklist.innerHTML='<div class="ob-empty-note">This feature has no saved values yet.</div>'; return; }
+    var sel = singleState[feature] || (singleState[feature]=[]);
+    var search=document.createElement('input'); search.className='ob-cl-search'; search.type='text'; search.placeholder='Search values…';
+    var count=document.createElement('div'); count.className='ob-cl-count';
+    var list=document.createElement('div'); list.className='ob-cl-list';
+    checklist.appendChild(search); checklist.appendChild(count); checklist.appendChild(list);
+    function paintCount(){ count.textContent = sel.length ? (sel.length+' ticked') : 'none ticked'; }
+    function paint(){
+      var q=(search.value||'').toLowerCase();
+      list.innerHTML='';
+      var shown = items.filter(function(it){ return !q || it.label.toLowerCase().indexOf(q)>=0 || it.value.toLowerCase().indexOf(q)>=0; });
+      if(!shown.length){ var e=document.createElement('div'); e.className='ob-empty-note'; e.textContent='No matches.'; list.appendChild(e); return; }
+      shown.forEach(function(it){
+        var on=sel.indexOf(it.value)>=0;
+        var row=document.createElement('div'); row.className='ob-cl-opt'+(on?' sel':'');
+        row.setAttribute('role','checkbox'); row.setAttribute('aria-checked', on?'true':'false');
+        var tick=document.createElement('i'); tick.className='fa-solid fa-check ob-cl-tick';
+        var sp=document.createElement('span'); sp.textContent=it.label;
+        row.appendChild(tick); row.appendChild(sp);
+        row.addEventListener('click', function(){
+          var i=sel.indexOf(it.value); var nowOn=i<0;
+          if(nowOn){ sel.push(it.value); } else { sel.splice(i,1); }
+          row.classList.toggle('sel', nowOn); row.setAttribute('aria-checked', nowOn?'true':'false');
+          paintCount(); updateSummary(feature);
+        });
+        list.appendChild(row);
+      });
+    }
+    search.addEventListener('input', paint);
+    paint(); paintCount();
+  }
+
+  function updateSummary(activeFeature){
+    summaryBox.innerHTML='';
+    var feats = Object.keys(singleState).filter(function(f){ return (singleState[f]||[]).length; });
+    if(!feats.length){ var n=document.createElement('span'); n.className='ob-muted'; n.style.fontSize='.78rem'; n.textContent='No values ticked yet.'; summaryBox.appendChild(n); return; }
+    var t=document.createElement('div'); t.className='ob-sum-title'; t.textContent='Will be saved:'; summaryBox.appendChild(t);
+    feats.sort().forEach(function(f){
+      var chip=document.createElement('span'); chip.className='ob-sum-chip'+(f===activeFeature?' active':'');
+      var lbl=document.createElement('span'); lbl.textContent=f+' ('+singleState[f].length+')';
+      lbl.addEventListener('click', function(){ condFeatureSel.value=f; if(window.FTBuildCombo){ window.FTBuildCombo(condFeatureSel);} renderChecklist(f); });
+      var x=document.createElement('button'); x.type='button'; x.className='ob-sum-x'; x.title='Clear '+f; x.innerHTML='&times;';
+      x.addEventListener('click', function(){ singleState[f]=[]; updateSummary(condFeatureSel.value); if(condFeatureSel.value===f) renderChecklist(f); });
+      chip.appendChild(lbl); chip.appendChild(x); summaryBox.appendChild(chip);
+    });
+  }
+
+  function renderConditions(conds){
+    andCards.innerHTML=''; orBox.innerHTML=''; singleState={}; orConds=[];
+    (conds||[]).forEach(function(c){
+      if(c.type==='and'){ addAndCard(c.terms||[]); }
+      else if(c.type==='or'){ orConds.push(c); }
+      else if(c.type==='single'){
+        var feature=c.feature||''; if(!feature) return;
+        var saved=(c.values||[]).slice();
+        singleState[feature]=saved.slice();
+        // Clean: keep only values that really belong to this feature (drops
+        // stray values wrongly saved under it) and canonicalize their spelling.
+        fetchCondValues(feature).then(function(items){
+          var byNorm={}; items.forEach(function(it){ byNorm[normKey(it.value)]=it.value; });
+          var cleaned=[];
+          saved.forEach(function(v){ var real=byNorm[normKey(v)]; if(real && cleaned.indexOf(real)<0) cleaned.push(real); });
+          singleState[feature]=cleaned;
+          updateSummary(condFeatureSel.value);
+          if(condFeatureSel.value===feature) renderChecklist(feature);
+        });
+      }
+    });
+    condFeatureSel.value=''; if(window.FTBuildCombo){ window.FTBuildCombo(condFeatureSel); }
+    renderChecklist('');
+    updateSummary('');
+    renderOrPreserved();
+  }
+
+  // ==== AND section (restored): each card = one AND row of feature=value terms =
+  function cardShell(kindLabel, kindClass){
+    var card=document.createElement('div'); card.className='ob-cond';
+    var top=document.createElement('div'); top.className='ob-cond-top';
+    var k=document.createElement('span'); k.className='ob-cond-kind '+kindClass; k.textContent=kindLabel;
+    var x=document.createElement('button'); x.type='button'; x.className='ob-x'; x.title='Remove condition';
+    x.innerHTML='<i class="fa-solid fa-xmark"></i>';
+    x.addEventListener('click', function(){ card.remove(); });
+    top.appendChild(k); top.appendChild(x); card.appendChild(top);
+    return card;
+  }
+
+  function addAndCard(terms){
+    var card=cardShell('If ALL of these match','and');
+    var wrap=document.createElement('div'); wrap.className='ob-and-terms'; card.appendChild(wrap);
+    card._terms=[];
+
+    function addTerm(pf, pv){
+      var termRow=document.createElement('div'); termRow.className='ob-and-term';
+      if(card._terms.length){ var sep=document.createElement('span'); sep.className='ob-and-sep'; sep.textContent='AND'; termRow.appendChild(sep); }
+      var fCell=document.createElement('div'); fCell.className='ob-and-cell';
+      var vCell=document.createElement('div'); vCell.className='ob-and-cell';
+      termRow.appendChild(fCell); termRow.appendChild(vCell);
+      var valField;
+      // Feature options exclude the target feature (the offer is written FOR it),
+      // exactly like the "If value is one of" section. Both fields are inline
+      // searchable combos — no click-to-open popup box.
+      var featField=makeComboField(fCell, 'feature…', otherFeatures(), function(feat){
+        valField.setItems([]);
+        if(feat){ fetchCondValues(feat).then(function(items){ valField.setItems(items); }); }
+      });
+      valField=makeComboField(vCell, 'value…', [], null);
+      var rm=document.createElement('button'); rm.type='button'; rm.className='ob-x'; rm.title='Remove'; rm.innerHTML='<i class="fa-solid fa-xmark"></i>';
+      var term={feature:featField, value:valField, row:termRow};
+      rm.addEventListener('click', function(){ termRow.remove(); var i=card._terms.indexOf(term); if(i>=0) card._terms.splice(i,1); });
+      termRow.appendChild(rm);
+      wrap.appendChild(termRow); card._terms.push(term);
+      if(pf){ featField.setValue(pf); fetchCondValues(pf).then(function(items){ valField.setItems(items); if(pv) valField.setValue(pv); }); }
+    }
+
+    var addBtn=document.createElement('button'); addBtn.type='button'; addBtn.className='btn btn-sm ob-and-add'; addBtn.innerHTML='<i class="fa-solid fa-plus"></i> Add feature';
+    addBtn.addEventListener('click', function(){ addTerm('',''); });
+    card.appendChild(addBtn);
+    andCards.appendChild(card);
+
+    if(terms && terms.length){ terms.forEach(function(t){ addTerm(t[0], t[1]); }); }
+    else { addTerm('',''); addTerm('',''); }
+  }
+
+  document.getElementById('ob-add-and').addEventListener('click', function(){ addAndCard([]); });
+
+  // OR conditions from an uploaded file are shown read-only (the editor never
+  // creates them) so a round-trip save keeps them intact.
+  function renderOrPreserved(){
+    orBox.innerHTML='';
+    if(!orConds.length) return;
+    var wrap=document.createElement('div'); wrap.className='ob-adv';
+    var t=document.createElement('div'); t.className='ob-adv-title'; t.textContent='OR conditions (kept from file)'; wrap.appendChild(t);
+    orConds.forEach(function(c, idx){
+      var chip=document.createElement('div'); chip.className='ob-adv-chip';
+      var text=(c.terms||[]).map(function(p){ return p[0]+'='+p[1]; }).join(' OR ');
+      var span=document.createElement('span'); span.innerHTML='<code>'+text+'</code>';
+      var x=document.createElement('button'); x.type='button'; x.className='ob-x'; x.title='Remove';
+      x.innerHTML='<i class="fa-solid fa-xmark"></i>';
+      x.addEventListener('click', function(){ orConds.splice(idx,1); renderOrPreserved(); });
+      chip.appendChild(span); chip.appendChild(x); wrap.appendChild(chip);
+    });
+    orBox.appendChild(wrap);
+  }
+
+  function collect(){
+    var out=[];
+    // Every feature that has ticked values is saved (not just the last one).
+    Object.keys(singleState).forEach(function(f){
+      var vals=(singleState[f]||[]).filter(Boolean);
+      if(vals.length) out.push({type:'single', feature:f, values:vals});
+    });
+    // AND cards (>=2 terms -> AND; a lone term degrades to a single value).
+    Array.prototype.forEach.call(andCards.children, function(card){
+      if(!card._terms) return;
+      var terms=[];
+      card._terms.forEach(function(t){ var ff=t.feature.getValue(); var vv=t.value.getValue(); if(ff && vv) terms.push([ff,vv]); });
+      if(terms.length>=2) out.push({type:'and', terms:terms});
+      else if(terms.length===1){
+        var f=terms[0][0], v=terms[0][1], found=false;
+        out.forEach(function(o){ if(o.type==='single' && o.feature===f){ if(o.values.indexOf(v)<0) o.values.push(v); found=true; } });
+        if(!found) out.push({type:'single', feature:f, values:[v]});
+      }
+    });
+    orConds.forEach(function(c){ out.push(c); });
+    return out;
+  }
+
+  document.getElementById('ob-save').addEventListener('click', function(){
+    if(!targetFeature || !targetValue){ msg.className='ob-msg err'; msg.textContent='Pick a feature and a value first.'; return; }
+    var conditions=collect();
+    var btn=this; btn.disabled=true; msg.className='ob-msg'; msg.textContent='Saving…';
+    fetch(URL_SAVE, {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':csrf()},
+      body: JSON.stringify({feature:targetFeature, value:targetValue, conditions:conditions})})
+      .then(function(r){return r.json();})
+      .then(function(res){ btn.disabled=false;
+        if(res.ok){ condCache={}; msg.className='ob-msg ok'; msg.textContent='Saved to offer_'+GROUP+'.json (written to the project file).'; }
+        else { msg.className='ob-msg err'; msg.textContent=res.error||'Error.'; } })
+      .catch(function(){ btn.disabled=false; msg.className='ob-msg err'; msg.textContent='Network error.'; });
+  });
+})();
+</script>
+{% endblock %}

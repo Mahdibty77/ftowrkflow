@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Requests · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Requests{% endblock %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-24">
+{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1><i class="fa-solid fa-clipboard-check"></i> Requests</h1>
+    <div class="sub">{{ person.display_name }} · Open a request type assigned to you</div>
+  </div>
+</div>
+
+<div class="grid grid-2 md-hub-cards" style="gap:1rem;max-width:960px;">
+  {% for card in type_cards %}
+  <a href="{{ card.url }}" class="card md-hub-card ppl-req-type-card" style="position:relative;">
+    {% if card.answered_count %}
+    <span class="ppl-req-badge" title="New answers">{{ card.answered_count }}</span>
+    {% endif %}
+    <div class="md-hub-card-top">
+      <span class="md-hub-ic" aria-hidden="true"><i class="fa-solid {{ card.type.icon }}"></i></span>
+      <h3>{{ card.type.title }}</h3>
+    </div>
+    <div class="muted md-hub-desc">{{ card.type.description }}</div>
+    <div class="ppl-req-card-foot ppl-req-card-foot-end">
+      {% include "people/_request_type_route.html" %}
+    </div>
+  </a>
+  {% empty %}
+  <p class="muted">No request types are assigned to you yet. Ask an administrator.</p>
+  {% endfor %}
+</div>
+<style>
+  .ppl-req-type-card{
+    cursor:pointer;text-decoration:none;color:inherit;
+    display:flex;flex-direction:column;
+  }
+  .ppl-req-type-card:hover{text-decoration:none;color:inherit;
+    border-color:color-mix(in srgb,var(--accent) 40%,var(--line));}
+  .ppl-req-badge{
+    position:absolute;top:.55rem;inset-inline-end:.65rem;
+    min-width:1.55rem;height:1.55rem;padding:0 .35rem;
+    display:inline-flex;align-items:center;justify-content:center;
+    border-radius:999px;font-size:.72rem;font-weight:700;line-height:1;
+    color:var(--accent-strong);
+    background:color-mix(in srgb,var(--accent) 14%,var(--paper));
+    border:2px solid var(--accent);
+    box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 18%,transparent);
+  }
+</style>
+{% endblock %}

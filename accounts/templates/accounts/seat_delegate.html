@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+{% block title %}Delegate tasks · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Delegate{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1><i class="fa-solid fa-share-from-square"></i> Delegate open tasks</h1>
+    <div class="sub">
+      From {{ person.display_name }} · {{ role.title_line }}
+      · {{ open_tasks }} open task{{ open_tasks|pluralize }}
+      <span class="muted">(same role, or unit manager / supervisor)</span>
+    </div>
+  </div>
+  <a href="{% url 'accounts:user_list' %}" class="btn btn-sm"><i class="fa-solid fa-arrow-left"></i> Back to Seats</a>
+</div>
+
+{% if not recipients %}
+  <div class="card" style="padding:1rem 1.2rem;">
+    <p style="margin:0;">No compatible recipient found (same role, or a manager/supervisor in this unit).</p>
+  </div>
+{% else %}
+<form method="post" id="seatDelForm">
+  {% csrf_token %}
+  {% if then_close %}<input type="hidden" name="then_close" value="1">{% endif %}
+
+  <div class="card seat-del">
+    <div class="seat-del-section" style="margin-bottom:0;">
+      <h3>Recipient</h3>
+      <label class="sg-assign-label" for="to_person">Person</label>
+      <select name="to_person" id="to_person" data-combo data-placeholder="Search people…" required>
+        <option value=""></option>
+        {% for row in recipients %}
+          <option value="{{ row.person.pk }}">{{ row.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  {% if open_cases %}
+  <div class="card">
+    <div class="archive-filter-toolbar">
+      <span class="muted" style="font-size:.82rem;">Filter open tasks</span>
+      <button type="button" class="btn btn-sm" id="seatDelClearFilters" title="Reset all filters">
+        <i class="fa-solid fa-eraser"></i> Clear filters
+      </button>
+    </div>
+    <div class="grid archive-filter-grid seat-del-filter-grid">
+      <div class="field">
+        <label><i class="fa-solid fa-hashtag"></i> Document No.</label>
+        <select data-combo data-placeholder="Search document…"
+                data-filter-for="seatDelList" data-seat-del-filter="doc" data-filter-mode="equals">
+          <option value="" selected></option>
+          {% for v in f_docs %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label><i class="fa-solid fa-building"></i> Client</label>
+        <select data-combo data-placeholder="Search client…"
+                data-filter-for="seatDelList" data-seat-del-filter="client" data-filter-mode="equals">
+          <option value="" selected></option>
+          {% for v in f_clients %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label><i class="fa-solid fa-circle-info"></i> Status</label>
+        <select data-combo data-placeholder="Search status…"
+                data-filter-for="seatDelList" data-seat-del-filter="status" data-filter-mode="equals">
+          <option value="" selected></option>
+          {% for v in f_statuses %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label><i class="fa-solid fa-file-invoice-dollar"></i> Offer</label>
+        <select data-combo data-placeholder="Search offer…"
+                data-filter-for="seatDelList" data-seat-del-filter="offer" data-filter-mode="equals">
+          <option value="" selected></option>
+          {% for v in f_offers %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="card seat-del">
+    <div class="seat-del-section">
+      <div class="seat-del-head">
+        <h3>Open tasks <span class="count" id="seatDelCount">0 selected</span></h3>
+        <button type="button" class="btn btn-sm" id="seatDelSelectAll" {% if not open_cases %}disabled{% endif %}>
+          Select all
+        </button>
+      </div>
+      {% if open_cases %}
+      <div class="seat-del-table-wrap">
+        <div class="seat-del-table-head" aria-hidden="true">
+          <span></span>
+          <span>Document No.</span>
+          <span>Client</span>
+          <span>Status</span>
+          <span>Offer</span>
+        </div>
+        <div class="seat-del-table" id="seatDelList" role="listbox" aria-multiselectable="true">
+          {% for c in open_cases %}
+            <label class="seat-del-row" data-del-row
+                   data-doc="{{ c.doc_no }}"
+                   data-client="{{ c.client.name }}"
+                   data-status="{{ c.status_label }}"
+                   data-offer="{{ c.offer_stage_label|default:c.offer_type_label|default:'—' }}">
+              <input type="checkbox" name="cases" value="{{ c.pk }}" class="seat-del-check" hidden>
+              <span class="seat-del-bar" aria-hidden="true"></span>
+              <span class="mono seat-del-doc">{{ c.doc_no }}</span>
+              <span class="seat-del-client">{{ c.client.name }}</span>
+              <span class="seat-del-status">{{ c.status_label }}</span>
+              <span class="seat-del-offer muted">{{ c.offer_stage_label|default:c.offer_type_label|default:"—" }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% else %}
+        <p class="muted" style="margin:.4rem 0 0;">No open tasks on this seat.</p>
+      {% endif %}
+    </div>
+
+    <div class="btn-row" style="margin-top:1rem;justify-content:flex-end;">
+      <a href="{% url 'accounts:user_list' %}" class="btn btn-sm btn-ghost">Cancel</a>
+      <button type="submit" class="btn btn-primary" id="seatDelSubmit" disabled>
+        <i class="fa-solid fa-check"></i>
+        {% if then_close %}Confirm delegate &amp; close{% else %}Confirm delegate{% endif %}
+      </button>
+    </div>
+  </div>
+</form>
+{% endif %}
+
+<style>
+  .seat-del{padding:1.15rem 1.25rem 1.35rem;overflow:visible}
+  .seat-del-section{margin-bottom:0}
+  .seat-del-section h3{margin:0;font-size:.95rem;display:flex;align-items:center;gap:.5rem}
+  .seat-del-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.55rem;flex-wrap:wrap}
+  .seat-del-section .count{font-size:.75rem;font-weight:700;color:var(--muted)}
+  .sg-assign-label{display:block;font-size:.72rem;font-weight:700;text-transform:uppercase;
+    letter-spacing:.04em;color:var(--muted);margin-bottom:.3rem}
+  .seat-del .combo{max-width:32rem}
+  .seat-del-filter-grid{grid-template-columns:repeat(4, minmax(0, 1fr));}
+  @media (max-width:780px){
+    .seat-del-filter-grid{grid-template-columns:repeat(2, minmax(0, 1fr));}
+  }
+  .seat-del-table-wrap{
+    border:1px solid var(--line-soft);border-radius:10px;overflow:auto;
+    background:color-mix(in srgb,var(--accent) 3%,var(--paper));
+  }
+  .seat-del-table-head,
+  .seat-del-row{
+    display:grid;
+    grid-template-columns:4px minmax(8.5rem,1.15fr) minmax(7rem,1.2fr) minmax(6rem,.95fr) minmax(5rem,.75fr);
+    gap:0 .7rem;align-items:center;
+  }
+  .seat-del-table-head{
+    position:sticky;top:0;z-index:1;
+    padding:.45rem .65rem .45rem .55rem;
+    font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--muted);
+    background:color-mix(in srgb,var(--accent) 8%,var(--cloud));
+    border-bottom:1px solid color-mix(in srgb,var(--accent) 16%,var(--line));
+  }
+  .seat-del-table{display:flex;flex-direction:column;gap:.2rem;max-height:20rem;overflow:auto;padding:.35rem}
+  .seat-del-row{
+    padding:.48rem .65rem .48rem .55rem;border-radius:8px;font-size:.84rem;cursor:pointer;
+    border:1px solid transparent;background:var(--paper);
+    transition:background .12s,border-color .12s;
+  }
+  .seat-del-bar{
+    width:4px;align-self:stretch;border-radius:4px;min-height:1.35rem;
+    background:transparent;transition:background .12s;
+  }
+  .seat-del-doc{font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .seat-del-client,.seat-del-status,.seat-del-offer{
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.82rem;
+  }
+  .seat-del-client{color:var(--ink)}
+  .seat-del-status{color:var(--muted)}
+  .seat-del-row:hover{
+    background:color-mix(in srgb,var(--accent) 8%,var(--paper));
+    border-color:color-mix(in srgb,var(--accent) 18%,var(--line));
+  }
+  .seat-del-row.is-selected{
+    background:color-mix(in srgb,var(--accent) 14%,var(--paper));
+    border-color:color-mix(in srgb,var(--accent) 35%,var(--line));
+  }
+  .seat-del-row.is-selected .seat-del-bar{background:var(--accent)}
+  .seat-del-row.is-filtered-out{display:none !important}
+</style>
+<script>
+(function () {
+  var form = document.getElementById('seatDelForm');
+  if (!form) return;
+  var rows = Array.prototype.slice.call(form.querySelectorAll('[data-del-row]'));
+  var countEl = document.getElementById('seatDelCount');
+  var selectAll = document.getElementById('seatDelSelectAll');
+  var submit = document.getElementById('seatDelSubmit');
+  var filterControls = Array.prototype.slice.call(
+    document.querySelectorAll('[data-seat-del-filter]')
+  );
+  var clearBtn = document.getElementById('seatDelClearFilters');
+
+  function isVisible(row) {
+    return !row.classList.contains('is-filtered-out');
+  }
+
+  function visibleRows() {
+    return rows.filter(isVisible);
+  }
+
+  function selectedCount() {
+    var n = 0;
+    rows.forEach(function (row) {
+      var cb = row.querySelector('.seat-del-check');
+      if (cb && cb.checked) n++;
+    });
+    return n;
+  }
+
+  function visibleSelectedCount() {
+    var n = 0;
+    visibleRows().forEach(function (row) {
+      var cb = row.querySelector('.seat-del-check');
+      if (cb && cb.checked) n++;
+    });
+    return n;
+  }
+
+  function syncRow(row) {
+    var cb = row.querySelector('.seat-del-check');
+    row.classList.toggle('is-selected', !!(cb && cb.checked));
+  }
+
+  function sync() {
+    var n = selectedCount();
+    var vis = visibleRows();
+    var visSel = visibleSelectedCount();
+    if (countEl) countEl.textContent = n + ' selected';
+    if (submit) submit.disabled = n === 0;
+    if (selectAll) {
+      selectAll.disabled = vis.length === 0;
+      selectAll.textContent = (vis.length > 0 && visSel === vis.length) ? 'Clear all' : 'Select all';
+    }
+  }
+
+  function applyFilters() {
+    var terms = [];
+    filterControls.forEach(function (c) {
+      var raw = (c.value || '').trim().toLowerCase();
+      if (!raw) return;
+      terms.push({ key: c.getAttribute('data-seat-del-filter'), raw: raw });
+    });
+    rows.forEach(function (row) {
+      var show = terms.every(function (t) {
+        var text = ((row.getAttribute('data-' + t.key) || '') + '').trim().toLowerCase();
+        return text === t.raw;
+      });
+      row.classList.toggle('is-filtered-out', !show);
+      if (!show) {
+        var cb = row.querySelector('.seat-del-check');
+        if (cb && cb.checked) {
+          cb.checked = false;
+          syncRow(row);
+        }
+      }
+    });
+    sync();
+  }
+
+  function clearControl(c) {
+    c.value = '';
+    if (typeof c._ftRefreshCombo === 'function') c._ftRefreshCombo();
+    else {
+      var comboInp = c.parentNode && c.parentNode.querySelector
+        ? c.parentNode.querySelector('.combo-input') : null;
+      if (comboInp) comboInp.value = '';
+      var x = c.parentNode && c.parentNode.querySelector
+        ? c.parentNode.querySelector('.filter-clear-x') : null;
+      if (x) x.hidden = true;
+    }
+    try { c.dispatchEvent(new Event('input', { bubbles: true })); } catch (_e) {}
+    try { c.dispatchEvent(new Event('change', { bubbles: true })); } catch (_e2) {}
+  }
+
+  rows.forEach(function (row) {
+    var cb = row.querySelector('.seat-del-check');
+    function onChange() {
+      syncRow(row);
+      sync();
+    }
+    if (cb) cb.addEventListener('change', onChange);
+    syncRow(row);
+  });
+
+  if (selectAll) {
+    selectAll.addEventListener('click', function () {
+      var vis = visibleRows();
+      if (!vis.length) return;
+      var allOn = visibleSelectedCount() === vis.length;
+      vis.forEach(function (row) {
+        var cb = row.querySelector('.seat-del-check');
+        if (cb) {
+          cb.checked = !allOn;
+          syncRow(row);
+        }
+      });
+      sync();
+    });
+  }
+
+  filterControls.forEach(function (c) {
+    // Ensure blank default even if browser re-selected first real option.
+    if ((c.value || '') !== '') {
+      c.value = '';
+      if (typeof c._ftRefreshCombo === 'function') c._ftRefreshCombo();
+    }
+    c.addEventListener('change', applyFilters);
+    c.addEventListener('input', applyFilters);
+  });
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      filterControls.forEach(clearControl);
+      applyFilters();
+    });
+  }
+
+  applyFilters();
+  sync();
+})();
+</script>
+{% endblock %}

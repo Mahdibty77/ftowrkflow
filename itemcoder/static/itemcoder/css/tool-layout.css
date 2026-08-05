@@ -1,0 +1,425 @@
+/* tool-layout.css
+ * Page structure, header/upload, calculation & margin card, and the virtual-scroll table engine — the foundational styling both TO and PI depend on.
+ * Split out of the former monolithic style.css (2026-07 CSS reorg).
+ * No rule was changed, only relocated: concatenating tool-layout.css,
+ * tool-cells-status.css, tool-panels.css, tool-icons.css and
+ * tool-dark-mode.css in that order reproduces the old file byte for byte.
+ */
+/* ==========================================================
+   Fast UI Stylesheet - Optimized Engineering Navy & Steel Silver
+   - Engineered for Virtual Scrolling & Sticky UI Performance.
+   - Low-repaint borders and structures for smooth 60fps interaction.
+========================================================== */
+
+:root {
+    /* Harmonised with the main app design system (app.css). Same variable
+       names are kept so every existing rule below continues to work. */
+    /* Tokens now FOLLOW the active site theme (theme-pack.css is loaded by the
+       tool templates and sets data-skin/data-mode). Each maps to the theme
+       palette with a safe fallback if the theme file is ever missing. */
+    --bg: var(--mist, #f1f5fb);
+    --surface: var(--paper, #ffffff);
+    --surface-soft: var(--cloud, #f8fafd);
+    --border: var(--line, #dde4ee);
+    --border-strong: var(--line, #c2cede);
+    --text: var(--ink, #0f1726);
+    --muted: #64748b;
+    --primary: var(--accent, #0d4fb8);
+    --primary-light: var(--accent-strong, #06317d);
+    --primary-soft: var(--accent-soft, #e8f0fc);
+    --danger: var(--rej, #b91c1c);
+    --ok: #15803d;   --okbg: #e9f7ef;   --okline: #a7e0bd;
+    --warn: #b45309; --warnbg: #fdf3e7; --warnline: #f3d3a0;
+    --info: #0d4fb8; --infobg: #e8f0fc; --infoline: #b6d0f5;
+    --radius: 9px;
+    --radius-sm: 6px;
+    --font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --base-font-size: clamp(14px, 0.9vw, 16px);
+    --table-font-size: clamp(13px, 0.82vw, 15px);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+}
+
+body {
+    font-size: var(--base-font-size);
+    color: var(--text);
+    font-family: var(--font);
+    line-height: 1.45;
+    padding: 16px;
+}
+
+/* ---------- Header / upload ---------- */
+h1, h2 {
+    color: var(--primary);
+    text-align: center;
+    margin: 12px 0 16px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+form {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 0 auto 16px;
+    padding: 12px;
+    max-width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 12px rgba(15, 33, 60, 0.05);
+}
+
+form input[type="file"],
+.lang-switch,
+button,
+select,
+input {
+    font-family: var(--font);
+}
+
+form input[type="file"],
+.lang-switch {
+    padding: 7px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--text);
+}
+
+form button,
+.calculation-card button,
+#export-current-table {
+    font-size: var(--table-font-size);
+    background: var(--primary);
+    color: #fff;
+    border: 0;
+    border-radius: 6px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.15s ease;
+}
+
+form button:hover,
+.calculation-card button:hover,
+#export-current-table:hover {
+    background: var(--primary-light);
+}
+
+.lang-switch {
+    display: block;
+    margin: 0 0 12px auto;
+}
+
+/* ---------- Calculation / margin card ---------- */
+.calculation-card {
+    direction: rtl;
+    max-width: 100%;
+    margin: 8px 16px 16px;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(15, 33, 60, 0.05);
+}
+
+.calculation-card h3 {
+    margin: 0 0 14px;
+    color: var(--primary);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .01em;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+}
+
+.calculation-card .calc-section {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    vertical-align: top;
+    min-height: 40px;
+    margin: 5px 6px 5px 0;
+    padding: 10px 14px;
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.calculation-card .calc-section strong {
+    color: var(--primary);
+    margin-left: 4px;
+    font-size: 13px;
+}
+
+.calculation-card label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text);
+    font-size: 12.5px;
+}
+
+.calculation-card input,
+.calculation-card select {
+    min-height: 30px;
+    padding: 5px 9px;
+    border: 1px solid var(--border-strong);
+    border-radius: 7px;
+    background: #fff;
+    color: var(--text);
+}
+
+.global-margin-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin: 2px;
+}
+
+.global-margin-percent,
+.row-margin-percent {
+    width: 54px;
+    text-align: center;
+}
+
+td[data-calc-variable] {
+    position: relative;
+    vertical-align: top;
+}
+
+.calc-display-value {
+    display: block;
+    min-width: 42px;
+    font-weight: 600;
+}
+
+/* Per-row margin editor: sits BELOW the price inside the cell (in-flow) so it
+   never covers the price or neighbouring columns. Multiple margins wrap into
+   tidy chips with +/- controls. */
+.row-margin-panel {
+    position: static;
+    z-index: 4;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px;
+    margin-top: 5px;
+    padding: 4px 5px;
+    border: 1px solid var(--border, #dde2ea);
+    border-radius: 7px;
+    background: var(--surface-soft, #f6f8fb);
+}
+.row-margin-percent {
+    width: 40px;
+    text-align: center;
+    padding: 3px 4px;
+    border: 1px solid var(--border, #cfd6e2);
+    border-radius: 5px;
+    font-size: .78rem;
+}
+.row-margin-percent:focus { outline: none; border-color: var(--primary, #4456e6); box-shadow: 0 0 0 2px var(--primary-soft, #eef2ff); }
+.row-margin-actions { display: inline-flex; gap: 3px; }
+.row-margin-add, .row-margin-remove {
+    width: 20px; height: 20px; line-height: 1; padding: 0; border-radius: 5px;
+    border: 1px solid var(--border, #cfd6e2); background: #fff; cursor: pointer;
+    font-weight: 800; color: var(--primary, #4456e6);
+}
+.row-margin-add:hover, .row-margin-remove:hover { background: var(--primary-soft, #eef2ff); border-color: var(--primary, #4456e6); }
+.row-margin-remove { color: #c0392b; }
+
+/* ---------- Optimized Virtual Table Viewport & Layout ---------- */
+#excel-table-container {
+    width: 100%;
+    max-width: calc(100vw - 32px);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--surface);
+    box-shadow: 0 6px 18px rgba(15, 33, 60, 0.08);
+    overflow: hidden; 
+}
+
+#virtual-scroll-viewport {
+    height: 70vh;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    position: relative;
+    background: #fff;
+    scroll-behavior: auto !important;
+}
+
+#virtual-scroll-spacer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+}
+
+/* ???? ???? ? ????? ??? ????? ?????? ?? ??? ?????? ??????? */
+#virtual-scroll-table {
+    position: relative;
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: separate !important; 
+    border-spacing: 0 !important;
+}
+#virtual-scroll-table th,
+#virtual-scroll-table td { box-sizing: border-box; }
+
+#virtual-scroll-table tr {
+    min-height: 34px;
+}
+
+/* ??? ??? ???? ? ???? ??? ??????? ??? ??? ??????? ?? ????? ?????? */
+#virtual-scroll-table thead {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 150 !important;
+}
+
+#virtual-scroll-table thead th {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 150 !important;
+    background: var(--primary) !important;
+    color: #ffffff !important;
+    font-weight: 700;
+    white-space: nowrap;
+    height: 34px;
+    padding: 4px 9px;
+    font-size: var(--table-font-size);
+    box-shadow: inset 0 -2px 0 var(--border-strong);
+    border-bottom: 2px solid var(--border-strong);
+    border-left: 1px solid var(--border-strong);
+}
+
+#virtual-scroll-table th, 
+#virtual-scroll-table td {
+    border-bottom: 1px solid var(--border);
+    border-left: 1px solid var(--border);
+    padding: 6px 9px;
+    text-align: center;
+    vertical-align: middle;
+    font-size: var(--table-font-size);
+    line-height: 1.35;
+    white-space: normal;        /* wrap long values onto multiple lines */
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+/* Text-heavy columns read better left-aligned (like the inquiry table). */
+#virtual-scroll-table td[data-col-name="description"],
+#virtual-scroll-table td[data-col-name="Final Arranged Text"],
+#virtual-scroll-table td[data-col-name="??????"],
+#virtual-scroll-table td[data-col-name="__proforma_remark__"],
+#virtual-scroll-table td[data-col-name="???????"] { text-align: left; }
+
+#virtual-scroll-table th:last-child, 
+#virtual-scroll-table td:last-child {
+    border-left: none;
+}
+
+/* ?????? ??? ???????? ???? ???? ?????? ????? */
+.virtual-top-padding-row td {
+    padding: 0 !important;
+    border: none !important;
+    height: 0 !important;
+    background: transparent !important;
+}
+
+/* Zebra by stable .vs-row-* class (set from virtual index). Do NOT use
+   nth-child: virtual scroll injects a top pad <tr> and only mounts a window
+   of rows, so DOM parity flips on every scroll. */
+#virtual-scroll-tbody tr.vs-row-even td {
+    background: var(--surface-soft);
+}
+
+#virtual-scroll-tbody tr.vs-row-odd td {
+    background: #ffffff;
+}
+
+#virtual-scroll-tbody tr.vs-pad-row td {
+    background: transparent !important;
+}
+
+#virtual-scroll-tbody tr:hover td {
+    background: var(--primary-soft) !important;
+}
+
+/* ?????? ???? ?????? ??????? */
+.column-resize-handle { display: none !important; }
+
+th[data-col-name="description"], td[data-col-name="description"] { text-align: left !important; }
+th[data-col-name="Final Arranged Text"], td[data-col-name="Final Arranged Text"] { text-align: left !important; }
+
+td[data-col-name="??????"] textarea,
+td[data-col-name="???????"] textarea,
+.remark-revision-textarea {
+    display: block;
+    width: 100%;
+    min-height: 38px;
+    /* height is owned by auto-size JS (inline) — never fix it here or text spills under the box */
+    padding: 5px 8px;
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    background: #fff;
+    color: #1f2a44 !important;
+    font-family: "Segoe UI", "Tahoma", "Noto Sans", system-ui, sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+    line-height: 1.4 !important;
+    letter-spacing: normal !important;
+    resize: none;
+    overflow: hidden;
+}
+
+td[data-col-name="??????"] textarea:focus,
+td[data-col-name="???????"] textarea:focus,
+.remark-revision-textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: #fffdf2;
+    box-shadow: 0 0 4px rgba(15, 44, 89, 0.2);
+}
+
+.highlight-color { color: #0046ff !important; font-weight: 700; }
+.highlight-red { color: var(--danger); font-weight: 700; }
+
+.basic-cell-editor {
+    padding: 3px 6px;
+    border: 1px solid var(--primary);
+    border-radius: 4px;
+    text-align: center;
+    font-family: "Segoe UI", "Tahoma", "Noto Sans", system-ui, sans-serif !important;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* Remark / Revision (TO) and Remark (PI): readable, non-bold body text */
+#virtual-scroll-table td[data-col-name="??????"] textarea,
+#virtual-scroll-table td[data-col-name="???????"] textarea,
+#virtual-scroll-table .remark-revision-textarea,
+body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="??????"] textarea {
+    font-family: "Segoe UI", "Tahoma", "Noto Sans", system-ui, sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+    color: var(--text, #1f2a44) !important;
+    line-height: 1.4 !important;
+}
+
+@media (max-width: 900px) {
+    body { padding: 8px; }
+    #excel-table-container { max-width: calc(100vw - 16px); }
+    .calculation-card .calc-section { display: flex; width: 100%; }
+}

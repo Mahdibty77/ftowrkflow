@@ -1,0 +1,1643 @@
+{
+ "gasket": {
+  "R": {
+   "design": {
+    "Non Metalic": {
+     "face": [
+      "Full Face"
+     ],
+     "material_group_r_ring": [
+      "CNAF / CAF",
+      "CNAF / CAF Reinforced Wire",
+      "CNAF / CAF Reinforced Yarn",
+      "Ceramic",
+      "Graphite",
+      "Graphite Reinforced Sheet",
+      "Graphite Reinforced Wire",
+      "Graphite Reinforced Yarn",
+      "Mica",
+      "PTFE",
+      "Rubber EPDM",
+      "Rubber EPDM Reinforced Wire",
+      "Rubber EPDM Reinforced Yarn",
+      "Rubber FKM / VITON",
+      "Rubber FKM / VITON Reinforced Wire",
+      "Rubber FKM / VITON Reinforced Yarn",
+      "Rubber NBR",
+      "Rubber NBR Reinforced Wire",
+      "Rubber NBR Reinforced Yarn",
+      "Rubber Natural",
+      "Rubber Natural Reinforced Wire",
+      "Rubber Natural Reinforced Yarn",
+      "Rubber Neoprene",
+      "Rubber Neoprene Reinforced Wire",
+      "Rubber Neoprene Reinforced Yarn",
+      "Rubber Silicone",
+      "Rubber Silicone Reinforced Wire",
+      "Rubber Silicone Reinforced Yarn"
+     ],
+     "grade_material_r_ring": [
+      "ASTM C892",
+      "ASTM D1418",
+      "ASTM D2000",
+      "ASTM D351",
+      "ASTM D4894 / D4895",
+      "ASTM F104",
+      "ASTM F2168"
+     ],
+     "design_standard": [
+      "Asme B16.21",
+      "DIN 2691"
+     ],
+     "thickness": [
+      "1.5mm",
+      "1mm",
+      "2.5mm",
+      "2mm",
+      "3.5mm",
+      "3mm",
+      "4.5mm",
+      "4mm",
+      "5mm"
+     ]
+    },
+    "Sem metalic (Spiral Wound)": {
+     "material_group_r_ring": [
+      "S.S / Non metalic"
+     ],
+     "grade_material_r_ring": [
+      "ASTM A240 Gr.304 + Graphite",
+      "ASTM A240 Gr.304L + Graphite",
+      "ASTM A240 Gr.316 + Graphite",
+      "ASTM A240 Gr.316L + Graphite",
+      "ASTM A240 Gr.321 + Graphite",
+      "ASTM A240 Gr.347 + Graphite"
+     ],
+     "design_standard": [
+      "Asme B16.20"
+     ]
+    }
+   },
+   "face": {
+    "Raised Face": {
+     "design": [
+      "Sem metalic (Spiral Wound)"
+     ],
+     "material_group_r_ring": [
+      "S.S / Non metalic"
+     ],
+     "grade_material_r_ring": [
+      "ASTM A240 Gr.304 + Graphite",
+      "ASTM A240 Gr.304L + Graphite",
+      "ASTM A240 Gr.316 + Graphite",
+      "ASTM A240 Gr.316L + Graphite",
+      "ASTM A240 Gr.321 + Graphite",
+      "ASTM A240 Gr.347 + Graphite"
+     ],
+     "pressure_class": [
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 400",
+      "Class 600",
+      "Class 900",
+      "PN100",
+      "PN25",
+      "PN40",
+      "PN63"
+     ]
+    }
+   },
+   "material_group_r_ring": {
+    "S.S / Non metalic": {
+     "design": [
+      "Sem metalic (Spiral Wound)"
+     ],
+     "grade_material_r_ring": [
+      "ASTM A240 Gr.304 + Graphite",
+      "ASTM A240 Gr.304L + Graphite",
+      "ASTM A240 Gr.316 + Graphite",
+      "ASTM A240 Gr.316L + Graphite",
+      "ASTM A240 Gr.321 + Graphite",
+      "ASTM A240 Gr.347 + Graphite"
+     ]
+    },
+    "PTFE": {
+     "grade_material_r_ring": [
+      "ASTM D4894 / D4895"
+     ]
+    },
+    "Ceramic": {
+     "grade_material_r_ring": [
+      "ASTM C892"
+     ]
+    },
+    "Mica": {
+     "grade_material_r_ring": [
+      "ASTM D351"
+     ]
+    },
+    "C.S": {
+     "grade_material_r_ring": [
+      "ASTM 350 Gr. LF2",
+      "ASTM A105"
+     ]
+    },
+    "Carbon Steel Soft Iron": {
+     "grade_material_r_ring": [
+      "ASTM A1008",
+      "ASTM A109"
+     ]
+    },
+    "S.S": {
+     "grade_material_r_ring": [
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53",
+      "ASTM A182 Gr.F55"
+     ]
+    },
+    "Alloy Steel": {
+     "grade_material_r_ring": [
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    }
+   },
+   "grade_material_r_ring": {
+    "ASTM F104": {
+     "material_group_r_ring": [
+      "CNAF / CAF",
+      "CNAF / CAF Reinforced Wire",
+      "CNAF / CAF Reinforced Yarn"
+     ]
+    },
+    "ASTM D4894 / D4895": {
+     "material_group_r_ring": [
+      "PTFE"
+     ]
+    },
+    "ASTM F2168": {
+     "material_group_r_ring": [
+      "Graphite",
+      "Graphite Reinforced Sheet",
+      "Graphite Reinforced Wire",
+      "Graphite Reinforced Yarn"
+     ]
+    },
+    "ASTM D2000": {
+     "material_group_r_ring": [
+      "Rubber EPDM",
+      "Rubber EPDM Reinforced Wire",
+      "Rubber EPDM Reinforced Yarn",
+      "Rubber NBR",
+      "Rubber NBR Reinforced Wire",
+      "Rubber NBR Reinforced Yarn",
+      "Rubber Natural",
+      "Rubber Natural Reinforced Wire",
+      "Rubber Natural Reinforced Yarn",
+      "Rubber Neoprene",
+      "Rubber Neoprene Reinforced Wire",
+      "Rubber Neoprene Reinforced Yarn",
+      "Rubber Silicone",
+      "Rubber Silicone Reinforced Wire",
+      "Rubber Silicone Reinforced Yarn"
+     ]
+    },
+    "ASTM D1418": {
+     "material_group_r_ring": [
+      "Rubber FKM / VITON",
+      "Rubber FKM / VITON Reinforced Wire",
+      "Rubber FKM / VITON Reinforced Yarn"
+     ]
+    },
+    "ASTM C892": {
+     "material_group_r_ring": [
+      "Ceramic"
+     ]
+    },
+    "ASTM D351": {
+     "material_group_r_ring": [
+      "Mica"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "design": [
+      "Non Metalic"
+     ],
+     "material_group_r_ring": [
+      "CNAF / CAF",
+      "CNAF / CAF Reinforced Wire",
+      "CNAF / CAF Reinforced Yarn",
+      "Ceramic",
+      "Graphite",
+      "Graphite Reinforced Sheet",
+      "Graphite Reinforced Wire",
+      "Graphite Reinforced Yarn",
+      "Mica",
+      "PTFE",
+      "Rubber EPDM",
+      "Rubber EPDM Reinforced Wire",
+      "Rubber EPDM Reinforced Yarn",
+      "Rubber FKM / VITON",
+      "Rubber FKM / VITON Reinforced Wire",
+      "Rubber FKM / VITON Reinforced Yarn",
+      "Rubber NBR",
+      "Rubber NBR Reinforced Wire",
+      "Rubber NBR Reinforced Yarn",
+      "Rubber Natural",
+      "Rubber Natural Reinforced Wire",
+      "Rubber Natural Reinforced Yarn",
+      "Rubber Neoprene",
+      "Rubber Neoprene Reinforced Wire",
+      "Rubber Neoprene Reinforced Yarn",
+      "Rubber Silicone",
+      "Rubber Silicone Reinforced Wire",
+      "Rubber Silicone Reinforced Yarn"
+     ],
+     "grade_material_r_ring": [
+      "ASTM C892",
+      "ASTM D1418",
+      "ASTM D2000",
+      "ASTM D351",
+      "ASTM D4894 / D4895",
+      "ASTM F104",
+      "ASTM F2168"
+     ]
+    }
+   },
+   "design_standard": {
+    "API 6A": {
+     "pressure_class": [
+      "Class 10000",
+      "Class 15000",
+      "Class 2000",
+      "Class 20000",
+      "Class 3000",
+      "Class 5000"
+     ]
+    },
+    "EN 1514": {
+     "pressure_class": [
+      "PN63"
+     ]
+    }
+   }
+  },
+  "RI": {
+   "design": {
+    "Sem metalic (Spiral Wound)": {
+     "face": [
+      "Raised Face"
+     ],
+     "material_group_r_ring": [
+      "S.S / Non metalic"
+     ],
+     "grade_material_r_ring": [
+      "ASTM A240 Gr.304 + Graphite",
+      "ASTM A240 Gr.304 + PTFE",
+      "ASTM A240 Gr.304L + Graphite",
+      "ASTM A240 Gr.304L + PTFE",
+      "ASTM A240 Gr.316 + Graphite",
+      "ASTM A240 Gr.316 + PTFE",
+      "ASTM A240 Gr.316L + Graphite",
+      "ASTM A240 Gr.316L + PTFE",
+      "ASTM A240 Gr.321 + Graphite",
+      "ASTM A240 Gr.321 + PTFE",
+      "ASTM A240 Gr.347 + Graphite",
+      "ASTM A240 Gr.347 + PTFE"
+     ],
+     "material_group_i_ring": [
+      "Stainless Steel"
+     ],
+     "grade_material_i_ring": [
+      "ASTM A240 Gr.304",
+      "ASTM A240 Gr.304L",
+      "ASTM A240 Gr.316",
+      "ASTM A240 Gr.316L",
+      "ASTM A240 Gr.321",
+      "ASTM A240 Gr.347"
+     ],
+     "design_standard": [
+      "Asme B16.20",
+      "Asme B16.47 Serie A",
+      "Asme B16.47 Serie B",
+      "DIN 2690",
+      "EN 12560",
+      "EN 1514"
+     ],
+     "pressure_class": [
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 400",
+      "Class 600",
+      "Class 75",
+      "Class 900",
+      "PN10",
+      "PN100",
+      "PN16",
+      "PN25",
+      "PN40",
+      "PN6",
+      "PN63"
+     ]
+    }
+   },
+   "face": {
+    "Raised Face": {
+     "design": [
+      "Sem metalic (Spiral Wound)"
+     ],
+     "material_group_r_ring": [
+      "S.S / Non metalic"
+     ],
+     "grade_material_r_ring": [
+      "ASTM A240 Gr.304 + Graphite",
+      "ASTM A240 Gr.304 + PTFE",
+      "ASTM A240 Gr.304L + Graphite",
+      "ASTM A240 Gr.304L + PTFE",
+      "ASTM A240 Gr.316 + Graphite",
+      "ASTM A240 Gr.316 + PTFE",
+      "ASTM A240 Gr.316L + Graphite",
+      "ASTM A240 Gr.316L + PTFE",
+      "ASTM A240 Gr.321 + Graphite",
+      "ASTM A240 Gr.321 + PTFE",
+      "ASTM A240 Gr.347 + Graphite",
+      "ASTM A240 Gr.347 + PTFE"
+     ],
+     "material_group_i_ring": [
+      "Stainless Steel"
+     ],
+     "grade_material_i_ring": [
+      "ASTM A240 Gr.304",
+      "ASTM A240 Gr.304L",
+      "ASTM A240 Gr.316",
+      "ASTM A240 Gr.316L",
+      "ASTM A240 Gr.321",
+      "ASTM A240 Gr.347"
+     ],
+     "design_standard": [
+      "Asme B16.20",
+      "Asme B16.47 Serie A",
+      "Asme B16.47 Serie B",
+      "DIN 2690",
+      "EN 12560",
+      "EN 1514"
+     ],
+     "pressure_class": [
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 400",
+      "Class 600",
+      "Class 75",
+      "Class 900",
+      "PN10",
+      "PN100",
+      "PN16",
+      "PN25",
+      "PN40",
+      "PN6",
+      "PN63"
+     ]
+    }
+   },
+   "material_group_r_ring": {
+    "S.S / Non metalic": {
+     "design": [
+      "Sem metalic (Spiral Wound)"
+     ],
+     "face": [
+      "Raised Face"
+     ],
+     "grade_material_r_ring": [
+      "ASTM A240 Gr.304 + Graphite",
+      "ASTM A240 Gr.304 + PTFE",
+      "ASTM A240 Gr.304L + Graphite",
+      "ASTM A240 Gr.304L + PTFE",
+      "ASTM A240 Gr.316 + Graphite",
+      "ASTM A240 Gr.316 + PTFE",
+      "ASTM A240 Gr.316L + Graphite",
+      "ASTM A240 Gr.316L + PTFE",
+      "ASTM A240 Gr.321 + Graphite",
+      "ASTM A240 Gr.321 + PTFE",
+      "ASTM A240 Gr.347 + Graphite",
+      "ASTM A240 Gr.347 + PTFE"
+     ],
+     "material_group_i_ring": [
+      "Stainless Steel"
+     ],
+     "grade_material_i_ring": [
+      "ASTM A240 Gr.304",
+      "ASTM A240 Gr.304L",
+      "ASTM A240 Gr.316",
+      "ASTM A240 Gr.316L",
+      "ASTM A240 Gr.321",
+      "ASTM A240 Gr.347"
+     ],
+     "design_standard": [
+      "Asme B16.20",
+      "Asme B16.47 Serie A",
+      "Asme B16.47 Serie B",
+      "DIN 2690",
+      "EN 12560",
+      "EN 1514"
+     ],
+     "pressure_class": [
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 400",
+      "Class 600",
+      "Class 75",
+      "Class 900",
+      "PN10",
+      "PN100",
+      "PN16",
+      "PN25",
+      "PN40",
+      "PN63"
+     ]
+    }
+   },
+   "material_group_i_ring": {
+    "Stainless Steel": {
+     "design": [
+      "Sem metalic (Spiral Wound)"
+     ],
+     "face": [
+      "Raised Face"
+     ],
+     "material_group_r_ring": [
+      "S.S / Non metalic"
+     ],
+     "grade_material_r_ring": [
+      "ASTM A240 Gr.304 + Graphite",
+      "ASTM A240 Gr.304 + PTFE",
+      "ASTM A240 Gr.304L + Graphite",
+      "ASTM A240 Gr.304L + PTFE",
+      "ASTM A240 Gr.316 + Graphite",
+      "ASTM A240 Gr.316 + PTFE",
+      "ASTM A240 Gr.316L + Graphite",
+      "ASTM A240 Gr.316L + PTFE",
+      "ASTM A240 Gr.321 + Graphite",
+      "ASTM A240 Gr.321 + PTFE",
+      "ASTM A240 Gr.347 + Graphite",
+      "ASTM A240 Gr.347 + PTFE"
+     ],
+     "grade_material_i_ring": [
+      "ASTM A240 Gr.304",
+      "ASTM A240 Gr.304L",
+      "ASTM A240 Gr.316",
+      "ASTM A240 Gr.316L",
+      "ASTM A240 Gr.321",
+      "ASTM A240 Gr.347"
+     ],
+     "design_standard": [
+      "Asme B16.20",
+      "Asme B16.47 Serie A",
+      "Asme B16.47 Serie B",
+      "DIN 2690",
+      "EN 12560",
+      "EN 1514"
+     ],
+     "pressure_class": [
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 400",
+      "Class 600",
+      "Class 75",
+      "Class 900",
+      "PN10",
+      "PN100",
+      "PN16",
+      "PN25",
+      "PN40",
+      "PN6",
+      "PN63"
+     ]
+    }
+   },
+   "design_standard": {
+    "EN 1514": {
+     "pressure_class": [
+      "PN100",
+      "PN63"
+     ]
+    }
+   }
+  },
+  "CR": {
+   "design": {
+    "Sem metalic (Spiral Wound)": {
+     "face": [
+      "Raised Face"
+     ],
+     "material_group_r_ring": [
+      "S.S / Non metalic"
+     ],
+     "grade_material_r_ring": [
+      "ASTM A240 Gr.304 + Graphite",
+      "ASTM A240 Gr.304L + Graphite",
+      "ASTM A240 Gr.316 + Graphite",
+      "ASTM A240 Gr.316L + Graphite",
+      "ASTM A240 Gr.321 + Graphite",
+      "ASTM A240 Gr.347 + Graphite"
+     ],
+     "material_group_c_ring": [
+      "Carbon Steel",
+      "Stainless Steel"
+     ],
+     "grade_material_c_ring": [
+      "ASTM 350 Gr. LF2",
+      "ASTM A240 Gr.304",
+      "ASTM A240 Gr.304L",
+      "ASTM A240 Gr.316",
+      "ASTM A240 Gr.316L",
+      "ASTM A240 Gr.321",
+      "ASTM A240 Gr.347",
+      "ASTM A36"
+     ],
+     "design_standard": [
+      "Asme B16.20",
+      "Asme B16.47 Serie A",
+      "Asme B16.47 Serie B",
+      "DIN 2690",
+      "EN 12560",
+      "EN 1514"
+     ],
+     "pressure_class": [
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 400",
+      "Class 600",
+      "Class 75",
+      "Class 900",
+      "PN10",
+      "PN100",
+      "PN16",
+      "PN25",
+      "PN40",
+      "PN6",
+      "PN63"
+     ]
+    }
+   },
+   "face": {
+    "Raised Face": {
+     "design": [
+      "Sem metalic (Spiral Wound)"
+     ],
+     "material_group_r_ring": [
+      "S.S / Non metalic"
+     ],
+     "grade_material_r_ring": [
+      "ASTM A240 Gr.304 + Graphite",
+      "ASTM A240 Gr.304L + Graphite",
+      "ASTM A240 Gr.316 + Graphite",
+      "ASTM A240 Gr.316L + Graphite",
+      "ASTM A240 Gr.321 + Graphite",
+      "ASTM A240 Gr.347 + Graphite"
+     ],
+     "material_group_c_ring": [
+      "Carbon Steel",
+      "Stainless Steel"
+     ],
+     "grade_material_c_ring": [
+      "ASTM 350 Gr. LF2",
+      "ASTM A240 Gr.304",
+      "ASTM A240 Gr.304L",
+      "ASTM A240 Gr.316",
+      "ASTM A240 Gr.316L",
+      "ASTM A240 Gr.321",
+      "ASTM A240 Gr.347",
+      "ASTM A36"
+     ],
+     "design_standard": [
+      "Asme B16.20",
+      "Asme B16.47 Serie A",
+      "Asme B16.47 Serie B",
+      "DIN 2690",
+      "EN 12560",
+      "EN 1514"
+     ],
+     "pressure_class": [
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 400",
+      "Class 600",
+      "Class 75",
+      "Class 900",
+      "PN10",
+      "PN100",
+      "PN16",
+      "PN25",
+      "PN40",
+      "PN6",
+      "PN63"
+     ]
+    }
+   },
+   "material_group_r_ring": {
+    "S.S / Non metalic": {
+     "design": [
+      "Sem metalic (Spiral Wound)"
+     ],
+     "face": [
+      "Raised Face"
+     ],
+     "grade_material_r_ring": [
+      "ASTM A240 Gr.304 + Graphite",
+      "ASTM A240 Gr.304L + Graphite",
+      "ASTM A240 Gr.316 + Graphite",
+      "ASTM A240 Gr.316L + Graphite",
+      "ASTM A240 Gr.321 + Graphite",
+      "ASTM A240 Gr.347 + Graphite"
+     ],
+     "material_group_c_ring": [
+      "Carbon Steel",
+      "Stainless Steel"
+     ],
+     "grade_material_c_ring": [
+      "ASTM 350 Gr. LF2",
+      "ASTM A240 Gr.304",
+      "ASTM A240 Gr.304L",
+      "ASTM A240 Gr.316",
+      "ASTM A240 Gr.316L",
+      "ASTM A240 Gr.321",
+      "ASTM A240 Gr.347",
+      "ASTM A36"
+     ],
+     "design_standard": [
+      "Asme B16.20",
+      "Asme B16.47 Serie A",
+      "Asme B16.47 Serie B",
+      "DIN 2690",
+      "EN 12560",
+      "EN 1514"
+     ],
+     "pressure_class": [
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 400",
+      "Class 600",
+      "Class 75",
+      "Class 900",
+      "PN10",
+      "PN100",
+      "PN16",
+      "PN25",
+      "PN40",
+      "PN63"
+     ]
+    }
+   },
+   "material_group_c_ring": {
+    "Carbon Steel": {
+     "grade_material_c_ring": [
+      "ASTM 350 Gr. LF2",
+      "ASTM A36"
+     ]
+    },
+    "Stainless Steel": {
+     "grade_material_c_ring": [
+      "ASTM A240 Gr.304",
+      "ASTM A240 Gr.304L",
+      "ASTM A240 Gr.316",
+      "ASTM A240 Gr.316L",
+      "ASTM A240 Gr.321",
+      "ASTM A240 Gr.347"
+     ]
+    }
+   },
+   "design_standard": {
+    "EN 1514": {
+     "pressure_class": [
+      "PN100",
+      "PN63"
+     ]
+    }
+   }
+  },
+  "CGI": {
+   "design": {
+    "Sem metalic (Spiral Wound)": {
+     "face": [
+      "Raised Face"
+     ],
+     "material_group_r_ring": [
+      "S.S / Non metalic"
+     ],
+     "grade_material_r_ring": [
+      "ASTM A240 Gr.304 + Graphite",
+      "ASTM A240 Gr.304 + PTFE",
+      "ASTM A240 Gr.304L + Graphite",
+      "ASTM A240 Gr.304L + PTFE",
+      "ASTM A240 Gr.316 + Graphite",
+      "ASTM A240 Gr.316 + PTFE",
+      "ASTM A240 Gr.316L + Graphite",
+      "ASTM A240 Gr.316L + PTFE",
+      "ASTM A240 Gr.321 + Graphite",
+      "ASTM A240 Gr.321 + PTFE",
+      "ASTM A240 Gr.347 + Graphite",
+      "ASTM A240 Gr.347 + PTFE"
+     ],
+     "material_group_i_ring": [
+      "Stainless Steel"
+     ],
+     "grade_material_i_ring": [
+      "ASTM A240 Gr.304",
+      "ASTM A240 Gr.304L",
+      "ASTM A240 Gr.316",
+      "ASTM A240 Gr.316L",
+      "ASTM A240 Gr.321",
+      "ASTM A240 Gr.347"
+     ],
+     "material_group_c_ring": [
+      "Carbon Steel",
+      "Stainless Steel"
+     ],
+     "grade_material_c_ring": [
+      "ASTM 350 Gr. LF2",
+      "ASTM A240 Gr.304",
+      "ASTM A240 Gr.304L",
+      "ASTM A240 Gr.316",
+      "ASTM A240 Gr.316L",
+      "ASTM A240 Gr.321",
+      "ASTM A240 Gr.347",
+      "ASTM A36"
+     ],
+     "design_standard": [
+      "Asme B16.20",
+      "Asme B16.47 Serie A",
+      "Asme B16.47 Serie B",
+      "DIN 2690",
+      "EN 12560",
+      "EN 1514"
+     ],
+     "pressure_class": [
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 400",
+      "Class 600",
+      "Class 75",
+      "Class 900",
+      "PN10",
+      "PN100",
+      "PN16",
+      "PN25",
+      "PN40",
+      "PN6",
+      "PN63"
+     ]
+    }
+   },
+   "face": {
+    "Raised Face": {
+     "design": [
+      "Sem metalic (Spiral Wound)"
+     ],
+     "material_group_r_ring": [
+      "S.S / Non metalic"
+     ],
+     "grade_material_r_ring": [
+      "ASTM A240 Gr.304 + Graphite",
+      "ASTM A240 Gr.304 + PTFE",
+      "ASTM A240 Gr.304L + Graphite",
+      "ASTM A240 Gr.304L + PTFE",
+      "ASTM A240 Gr.316 + Graphite",
+      "ASTM A240 Gr.316 + PTFE",
+      "ASTM A240 Gr.316L + Graphite",
+      "ASTM A240 Gr.316L + PTFE",
+      "ASTM A240 Gr.321 + Graphite",
+      "ASTM A240 Gr.321 + PTFE",
+      "ASTM A240 Gr.347 + Graphite",
+      "ASTM A240 Gr.347 + PTFE"
+     ],
+     "material_group_i_ring": [
+      "Stainless Steel"
+     ],
+     "grade_material_i_ring": [
+      "ASTM A240 Gr.304",
+      "ASTM A240 Gr.304L",
+      "ASTM A240 Gr.316",
+      "ASTM A240 Gr.316L",
+      "ASTM A240 Gr.321",
+      "ASTM A240 Gr.347"
+     ],
+     "material_group_c_ring": [
+      "Carbon Steel",
+      "Stainless Steel"
+     ],
+     "grade_material_c_ring": [
+      "ASTM 350 Gr. LF2",
+      "ASTM A240 Gr.304",
+      "ASTM A240 Gr.304L",
+      "ASTM A240 Gr.316",
+      "ASTM A240 Gr.316L",
+      "ASTM A240 Gr.321",
+      "ASTM A240 Gr.347",
+      "ASTM A36"
+     ],
+     "design_standard": [
+      "Asme B16.20",
+      "Asme B16.47 Serie A",
+      "Asme B16.47 Serie B",
+      "DIN 2690",
+      "EN 12560",
+      "EN 1514"
+     ],
+     "pressure_class": [
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 400",
+      "Class 600",
+      "Class 75",
+      "Class 900",
+      "PN10",
+      "PN100",
+      "PN16",
+      "PN25",
+      "PN40",
+      "PN6",
+      "PN63"
+     ]
+    }
+   },
+   "material_group_r_ring": {
+    "S.S / Non metalic": {
+     "design": [
+      "Sem metalic (Spiral Wound)"
+     ],
+     "face": [
+      "Raised Face"
+     ],
+     "grade_material_r_ring": [
+      "ASTM A240 Gr.304 + Graphite",
+      "ASTM A240 Gr.304 + PTFE",
+      "ASTM A240 Gr.304L + Graphite",
+      "ASTM A240 Gr.304L + PTFE",
+      "ASTM A240 Gr.316 + Graphite",
+      "ASTM A240 Gr.316 + PTFE",
+      "ASTM A240 Gr.316L + Graphite",
+      "ASTM A240 Gr.316L + PTFE",
+      "ASTM A240 Gr.321 + Graphite",
+      "ASTM A240 Gr.321 + PTFE",
+      "ASTM A240 Gr.347 + Graphite",
+      "ASTM A240 Gr.347 + PTFE"
+     ],
+     "material_group_i_ring": [
+      "Stainless Steel"
+     ],
+     "grade_material_i_ring": [
+      "ASTM A240 Gr.304",
+      "ASTM A240 Gr.304L",
+      "ASTM A240 Gr.316",
+      "ASTM A240 Gr.316L",
+      "ASTM A240 Gr.321",
+      "ASTM A240 Gr.347"
+     ],
+     "material_group_c_ring": [
+      "Carbon Steel",
+      "Stainless Steel"
+     ],
+     "grade_material_c_ring": [
+      "ASTM 350 Gr. LF2",
+      "ASTM A240 Gr.304",
+      "ASTM A240 Gr.304L",
+      "ASTM A240 Gr.316",
+      "ASTM A240 Gr.316L",
+      "ASTM A240 Gr.321",
+      "ASTM A240 Gr.347",
+      "ASTM A36"
+     ],
+     "design_standard": [
+      "Asme B16.20",
+      "Asme B16.47 Serie A",
+      "Asme B16.47 Serie B",
+      "DIN 2690",
+      "EN 12560",
+      "EN 1514"
+     ],
+     "pressure_class": [
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 400",
+      "Class 600",
+      "Class 75",
+      "Class 900",
+      "PN10",
+      "PN100",
+      "PN16",
+      "PN25",
+      "PN40",
+      "PN63"
+     ]
+    }
+   },
+   "material_group_i_ring": {
+    "Stainless Steel": {
+     "design": [
+      "Sem metalic (Spiral Wound)"
+     ],
+     "face": [
+      "Raised Face"
+     ],
+     "material_group_r_ring": [
+      "S.S / Non metalic"
+     ],
+     "grade_material_r_ring": [
+      "ASTM A240 Gr.304 + Graphite",
+      "ASTM A240 Gr.304 + PTFE",
+      "ASTM A240 Gr.304L + Graphite",
+      "ASTM A240 Gr.304L + PTFE",
+      "ASTM A240 Gr.316 + Graphite",
+      "ASTM A240 Gr.316 + PTFE",
+      "ASTM A240 Gr.316L + Graphite",
+      "ASTM A240 Gr.316L + PTFE",
+      "ASTM A240 Gr.321 + Graphite",
+      "ASTM A240 Gr.321 + PTFE",
+      "ASTM A240 Gr.347 + Graphite",
+      "ASTM A240 Gr.347 + PTFE"
+     ],
+     "grade_material_i_ring": [
+      "ASTM A240 Gr.304",
+      "ASTM A240 Gr.304L",
+      "ASTM A240 Gr.316",
+      "ASTM A240 Gr.316L",
+      "ASTM A240 Gr.321",
+      "ASTM A240 Gr.347"
+     ],
+     "material_group_c_ring": [
+      "Carbon Steel",
+      "Stainless Steel"
+     ],
+     "grade_material_c_ring": [
+      "ASTM 350 Gr. LF2",
+      "ASTM A240 Gr.304",
+      "ASTM A240 Gr.304L",
+      "ASTM A240 Gr.316",
+      "ASTM A240 Gr.316L",
+      "ASTM A240 Gr.321",
+      "ASTM A240 Gr.347",
+      "ASTM A36"
+     ],
+     "design_standard": [
+      "Asme B16.20",
+      "Asme B16.47 Serie A",
+      "Asme B16.47 Serie B",
+      "DIN 2690",
+      "EN 12560",
+      "EN 1514"
+     ],
+     "pressure_class": [
+      "Class 150",
+      "Class 1500",
+      "Class 2500",
+      "Class 300",
+      "Class 400",
+      "Class 600",
+      "Class 75",
+      "Class 900",
+      "PN10",
+      "PN100",
+      "PN16",
+      "PN25",
+      "PN40",
+      "PN6",
+      "PN63"
+     ]
+    }
+   },
+   "material_group_c_ring": {
+    "Carbon Steel": {
+     "grade_material_c_ring": [
+      "ASTM 350 Gr. LF2",
+      "ASTM A36"
+     ]
+    },
+    "Stainless Steel": {
+     "grade_material_c_ring": [
+      "ASTM A240 Gr.304",
+      "ASTM A240 Gr.304L",
+      "ASTM A240 Gr.316",
+      "ASTM A240 Gr.316L",
+      "ASTM A240 Gr.321",
+      "ASTM A240 Gr.347"
+     ]
+    }
+   },
+   "design_standard": {
+    "EN 1514": {
+     "pressure_class": [
+      "PN100",
+      "PN63"
+     ]
+    }
+   }
+  },
+  "RTJ R Octagonal": {
+   "design": {
+    "Metalic (Ring Joint)": {
+     "material_group_r_ring": [
+      "Alloy Steel",
+      "C.S",
+      "Carbon Steel Soft Iron",
+      "S.S"
+     ],
+     "grade_material_r_ring": [
+      "ASTM 350 Gr. LF2",
+      "ASTM A1008",
+      "ASTM A105",
+      "ASTM A109",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53",
+      "ASTM A182 Gr.F55",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ],
+     "design_standard": [
+      "API 6A",
+      "Asme B16.20",
+      "EN 12560"
+     ],
+     "pressure_class": [
+      "Class 10000",
+      "Class 150",
+      "Class 1500",
+      "Class 15000",
+      "Class 2000",
+      "Class 20000",
+      "Class 2500",
+      "Class 300",
+      "Class 3000",
+      "Class 400",
+      "Class 5000",
+      "Class 600",
+      "Class 900"
+     ]
+    }
+   },
+   "material_group_r_ring": {
+    "C.S": {
+     "grade_material_r_ring": [
+      "ASTM 350 Gr. LF2",
+      "ASTM A105"
+     ]
+    },
+    "Carbon Steel Soft Iron": {
+     "grade_material_r_ring": [
+      "ASTM A1008",
+      "ASTM A109"
+     ]
+    },
+    "S.S": {
+     "grade_material_r_ring": [
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53",
+      "ASTM A182 Gr.F55"
+     ]
+    },
+    "Alloy Steel": {
+     "grade_material_r_ring": [
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    }
+   },
+   "design_standard": {
+    "API 6A": {
+     "pressure_class": [
+      "Class 10000",
+      "Class 15000",
+      "Class 2000",
+      "Class 20000",
+      "Class 3000",
+      "Class 5000"
+     ]
+    }
+   }
+  },
+  "RTJ R Oval": {
+   "design": {
+    "Metalic (Ring Joint)": {
+     "material_group_r_ring": [
+      "Alloy Steel",
+      "C.S",
+      "Carbon Steel Soft Iron",
+      "S.S"
+     ],
+     "grade_material_r_ring": [
+      "ASTM 350 Gr. LF2",
+      "ASTM A1008",
+      "ASTM A105",
+      "ASTM A109",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53",
+      "ASTM A182 Gr.F55",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ],
+     "design_standard": [
+      "API 6A",
+      "Asme B16.20",
+      "EN 12560"
+     ],
+     "pressure_class": [
+      "Class 10000",
+      "Class 150",
+      "Class 1500",
+      "Class 15000",
+      "Class 2000",
+      "Class 20000",
+      "Class 2500",
+      "Class 300",
+      "Class 3000",
+      "Class 400",
+      "Class 5000",
+      "Class 600",
+      "Class 900"
+     ]
+    }
+   },
+   "material_group_r_ring": {
+    "C.S": {
+     "grade_material_r_ring": [
+      "ASTM 350 Gr. LF2",
+      "ASTM A105"
+     ]
+    },
+    "Carbon Steel Soft Iron": {
+     "grade_material_r_ring": [
+      "ASTM A1008",
+      "ASTM A109"
+     ]
+    },
+    "S.S": {
+     "grade_material_r_ring": [
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53",
+      "ASTM A182 Gr.F55"
+     ]
+    },
+    "Alloy Steel": {
+     "grade_material_r_ring": [
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    }
+   },
+   "design_standard": {
+    "API 6A": {
+     "pressure_class": [
+      "Class 10000",
+      "Class 15000",
+      "Class 2000",
+      "Class 20000",
+      "Class 3000",
+      "Class 5000"
+     ]
+    }
+   }
+  },
+  "RTJ BX": {
+   "design": {
+    "Metalic (Ring Joint)": {
+     "material_group_r_ring": [
+      "Alloy Steel",
+      "C.S",
+      "Carbon Steel Soft Iron",
+      "S.S"
+     ],
+     "grade_material_r_ring": [
+      "ASTM 350 Gr. LF2",
+      "ASTM A1008",
+      "ASTM A105",
+      "ASTM A109",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53",
+      "ASTM A182 Gr.F55",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ],
+     "design_standard": [
+      "API 6A",
+      "Asme B16.20",
+      "EN 12560"
+     ],
+     "pressure_class": [
+      "Class 10000",
+      "Class 15000",
+      "Class 20000",
+      "Class 5000"
+     ]
+    }
+   },
+   "material_group_r_ring": {
+    "C.S": {
+     "grade_material_r_ring": [
+      "ASTM 350 Gr. LF2",
+      "ASTM A105"
+     ]
+    },
+    "Carbon Steel Soft Iron": {
+     "grade_material_r_ring": [
+      "ASTM A1008",
+      "ASTM A109"
+     ]
+    },
+    "S.S": {
+     "grade_material_r_ring": [
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53",
+      "ASTM A182 Gr.F55"
+     ]
+    },
+    "Alloy Steel": {
+     "grade_material_r_ring": [
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    }
+   },
+   "design_standard": {
+    "API 6A": {
+     "pressure_class": [
+      "Class 10000",
+      "Class 15000",
+      "Class 20000",
+      "Class 5000"
+     ]
+    }
+   }
+  },
+  "RTJ RX": {
+   "design": {
+    "Metalic (Ring Joint)": {
+     "material_group_r_ring": [
+      "Alloy Steel",
+      "C.S",
+      "Carbon Steel Soft Iron",
+      "S.S"
+     ],
+     "grade_material_r_ring": [
+      "ASTM 350 Gr. LF2",
+      "ASTM A1008",
+      "ASTM A105",
+      "ASTM A109",
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53",
+      "ASTM A182 Gr.F55",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ],
+     "design_standard": [
+      "API 6A",
+      "Asme B16.20",
+      "EN 12560"
+     ],
+     "pressure_class": [
+      "Class 10000",
+      "Class 1500",
+      "Class 15000",
+      "Class 2000",
+      "Class 20000",
+      "Class 2500",
+      "Class 3000",
+      "Class 400",
+      "Class 5000",
+      "Class 600",
+      "Class 900"
+     ]
+    }
+   },
+   "material_group_r_ring": {
+    "C.S": {
+     "grade_material_r_ring": [
+      "ASTM 350 Gr. LF2",
+      "ASTM A105"
+     ]
+    },
+    "Carbon Steel Soft Iron": {
+     "grade_material_r_ring": [
+      "ASTM A1008",
+      "ASTM A109"
+     ]
+    },
+    "S.S": {
+     "grade_material_r_ring": [
+      "ASTM A182 Gr.F304",
+      "ASTM A182 Gr.F304L",
+      "ASTM A182 Gr.F316",
+      "ASTM A182 Gr.F316L",
+      "ASTM A182 Gr.F321",
+      "ASTM A182 Gr.F347",
+      "ASTM A182 Gr.F51",
+      "ASTM A182 Gr.F53",
+      "ASTM A182 Gr.F55"
+     ]
+    },
+    "Alloy Steel": {
+     "grade_material_r_ring": [
+      "ASTM A182 Gr.F11",
+      "ASTM A182 Gr.F22",
+      "ASTM A182 Gr.F5",
+      "ASTM A182 Gr.F9",
+      "ASTM A182 Gr.F91"
+     ]
+    }
+   },
+   "design_standard": {
+    "API 6A": {
+     "pressure_class": [
+      "Class 10000",
+      "Class 15000",
+      "Class 2000",
+      "Class 20000",
+      "Class 3000",
+      "Class 5000"
+     ]
+    }
+   }
+  },
+  "Sheet - Stock (sold by area / roll)": {
+   "design": {
+    "Non Metalic": {
+     "material_group_r_ring": [
+      "CNAF / CAF",
+      "CNAF / CAF Reinforced Wire",
+      "CNAF / CAF Reinforced Yarn",
+      "Ceramic",
+      "Graphite",
+      "Graphite Reinforced Sheet",
+      "Graphite Reinforced Wire",
+      "Graphite Reinforced Yarn",
+      "Mica",
+      "PTFE",
+      "Rubber EPDM",
+      "Rubber EPDM Reinforced Wire",
+      "Rubber EPDM Reinforced Yarn",
+      "Rubber FKM / VITON",
+      "Rubber FKM / VITON Reinforced Wire",
+      "Rubber FKM / VITON Reinforced Yarn",
+      "Rubber NBR",
+      "Rubber NBR Reinforced Wire",
+      "Rubber NBR Reinforced Yarn",
+      "Rubber Natural",
+      "Rubber Natural Reinforced Wire",
+      "Rubber Natural Reinforced Yarn",
+      "Rubber Neoprene",
+      "Rubber Neoprene Reinforced Wire",
+      "Rubber Neoprene Reinforced Yarn",
+      "Rubber Silicone",
+      "Rubber Silicone Reinforced Wire",
+      "Rubber Silicone Reinforced Yarn"
+     ],
+     "grade_material_r_ring": [
+      "ASTM C892",
+      "ASTM D1418",
+      "ASTM D2000",
+      "ASTM D351",
+      "ASTM D4894 / D4895",
+      "ASTM F104",
+      "ASTM F2168"
+     ],
+     "thickness": [
+      "1.5mm",
+      "1mm",
+      "2.5mm",
+      "2mm",
+      "3.5mm",
+      "3mm",
+      "4.5mm",
+      "4mm",
+      "5mm"
+     ]
+    }
+   },
+   "material_group_r_ring": {
+    "PTFE": {
+     "grade_material_r_ring": [
+      "ASTM D4894 / D4895"
+     ]
+    },
+    "Ceramic": {
+     "grade_material_r_ring": [
+      "ASTM C892"
+     ]
+    },
+    "Mica": {
+     "grade_material_r_ring": [
+      "ASTM D351"
+     ]
+    }
+   },
+   "grade_material_r_ring": {
+    "ASTM F104": {
+     "material_group_r_ring": [
+      "CNAF / CAF",
+      "CNAF / CAF Reinforced Wire",
+      "CNAF / CAF Reinforced Yarn"
+     ]
+    },
+    "ASTM D4894 / D4895": {
+     "material_group_r_ring": [
+      "PTFE"
+     ]
+    },
+    "ASTM F2168": {
+     "material_group_r_ring": [
+      "Graphite",
+      "Graphite Reinforced Sheet",
+      "Graphite Reinforced Wire",
+      "Graphite Reinforced Yarn"
+     ]
+    },
+    "ASTM D2000": {
+     "material_group_r_ring": [
+      "Rubber EPDM",
+      "Rubber EPDM Reinforced Wire",
+      "Rubber EPDM Reinforced Yarn",
+      "Rubber NBR",
+      "Rubber NBR Reinforced Wire",
+      "Rubber NBR Reinforced Yarn",
+      "Rubber Natural",
+      "Rubber Natural Reinforced Wire",
+      "Rubber Natural Reinforced Yarn",
+      "Rubber Neoprene",
+      "Rubber Neoprene Reinforced Wire",
+      "Rubber Neoprene Reinforced Yarn",
+      "Rubber Silicone",
+      "Rubber Silicone Reinforced Wire",
+      "Rubber Silicone Reinforced Yarn"
+     ]
+    },
+    "ASTM D1418": {
+     "material_group_r_ring": [
+      "Rubber FKM / VITON",
+      "Rubber FKM / VITON Reinforced Wire",
+      "Rubber FKM / VITON Reinforced Yarn"
+     ]
+    },
+    "ASTM C892": {
+     "material_group_r_ring": [
+      "Ceramic"
+     ]
+    },
+    "ASTM D351": {
+     "material_group_r_ring": [
+      "Mica"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour": {
+     "design": [
+      "Non Metalic"
+     ],
+     "material_group_r_ring": [
+      "CNAF / CAF",
+      "CNAF / CAF Reinforced Wire",
+      "CNAF / CAF Reinforced Yarn",
+      "Ceramic",
+      "Graphite",
+      "Graphite Reinforced Sheet",
+      "Graphite Reinforced Wire",
+      "Graphite Reinforced Yarn",
+      "Mica",
+      "PTFE",
+      "Rubber EPDM",
+      "Rubber EPDM Reinforced Wire",
+      "Rubber EPDM Reinforced Yarn",
+      "Rubber FKM / VITON",
+      "Rubber FKM / VITON Reinforced Wire",
+      "Rubber FKM / VITON Reinforced Yarn",
+      "Rubber NBR",
+      "Rubber NBR Reinforced Wire",
+      "Rubber NBR Reinforced Yarn",
+      "Rubber Natural",
+      "Rubber Natural Reinforced Wire",
+      "Rubber Natural Reinforced Yarn",
+      "Rubber Neoprene",
+      "Rubber Neoprene Reinforced Wire",
+      "Rubber Neoprene Reinforced Yarn",
+      "Rubber Silicone",
+      "Rubber Silicone Reinforced Wire",
+      "Rubber Silicone Reinforced Yarn"
+     ],
+     "grade_material_r_ring": [
+      "ASTM C892",
+      "ASTM D1418",
+      "ASTM D2000",
+      "ASTM D351",
+      "ASTM D4894 / D4895",
+      "ASTM F104",
+      "ASTM F2168"
+     ],
+     "thickness": [
+      "1.5mm",
+      "1mm",
+      "2.5mm",
+      "2mm",
+      "3.5mm",
+      "3mm",
+      "4.5mm",
+      "4mm",
+      "5mm"
+     ]
+    }
+   }
+  }
+ }
+}

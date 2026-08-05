@@ -1,0 +1,179 @@
+/* ============================================================================
+   FOOLAD TABAR — THEME PACK  (calm neutral base + one accent per theme)
+   Built for long (~8h) daily sessions. One calm SLATE base is shared by every
+   theme; overall saturation is kept low; only ONE accent colour changes per
+   theme. Highlight cards and status chips are MATTE (no harsh neon glow), so
+   nothing strains the eye over a full workday.
+
+     data-mode = "light" | "dark"           -> neutral slate BASE (shared)
+     data-skin = "blue" | "rose" | "teal"   -> accent + highlight tint (per mode)
+   Palette aligned with the approved low-fatigue mockup (slate + soft accents).
+   ============================================================================ */
+
+/* ----------------- NEUTRAL BASE — LIGHT  (shared by all themes) ----------- */
+[data-mode="light"]{
+  --ink:#1e293b; --muted:#64748b; --slate:#64748b;
+  --paper:#ffffff; --mist:#f6f7f9; --cloud:#f1f5f9;
+  --line:#e2e8f0; --line-soft:#eef2f6;
+  --navy:#1e293b; --deep:#0f172a;
+  --ok:#15803d;   --okbg:#e9f7ef;   --okline:#bbe6cb;
+  --warn:#b45309; --warnbg:#fdf3e7; --warnline:#f5d9ab;
+  --rej:#dc2626;  --rejbg:#fdecec;  --rejline:#f6c5c5;
+  --info:#2563eb; --infobg:#eaf1fe; --infoline:#c3d9fb;
+  --shadow:0 1px 2px rgba(15,23,42,.06),0 1px 3px rgba(15,23,42,.05);
+  --shadow-lg:0 12px 30px rgba(15,23,42,.12);
+}
+/* ----------------- NEUTRAL BASE — DARK  (shared by all themes) ------------ */
+[data-mode="dark"]{
+  --ink:#e2e8f0; --muted:#9fb0c4; --slate:#9fb0c4;
+  --paper:#1e293b; --mist:#0f172a; --cloud:#28374d;
+  --line:#334155; --line-soft:#2a3646;
+  --navy:#0b1220; --deep:#070d18;
+  --ok:#4ade80;   --okbg:#11271b;   --okline:#1f4733;
+  --warn:#fbbf24; --warnbg:#3a2a0a; --warnline:#5a4413;
+  --rej:#f87171;  --rejbg:#3a1a1a;  --rejline:#5a2a2a;
+  --info:#60a5fa; --infobg:#15263f; --infoline:#274059;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 1px 3px rgba(0,0,0,.3);
+  --shadow-lg:0 14px 36px rgba(0,0,0,.5);
+}
+
+/* ----------------- ACCENT — per theme x mode (accent + highlight tint) ---- */
+[data-skin="blue"][data-mode="light"]{
+  --accent:#3a60b8; --accent-strong:#2f4f96; --accent-soft:#e7eefb;
+  /* soft BLUE-tinted surfaces, harmonised with the blue accent (a gentle dusty
+     blue, NOT teal's warm beige) so the white cards clearly stand out. */
+  --paper:#ffffff; --mist:#ebeff6; --cloud:#dfe7f3;
+  --line:#d5dfee; --line-soft:#e6ecf6;
+}
+[data-skin="blue"][data-mode="dark"] { --accent:#3b82f6; --accent-strong:#93c5fd; --accent-soft:#1e3a5f; }
+[data-skin="rose"][data-mode="light"]{
+  /* EXACT copy of the previous project's warm Rose (day) theme — overrides the
+     neutral base with the cream surfaces + plum sidebar that were approved. */
+  --ink:#4a302f; --muted:#9a6862; --slate:#9a6862;
+  --paper:#fffcfb; --mist:#f6e8e2; --cloud:#f4e6e0;
+  --line:#e8c6bf; --line-soft:#f0ddd7;
+  --navy:#5a2233; --deep:#3d0f1f;
+  --accent:#d4677e; --accent-strong:#b84363; --accent-soft:#fadfe2; --on-accent:#ffffff;
+  --info:#c85a86; --infobg:#fbe7ef; --infoline:#f1c2d5;
+  --ok:#3fa57a;   --okbg:#e6f4ee;   --okline:#abe0c8;
+  --warn:#c9781f; --warnbg:#fbf0e1; --warnline:#f1d4a6;
+  --rej:#d85a6a;  --rejbg:#fbe9eb;  --rejline:#f2bcc2;
+  --shadow:0 1px 3px rgba(90,34,51,.10),0 1px 2px rgba(90,34,51,.07);
+  --shadow-lg:0 12px 30px rgba(90,34,51,.16);
+}
+[data-skin="rose"][data-mode="dark"] { --accent:#d65f86; --accent-strong:#eaa9c1; --accent-soft:#3a2230; }
+[data-skin="teal"][data-mode="light"]{
+  --accent:#0f766e; --accent-strong:#115e59; --accent-soft:#e6f3ed;
+  /* warmer surfaces (teal + soft cream is calm + harmonious) so the white
+     cards clearly stand out against the page. */
+  --paper:#fffefb; --mist:#f5f0e6; --cloud:#ece5d6;
+  --line:#e3dbc9; --line-soft:#efeade;
+}
+[data-skin="teal"][data-mode="dark"] { --accent:#14b8a6; --accent-strong:#5eead4; --accent-soft:#143c38; }
+
+/* ----------------- SIDEBAR — calm slate + a whisper of the theme accent ----
+   Keeps each theme subtly distinct without adding colour fatigue. The active
+   item and logo carry the full accent (defined in app.css). ---------------- */
+[data-mode="light"] .sidebar{ background:color-mix(in srgb, var(--accent) 12%, var(--navy)); }
+[data-mode="dark"]  .sidebar{
+  background:color-mix(in srgb, var(--accent) 12%, var(--navy));
+  border-right:1px solid rgba(255,255,255,.05);
+  box-shadow:2px 0 14px rgba(0,0,0,.32);
+}
+
+/* ============================================================================
+   UNIT-COLOURED STATUS — the only place a unit colour appears.
+   MATTE: soft tint + clean border, NO glow (comfortable for long sessions).
+   ============================================================================ */
+.case-status{
+  display:inline-flex; align-items:center; gap:.3rem;
+  font-size:.72rem; font-weight:700; line-height:1.25;
+  padding:.2rem .6rem; border-radius:100px; border:1px solid transparent;
+}
+.case-status.u-COMMERCIAL{ background:#faf1d8; color:#8a6608; border-color:#eddcad; }
+.case-status.u-TECHNICAL { background:#e7eef7; color:#1f5f8b; border-color:#cfdcec; }
+.case-status.u-SUPPLY    { background:#e6f2ec; color:#15634a; border-color:#c9e6d6; }
+[data-mode="dark"] .case-status.u-COMMERCIAL{ background:rgba(184,134,11,.18); color:#e3b251; border-color:rgba(184,134,11,.34); }
+[data-mode="dark"] .case-status.u-TECHNICAL { background:rgba(59,130,246,.18);  color:#8fc0f0; border-color:rgba(59,130,246,.34); }
+[data-mode="dark"] .case-status.u-SUPPLY    { background:rgba(31,122,90,.20);   color:#5fc79b; border-color:rgba(31,122,90,.36); }
+
+/* Colour-driven status chip used in lists (--sc = the status's unit colour).
+   MATTE tint + border, no glow. */
+.status-tag{
+  display:inline-flex; align-items:center; gap:.34rem;
+  font-size:.72rem; font-weight:700; line-height:1.25;
+  padding:.2rem .62rem; border-radius:100px;
+  color:var(--sc,#64748b);
+  background:color-mix(in srgb, var(--sc,#64748b) 12%, transparent);
+  border:1px solid color-mix(in srgb, var(--sc,#64748b) 30%, transparent);
+  max-width:100%; overflow-wrap:anywhere;
+}
+.status-tag i{ font-size:.95em; }
+[data-mode="dark"] .status-tag{
+  color:color-mix(in srgb, var(--sc,#94a3b8) 78%, white);
+  background:color-mix(in srgb, var(--sc,#94a3b8) 22%, transparent);
+  border-color:color-mix(in srgb, var(--sc,#94a3b8) 38%, transparent);
+}
+
+/* ---- Rose (day): solid plum sidebar + warm nav text, exactly as before ---- */
+[data-skin="rose"][data-mode="light"] .sidebar{ background:var(--navy); }
+[data-skin="rose"][data-mode="light"] .sb-item{ color:#e9c9d2; }
+[data-skin="rose"][data-mode="light"] .sb-item .ic{ color:#c99fb0; }
+[data-skin="rose"][data-mode="light"] .sb-group,
+[data-skin="rose"][data-mode="light"] .sb-logo-sub{ color:#bf8fa6; }
+[data-skin="rose"][data-mode="light"] .sb-item:not(.active):hover{ background:rgba(255,255,255,.07); color:#fff; }
+
+/* ============================================================================
+   DARK MODE — button & active-nav legibility fix.
+   In dark mode the accents are bright, so WHITE text on them is low-contrast
+   (worst on teal). Use dark text instead, and make hover LIGHTEN the accent
+   (white-text-on-light-accent on hover was making labels vanish). Keeps every
+   button clearly readable in all three themes, in both normal and hover states.
+   ============================================================================ */
+[data-mode="dark"] .btn-primary{ color:#0f172a; }
+[data-mode="dark"] .btn-primary i,
+[data-mode="dark"] .btn-primary .ic{ color:#0f172a; }
+[data-mode="dark"] .btn-primary:hover{
+  background:color-mix(in srgb, var(--accent) 78%, #ffffff);
+  border-color:color-mix(in srgb, var(--accent) 78%, #ffffff);
+  color:#0f172a;
+}
+/* Secondary / ghost / danger buttons: guarantee a readable hover in dark. */
+[data-mode="dark"] .btn:hover{
+  background:color-mix(in srgb, var(--accent) 28%, var(--cloud));
+  border-color:color-mix(in srgb, var(--accent) 55%, var(--line));
+  color:var(--accent-strong);
+  box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+[data-mode="dark"] .btn-ghost:hover{
+  background:color-mix(in srgb, var(--accent) 28%, var(--cloud));
+  color:var(--accent-strong);
+  box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+[data-mode="dark"] .btn-danger{ color:var(--rej); }
+[data-mode="dark"] .btn-danger:hover{ background:var(--rejbg); color:var(--rej); }
+
+/* Active sidebar item sits on the bright accent too — dark text + matching badge. */
+[data-mode="dark"] .sb-item.active{ color:#0f172a; }
+[data-mode="dark"] .sb-item.active .ic{ color:#0f172a; }
+[data-mode="dark"] .sb-item.active .nav-badge{ background:rgba(15,23,42,.22); color:#0f172a; }
+
+/* ---- Selected nav item must NOT change colour when hovered (any theme) ----
+   The active item keeps its accent background + matching text in both modes.
+   The Rose-specific rule is needed to outrank Rose's own sidebar-hover style. */
+.sb-item.active:hover{ background:var(--accent); color:#fff; }
+.sb-item.active:hover .ic{ color:#fff; }
+[data-mode="dark"] .sb-item.active:hover{ background:var(--accent); color:#0f172a; }
+[data-mode="dark"] .sb-item.active:hover .ic{ color:#0f172a; }
+[data-skin="rose"][data-mode="light"] .sb-item.active:hover{ background:var(--accent); color:#fff; }
+[data-skin="rose"][data-mode="light"] .sb-item.active:hover .ic{ color:#fff; }
+
+/* ---- BULLETPROOF: the selected nav item's accent background can never be
+   overridden — not by any hover rule, in any theme. This guarantees the
+   highlighted tab keeps its colour when the mouse is over it. ------------- */
+.sb-item.active{ background:var(--accent) !important; }
+
+/* ---- Rose (day): the SELECTED nav item's text must be WHITE (the warm rose
+   sidebar-text rule was overriding it), and stay white on hover. ---------- */
+[data-skin="rose"][data-mode="light"] .sb-item.active{ color:#fff; }
+[data-skin="rose"][data-mode="light"] .sb-item.active .ic{ color:#fff; }

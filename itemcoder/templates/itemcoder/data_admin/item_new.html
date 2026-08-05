@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Add item · {{ group }}{% endblock %}
+{% block topbar %}New {{ group }} item{% endblock %}
+{% block content %}
+<script src="{% static 'js/grid_filters.js' %}?v=1"></script>
+<div class="page-head"><div><h1>Define a new “{{ group }}” item</h1>
+  <div class="sub">Pick the main attributes in order — each one filters the next by the rules. Sub &amp; info fields appear after; they don’t change the code.</div></div>
+  <div class="btn-row">
+    <a class="btn btn-sm" href="{% url 'dm_features' group %}">Features</a>
+    <a class="btn btn-sm" href="{% url 'dm_code_rows' group %}">Browse items</a>
+  </div>
+</div>
+
+{% if not has_db %}<div class="flash flash-error">This group has no code database yet — import a coding table first.</div>{% endif %}
+{% if not mains %}<div class="flash flash-error">No main features for this group. Open <a href="{% url 'dm_features' group %}">Features</a>.</div>{% endif %}
+{% if not has_rules %}<div class="flash" style="background:var(--accent-soft);">No rules.json for this group — all values are shown (no cascade filtering).</div>{% endif %}
+
+{% if mains and has_db %}
+{% csrf_token %}
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h3>Main attributes</h3></div>
+    {% for f in mains %}
+      <div class="field">
+        <label>{{ forloop.counter }}. {{ f.name }}{% if f.small_order %} <span class="muted" style="font-size:.7rem;">(small code #{{ f.small_order }})</span>{% endif %}</label>
+        <div class="combo sd" data-feature="{{ f.name }}" data-pos="{{ forloop.counter0 }}">
+          <input type="text" class="combo-input sd-input" autocomplete="off" placeholder="— choose —" readonly-until-prev>
+          <div class="combo-list sd-list"></div>
+        </div>
+      </div>
+    {% endfor %}
+
+    <div id="extra-wrap" style="display:none;border-top:1px solid var(--line);margin-top:.6rem;padding-top:.6rem;">
+      {% if subs %}<div class="muted" style="font-size:.8rem;margin:.2rem 0 .4rem;">Sub features (optional):</div>
+        {% for f in subs %}
+          <div class="field"><label>{{ f.name }}</label>
+            <input type="text" name="f_{{ f.name }}" list="sub_{{ forloop.counter0 }}" placeholder="optional">
+            <datalist id="sub_{{ forloop.counter0 }}"></datalist></div>
+        {% endfor %}
+      {% endif %}
+      {% if infos %}<div class="muted" style="font-size:.8rem;margin:.5rem 0 .4rem;">Info (optional, e.g. weight / price / data):</div>
+        {% for f in infos %}
+          <div class="field"><label>{{ f.name }}</label><input type="text" name="f_{{ f.name }}" placeholder="optional"></div>
+        {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card" style="align-self:start;position:sticky;top:1rem;">
+    <div class="card-head"><h3>Generated codes</h3></div>
+    <div class="field"><label>Technical (big) code</label>
+      <input type="text" id="big-code" readonly style="font-family:monospace;background:var(--cloud);"></div>
+    <div class="field"><label>Item (small) code</label>
+      <input type="text" id="small-code" readonly style="font-family:monospace;background:var(--cloud);font-weight:700;"></div>
+    <div class="help" id="code-note" style="margin-bottom:.6rem;">Select all main attributes to generate the codes.</div>
+    <button class="btn btn-primary" type="button" id="create-btn" disabled><i class="fa-solid fa-check"></i> Add item</button>
+    <div id="save-status" class="muted" style="font-size:.82rem;margin-top:.5rem;"></div>
+  </div>
+</div>
+
+{{ value_maps|json_script:"vm-data" }}
+{{ sub_options|json_script:"so-data" }}
+{{ small_features|json_script:"sf-data" }}
+{{ order|json_script:"ord-data" }}
+{{ config|json_script:"cfg-data" }}
+<script>
+(function () {
+  var VALUE_MAPS = JSON.parse(document.getElementById('vm-data').textContent);
+  var SUB_OPTIONS = JSON.parse(document.getElementById('so-data').textContent);
+  var SMALL = JSON.parse(document.getElementById('sf-data').textContent);
+  var ORDER = JSON.parse(document.getElementById('ord-data').textContent);
+  var CFG = JSON.parse(document.getElementById('cfg-data').textContent);
+  var OPTIONS_URL = "{% url 'dm_item_options_api' group %}";
+  var SEQ_URL = "{% url 'dm_item_seq_api' group %}";
+  var CREATE_URL = "{% url 'dm_item_new' group %}";
+  var csrf = document.querySelector('input[name=csrfmiddlewaretoken]').value;
+
+  var selected = {};          // feature -> chosen value
+  var allowed = {};           // feature -> current allowed values list
+  var combos = {};            // feature -> {wrap,input,list,pos}
+
+  {% for f in subs %}(function(){var dl=document.getElementById("sub_{{ forloop.counter0 }}");(SUB_OPTIONS["{{ f.name|escapejs }}"]||[]).forEach(function(v){var o=document.createElement("option");o.value=String(v).toUpperCase();dl.appendChild(o);});})();{% endfor %}
+
+  function codeOf(f, v) { return (VALUE_MAPS[f] && VALUE_MAPS[f][v]) || ""; }
+  function cssEsc(s) { return String(s).replace(/(["\\])/g, "\\$1"); }
+
+  document.querySelectorAll(".sd").forEach(function (wrap) {
+    var feat = wrap.getAttribute("data-feature"), pos = parseInt(wrap.getAttribute("data-pos"), 10);
+    var input = wrap.querySelector(".sd-input"), list = wrap.querySelector(".sd-list");
+    combos[feat] = { wrap: wrap, input: input, list: list, pos: pos };
+    input.addEventListener("focus", function () {
+      if (!isEnabled(pos)) { note("Choose “" + ORDER[pos - 1] + "” first."); input.blur(); return; }
+      render(feat, ""); list.classList.add("open");
+    });
+    input.addEventListener("input", function () { render(feat, input.value); list.classList.add("open"); });
+    input.addEventListener("blur", function () { setTimeout(function () { list.classList.remove("open"); input.value = (window.displayVal?window.displayVal(selected[feat]||""):String(selected[feat]||"").toUpperCase()); }, 160); });
+  });
+
+  function isEnabled(pos) { return pos === 0 || (selected[ORDER[pos - 1]] && String(selected[ORDER[pos - 1]]).trim()); }
+  function note(msg) { document.getElementById("code-note").textContent = msg; }
+
+  function render(feat, filter) {
+    var c = combos[feat], f = (filter || "").toLowerCase();
+    var vals = (allowed[feat] || []).slice().sort(function (a, b) {
+      var ca = codeOf(feat, a), cb = codeOf(feat, b);
+      if (ca && cb && ca !== cb) return ca < cb ? -1 : 1;
+      return String(a).localeCompare(String(b));
+    });
+    c.list.innerHTML = "";
+    var matches = vals.filter(function (v) { return !f || v.toLowerCase().indexOf(f) !== -1; });
+    if (!matches.length) { var e = document.createElement("div"); e.className = "combo-empty"; e.textContent = "No matches"; c.list.appendChild(e); return; }
+    matches.slice(0, 500).forEach(function (v) {
+      var row = document.createElement("div"); row.className = "combo-opt";
+      var n = document.createElement("span"); n.textContent = (window.displayVal?window.displayVal(v):String(v).toUpperCase()); row.appendChild(n);
+      var cd = document.createElement("span"); cd.className = "code"; cd.textContent = codeOf(feat, v); row.appendChild(cd);
+      row.addEventListener("mousedown", function (e) { e.preventDefault(); choose(feat, v); });
+      c.list.appendChild(row);
+    });
+  }
+
+  function choose(feat, val) {
+    selected[feat] = val; combos[feat].input.value = (window.displayVal?window.displayVal(val):String(val).toUpperCase()); combos[feat].list.classList.remove("open");
+    var pos = combos[feat].pos;
+    // clear all downstream main features and reload the next one
+    for (var i = pos + 1; i < ORDER.length; i++) { selected[ORDER[i]] = ""; allowed[ORDER[i]] = []; combos[ORDER[i]].input.value = ""; }
+    if (pos + 1 < ORDER.length) loadOptions(pos + 1).then(recompute); else recompute();
+  }
+
+  function loadOptions(pos) {
+    var feat = ORDER[pos], params = {};
+    for (var i = 0; i < pos; i++) { if (selected[ORDER[i]]) params["f_" + ORDER[i]] = selected[ORDER[i]]; }
+    params.target = feat;
+    var q = Object.keys(params).map(function (k) { return encodeURIComponent(k) + "=" + encodeURIComponent(params[k]); }).join("&");
+    return fetch(OPTIONS_URL + "?" + q).then(function (r) { return r.json(); }).then(function (d) { allowed[feat] = d.values || []; });
+  }
+
+  function allMainChosen() { return ORDER.every(function (f) { return selected[f] && String(selected[f]).trim(); }); }
+
+  function recompute() {
+    var big = CFG.tech_start + CFG.tech_group, allChosen = allMainChosen();
+    ORDER.forEach(function (f) { big += codeOf(f, selected[f] || ""); });
+    document.getElementById("big-code").value = big;
+    document.getElementById("extra-wrap").style.display = allChosen ? "block" : "none";
+    var btn = document.getElementById("create-btn");
+    if (!allChosen) { document.getElementById("small-code").value = ""; note("Select all main attributes to generate the codes."); btn.disabled = true; return; }
+    var prefix = CFG.item_start + CFG.item_group;
+    // small-code features in priority order are passed by SMALL (already ordered)
+    SMALL.forEach(function (f) { prefix += codeOf(f, selected[f] || ""); });
+    fetch(SEQ_URL + "?prefix=" + encodeURIComponent(prefix)).then(function (r) { return r.json(); })
+      .then(function (d) { document.getElementById("small-code").value = d.item_code || ""; note("Ready. Sequence " + (d.sequence || "") + "."); btn.disabled = false; })
+      .catch(function () { document.getElementById("small-code").value = prefix + "…"; note("Ready."); btn.disabled = false; });
+  }
+
+  document.getElementById("create-btn").addEventListener("click", function () {
+    var status = document.getElementById("save-status"), p = new URLSearchParams();
+    ORDER.forEach(function (f) { p.set("f_" + f, selected[f] || ""); });
+    document.querySelectorAll('#extra-wrap input').forEach(function (el) { if (el.name) p.set(el.name, el.value); });
+    status.style.color = ""; status.textContent = "Saving…";
+    fetch(CREATE_URL, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrf }, body: p.toString() })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.ok) { status.style.color = "#1f7a5a"; status.textContent = "Added " + d.item + " (technical " + d.technical + "). Selections kept — change any attribute to add another."; recompute(); }
+        else { status.style.color = "var(--rej)"; status.textContent = "Error: " + (d.error || "failed"); }
+      }).catch(function () { status.style.color = "var(--rej)"; status.textContent = "Request failed."; });
+  });
+
+  // initialise: first feature options
+  loadOptions(0).then(function () { recompute(); });
+})();
+</script>
+{% endif %}
+{% endblock %}

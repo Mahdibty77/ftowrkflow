@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Seat history · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Seat history{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1><i class="fa-solid fa-clock-rotate-left"></i> Seat history</h1>
+    <div class="sub">
+      Index <span class="mono">{{ seat_index }}</span>
+      · {{ seat_title }}
+      {% if person %}· held by {{ person.display_name }}{% else %}· vacant{% endif %}
+    </div>
+  </div>
+  <a href="{% url 'accounts:user_list' %}" class="btn btn-sm"><i class="fa-solid fa-arrow-left"></i> Back to Seats</a>
+</div>
+
+<div class="card seat-hist">
+  {% if timeline %}
+    <ol class="seat-hist-list">
+      {% for e in timeline %}
+        <li class="seat-hist-item seat-hist-{{ e.event|lower }}">
+          <time class="seat-hist-time mono">{{ e.at_jalali|default:"—" }}</time>
+          <div class="seat-hist-rail" aria-hidden="true">
+            <span class="seat-hist-mark"></span>
+          </div>
+          <div class="seat-hist-body">
+            <div class="seat-hist-label">{{ e.label }}</div>
+            {% if e.flow %}
+              <div class="seat-hist-flow">
+                {% if e.from_name %}
+                  <span class="seat-hist-person">{{ e.from_name }}</span>
+                  <span class="seat-hist-arrow" title="{{ e.label }}">
+                    <i class="fa-solid {{ e.flow_icon|default:'fa-arrow-right' }}"></i>
+                  </span>
+                {% elif e.flow == 'assign' %}
+                  <span class="seat-hist-arrow" title="Assigned">
+                    <i class="fa-solid fa-link"></i>
+                  </span>
+                {% endif %}
+                {% if e.to_name %}<span class="seat-hist-person">{{ e.to_name }}</span>{% endif %}
+                {% if e.badge %}<span class="seat-hist-badge">{{ e.badge }}</span>{% endif %}
+              </div>
+            {% elif e.summary %}
+              <div class="seat-hist-summary">{{ e.summary }}</div>
+            {% endif %}
+            {% if e.actor %}<div class="seat-hist-actor">by {{ e.actor }}</div>{% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ol>
+  {% else %}
+    <div class="empty" style="padding:1.2rem;">No history recorded for this seat yet.</div>
+  {% endif %}
+</div>
+
+<style>
+  .seat-hist{padding:1.15rem 1.25rem 1.5rem;background:var(--paper)}
+  .seat-hist-list{list-style:none;margin:0;padding:0}
+  .seat-hist-item{
+    display:grid;
+    grid-template-columns:7.5rem 1.25rem minmax(0,1fr);
+    column-gap:.85rem;
+    align-items:stretch;
+    padding:0 0 1.15rem;
+    position:relative;
+  }
+  .seat-hist-item:last-child{padding-bottom:0}
+  .seat-hist-time{
+    font-size:.78rem;color:var(--muted);text-align:right;
+    line-height:1.35;
+    /* First line optically centers on the mark (mark top + half height). */
+    padding-top:.18rem;
+  }
+  .seat-hist-rail{
+    position:relative;
+    width:1.25rem;
+    justify-self:center;
+    min-height:100%;
+  }
+  /* Vertical spine — exact center of the rail column. */
+  .seat-hist-rail:before{
+    content:"";
+    position:absolute;
+    left:50%;
+    top:0;
+    bottom:0;
+    width:2px;
+    margin-left:-1px; /* 2px / 2 — avoid subpixel transform drift */
+    background:color-mix(in srgb,var(--accent) 28%,var(--line));
+    z-index:0;
+    pointer-events:none;
+  }
+  /* First event: spine begins at the mark center (no stub above the first dot). */
+  .seat-hist-item:first-child .seat-hist-rail:before{
+    top:.58rem;
+  }
+  /* Bridge the gap into the next item so the spine stays continuous. */
+  .seat-hist-item:not(:last-child) .seat-hist-rail:before{
+    bottom:-1.15rem;
+  }
+  /* Stop the spine at the mark center on the last event. */
+  .seat-hist-item:last-child .seat-hist-rail:before{
+    bottom:auto;
+    height:.58rem; /* mark-top (.18rem) + half mark (.4rem) */
+  }
+  .seat-hist-item:first-child:last-child .seat-hist-rail:before{
+    /* Single event: just a centered tick through the mark — hide the stub. */
+    display:none;
+  }  .seat-hist-mark{
+    position:absolute;
+    left:50%;
+    top:.18rem;
+    width:.8rem;
+    height:.8rem;
+    margin-left:-.4rem; /* half of width — same axis as the 2px spine */
+    box-sizing:border-box;
+    border-radius:50%;
+    z-index:1;
+    /* Filled theme accent — same colour for every event. */
+    background:var(--accent);
+    border:2px solid var(--accent);
+    box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 14%,transparent);
+    pointer-events:none;
+  }
+  .seat-hist-body{min-width:0;padding-top:0}
+  .seat-hist-label{font-weight:750;color:var(--ink);font-size:.92rem;line-height:1.35}
+  .seat-hist-summary{margin-top:.35rem;font-size:.86rem;line-height:1.5;color:var(--ink)}
+  .seat-hist-flow{
+    margin-top:.4rem;display:flex;flex-wrap:wrap;align-items:center;gap:.45rem .55rem;
+  }
+  .seat-hist-person{
+    font-size:.88rem;font-weight:650;color:var(--ink);
+    padding:.12rem .5rem;border-radius:6px;
+    background:color-mix(in srgb,var(--accent) 8%,var(--paper));
+    border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));
+  }
+  .seat-hist-arrow{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:1.55rem;height:1.55rem;border-radius:50%;
+    color:var(--accent-strong);
+    background:var(--accent-soft);
+    border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));
+    flex:0 0 auto;
+  }
+  .seat-hist-arrow i{font-size:.72rem}
+  .seat-hist-badge{
+    font-size:.68rem;font-weight:750;letter-spacing:.03em;text-transform:uppercase;
+    color:var(--accent-strong);background:var(--accent-soft);
+    border:1px solid color-mix(in srgb,var(--accent) 28%,var(--line));
+    border-radius:999px;padding:.12rem .5rem;
+  }
+  .seat-hist-actor{margin-top:.25rem;font-size:.75rem;color:var(--muted)}
+  @media (max-width:640px){
+    .seat-hist-item{grid-template-columns:1.25rem minmax(0,1fr)}
+    .seat-hist-rail{grid-column:1;grid-row:1 / span 2}
+    .seat-hist-time{
+      grid-column:2;grid-row:1;text-align:left;font-size:.72rem;
+      padding-top:.18rem;margin:0 0 .15rem;
+    }
+    .seat-hist-body{grid-column:2;grid-row:2}
+  }
+</style>
+{% endblock %}

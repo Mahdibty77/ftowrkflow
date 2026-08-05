@@ -1,0 +1,794 @@
+{
+ "studbolt": {
+  "Stud Bolt (full thread) + 2 Heavy Hex Nuts": {
+   "grade": {
+    "ASTM A193 Gr.B7M": {
+     "nut": [
+      "ASTM A194 Gr.2HM"
+     ]
+    },
+    "ASTM A320 Gr.L7M": {
+     "nut": [
+      "ASTM A194 Gr.7M"
+     ]
+    },
+    "ASTM A193 Gr.B8T Cl.1": {
+     "nut": [
+      "ASTM A194 Gr.8T"
+     ]
+    },
+    "ASTM A193 Gr.B8C Cl.1": {
+     "nut": [
+      "ASTM A194 Gr.8C"
+     ]
+    },
+    "Property Class 8.8": {
+     "nut": [
+      "ISO 4032 Class 8 nut"
+     ]
+    },
+    "Property Class 10.9": {
+     "nut": [
+      "ISO 4032 Class 10 nut"
+     ]
+    },
+    "Property Class 12.9": {
+     "nut": [
+      "ISO 4032 Class 12 nut"
+     ]
+    },
+    "Stainless A2-70": {
+     "nut": [
+      "Stainless A2 nut"
+     ]
+    },
+    "Stainless A4-80": {
+     "nut": [
+      "Stainless A4 nut"
+     ]
+    },
+    "ASTM A193 Gr.B5": {
+     "nut": [
+      "ASTM A194 Gr.3"
+     ]
+    },
+    "ASTM A193 Gr.B6": {
+     "nut": [
+      "ASTM A194 Gr.6"
+     ]
+    }
+   },
+   "nut": {
+    "ASTM A194 Gr.2HM": {
+     "grade": [
+      "ASTM A193 Gr.B7M"
+     ]
+    },
+    "ASTM A194 Gr.8": {
+     "grade": [
+      "ASTM A193 Gr.B8 Cl.1",
+      "ASTM A193 Gr.B8 Cl.2",
+      "ASTM A320 Gr.B8 Cl.1"
+     ]
+    },
+    "ASTM A194 Gr.8M": {
+     "grade": [
+      "ASTM A193 Gr.B8M Cl.1",
+      "ASTM A193 Gr.B8M Cl.2",
+      "ASTM A320 Gr.B8M Cl.1"
+     ]
+    },
+    "ASTM A194 Gr.8T": {
+     "grade": [
+      "ASTM A193 Gr.B8T Cl.1"
+     ]
+    },
+    "ASTM A194 Gr.8C": {
+     "grade": [
+      "ASTM A193 Gr.B8C Cl.1"
+     ]
+    },
+    "ASTM A194 Gr.7M": {
+     "grade": [
+      "ASTM A320 Gr.L7M"
+     ]
+    },
+    "ASTM A563 Gr.A": {
+     "grade": [
+      "ASTM A307 Gr.A"
+     ]
+    },
+    "ASTM A563 Gr.DH": {
+     "grade": [
+      "ASTM A354 Gr.BD"
+     ]
+    },
+    "ASTM A194 Gr.7": {
+     "grade": [
+      "ASTM A453 Gr.660"
+     ]
+    },
+    "ISO 4032 Class 8 nut": {
+     "grade": [
+      "Property Class 8.8"
+     ]
+    },
+    "ISO 4032 Class 10 nut": {
+     "grade": [
+      "Property Class 10.9"
+     ]
+    },
+    "ISO 4032 Class 12 nut": {
+     "grade": [
+      "Property Class 12.9"
+     ]
+    },
+    "Stainless A2 nut": {
+     "grade": [
+      "Stainless A2-70"
+     ]
+    },
+    "Stainless A4 nut": {
+     "grade": [
+      "Stainless A4-80"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour (standard service)": {
+     "grade": [
+      "ASTM A193 Gr.B16",
+      "ASTM A193 Gr.B5",
+      "ASTM A193 Gr.B6",
+      "ASTM A193 Gr.B7",
+      "ASTM A193 Gr.B8 Cl.2",
+      "ASTM A193 Gr.B8M Cl.2",
+      "ASTM A307 Gr.A",
+      "ASTM A307 Gr.B",
+      "ASTM A320 Gr.L43",
+      "ASTM A320 Gr.L7",
+      "ASTM A354 Gr.BC",
+      "ASTM A354 Gr.BD",
+      "ASTM A453 Gr.660",
+      "Property Class 10.9",
+      "Property Class 12.9",
+      "Property Class 8.8",
+      "Stainless A2-70",
+      "Stainless A4-80"
+     ],
+     "nut": [
+      "ASTM A194 Gr.2H",
+      "ASTM A194 Gr.3",
+      "ASTM A194 Gr.4",
+      "ASTM A194 Gr.6",
+      "ASTM A194 Gr.7",
+      "ASTM A563 Gr.A",
+      "ASTM A563 Gr.DH",
+      "ISO 4032 Class 10 nut",
+      "ISO 4032 Class 12 nut",
+      "ISO 4032 Class 8 nut",
+      "Stainless A2 nut",
+      "Stainless A4 nut"
+     ]
+    }
+   }
+  },
+  "Tap-End Stud + 1 Heavy Hex Nut": {
+   "grade": {
+    "ASTM A193 Gr.B7M": {
+     "nut": [
+      "ASTM A194 Gr.2HM"
+     ]
+    },
+    "ASTM A320 Gr.L7M": {
+     "nut": [
+      "ASTM A194 Gr.7M"
+     ]
+    },
+    "ASTM A193 Gr.B8T Cl.1": {
+     "nut": [
+      "ASTM A194 Gr.8T"
+     ]
+    },
+    "ASTM A193 Gr.B8C Cl.1": {
+     "nut": [
+      "ASTM A194 Gr.8C"
+     ]
+    },
+    "Property Class 8.8": {
+     "nut": [
+      "ISO 4032 Class 8 nut"
+     ]
+    },
+    "Property Class 10.9": {
+     "nut": [
+      "ISO 4032 Class 10 nut"
+     ]
+    },
+    "Property Class 12.9": {
+     "nut": [
+      "ISO 4032 Class 12 nut"
+     ]
+    },
+    "Stainless A2-70": {
+     "nut": [
+      "Stainless A2 nut"
+     ]
+    },
+    "Stainless A4-80": {
+     "nut": [
+      "Stainless A4 nut"
+     ]
+    },
+    "ASTM A193 Gr.B5": {
+     "nut": [
+      "ASTM A194 Gr.3"
+     ]
+    },
+    "ASTM A193 Gr.B6": {
+     "nut": [
+      "ASTM A194 Gr.6"
+     ]
+    }
+   },
+   "nut": {
+    "ASTM A194 Gr.2HM": {
+     "grade": [
+      "ASTM A193 Gr.B7M"
+     ]
+    },
+    "ASTM A194 Gr.8": {
+     "grade": [
+      "ASTM A193 Gr.B8 Cl.1",
+      "ASTM A193 Gr.B8 Cl.2",
+      "ASTM A320 Gr.B8 Cl.1"
+     ]
+    },
+    "ASTM A194 Gr.8M": {
+     "grade": [
+      "ASTM A193 Gr.B8M Cl.1",
+      "ASTM A193 Gr.B8M Cl.2",
+      "ASTM A320 Gr.B8M Cl.1"
+     ]
+    },
+    "ASTM A194 Gr.8T": {
+     "grade": [
+      "ASTM A193 Gr.B8T Cl.1"
+     ]
+    },
+    "ASTM A194 Gr.8C": {
+     "grade": [
+      "ASTM A193 Gr.B8C Cl.1"
+     ]
+    },
+    "ASTM A194 Gr.7M": {
+     "grade": [
+      "ASTM A320 Gr.L7M"
+     ]
+    },
+    "ASTM A563 Gr.A": {
+     "grade": [
+      "ASTM A307 Gr.A"
+     ]
+    },
+    "ASTM A563 Gr.DH": {
+     "grade": [
+      "ASTM A354 Gr.BD"
+     ]
+    },
+    "ASTM A194 Gr.7": {
+     "grade": [
+      "ASTM A453 Gr.660"
+     ]
+    },
+    "ISO 4032 Class 8 nut": {
+     "grade": [
+      "Property Class 8.8"
+     ]
+    },
+    "ISO 4032 Class 10 nut": {
+     "grade": [
+      "Property Class 10.9"
+     ]
+    },
+    "ISO 4032 Class 12 nut": {
+     "grade": [
+      "Property Class 12.9"
+     ]
+    },
+    "Stainless A2 nut": {
+     "grade": [
+      "Stainless A2-70"
+     ]
+    },
+    "Stainless A4 nut": {
+     "grade": [
+      "Stainless A4-80"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour (standard service)": {
+     "grade": [
+      "ASTM A193 Gr.B16",
+      "ASTM A193 Gr.B5",
+      "ASTM A193 Gr.B6",
+      "ASTM A193 Gr.B7",
+      "ASTM A193 Gr.B8 Cl.2",
+      "ASTM A193 Gr.B8M Cl.2",
+      "ASTM A307 Gr.A",
+      "ASTM A307 Gr.B",
+      "ASTM A320 Gr.L43",
+      "ASTM A320 Gr.L7",
+      "ASTM A354 Gr.BC",
+      "ASTM A354 Gr.BD",
+      "ASTM A453 Gr.660",
+      "Property Class 10.9",
+      "Property Class 12.9",
+      "Property Class 8.8",
+      "Stainless A2-70",
+      "Stainless A4-80"
+     ],
+     "nut": [
+      "ASTM A194 Gr.2H",
+      "ASTM A194 Gr.3",
+      "ASTM A194 Gr.4",
+      "ASTM A194 Gr.6",
+      "ASTM A194 Gr.7",
+      "ASTM A563 Gr.A",
+      "ASTM A563 Gr.DH",
+      "ISO 4032 Class 10 nut",
+      "ISO 4032 Class 12 nut",
+      "ISO 4032 Class 8 nut",
+      "Stainless A2 nut",
+      "Stainless A4 nut"
+     ]
+    }
+   }
+  },
+  "Double-End Stud + 2 Heavy Hex Nuts": {
+   "grade": {
+    "ASTM A193 Gr.B7M": {
+     "nut": [
+      "ASTM A194 Gr.2HM"
+     ]
+    },
+    "ASTM A320 Gr.L7M": {
+     "nut": [
+      "ASTM A194 Gr.7M"
+     ]
+    },
+    "ASTM A193 Gr.B8T Cl.1": {
+     "nut": [
+      "ASTM A194 Gr.8T"
+     ]
+    },
+    "ASTM A193 Gr.B8C Cl.1": {
+     "nut": [
+      "ASTM A194 Gr.8C"
+     ]
+    },
+    "Property Class 8.8": {
+     "nut": [
+      "ISO 4032 Class 8 nut"
+     ]
+    },
+    "Property Class 10.9": {
+     "nut": [
+      "ISO 4032 Class 10 nut"
+     ]
+    },
+    "Property Class 12.9": {
+     "nut": [
+      "ISO 4032 Class 12 nut"
+     ]
+    },
+    "Stainless A2-70": {
+     "nut": [
+      "Stainless A2 nut"
+     ]
+    },
+    "Stainless A4-80": {
+     "nut": [
+      "Stainless A4 nut"
+     ]
+    },
+    "ASTM A193 Gr.B5": {
+     "nut": [
+      "ASTM A194 Gr.3"
+     ]
+    },
+    "ASTM A193 Gr.B6": {
+     "nut": [
+      "ASTM A194 Gr.6"
+     ]
+    }
+   },
+   "nut": {
+    "ASTM A194 Gr.2HM": {
+     "grade": [
+      "ASTM A193 Gr.B7M"
+     ]
+    },
+    "ASTM A194 Gr.8": {
+     "grade": [
+      "ASTM A193 Gr.B8 Cl.1",
+      "ASTM A193 Gr.B8 Cl.2",
+      "ASTM A320 Gr.B8 Cl.1"
+     ]
+    },
+    "ASTM A194 Gr.8M": {
+     "grade": [
+      "ASTM A193 Gr.B8M Cl.1",
+      "ASTM A193 Gr.B8M Cl.2",
+      "ASTM A320 Gr.B8M Cl.1"
+     ]
+    },
+    "ASTM A194 Gr.8T": {
+     "grade": [
+      "ASTM A193 Gr.B8T Cl.1"
+     ]
+    },
+    "ASTM A194 Gr.8C": {
+     "grade": [
+      "ASTM A193 Gr.B8C Cl.1"
+     ]
+    },
+    "ASTM A194 Gr.7M": {
+     "grade": [
+      "ASTM A320 Gr.L7M"
+     ]
+    },
+    "ASTM A563 Gr.A": {
+     "grade": [
+      "ASTM A307 Gr.A"
+     ]
+    },
+    "ASTM A563 Gr.DH": {
+     "grade": [
+      "ASTM A354 Gr.BD"
+     ]
+    },
+    "ASTM A194 Gr.7": {
+     "grade": [
+      "ASTM A453 Gr.660"
+     ]
+    },
+    "ISO 4032 Class 8 nut": {
+     "grade": [
+      "Property Class 8.8"
+     ]
+    },
+    "ISO 4032 Class 10 nut": {
+     "grade": [
+      "Property Class 10.9"
+     ]
+    },
+    "ISO 4032 Class 12 nut": {
+     "grade": [
+      "Property Class 12.9"
+     ]
+    },
+    "Stainless A2 nut": {
+     "grade": [
+      "Stainless A2-70"
+     ]
+    },
+    "Stainless A4 nut": {
+     "grade": [
+      "Stainless A4-80"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour (standard service)": {
+     "grade": [
+      "ASTM A193 Gr.B16",
+      "ASTM A193 Gr.B5",
+      "ASTM A193 Gr.B6",
+      "ASTM A193 Gr.B7",
+      "ASTM A193 Gr.B8 Cl.2",
+      "ASTM A193 Gr.B8M Cl.2",
+      "ASTM A307 Gr.A",
+      "ASTM A307 Gr.B",
+      "ASTM A320 Gr.L43",
+      "ASTM A320 Gr.L7",
+      "ASTM A354 Gr.BC",
+      "ASTM A354 Gr.BD",
+      "ASTM A453 Gr.660",
+      "Property Class 10.9",
+      "Property Class 12.9",
+      "Property Class 8.8",
+      "Stainless A2-70",
+      "Stainless A4-80"
+     ],
+     "nut": [
+      "ASTM A194 Gr.2H",
+      "ASTM A194 Gr.3",
+      "ASTM A194 Gr.4",
+      "ASTM A194 Gr.6",
+      "ASTM A194 Gr.7",
+      "ASTM A563 Gr.A",
+      "ASTM A563 Gr.DH",
+      "ISO 4032 Class 10 nut",
+      "ISO 4032 Class 12 nut",
+      "ISO 4032 Class 8 nut",
+      "Stainless A2 nut",
+      "Stainless A4 nut"
+     ]
+    }
+   }
+  },
+  "Heavy Hex Bolt + 1 Heavy Hex Nut": {
+   "grade": {
+    "ASTM A193 Gr.B7M": {
+     "nut": [
+      "ASTM A194 Gr.2HM"
+     ]
+    },
+    "ASTM A320 Gr.L7M": {
+     "nut": [
+      "ASTM A194 Gr.7M"
+     ]
+    },
+    "ASTM A193 Gr.B8T Cl.1": {
+     "nut": [
+      "ASTM A194 Gr.8T"
+     ]
+    },
+    "ASTM A193 Gr.B8C Cl.1": {
+     "nut": [
+      "ASTM A194 Gr.8C"
+     ]
+    },
+    "Property Class 8.8": {
+     "nut": [
+      "ISO 4032 Class 8 nut"
+     ]
+    },
+    "Property Class 10.9": {
+     "nut": [
+      "ISO 4032 Class 10 nut"
+     ]
+    },
+    "Property Class 12.9": {
+     "nut": [
+      "ISO 4032 Class 12 nut"
+     ]
+    },
+    "Stainless A2-70": {
+     "nut": [
+      "Stainless A2 nut"
+     ]
+    },
+    "Stainless A4-80": {
+     "nut": [
+      "Stainless A4 nut"
+     ]
+    },
+    "ASTM A193 Gr.B5": {
+     "nut": [
+      "ASTM A194 Gr.3"
+     ]
+    },
+    "ASTM A193 Gr.B6": {
+     "nut": [
+      "ASTM A194 Gr.6"
+     ]
+    }
+   },
+   "nut": {
+    "ASTM A194 Gr.2HM": {
+     "grade": [
+      "ASTM A193 Gr.B7M"
+     ]
+    },
+    "ASTM A194 Gr.8": {
+     "grade": [
+      "ASTM A193 Gr.B8 Cl.1",
+      "ASTM A193 Gr.B8 Cl.2",
+      "ASTM A320 Gr.B8 Cl.1"
+     ]
+    },
+    "ASTM A194 Gr.8M": {
+     "grade": [
+      "ASTM A193 Gr.B8M Cl.1",
+      "ASTM A193 Gr.B8M Cl.2",
+      "ASTM A320 Gr.B8M Cl.1"
+     ]
+    },
+    "ASTM A194 Gr.8T": {
+     "grade": [
+      "ASTM A193 Gr.B8T Cl.1"
+     ]
+    },
+    "ASTM A194 Gr.8C": {
+     "grade": [
+      "ASTM A193 Gr.B8C Cl.1"
+     ]
+    },
+    "ASTM A194 Gr.7M": {
+     "grade": [
+      "ASTM A320 Gr.L7M"
+     ]
+    },
+    "ASTM A563 Gr.A": {
+     "grade": [
+      "ASTM A307 Gr.A"
+     ]
+    },
+    "ASTM A563 Gr.DH": {
+     "grade": [
+      "ASTM A354 Gr.BD"
+     ]
+    },
+    "ASTM A194 Gr.7": {
+     "grade": [
+      "ASTM A453 Gr.660"
+     ]
+    },
+    "ISO 4032 Class 8 nut": {
+     "grade": [
+      "Property Class 8.8"
+     ]
+    },
+    "ISO 4032 Class 10 nut": {
+     "grade": [
+      "Property Class 10.9"
+     ]
+    },
+    "ISO 4032 Class 12 nut": {
+     "grade": [
+      "Property Class 12.9"
+     ]
+    },
+    "Stainless A2 nut": {
+     "grade": [
+      "Stainless A2-70"
+     ]
+    },
+    "Stainless A4 nut": {
+     "grade": [
+      "Stainless A4-80"
+     ]
+    }
+   },
+   "nace": {
+    "Non-Sour (standard service)": {
+     "grade": [
+      "ASTM A193 Gr.B16",
+      "ASTM A193 Gr.B5",
+      "ASTM A193 Gr.B6",
+      "ASTM A193 Gr.B7",
+      "ASTM A193 Gr.B8 Cl.2",
+      "ASTM A193 Gr.B8M Cl.2",
+      "ASTM A307 Gr.A",
+      "ASTM A307 Gr.B",
+      "ASTM A320 Gr.L43",
+      "ASTM A320 Gr.L7",
+      "ASTM A354 Gr.BC",
+      "ASTM A354 Gr.BD",
+      "ASTM A453 Gr.660",
+      "Property Class 10.9",
+      "Property Class 12.9",
+      "Property Class 8.8",
+      "Stainless A2-70",
+      "Stainless A4-80"
+     ],
+     "nut": [
+      "ASTM A194 Gr.2H",
+      "ASTM A194 Gr.3",
+      "ASTM A194 Gr.4",
+      "ASTM A194 Gr.6",
+      "ASTM A194 Gr.7",
+      "ASTM A563 Gr.A",
+      "ASTM A563 Gr.DH",
+      "ISO 4032 Class 10 nut",
+      "ISO 4032 Class 12 nut",
+      "ISO 4032 Class 8 nut",
+      "Stainless A2 nut",
+      "Stainless A4 nut"
+     ]
+    }
+   },
+   "design_standard": {
+    "ASME B18.2.1 heavy hex bolt (inch)": {
+     "grade": [
+      "ASTM A193 Gr.B16",
+      "ASTM A193 Gr.B5",
+      "ASTM A193 Gr.B6",
+      "ASTM A193 Gr.B7",
+      "ASTM A193 Gr.B7M",
+      "ASTM A193 Gr.B8 Cl.1",
+      "ASTM A193 Gr.B8 Cl.2",
+      "ASTM A193 Gr.B8C Cl.1",
+      "ASTM A193 Gr.B8M Cl.1",
+      "ASTM A193 Gr.B8M Cl.2",
+      "ASTM A193 Gr.B8T Cl.1",
+      "ASTM A307 Gr.A",
+      "ASTM A307 Gr.B",
+      "ASTM A320 Gr.B8 Cl.1",
+      "ASTM A320 Gr.B8M Cl.1",
+      "ASTM A320 Gr.L43",
+      "ASTM A320 Gr.L7",
+      "ASTM A320 Gr.L7M",
+      "ASTM A354 Gr.BC",
+      "ASTM A354 Gr.BD",
+      "ASTM A453 Gr.660"
+     ]
+    },
+    "ISO 4014 / DIN 931 hex bolt (metric)": {
+     "grade": [
+      "Property Class 10.9",
+      "Property Class 12.9",
+      "Property Class 8.8",
+      "Stainless A2-70",
+      "Stainless A4-80"
+     ]
+    }
+   }
+  },
+  "Threaded Rod (cut to length, no nut)": {
+   "nace": {
+    "Non-Sour (standard service)": {
+     "grade": [
+      "ASTM A193 Gr.B16",
+      "ASTM A193 Gr.B5",
+      "ASTM A193 Gr.B6",
+      "ASTM A193 Gr.B7",
+      "ASTM A193 Gr.B8 Cl.2",
+      "ASTM A193 Gr.B8M Cl.2",
+      "ASTM A307 Gr.A",
+      "ASTM A307 Gr.B",
+      "ASTM A320 Gr.L43",
+      "ASTM A320 Gr.L7",
+      "ASTM A354 Gr.BC",
+      "ASTM A354 Gr.BD",
+      "ASTM A453 Gr.660",
+      "Property Class 10.9",
+      "Property Class 12.9",
+      "Property Class 8.8",
+      "Stainless A2-70",
+      "Stainless A4-80"
+     ]
+    }
+   },
+   "design_standard": {
+    "ASME B18.31.3 threaded rod (inch)": {
+     "grade": [
+      "ASTM A193 Gr.B16",
+      "ASTM A193 Gr.B5",
+      "ASTM A193 Gr.B6",
+      "ASTM A193 Gr.B7",
+      "ASTM A193 Gr.B7M",
+      "ASTM A193 Gr.B8 Cl.1",
+      "ASTM A193 Gr.B8 Cl.2",
+      "ASTM A193 Gr.B8C Cl.1",
+      "ASTM A193 Gr.B8M Cl.1",
+      "ASTM A193 Gr.B8M Cl.2",
+      "ASTM A193 Gr.B8T Cl.1",
+      "ASTM A307 Gr.A",
+      "ASTM A307 Gr.B",
+      "ASTM A320 Gr.B8 Cl.1",
+      "ASTM A320 Gr.B8M Cl.1",
+      "ASTM A320 Gr.L43",
+      "ASTM A320 Gr.L7",
+      "ASTM A320 Gr.L7M",
+      "ASTM A354 Gr.BC",
+      "ASTM A354 Gr.BD",
+      "ASTM A453 Gr.660"
+     ]
+    },
+    "DIN 976 threaded rod (metric)": {
+     "grade": [
+      "Property Class 10.9",
+      "Property Class 12.9",
+      "Property Class 8.8",
+      "Stainless A2-70",
+      "Stainless A4-80"
+     ]
+    }
+   }
+  }
+ }
+}

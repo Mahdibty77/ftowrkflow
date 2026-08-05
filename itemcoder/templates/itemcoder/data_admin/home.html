@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load ft_extras %}
+{% block title %}Data Management · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Data Management{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Coding-tool data</h1><div class="sub">Import each group's table, edit its items, and manage price lists.</div></div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h3><i class="fa-solid fa-file-import"></i> Import / update a group</h3></div>
+    <p class="muted" style="font-size:.85rem;">Upload an Excel/CSV coding table for a group (header decides the columns). Re-uploading replaces that group's data with the fast database.</p>
+    <div class="btn-row" style="margin-top:.6rem;">
+      <a class="btn btn-primary btn-sm" href="{% url 'dm_code_upload' %}"><i class="fa-solid fa-upload"></i> Import a group</a>
+    </div>
+    {% if code_tables %}
+      <table class="data" style="margin-top:.8rem;">
+        <thead><tr><th>Group</th><th class="num">Rows</th><th>Updated</th></tr></thead>
+        <tbody>
+          {% for t in code_tables %}
+          <tr><td><strong>{{ t.group }}</strong></td><td class="num">{{ t.row_count }}</td>
+            <td class="muted">{{ t.updated_at|jalali:"Y.m.d H:i" }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="muted" style="margin-top:.6rem;font-size:.85rem;">No groups imported yet.</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3><i class="fa-solid fa-tags"></i> Price lists</h3></div>
+    <p class="muted" style="font-size:.85rem;">Keep several independent price lists per code (e.g. per supplier / quarter).</p>
+    <div class="btn-row" style="margin-top:.6rem;">
+      <a class="btn btn-primary btn-sm" href="{% url 'dm_price_lists' %}"><i class="fa-solid fa-list"></i> Manage price lists</a>
+    </div>
+    <div class="muted" style="margin-top:.6rem;font-size:.85rem;">{{ price_lists|length }} list(s) defined.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3><i class="fa-solid fa-gears"></i> Technical Assistant log</h3></div>
+    <p class="muted" style="font-size:.85rem;margin:0;">Every item EA has created (Size extensions only) — who, when, and the resulting code.</p>
+    <div class="btn-row" style="margin-top:.6rem;">
+      <a class="btn btn-sm" href="{% url 'dm_ea_item_log' %}"><i class="fa-solid fa-list-check"></i> View log</a>
+    </div>
+  </div>
+</div>
+
+{% if code_tables %}
+<h2 style="margin:1.4rem 0 .6rem;font-size:1.05rem;">Edit a group</h2>
+<div class="grid grid-3">
+  {% for t in code_tables %}
+  <div class="card">
+    <div class="card-head"><h3><i class="fa-solid fa-cubes"></i> {{ t.group }}</h3><span class="muted" style="font-size:.78rem;">{{ t.row_count }} items</span></div>
+    <div class="btn-row" style="margin-top:.4rem;flex-wrap:wrap;gap:.4rem;">
+      <a class="btn btn-sm" href="{% url 'dm_code_rows' t.group %}"><i class="fa-solid fa-table-list"></i> Browse</a>
+      <a class="btn btn-sm" href="{% url 'dm_features' t.group %}"><i class="fa-solid fa-sliders"></i> Features</a>
+      <a class="btn btn-sm" href="{% url 'dm_offer' t.group %}"><i class="fa-solid fa-diagram-project"></i> Offer</a>
+      <a class="btn btn-sm btn-primary" href="{% url 'dm_item_new' t.group %}"><i class="fa-solid fa-plus"></i> Add item</a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

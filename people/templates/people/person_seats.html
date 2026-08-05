@@ -1,0 +1,452 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Seats · {{ person.display_name }} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Seats · {{ person.display_name }}{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-8">
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Seats</h1>
+    <div class="sub">
+      One login per person. Extra seats add roles only — same username.
+    </div>
+  </div>
+  <div class="btn-row">
+    <a href="{% url 'people:person_detail' person.pk %}" class="btn btn-sm" title="Details">
+      <i class="fa-solid fa-id-badge"></i> Details
+    </a>
+    <a href="{% url 'people:person_list' %}" class="btn btn-sm">
+      <i class="fa-solid fa-arrow-left"></i> Back to people
+    </a>
+  </div>
+</div>
+
+<div class="card ppl-idcard">
+  <div class="ppl-idcard-main">
+    <div class="ppl-idcard-name">{{ person.display_name }}</div>
+    <div class="ppl-idcard-sub">{% if person.username %}<span class="mono">{{ person.username }}</span>{% else %}—{% endif %}</div>
+  </div>
+  <dl class="kv ppl-idcard-kv">
+    <dt>Detail code</dt><dd><span class="ppl-code">{{ person.detail_code }}</span></dd>
+    <dt>Internal code</dt>
+    <dd class="mono">{% if person.internal_code %}{{ person.internal_code }}{% else %}<span class="muted">Not set</span>{% endif %}</dd>
+    <dt>Login username</dt>
+    <dd>
+      {% if login_user %}
+        <span class="mono">{{ login_user.username }}</span>
+      {% elif person.username %}
+        <span class="mono">{{ person.username }}</span>
+      {% else %}
+        <span class="muted">Not set — add a Latin name first.</span>
+      {% endif %}
+    </dd>
+    <dt>Status</dt>
+    <dd>
+      {% if person.is_active %}
+        <span class="pill pill-green">Active</span>
+      {% else %}
+        <span class="pill pill-grey">Departed</span>
+      {% endif %}
+    </dd>
+  </dl>
+</div>
+
+{% if reveal_credential %}
+  <div class="cred-reveal">
+    <div class="cred-reveal-head"><i class="fa-solid fa-circle-check"></i> {{ reveal_credential.label }}</div>
+    <p class="cred-reveal-text">
+      This password is shown once. The person must set their own password at first sign-in.
+    </p>
+    <div class="cred-row">
+      <span class="cred-label">Username</span>
+      <span class="cred-value mono">{{ reveal_credential.username }}</span>
+    </div>
+    <div class="cred-row">
+      <span class="cred-label">Temporary password</span>
+      <span class="cred-value mono" id="credPwValue">{{ reveal_credential.password }}</span>
+      <button type="button" class="btn btn-sm" id="credCopyBtn"><i class="fa-solid fa-copy"></i> Copy</button>
+    </div>
+  </div>
+{% endif %}
+
+<div class="card">
+  <div class="card-head">
+    <h3>Seats</h3>
+    <span class="count">{{ role_rows|length }}</span>
+  </div>
+  {% if role_rows %}
+    <div class="ppl-seats">
+      {% for row in role_rows %}
+        {% with role=row.role %}
+        <article class="ppl-seat">
+          <header class="ppl-seat-head">
+            <span class="ppl-seat-user">{{ role.title_line }}</span>
+            {% if row.is_sub %}<span class="pill pill-amber">Substitute</span>{% endif %}
+            {% if row.tasks %}<span class="pill pill-amber">{{ row.tasks }} task{{ row.tasks|pluralize }}</span>{% endif %}
+          </header>
+          <dl class="kv ppl-seat-kv">
+            <dt>Index</dt>
+            <dd class="mono">{% if role.seat_code %}{{ role.seat_code }}{% else %}—{% endif %}</dd>
+            <dt>Assigned</dt>
+            <dd class="mono">{{ role.created_at_jalali|default:"—" }}</dd>
+          </dl>
+          <footer class="ppl-seat-foot" style="display:flex;flex-wrap:wrap;gap:.4rem;">
+            {% if row.is_sub %}
+            <button type="button" class="btn btn-sm"
+                    data-confirm-toggle="ppl-ret-{{ role.pk }}">
+              <i class="fa-solid fa-rotate-left"></i> Return
+            </button>
+            {% else %}
+            <button type="button" class="btn btn-sm"
+                    data-confirm-toggle="ppl-tr-{{ role.pk }}">
+              <i class="fa-solid fa-right-left"></i> Translate
+            </button>
+            {% endif %}
+            {% if row.seat_pk %}
+            <a href="{% url 'accounts:seat_delegate' row.seat_pk %}" class="btn btn-sm">
+              <i class="fa-solid fa-share-from-square"></i> Delegate
+            </a>
+            <a href="{% url 'accounts:seat_history' row.seat_pk %}" class="btn btn-sm">
+              <i class="fa-solid fa-clock-rotate-left"></i> History
+            </a>
+            {% endif %}
+            <button type="button" class="btn btn-sm btn-danger"
+                    data-confirm-toggle="ppl-role-{{ role.pk }}">
+              <i class="fa-solid fa-xmark"></i> Close
+            </button>
+          </footer>
+          {% if row.is_sub %}
+          <div id="ppl-ret-{{ role.pk }}" class="ppl-confirm" data-confirm-box hidden>
+            <span class="ppl-confirm-icon"><i class="fa-solid fa-rotate-left"></i></span>
+            <span class="ppl-confirm-q">Return «{{ role.title_line }}» to the origin owner?</span>
+            <span class="ppl-confirm-act">
+              <form method="post" action="{% url 'people:role_return' person.pk role.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-check"></i> Confirm return</button>
+              </form>
+              <button type="button" class="btn btn-sm btn-ghost" data-confirm-cancel>Cancel</button>
+            </span>
+          </div>
+          {% else %}
+          <div id="ppl-tr-{{ role.pk }}" class="ppl-confirm ppl-confirm-translate" data-confirm-box hidden>
+            <span class="ppl-confirm-icon"><i class="fa-solid fa-right-left"></i></span>
+            <span class="ppl-confirm-q">Translate «{{ role.title_line }}» to a substitute?</span>
+            <form method="post" action="{% url 'people:role_translate' person.pk role.pk %}"
+                  class="ppl-confirm-act" style="flex-wrap:wrap;width:100%;gap:.5rem;">
+              {% csrf_token %}
+              <select name="to_person" data-combo data-placeholder="Search people…" required style="min-width:14rem;flex:1;">
+                <option value=""></option>
+                {% for p in people_choices %}
+                  <option value="{{ p.pk }}">{{ p.display_name }} · {{ p.detail_code }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-check"></i> Confirm</button>
+              <button type="button" class="btn btn-sm btn-ghost" data-confirm-cancel>Cancel</button>
+            </form>
+          </div>
+          {% endif %}
+          <div id="ppl-role-{{ role.pk }}" class="ppl-confirm" data-confirm-box hidden>
+            <span class="ppl-confirm-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+            <span class="ppl-confirm-q">
+              Close seat «{{ role.title_line }}»?
+              {% if row.tasks %}This seat still has {{ row.tasks }} open task(s) — Delegate them first.
+              {% elif role_rows|length == 1 %}This is their last seat — it returns to the catalogue.{% endif %}
+            </span>
+            <span class="ppl-confirm-act">
+              {% if row.tasks and row.seat_pk %}
+              <a href="{% url 'accounts:seat_delegate' row.seat_pk %}?then_close=1" class="btn btn-sm btn-primary">
+                <i class="fa-solid fa-share-from-square"></i> Delegate
+              </a>
+              {% elif not row.tasks %}
+              <form method="post" action="{% url 'people:role_release' person.pk role.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-danger"><i class="fa-solid fa-check"></i> Confirm close</button>
+              </form>
+              {% endif %}
+              <button type="button" class="btn btn-sm btn-ghost" data-confirm-cancel>Cancel</button>
+            </span>
+          </div>
+        </article>
+        {% endwith %}
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty">No seats yet. Use Add seat or Available seats below.</div>
+  {% endif %}
+  <div class="btn-row" style="justify-content:flex-end;margin-top:.85rem;">
+    <a href="{% url 'accounts:user_create' %}?person={{ person.pk }}" class="btn btn-primary">
+      <i class="fa-solid fa-plus"></i> Add seat
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h3><i class="fa-solid fa-sitemap"></i> Available seats</h3>
+    <span class="count">{{ free_count }}</span>
+  </div>
+  <p class="ppl-note">
+    <i class="fa-solid fa-circle-info"></i>
+    <span>
+      Open a Unit &amp; role group to see its seats.
+      Claiming an active seat translates that role onto this person (two-step confirm).
+    </span>
+  </p>
+
+  {% if free_groups %}
+    <div class="av-card">
+      <div class="av-scroll" id="avScroll">
+        <div class="av-grid av-head" role="row">
+          <div class="av-c av-c-idx">Index</div>
+          <div class="av-c av-c-person">Person</div>
+          <div class="av-c av-c-status">Status</div>
+          <div class="av-c av-c-act"></div>
+        </div>
+        {% for g in free_groups %}
+          <section class="av-group" data-av-branch>
+            <button type="button" class="av-group-bar" data-group-toggle="av{{ forloop.counter }}" aria-expanded="false">
+              <span class="av-group-mark" aria-hidden="true"></span>
+              <strong class="av-group-name">{{ g.title }}</strong>
+              <span class="av-group-meta">{{ g.seats|length }}</span>
+              <i class="fa-solid fa-chevron-right av-chev"></i>
+            </button>
+            <div class="av-group-body" data-group-panel="av{{ forloop.counter }}" hidden>
+              {% for s in g.seats %}
+                <div class="av-grid av-row" role="row">
+                  <div class="av-c av-c-idx"><span class="sg-idx mono">{{ s.index }}</span></div>
+                  <div class="av-c av-c-person">
+                    {% if s.holder %}
+                      <div>{{ s.holder.display_name }}</div>
+                      <div class="mono muted" style="font-size:.74rem;">{{ s.holder.username }} · {{ s.holder.detail_code }}</div>
+                    {% else %}
+                      <span class="muted">Vacant</span>
+                    {% endif %}
+                  </div>
+                  <div class="av-c av-c-status">
+                    {% if s.active %}<span class="pill pill-green">Active</span>
+                    {% else %}<span class="pill pill-grey">Vacant</span>{% endif %}
+                  </div>
+                  <div class="av-c av-c-act">
+                    <button type="button" class="btn btn-sm" data-confirm-toggle="claim-{{ s.user.pk }}">
+                      {% if s.holder %}Claim / translate{% else %}Assign{% endif %}
+                    </button>
+                    <div id="claim-{{ s.user.pk }}" class="ppl-confirm" data-confirm-box hidden style="margin-top:.4rem;text-align:left;">
+                      <div data-claim-step="1">
+                        <span class="ppl-confirm-q">
+                          {% if s.holder %}
+                            Take «{{ g.title }}» ({{ s.index }}) from {{ s.holder.display_name }} and give it to {{ person.display_name }}?
+                          {% else %}
+                            Assign vacant seat {{ s.index }} ({{ g.title }}) to {{ person.display_name }}?
+                          {% endif %}
+                        </span>
+                        <span class="ppl-confirm-act">
+                          {% if s.holder %}
+                            <button type="button" class="btn btn-sm btn-primary" data-claim-continue="claim-{{ s.user.pk }}">
+                              <i class="fa-solid fa-arrow-right"></i> Continue
+                            </button>
+                          {% else %}
+                            <form method="post" action="{% url 'people:seat_claim' person.pk %}" style="display:inline;">
+                              {% csrf_token %}
+                              <input type="hidden" name="seat" value="{{ s.user.pk }}">
+                              <button type="submit" class="btn btn-sm btn-primary">
+                                <i class="fa-solid fa-check"></i> Confirm
+                              </button>
+                            </form>
+                          {% endif %}
+                          <button type="button" class="btn btn-sm btn-ghost" data-confirm-cancel>Cancel</button>
+                        </span>
+                      </div>
+                      {% if s.holder %}
+                      <div data-claim-step="2" hidden>
+                        <span class="ppl-confirm-q ppl-claim-step2">
+                          Confirm transfer: take this seat from
+                          <strong>{{ s.holder.display_name }}</strong>
+                          and assign it to
+                          <strong>{{ person.display_name }}</strong>?
+                        </span>
+                        <span class="ppl-confirm-act">
+                          <button type="button" class="btn btn-sm btn-ghost" data-claim-back="claim-{{ s.user.pk }}">Back</button>
+                          <form method="post" action="{% url 'people:seat_claim' person.pk %}" style="display:inline;">
+                            {% csrf_token %}
+                            <input type="hidden" name="seat" value="{{ s.user.pk }}">
+                            <button type="submit" class="btn btn-sm btn-primary">
+                              <i class="fa-solid fa-check"></i> Confirm assign
+                            </button>
+                          </form>
+                          <button type="button" class="btn btn-sm btn-ghost" data-confirm-cancel>Cancel</button>
+                        </span>
+                      </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </section>
+        {% endfor %}
+      </div>
+    </div>
+  {% else %}
+    <div class="empty">
+      No seats in the catalogue yet.
+      <a href="{% url 'accounts:user_create' %}?person={{ person.pk }}">Create a seat / role</a>
+      for this person.
+    </div>
+  {% endif %}
+</div>
+
+<style>
+  .av-card{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--paper)}
+  .av-scroll{overflow:auto;max-height:min(62vh,520px)}
+  .av-grid{
+    display:grid;
+    grid-template-columns:4.2rem minmax(11rem,1.7fr) minmax(5.2rem,.7fr) minmax(7.5rem,1fr);
+    gap:0 .65rem;align-items:center;min-width:560px;padding:0 1rem;box-sizing:border-box;
+  }
+  .av-head{
+    position:sticky;top:0;z-index:2;min-height:2.3rem;
+    background:var(--cloud);border-bottom:1px solid var(--line);
+    font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);
+  }
+  .av-group{border-bottom:1px solid var(--line-soft)}
+  .av-group:last-child{border-bottom:0}
+  .av-group-bar{
+    display:flex;align-items:center;gap:.55rem;width:100%;min-width:560px;
+    border:0;cursor:pointer;font:inherit;text-align:left;color:var(--ink);
+    background:color-mix(in srgb,var(--accent) 9%,var(--paper));
+    border-bottom:1px solid color-mix(in srgb,var(--accent) 16%,var(--line-soft));
+    padding:0 .75rem 0 0;min-height:2.5rem;
+  }
+  .av-group-bar:hover{background:color-mix(in srgb,var(--accent) 14%,var(--paper))}
+  .av-group-mark{width:4px;align-self:stretch;flex:0 0 auto;background:var(--accent)}
+  .av-group-name{
+    flex:1 1 auto;min-width:0;font-size:.9rem;font-weight:700;
+    text-align:left;padding-left:.65rem;
+  }
+  .av-group-meta{
+    flex:0 0 auto;font-size:.72rem;font-weight:650;color:var(--muted);
+    background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:.08rem .5rem;
+  }
+  .av-chev{
+    flex:0 0 auto;font-size:.7rem;color:var(--muted);width:.85rem;
+    transition:transform .12s;margin-left:.15rem;
+  }
+  .av-group-bar[aria-expanded="true"] .av-chev{transform:rotate(90deg);color:var(--accent-strong)}
+  .av-group-body{
+    background:var(--paper);
+    border-left:4px solid color-mix(in srgb,var(--accent) 28%,var(--line));
+  }
+  .av-row{
+    min-height:2.55rem;font-size:.84rem;border-bottom:1px solid var(--line-soft);
+    padding-top:.35rem;padding-bottom:.35rem;
+  }
+  .av-row:last-child{border-bottom:0}
+  .av-row:hover{background:color-mix(in srgb,var(--accent) 5%,transparent)}
+  .sg-idx{
+    display:inline-flex;align-items:center;justify-content:center;
+    min-width:2.35rem;height:1.55rem;padding:0 .35rem;
+    border-radius:6px;font-weight:750;font-size:.8rem;
+    background:var(--accent-soft);color:var(--accent-strong);
+    border:1px solid color-mix(in srgb,var(--accent) 26%,var(--line));
+  }
+  .av-c-act{text-align:right}
+  .ppl-claim-step2{display:block;margin-bottom:.55rem;padding:.55rem .65rem;border-radius:var(--radius-sm);background:var(--warnbg);border:1px solid var(--warnline);color:var(--warn);line-height:1.45}
+  .cred-reveal{background:var(--okbg);border:1px solid var(--okline);border-radius:12px;padding:1rem 1.2rem;margin:0 0 1.1rem}
+  .cred-reveal-head{font-weight:750;color:var(--ok);display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem}
+  .cred-reveal-text{font-size:.86rem;margin:0 0 .7rem;line-height:1.5}
+  .cred-row{display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem;flex-wrap:wrap}
+  .cred-label{font-size:.78rem;color:var(--muted);min-width:9rem}
+  .cred-value{font-size:.92rem;font-weight:700;background:var(--paper);border:1px solid var(--okline);border-radius:6px;padding:.25rem .6rem}
+</style>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'people/js/people.js' %}?v=ppl-7"></script>
+  <script>
+  (function () {
+    function scrollParent(el) {
+      var p = el.parentElement;
+      while (p) {
+        var st = window.getComputedStyle(p);
+        if ((st.overflowY === 'auto' || st.overflowY === 'scroll') && p.scrollHeight > p.clientHeight) {
+          return p;
+        }
+        p = p.parentElement;
+      }
+      return document.scrollingElement || document.documentElement;
+    }
+
+    document.addEventListener('click', function (ev) {
+      var cancel = ev.target.closest && ev.target.closest('[data-confirm-cancel]');
+      if (cancel) {
+        var cbox = cancel.closest('[data-confirm-box]');
+        if (cbox) {
+          var cs1 = cbox.querySelector('[data-claim-step="1"]');
+          var cs2 = cbox.querySelector('[data-claim-step="2"]');
+          if (cs1) cs1.hidden = false;
+          if (cs2) cs2.hidden = true;
+        }
+      }
+      var cont = ev.target.closest && ev.target.closest('[data-claim-continue]');
+      if (cont) {
+        var cid = cont.getAttribute('data-claim-continue');
+        var box = document.getElementById(cid);
+        if (!box) return;
+        var s1 = box.querySelector('[data-claim-step="1"]');
+        var s2 = box.querySelector('[data-claim-step="2"]');
+        if (s1) s1.hidden = true;
+        if (s2) s2.hidden = false;
+        return;
+      }
+      var back = ev.target.closest && ev.target.closest('[data-claim-back]');
+      if (back) {
+        var bid = back.getAttribute('data-claim-back');
+        var bbox = document.getElementById(bid);
+        if (!bbox) return;
+        var b1 = bbox.querySelector('[data-claim-step="1"]');
+        var b2 = bbox.querySelector('[data-claim-step="2"]');
+        if (b2) b2.hidden = true;
+        if (b1) b1.hidden = false;
+        return;
+      }
+      var btn = ev.target.closest && ev.target.closest('[data-group-toggle]');
+      if (!btn) return;
+      var id = btn.getAttribute('data-group-toggle');
+      var open = btn.getAttribute('aria-expanded') !== 'true';
+      var panel = document.querySelector('[data-group-panel="' + id + '"]');
+      if (!panel) return;
+
+      // Keep the clicked role bar fixed on screen; collapse/expand content below it.
+      var scroller = scrollParent(btn);
+      var before = btn.getBoundingClientRect().top;
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      panel.hidden = !open;
+      var after = btn.getBoundingClientRect().top;
+      var delta = after - before;
+      if (Math.abs(delta) > 0.5) {
+        if (scroller === document.scrollingElement || scroller === document.documentElement || scroller === document.body) {
+          window.scrollBy(0, delta);
+        } else {
+          scroller.scrollTop += delta;
+        }
+      }
+    });
+
+    var copy = document.getElementById('credCopyBtn');
+    var val = document.getElementById('credPwValue');
+    if (copy && val && navigator.clipboard) {
+      copy.addEventListener('click', function () {
+        navigator.clipboard.writeText(val.textContent).then(function () {
+          var o = copy.innerHTML;
+          copy.innerHTML = '<i class="fa-solid fa-check"></i> Copied';
+          setTimeout(function () { copy.innerHTML = o; }, 1500);
+        });
+      });
+    }
+  })();
+  </script>
+{% endblock %}

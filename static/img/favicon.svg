@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Foolad Tabar">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a2370"/>
+      <stop offset="1" stop-color="#0a1629"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".32" stop-color="#c8d1dc"/>
+      <stop offset=".62" stop-color="#e4e9f0"/>
+      <stop offset="1" stop-color="#8a9bb0"/>
+    </linearGradient>
+  </defs>
+  <!-- App tile -->
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <!-- Brand mark: top bar + angular steel stem (same language as document logo) -->
+  <rect x="11" y="13" width="42" height="7.5" rx="1.6" fill="url(#steel)"/>
+  <path d="M26 27.5 H50 V36.5 H35.5 V51 H26 Z" fill="url(#steel)"/>
+</svg>

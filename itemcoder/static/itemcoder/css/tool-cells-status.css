@@ -1,0 +1,919 @@
+/* tool-cells-status.css
+ * Shared TO/PI cell and column treatments: technical-problem card, remark/brand split UI, alarm chips, status bars, editable-cell chrome, engineering status cards.
+ * Split out of the former monolithic style.css (2026-07 CSS reorg).
+ * No rule was changed, only relocated: concatenating tool-layout.css,
+ * tool-cells-status.css, tool-panels.css, tool-icons.css and
+ * tool-dark-mode.css in that order reproduces the old file byte for byte.
+ */
+/* ===========================================================================
+   DARK THEME for the coding tool ? toggled via <html data-theme="dark"> (shared
+   with the main site via localStorage). Only neutral surfaces flip; the final-
+   text highlight colours (.highlight-color / .highlight-red) and the remark /
+   ??????? editor styling are intentionally left unchanged.
+   =========================================================================== */
+/* Dark tokens now come from the site theme (theme-pack.css) via data-mode, so
+   the tool turns dark together with the app and in the user's chosen colour. */
+html[data-theme="dark"] #virtual-scroll-tbody tr.vs-row-odd td{ background: var(--surface); }
+html[data-theme="dark"] #virtual-scroll-tbody tr.vs-row-even td{ background: var(--surface-soft); }
+html[data-theme="dark"] #virtual-scroll-tbody tr.vs-pad-row td{ background: transparent !important; }
+html[data-theme="dark"] #virtual-scroll-viewport{ background: var(--surface); }
+html[data-theme="dark"] #excel-table-container{ background: var(--surface); box-shadow: none; }
+html[data-theme="dark"] .lang-switch,
+html[data-theme="dark"] .calculation-card input,
+html[data-theme="dark"] .calculation-card select{ background: var(--surface); color: var(--text); }
+html[data-theme="dark"] .basic-cell-editor{ background: var(--surface); color: var(--text); }
+
+/* Hidden technical columns: kept in the data (Group/Type power per-row colouring
+   and lookup; Filled_Features carries the breakdown) but not shown in the grid.
+   To SHOW Filled_Features for the technical build, delete its two selectors
+   below and remove it from HIDDEN_COLUMNS in table_layout_manager.py. */
+th[data-col-name="Group"], td[data-col-name="Group"],
+th[data-col-name="Type"], td[data-col-name="Type"],
+th[data-col-name="Filled_Features"], td[data-col-name="Filled_Features"] {
+    display: none !important;
+}
+
+/* Technical problem reason card (TO tool) ? horizontal, app-styled */
+.tp-reason-card[hidden] { display: none !important; }
+/* Same theme-variable system as the PI Service card (.svc-card in
+   tool-panels.css) — previously this used hardcoded purple hex colours with
+   no dark-mode counterpart anywhere in the stylesheet, so it looked wrong
+   (a bright light-purple box) whenever the app was in dark mode. Structure
+   and class names are unchanged; only the colour values now come from
+   --paper/--ink/--line/--muted/--accent, which are already redefined per
+   skin and per light/dark mode elsewhere, so this now follows automatically. */
+.tp-reason-card {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: .85rem;
+  margin: 0 0 .7rem;
+  padding: .75rem .9rem;
+  border: 1px solid var(--accent-soft);
+  border-radius: var(--radius, 9px);
+  background: var(--mist, var(--paper));
+  box-shadow: 0 1px 2px rgba(16,24,40,.04);
+}
+.tp-reason-left, .tp-reason-right {
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius, 9px) - 2px);
+  background: var(--paper);
+  padding: .65rem .75rem;
+  min-width: 0;
+}
+.tp-reason-title {
+  font-size: .72rem; font-weight: 800; color: var(--accent-strong, var(--accent));
+  text-transform: uppercase; letter-spacing: .04em; margin-bottom: .4rem;
+}
+.tp-reason-hint {
+  margin: 0 0 .45rem;
+  font-size: .78rem;
+  font-weight: 600;
+  color: #9a3412;
+  background: color-mix(in srgb, #d97706 12%, var(--paper, #fff));
+  border: 1px solid color-mix(in srgb, #d97706 35%, var(--line, #d8dde6));
+  border-radius: 8px;
+  padding: .35rem .55rem;
+}
+.tp-reason-left textarea {
+  width: 100%; min-height: 4.2rem; max-height: 7rem; resize: vertical;
+  border: 1px solid var(--line); border-radius: calc(var(--radius, 9px) - 2px);
+  padding: .5rem .6rem; font-size: .84rem; box-sizing: border-box;
+  background: var(--paper); color: var(--ink);
+}
+.tp-reason-left textarea:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.tp-reason-error {
+  margin-top: .35rem;
+  padding: .35rem .55rem;
+  border-radius: 8px;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--rej, #b42318);
+  background: var(--rejbg, #fef3f2);
+  border: 1px solid var(--rejline, #fecdca);
+}
+.tp-reason-actions {
+  display: flex; gap: .45rem; margin-top: .55rem; justify-content: flex-end;
+}
+.tp-reason-actions .btn {
+  border-radius: 999px; min-width: 5.5rem; font-weight: 700;
+  padding: .35rem .9rem;
+}
+.tp-reason-actions #tp-reason-confirm {
+  background: var(--accent); border-color: var(--accent); color: var(--on-accent, #fff);
+}
+.tp-reason-actions #tp-reason-confirm:hover { filter: brightness(1.05); }
+.tp-reason-actions #tp-reason-cancel {
+  background: var(--paper); border: 1px solid var(--line); color: var(--muted);
+}
+.tp-reason-actions .btn { cursor: pointer; }
+
+/* Clickable controls: pointer cursor project-wide in tools */
+button:not(:disabled), .btn:not(:disabled), select:not(:disabled),
+.to-tool-tile, .ic-box, label.ft-switch, .ft-pt-pane select,
+.ft-pt-pane button, .ft-pt-pane input[type="radio"],
+.ft-pt-pane label, [data-pipe-tool] { cursor: pointer; }
+button:disabled, .btn:disabled, select:disabled { cursor: not-allowed; }
+
+.tp-reason-list {
+  list-style: none; margin: 0; padding: 0;
+  /* ~4 rows then scroll */
+  max-height: 7.2rem; overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius, 9px) - 1px);
+  background: var(--mist, var(--paper));
+  padding: .2rem .45rem;
+}
+.tp-reason-list li,
+.tp-reason-list .tp-reason-li {
+  display: grid;
+  grid-template-columns: minmax(3.2rem, auto) 1fr auto;
+  gap: .45rem;
+  align-items: start;
+  padding: .32rem .15rem; border-bottom: 1px solid var(--line);
+  font-size: .82rem;
+}
+.tp-reason-list li:last-child { border-bottom: 0; }
+.tp-reason-list .tp-item { font-weight: 700; color: var(--accent-strong, var(--accent)); white-space: nowrap; }
+.tp-reason-list .tp-text { white-space: pre-wrap; color: var(--ink); min-width: 0; }
+.tp-reason-remove {
+  appearance: none; border: 0; background: transparent; cursor: pointer;
+  width: 1.35rem; height: 1.35rem; border-radius: 999px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--rej, #b42318);
+  flex: 0 0 auto; margin-top: .05rem;
+  transition: background .12s, color .12s;
+}
+.tp-reason-remove:hover {
+  background: var(--rejbg, #fef3f2);
+  color: var(--rej, #b42318);
+}
+.tp-reason-remove .fa-solid,
+.tp-reason-remove i { font-size: .72rem; line-height: 1; }
+@media (max-width: 900px) {
+  .tp-reason-card { grid-template-columns: 1fr; }
+}
+
+/* TO: wrench multi-select — highlight ONLY the Item Code cell, never the row. */
+.ic-box.ic-tp-pending {
+  background: color-mix(in srgb, #d97706 16%, var(--paper, #fff));
+  border-color: color-mix(in srgb, #d97706 55%, var(--line, #d8dde6));
+  color: #9a3412;
+  box-shadow: 0 0 0 2px color-mix(in srgb, #d97706 22%, transparent);
+}
+.ic-box.ic-tp-pending .ic-flag,
+.ic-box.ic-tp-pending .ic-flag-ico {
+  opacity: 1 !important;
+  color: #c2410c !important;
+}
+
+.row-mark {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 50%;
+  font-size: 0.58rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+  pointer-events: none;
+  transform: translateY(-0.5px);
+}
+.row-mark[hidden] { display: none !important; }
+.row-mark-del { border: 1.5px solid #b91c1c; color: #b91c1c; background: #fef2f2; }
+.row-mark-add { border: 1.5px solid #15803d; color: #15803d; background: #f0fdf4; }
+
+/* REMARK Old/New split (point 5): compact so it never widens the column. */
+td[data-col-name="??????"].rmk-split { vertical-align: top; }
+.rmk-old {
+  display: flex; align-items: flex-start; gap: 4px; margin-bottom: 3px;
+  padding: 2px 4px; border-radius: 5px; background: #f1f3f7;
+  border: 1px dashed #c7cedb; font-size: .72rem; color: #55607a; line-height: 1.25;
+}
+.rmk-old-val { white-space: pre-wrap; word-break: break-word; }
+.rmk-tag {
+  flex: none; font-size: .58rem; font-weight: 800; letter-spacing: .03em;
+  text-transform: uppercase; color: #8a97a8; padding-top: 1px;
+}
+.rmk-tag-new { display: inline; margin: 0 6px 0 0; color: #15803d; vertical-align: middle; }
+.rmk-pf-actions {
+  display: inline-flex !important;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  margin: 0 0 2px;
+  position: relative;
+  z-index: 5;
+  vertical-align: middle;
+}
+.rmk-pf-btn {
+  border: 1px solid #c7cedb; background: #fff; color: #334155;
+  font-size: .58rem; font-weight: 800; line-height: 1;
+  padding: 2px 6px; border-radius: 4px; cursor: pointer;
+  pointer-events: auto !important;
+  white-space: nowrap;
+}
+.rmk-pf-btn:hover { border-color: #94a3b8; background: #f8fafc; }
+.rmk-pf-reject { color: #b91c1c; border-color: #f1c0c0; background: #fef2f2; }
+.rmk-pf-reject:hover { background: #fee2e2; border-color: #f87171; }
+.rmk-pf-confirm { color: #15803d; border-color: #bbf7d0; background: #f0fdf4; }
+.rmk-pf-confirm:hover { background: #dcfce7; border-color: #4ade80; }
+
+/* Revision group-change confirm (when Revision would flip an existing Group) */
+.rev-group-confirm {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 6px; margin-bottom: 4px;
+  border: 1px solid #f0c98a; border-radius: 6px;
+  background: #fffbeb; color: #92400e;
+  font-size: .68rem; font-weight: 600;
+}
+.rev-group-confirm-msg b { font-family: ui-monospace, Consolas, monospace; }
+.rev-group-confirm-actions { display: inline-flex; gap: 4px; }
+.rev-group-btn {
+  border: 1px solid #c7cedb; background: #fff; color: #334155;
+  font-size: .58rem; font-weight: 800; line-height: 1;
+  padding: 2px 6px; border-radius: 4px; cursor: pointer;
+  white-space: nowrap;
+}
+.rev-group-confirm-btn { color: #15803d; border-color: #bbf7d0; background: #f0fdf4; }
+.rev-group-reject-btn { color: #b91c1c; border-color: #f1c0c0; background: #fef2f2; }
+
+/* Pending PF resolve: remark/revision locked grey like unit price */
+#virtual-scroll-table tr[data-pf-pending="1"] td[data-col-name="??????"],
+#virtual-scroll-table tr[data-pf-pending="1"] td[data-col-name="???????"] {
+  cursor: not-allowed !important;
+  background: #f7f8fa !important;
+}
+#virtual-scroll-table tr[data-pf-pending="1"] td[data-col-name="??????"] textarea,
+#virtual-scroll-table tr[data-pf-pending="1"] td[data-col-name="???????"] textarea,
+#virtual-scroll-table td[data-col-name="??????"][data-locked="1"] textarea,
+#virtual-scroll-table td[data-col-name="???????"][data-locked="1"] textarea {
+  background: #f1f3f6 !important;
+  color: #aeb6c2 !important;
+  border-color: #e1e5ec !important;
+  cursor: not-allowed !important;
+}
+td[data-col-name="??????"].rmk-split {
+  vertical-align: top !important;
+  overflow: visible !important;
+}
+/* Keep New tag + Reject/Confirm on one compact horizontal line */
+td[data-col-name="??????"].rmk-split .rmk-tag-new,
+td[data-col-name="??????"].rmk-split .rmk-pf-actions {
+  display: inline-flex !important;
+  vertical-align: middle;
+}
+
+/* BRAND Old/New split ? compact, stays inside the cell */
+td[data-col-name="BRAND"].brd-split {
+  vertical-align: top !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  max-width: 100%;
+}
+.brd-old {
+  display: flex; align-items: flex-start; gap: 4px; margin-bottom: 3px;
+  padding: 2px 4px; border-radius: 5px; background: #f1f3f7;
+  border: 1px dashed #c7cedb; font-size: .72rem; color: #55607a; line-height: 1.25;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.brd-old-val { white-space: pre-wrap; word-break: break-word; min-width: 0; }
+.brd-tag {
+  flex: none; font-size: .58rem; font-weight: 800; letter-spacing: .03em;
+  text-transform: uppercase; color: #8a97a8; padding-top: 1px;
+}
+.brd-new-head {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 2px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.brd-tag-new {
+  display: inline-flex !important;
+  margin: 0;
+  color: #15803d;
+  vertical-align: middle;
+}
+.brd-pf-actions {
+  display: inline-flex !important;
+  flex-direction: row;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+  margin: 0;
+  position: relative;
+  z-index: 5;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.brd-pf-btn {
+  border: 1px solid #c7cedb; background: #fff; color: #334155;
+  font-size: .55rem; font-weight: 800; line-height: 1;
+  padding: 2px 5px; border-radius: 4px; cursor: pointer;
+  pointer-events: auto !important;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.brd-pf-btn:hover { border-color: #94a3b8; background: #f8fafc; }
+.brd-pf-reject { color: #b91c1c; border-color: #f1c0c0; background: #fef2f2; }
+.brd-pf-reject:hover { background: #fee2e2; border-color: #f87171; }
+.brd-pf-confirm { color: #15803d; border-color: #bbf7d0; background: #f0fdf4; }
+.brd-pf-confirm:hover { background: #dcfce7; border-color: #4ade80; }
+#virtual-scroll-table tr[data-brand-pending="1"] td[data-col-name="BRAND"] {
+  cursor: not-allowed !important;
+  background: #f7f8fa !important;
+}
+#virtual-scroll-table tr[data-brand-pending="1"] td[data-col-name="BRAND"] textarea,
+#virtual-scroll-table td[data-col-name="BRAND"][data-locked="1"] textarea {
+  background: #f1f3f6 !important;
+  color: #aeb6c2 !important;
+  border-color: #e1e5ec !important;
+  cursor: not-allowed !important;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+td[data-col-name="BRAND"].brd-split textarea {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+#virtual-scroll-table td[data-col-name="#"],
+table.data td[data-col-name="#"] {
+  position: relative !important;
+  text-align: center;
+  padding: 0.15rem 0.1rem !important;
+  box-sizing: border-box;
+  overflow: visible;
+}
+.client-no-text { display: block; font-size: .88em; font-weight: 650; text-align: center; width: 100%; line-height: 1.2; }
+tr.row-soft-deleted > td { opacity: .55; background: rgba(148, 163, 184, .10) !important; }
+.unsup-cell { width: 34px; padding: 0 !important; background: var(--surface, #fff) !important; text-align: center; }
+.unsup-btn {
+  border: 1px solid var(--border, #d8dde6); background: var(--surface, #fff);
+  color: var(--muted, #b3bac6); cursor: pointer; font-size: 9px; line-height: 1;
+  width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.unsup-btn:hover { border-color: var(--danger, #c0392b); color: var(--danger, #c0392b); }
+#virtual-scroll-tbody tr.row-unsuppliable > td { background: rgba(192, 57, 43, .08) !important; }
+tr.row-unsuppliable .unsup-btn { background: var(--danger, #c0392b); color: #fff; border-color: var(--danger, #c0392b); }
+/* Price cells read as excluded, not just re-tinted like the rest of the row —
+   this row's price genuinely does not count toward Subtotal/VAT/Grand Total
+   (see recomputeGrand's isActive() check in pi_pricing.js and liveRows() in
+   service_price.js), and the cell should look that way, not just numeric. */
+tr.row-unsuppliable td[data-col-name="UNIT PRICE"],
+tr.row-unsuppliable td[data-col-name="SERVICE PRICE"],
+tr.row-unsuppliable td[data-calc-variable="total_price"],
+tr.row-unsuppliable td[data-col-name="TOTAL PRICE"] {
+  opacity: .45;
+  text-decoration: line-through;
+  pointer-events: none;
+}
+tr.row-unsuppliable td[data-calc-variable="total_price"] input,
+tr.row-unsuppliable td[data-col-name="TOTAL PRICE"] input,
+tr.row-unsuppliable td[data-col-name="UNIT PRICE"] input,
+tr.row-unsuppliable td[data-col-name="SERVICE PRICE"] input {
+  cursor: not-allowed !important;
+}
+tr.row-unsuppliable td[data-col-name="Final Arranged Text"]::after {
+  content: ' ? NOT SUPPLIABLE'; color: var(--danger, #c0392b); font-weight: 700; font-size: .72rem; white-space: nowrap;
+}
+#virtual-scroll-header-row th[data-col-name="__unsup__"],
+#virtual-scroll-header-row th[data-col-name="__del__"] {
+  background: var(--surface-soft, #f4f4f6) !important; box-shadow: none !important; border-left: none !important;
+}
+
+/* ---- PI pricing + filter bar ---- */
+#pi-pricing-bar { margin: .5rem 16px 1rem; display: flex; flex-direction: column; gap: 12px; }
+.pi-block { padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--surface, #fff); }
+.pi-block-title { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted, #667); font-weight: 700; margin-bottom: 10px; }
+#pi-pricing-bar .pi-row { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.pi-feats { display: flex; gap: 12px; flex-wrap: wrap; }
+#pi-pricing-bar label { display: block; font-size: .68rem; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--muted, #667); margin-bottom: 4px; }
+.pi-combo { position: relative; min-width: 180px; }
+.pi-combo input { width: 100%; padding: 8px 11px; border: 1px solid var(--border);
+  border-radius: 8px; font: inherit; background: var(--surface-soft, #fafafa); }
+.pi-menu { position: absolute; z-index: 9999; top: 100%; left: 0; right: 0; margin-top: 4px;
+  background: var(--surface, #fff); border: 1px solid var(--border); border-radius: 8px;
+  max-height: 240px; overflow: auto; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+.pi-menu > div { padding: 8px 11px; cursor: pointer; font-size: .9rem; }
+.pi-menu > div:hover { background: var(--primary-soft, #eef); }
+.pi-menu em { color: var(--muted, #889); font-style: normal; font-size: .82em; }
+.pi-menu .pi-empty { color: var(--muted, #889); cursor: default; }
+.pi-manual-row { display: flex; gap: 6px; }
+.pi-manual input { padding: 8px 11px; border: 1px solid var(--border); border-radius: 8px;
+  font: inherit; background: var(--surface-soft, #fafafa); width: 150px; }
+.pi-btn { font: inherit; cursor: pointer; border: 1px solid var(--primary);
+  background: var(--primary); color: #fff; border-radius: 8px; padding: 8px 14px; }
+.pi-btn-soft { font: inherit; cursor: pointer; border: 1px solid var(--border);
+  background: var(--surface-soft, #f4f4f6); color: var(--text); border-radius: 8px; padding: 8px 14px; align-self: flex-end; }
+.pi-grand { margin-left: auto; text-align: right; }
+.pi-grand span { display: block; font-size: .68rem; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--muted, #667); }
+.pi-grand strong { font-size: 1.4rem; color: var(--primary); }
+.pi-suggestion { margin-top: 12px; padding: 10px 12px; border-radius: 8px;
+  background: var(--primary-soft, #eef3ff); font-size: .9rem; }
+.pi-suggestion button { margin-left: 8px; font: inherit; cursor: pointer;
+  border: 1px solid var(--primary); background: var(--primary); color: #fff;
+  border-radius: 6px; padding: 4px 10px; }
+.pi-comparison { margin-top: 12px; overflow: auto; }
+.pi-cmp { border-collapse: collapse; font-size: .85rem; }
+.pi-cmp th, .pi-cmp td { border: 1px solid var(--border); padding: 5px 12px; text-align: left; }
+.pi-cmp th { background: var(--surface-soft, #f4f4f6); }
+
+/* per-cell price source label (list name / manual) */
+td[data-calc-variable="unit_price"] { position: relative; }
+.price-src { display: block; font-size: .62rem; color: var(--muted, #8a93a6);
+  margin-top: 2px; white-space: nowrap; }
+
+/* ---- Delete column header: plain (no accent bar) ---- */
+#virtual-scroll-header-row th[data-col-name="__del__"] {
+    background: var(--surface-soft, #f4f4f6) !important;
+    box-shadow: none !important;
+    border-left: none !important;
+}
+#virtual-scroll-table col:first-child { /* keep delete column compact */ }
+
+/* ---- PROFORMA REMARK reference column (read-only, click to copy) ---- */
+td[data-col-name="__proforma_remark__"] {
+    cursor: pointer;
+    background: #fff8e6;
+    color: #6b5500;
+    font-size: .82rem;
+    text-align: right;
+    transition: background .15s;
+}
+td[data-col-name="__proforma_remark__"]:hover { background: #ffeebf; }
+td[data-col-name="__proforma_remark__"].copied { background: #cdeccd; color: #1d6b1d; }
+#virtual-scroll-header-row th[data-col-name="__proforma_remark__"] { background: #e7a900 !important; }
+
+/* ---- TO proforma notice bar ---- */
+#pf-notice {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    margin: 0 16px .6rem; padding: 9px 14px;
+    background: #fff8e6; border: 1px solid #f0d98a; border-radius: 10px;
+    font-size: .86rem; color: #6b5500;
+}
+#pf-notice label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; }
+#pf-notice b { font-weight: 700; }
+
+/* ---- TO status bar (rows without FT CODE) + PI status line ---- */
+#to-status-bar {
+    margin: 0 16px .6rem; padding: 8px 14px;
+    background: var(--surface-soft, #f4f4f6); border: 1px solid var(--border); border-radius: 10px;
+    font-size: .86rem;
+}
+#to-status-bar label, .pi-statusline label {
+    display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+}
+.pi-statusline { margin-top: 10px; font-size: .86rem; color: var(--text); }
+.pi-statusline b, #to-status-bar b { color: var(--danger, #c0392b); font-weight: 700; }
+
+.pi-feat-hint { font-size: .82rem; color: var(--muted, #7a8395); padding: 8px 10px;
+  background: var(--surface-soft, #f4f4f6); border: 1px dashed var(--border); border-radius: 8px; max-width: 460px; }
+
+/* ============ TOOL TABLE POLISH (TO/PI) ============ */
+/* Numeric + price columns never wrap */
+#virtual-scroll-table td[data-col-name="size"],
+#virtual-scroll-table td[data-col-name="qty"],
+#virtual-scroll-table td[data-col-name="unit"],
+#virtual-scroll-table td[data-col-name="UNIT PRICE"],
+#virtual-scroll-table td[data-col-name="TOTAL PRICE"],
+#virtual-scroll-table td[data-col-name="BRAND"],
+#virtual-scroll-table td[data-col-name="TIME"] { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Cleaner zebra + hover + thinner lines (kept light for big virtual lists) */
+#virtual-scroll-tbody tr.vs-row-even td { background: var(--surface-soft, #f7f8fa); }
+#virtual-scroll-tbody tr.vs-row-odd  td { background: #ffffff; }
+#virtual-scroll-tbody tr.vs-pad-row td { background: transparent !important; }
+#virtual-scroll-tbody tr:hover td { background: var(--primary-soft, #eef2ff) !important; }
+#virtual-scroll-table th, #virtual-scroll-table td { border-left: 1px solid var(--border, #e6e9ef); border-bottom: 1px solid var(--border, #eef0f4); }
+
+/* ALARM: render each missing-feature token as a separate chip */
+#virtual-scroll-table td[data-col-name="Alarm_Features"] {
+  line-height: 1.6; white-space: normal; overflow: hidden; vertical-align: top;
+}
+.alarm-chip {
+  display: inline-block; margin: 1px 2px; padding: 1px 7px; border-radius: 999px;
+  background: rgba(214,158,46,.16); color: #8a5a00; border: 1px solid rgba(214,158,46,.4);
+  font-size: .72rem; font-weight: 600; white-space: nowrap;
+}
+
+/* Editable cells look like clean inputs (no double-click feel) */
+#virtual-scroll-table td[data-editable="1"],
+#virtual-scroll-table td[data-col-name="??????"],
+#virtual-scroll-table td[data-col-name="???????"],
+#virtual-scroll-table td[data-col-name="BRAND"],
+#virtual-scroll-table td[data-col-name="TIME"] { cursor: text; }
+#virtual-scroll-table td[data-editable="1"]:hover { box-shadow: inset 0 0 0 1px var(--primary-light, #93a4ff); }
+
+/* ============ Item Code per-row issue toggle (TO: Technical Problem / PI: NOT SUPPLIABLE) ============ */
+#virtual-scroll-table td[data-col-name="Item Code"] { white-space: nowrap; }
+.ic-box {
+  display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 7px;
+  border: 1px solid var(--border, #d8dde6); background: var(--surface, #fff); cursor: pointer;
+  font-family: var(--mono, monospace); font-size: .82rem; transition: background .12s, border-color .12s;
+}
+.ic-box:hover { border-color: var(--primary, #4456e6); box-shadow: 0 0 0 2px var(--primary-soft, #eef2ff); }
+.ic-box .ic-flag { font-size: .62rem; opacity: .55; }
+.ic-box:hover .ic-flag { opacity: 1; color: var(--primary, #4456e6); }
+tr.row-issue > td { background: rgba(155, 89, 182, .10) !important; }
+tr.row-issue td[data-col-name="Item Code"] .ic-box { background: rgba(155,89,182,.16); border-color: rgba(155,89,182,.5); color: #6b3a8a; }
+/* Technical Problem: hide ALL description text/nodes; show only the chip. */
+tr.row-issue td[data-col-name="Final Arranged Text"] {
+  font-size: 0 !important;
+  line-height: 1.35;
+  color: transparent !important;
+}
+tr.row-issue td[data-col-name="Final Arranged Text"] * {
+  display: none !important;
+  font-size: 0 !important;
+  visibility: hidden !important;
+}
+tr.row-issue td[data-col-name="Final Arranged Text"]::after {
+  content: 'TECHNICAL PROBLEM';
+  display: inline-block; margin-right: 8px; padding: 1px 8px; border-radius: 6px;
+  background: rgba(142, 68, 173, .12); color: #8e44ad !important; border: 1px solid rgba(142, 68, 173, .5);
+  font-weight: 800; font-size: .66rem !important; letter-spacing: .04em; vertical-align: middle; white-space: nowrap;
+  visibility: visible !important;
+}
+tr.row-unsuppliable td[data-col-name="Final Arranged Text"]::after {
+  content: 'NOT SUPPLIABLE';
+  background: rgba(192, 57, 43, .12); color: #c0392b; border-color: rgba(192, 57, 43, .5);
+}
+
+/* ============ Engineering status cards (TO no-code / PI no-price) ============ */
+.ft-stat-card {
+  display: inline-flex; align-items: center; gap: 12px; margin: 0 16px .7rem; padding: 10px 16px;
+  border: 1px solid var(--border, #e3e7ee); border-left: 4px solid var(--primary, #4456e6);
+  border-radius: 12px; background: var(--surface, #fff); box-shadow: 0 1px 2px rgba(16,24,40,.04);
+  font-size: .86rem;
+}
+.ft-stat-card .ft-stat-ico {
+  width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
+  background: var(--primary-soft, #eef2ff); color: var(--primary, #4456e6); font-size: 14px;
+}
+.ft-stat-card.warn { border-left-color: #e0a800; }
+.ft-stat-card.warn .ft-stat-ico { background: #fff4d6; color: #b8860b; }
+.ft-stat-card .ft-stat-num { font-weight: 800; font-size: 1.05rem; }
+.ft-stat-card label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+.ft-stat-card input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--primary, #4456e6); }
+
+/* ============ PI bar: cards, fields, totals, target-% ============ */
+.pi-block-title i { color: var(--primary, #4456e6); margin-left: 4px; }
+.pi-field { display: flex; flex-direction: column; gap: 5px; min-width: 190px; }
+.pi-field > label { font-size: .72rem; font-weight: 600; color: var(--text-soft, #51607a); display: inline-flex; align-items: center; gap: 6px; }
+.pi-field > label i { color: var(--primary, #4456e6); }
+.pi-field-row { display: flex; gap: 6px; align-items: center; }
+.pi-field-row input { padding: 8px 11px; border: 1px solid var(--border, #d8dde6); border-radius: 8px; font-size: .85rem; min-width: 0; flex: 1; }
+.pi-field-row input:focus { outline: none; border-color: var(--primary, #4456e6); box-shadow: 0 0 0 3px var(--primary-soft, #eef2ff); }
+
+.pi-totals-row { align-items: stretch; gap: 14px; flex-wrap: wrap; }
+.pi-grand-card {
+  display: flex; flex-direction: column; justify-content: center; gap: 2px;
+  padding: 12px 20px; border-radius: 14px; min-width: 220px;
+  background: linear-gradient(135deg, var(--primary, #4456e6), #2f3fbf); color: #fff;
+  box-shadow: 0 6px 18px rgba(68,86,230,.28);
+}
+.pi-grand-card .pi-grand-label { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; opacity: .9; }
+.pi-grand-card strong { font-size: 1.55rem; font-weight: 800; line-height: 1.1; }
+
+.pi-target { justify-content: center; }
+.pi-target-out {
+  min-width: 86px; padding: 8px 12px; border-radius: 8px; font-weight: 800; font-size: .95rem;
+  text-align: center; cursor: pointer; border: 1px dashed var(--border, #cfd6e2); color: var(--text-soft, #51607a);
+  background: var(--surface-soft, #f7f8fa); user-select: none; white-space: nowrap;
+}
+.pi-target-out.pos { color: #157347; background: #e7f6ec; border-color: #9fdcb4; border-style: solid; }
+.pi-target-out.neg { color: #c0392b; background: #fdeceA; background: #fdecea; border-color: #f3b4ac; border-style: solid; }
+.pi-target-out:hover { box-shadow: 0 0 0 3px rgba(68,86,230,.12); }
+
+/* Row of status cards (TO) */
+.ft-stat-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0; margin-top: .2rem; }
+#to-status-bar { padding: 0; border: 0; background: none; }
+
+/* ============ #4: always-field look for value columns ============ */
+#virtual-scroll-table td[data-col-name="size"],
+#virtual-scroll-table td[data-col-name="qty"],
+#virtual-scroll-table td[data-col-name="unit"],
+#virtual-scroll-table td[data-col-name="UNIT PRICE"],
+#virtual-scroll-table td[data-col-name="BRAND"],
+#virtual-scroll-table td[data-col-name="TIME"] {
+  cursor: text;
+}
+#virtual-scroll-table td[data-col-name="size"]:not([data-editing="1"]),
+#virtual-scroll-table td[data-col-name="qty"]:not([data-editing="1"]),
+#virtual-scroll-table td[data-col-name="unit"]:not([data-editing="1"]),
+#virtual-scroll-table td[data-col-name="UNIT PRICE"]:not([data-editing="1"]),
+#virtual-scroll-table td[data-col-name="BRAND"]:not([data-editing="1"]),
+#virtual-scroll-table td[data-col-name="TIME"]:not([data-editing="1"]) {
+  box-shadow: inset 0 0 0 1px var(--border, #e1e6ee);
+  border-radius: 5px;
+}
+#virtual-scroll-table td[data-col-name="size"]:hover,
+#virtual-scroll-table td[data-col-name="qty"]:hover,
+#virtual-scroll-table td[data-col-name="unit"]:hover,
+#virtual-scroll-table td[data-col-name="UNIT PRICE"]:hover,
+#virtual-scroll-table td[data-col-name="TIME"]:hover,
+#virtual-scroll-table td[data-col-name="ریمارک"]:hover,
+#virtual-scroll-table td[data-col-name="اصلاحیه"]:hover {
+  box-shadow: inset 0 0 0 1.5px var(--primary, #4456e6);
+}
+/* BRAND: keep idle chrome; no primary hover rim (unlike Remark/Revision) */
+#virtual-scroll-table td[data-col-name="BRAND"]:hover {
+  box-shadow: inset 0 0 0 1px var(--border, #e1e6ee);
+}
+#virtual-scroll-table td[data-col-name="BRAND"][data-editing="1"]:hover {
+  box-shadow: none;
+}
+
+/* Remark / Revision: same idle chrome as BRAND so hover rim is visible */
+#virtual-scroll-table td[data-col-name="ریمارک"]:not([data-editing="1"]),
+#virtual-scroll-table td[data-col-name="اصلاحیه"]:not([data-editing="1"]) {
+  box-shadow: inset 0 0 0 1px var(--border, #e1e6ee);
+  border-radius: 5px;
+}
+#virtual-scroll-table td[data-col-name="ریمارک"] textarea.remark-revision-textarea:hover,
+#virtual-scroll-table td[data-col-name="اصلاحیه"] textarea.remark-revision-textarea:hover {
+  border-color: var(--primary, #4456e6);
+}
+
+/* TO: size / qty / unit are locked like Client Description — no input chrome. */
+body[data-tool-kind="TO"] #virtual-scroll-table td[data-col-name="size"],
+body[data-tool-kind="TO"] #virtual-scroll-table td[data-col-name="qty"],
+body[data-tool-kind="TO"] #virtual-scroll-table td[data-col-name="unit"] {
+  cursor: default !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+body[data-tool-kind="TO"] #virtual-scroll-table td[data-col-name="size"]:hover,
+body[data-tool-kind="TO"] #virtual-scroll-table td[data-col-name="qty"]:hover,
+body[data-tool-kind="TO"] #virtual-scroll-table td[data-col-name="unit"]:hover {
+  box-shadow: none !important;
+}
+.basic-cell-editor {
+  width: 100%; box-sizing: border-box; padding: 5px 7px; font: inherit;
+  border: 1.5px solid var(--primary, #4456e6); border-radius: 6px; outline: none;
+  background: #fff; box-shadow: 0 0 0 3px var(--primary-soft, #eef2ff);
+}
+
+/* ============ #7: calc/currency/margin card redesign ============ */
+.calculation-card h3 { display: flex; align-items: center; gap: 8px; }
+.calculation-card h3 i { color: var(--primary, #4456e6); }
+.calc-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px; margin-top: 10px;
+}
+.calc-section {
+  border: 1px solid var(--border, #e3e7ee); border-radius: 12px; padding: 12px 14px;
+  background: var(--surface, #fff); display: flex; flex-direction: column; gap: 8px;
+}
+.calc-section-title {
+  display: flex; align-items: center; gap: 7px; font-size: .74rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em; color: var(--text-soft, #51607a);
+  padding-bottom: 6px; border-bottom: 1px dashed var(--border, #e6e9ef);
+}
+.calc-section-title i { color: var(--primary, #4456e6); }
+.calc-section label { display: flex; flex-direction: column; gap: 4px; font-size: .76rem; font-weight: 600; color: var(--text-soft, #51607a); }
+.calc-section select, .calc-section input {
+  padding: 7px 10px; border: 1px solid var(--border, #d8dde6); border-radius: 8px; font-size: .84rem; font-weight: 500;
+}
+.calc-section select:focus, .calc-section input:focus { outline: none; border-color: var(--primary, #4456e6); box-shadow: 0 0 0 3px var(--primary-soft, #eef2ff); }
+.calc-inline { display: flex; gap: 8px; flex-wrap: wrap; }
+.calc-inline label { flex: 1; min-width: 70px; }
+.calc-actions { display: flex; gap: 6px; }
+.calc-actions button, .calc-toggle {
+  border: 1px solid var(--border, #cfd6e2); background: #fff; border-radius: 8px; cursor: pointer;
+  font-weight: 700; color: var(--primary, #4456e6); padding: 6px 12px;
+}
+.calc-actions button { width: 34px; padding: 6px 0; }
+.calc-actions button:hover, .calc-toggle:hover { background: var(--primary-soft, #eef2ff); border-color: var(--primary, #4456e6); }
+.calc-toggle { display: inline-flex; align-items: center; gap: 7px; }
+.calc-toggle.active { background: var(--primary, #4456e6); color: #fff; }
+.calc-hint { font-size: .7rem; color: var(--text-soft, #8a96ac); }
+#calc-decimal-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Excel paste note */
+.ft-paste-note {
+  margin: 0 16px .5rem; padding: 7px 14px; border-radius: 10px; font-size: .82rem; font-weight: 600;
+  background: #e7f6ec; color: #157347; border: 1px solid #9fdcb4; display: inline-block;
+}
+
+/* ============ #6: compact PI bar + calc card ============ */
+#pi-pricing-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: .5rem; }
+#pi-pricing-bar .pi-block { padding: 10px 12px; flex: 1 1 340px; }
+.pi-block-title { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.pi-grand-chip {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 7px;
+  padding: 4px 12px; border-radius: 9px; text-transform: none; letter-spacing: 0;
+  background: linear-gradient(135deg, var(--primary, #4456e6), #2f3fbf); color: #fff; font-size: .72rem;
+}
+.pi-grand-chip strong { font-size: 1rem; font-weight: 800; }
+.pi-grand-chip i { opacity: .85; }
+/* fields stack in a tight grid so they use width, not a tall column */
+.pi-fields-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px 12px; align-items: end; }
+.pi-field { min-width: 0; gap: 4px; }
+.pi-field > label { font-size: .68rem; }
+.pi-field-row input { padding: 6px 9px; font-size: .82rem; }
+.pi-btn { padding: 6px 12px; }
+.pi-statusline { margin-top: 8px; }
+
+/* tighter calc card so it doesn't push the table down */
+.calc-grid { gap: 8px; margin-top: 8px; }
+.calc-section { padding: 9px 11px; gap: 6px; }
+.calc-section-title { padding-bottom: 5px; }
+.calc-section label { font-size: .7rem; gap: 3px; }
+.calc-section select, .calc-section input {
+  padding: 5px 8px; font-size: .8rem; box-sizing: border-box; width: 100%; max-width: 100%;
+}
+.calc-inline { gap: 6px; }
+.calc-inline label { min-width: 56px; }
+#calc-decimal-controls { gap: 6px; }
+.calculation-card { padding: 12px 14px; }
+.calculation-card h3 { margin: 0 0 2px; font-size: 1rem; }
+
+/* the no-unit-price status card sits inline + compact */
+.pi-statusline .ft-stat-card { margin: 0; }
+
+/* ============ #1/#2: TO engineering header + details/tools panels ============ */
+.tool-section-head {
+  display: flex; align-items: center; gap: 9px; margin: .2rem 0 .7rem;
+  font-size: 1.15rem; font-weight: 800; letter-spacing: -.01em; color: var(--text, #1f2a44);
+}
+.tool-section-head i { color: var(--primary, #4456e6); }
+.tool-section-head .head-sub { font-weight: 600; color: var(--text-soft, #8a96ac); font-size: .9rem; }
+
+.to-top-grid {
+  display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; margin-bottom: .8rem;
+  align-items: start;
+}
+@media (max-width: 880px) { .to-top-grid { grid-template-columns: 1fr; } }
+.to-panel {
+  border: 1px solid var(--border, #e3e7ee); border-radius: 14px; padding: 10px 12px;
+  background: var(--surface, #fff); box-shadow: 0 1px 2px rgba(16,24,40,.04);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.to-panel-title {
+  display: flex; align-items: center; gap: 8px; font-size: .74rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .05em; color: var(--text-soft, #51607a);
+  padding-bottom: 6px; border-bottom: 1px dashed var(--border, #e6e9ef);
+}
+.to-panel-title i { color: var(--primary, #4456e6); }
+
+/* Details metrics: keep as many fields as possible in one horizontal row */
+.to-panel:not(.to-panel-tools) {
+  flex-direction: row; flex-wrap: wrap; align-items: stretch; gap: 8px;
+}
+.to-panel:not(.to-panel-tools) .to-panel-title {
+  flex: 1 1 100%; margin: 0;
+}
+.to-metric {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px;
+  border: 1px solid var(--border, #e6e9ef); border-left-width: 4px; background: var(--surface, #fff);
+  flex: 1 1 200px; min-width: 0;
+}
+.to-metric-ico { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; flex: none; }
+.to-metric-body {
+  display: flex; flex-direction: row; flex-wrap: wrap; align-items: baseline;
+  gap: 4px 8px; line-height: 1.15; margin-right: auto; min-width: 0;
+}
+.to-metric-num { font-size: 1.05rem; font-weight: 800; }
+.to-metric-label { font-size: .7rem; color: var(--text-soft, #6b778c); }
+.to-metric-rows { font-size: .68rem; width: 100%; }
+.to-metric-amber { border-left-color: #e0a800; }
+.to-metric-amber .to-metric-ico { background: #fff4d6; color: #b8860b; }
+.to-metric-amber .to-metric-num { color: #b8860b; }
+.to-metric-purple { border-left-color: #8e44ad; }
+.to-metric-purple .to-metric-ico { background: #f3e8fb; color: #8e44ad; }
+.to-metric-purple .to-metric-num { color: #8e44ad; }
+.to-metric-teal { border-left-color: #0f766e; }
+.to-metric-teal .to-metric-ico { background: #ccfbf1; color: #0f766e; }
+.to-metric-teal .to-metric-num { color: #0f766e; }
+.to-metric-teal .ft-switch input:checked + .ft-switch-slider { background: #0f766e; }
+
+/* Qty ?6: one card = action button + filter switch (like Proforma remark) */
+.to-qty6-card {
+  flex: 0 1 220px;
+  padding-right: 8px;
+}
+.to-qty6-card.is-active {
+  background: #f0fdfa;
+  border-color: #99f6e4;
+}
+.to-qty6-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+.to-qty6-action:hover .to-metric-label { color: #0f766e; }
+#tool-pipe-qty.active .to-metric-ico {
+  background: #0f766e;
+  color: #fff;
+}
+
+/* Engineering toggle switch (replaces the plain checkbox) */
+.ft-switch { position: relative; display: inline-block; width: 42px; height: 23px; cursor: pointer; flex: none; }
+.ft-switch input { opacity: 0; width: 0; height: 0; }
+.ft-switch-slider {
+  position: absolute; inset: 0; border-radius: 999px; background: #cdd4df; transition: background .15s;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.12);
+}
+.ft-switch-slider::before {
+  content: ''; position: absolute; height: 17px; width: 17px; left: 3px; top: 3px; border-radius: 50%;
+  background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.25);
+}
+.ft-switch input:checked + .ft-switch-slider { background: var(--primary, #4456e6); }
+.ft-switch input:checked + .ft-switch-slider::before { transform: translateX(19px); }
+.to-metric-amber .ft-switch input:checked + .ft-switch-slider { background: #e0a800; }
+.to-metric-purple .ft-switch input:checked + .ft-switch-slider { background: #8e44ad; }
+
+/* Technical tools ? compact horizontal tiles (icon + short name) */
+.to-panel-tools { gap: 8px; }
+/* Brand apply sits in Details table row, right of "rows without a BRAND". */
+.to-panel:not(.to-panel-tools) .to-brand-bulk {
+  display: flex; flex-direction: column; justify-content: center; gap: .28rem;
+  padding: 6px 10px;
+  border: 1px solid var(--border, #e6e9ef); border-left-width: 4px;
+  border-radius: 10px;
+  background: var(--surface, #fff);
+  flex: 1 1 220px; min-width: 0;
+}
+.to-brand-bulk > label {
+  font-size: .68rem; font-weight: 750; color: var(--muted, #64748b);
+  text-transform: uppercase; letter-spacing: .04em; margin: 0;
+}
+.to-brand-bulk > label i { margin-right: .2rem; color: #2563c9; }
+.to-brand-bulk-row { display: flex; gap: .4rem; align-items: center; }
+.to-brand-bulk-row input {
+  flex: 1 1 auto; min-width: 0;
+  font: inherit; font-size: .82rem;
+  padding: .35rem .5rem; border-radius: 7px;
+  border: 1px solid var(--line, #dde4ee);
+  background: var(--paper, #fff); color: var(--ink, #0f1726);
+}
+.to-brand-bulk-row input:focus {
+  outline: none; border-color: var(--accent, #2563c9);
+  box-shadow: 0 0 0 3px var(--accent-soft, #e8f0fc);
+}
+.to-brand-bulk-row .btn { flex: 0 0 auto; white-space: nowrap; }
+.to-tool-row {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: stretch;
+}
+.to-tool-tile {
+  position: relative; flex: 1 1 0; min-width: 0; max-width: 88px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 5px; padding: 8px 4px 7px; cursor: pointer;
+  border-radius: 10px; border: 1px solid var(--border, #e1e6ee); background: var(--surface, #fff);
+  transition: border-color .12s, box-shadow .12s, background .12s;
+}
+.to-tool-tile:hover { border-color: var(--primary, #4456e6); box-shadow: 0 0 0 2px var(--primary-soft, #eef2ff); }
+.to-tool-tile.active { background: var(--primary-soft, #eef2ff); border-color: var(--primary, #4456e6); }
+.to-tool-ico {
+  width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; flex: none;
+  background: var(--primary-soft, #eef2ff); color: var(--primary, #4456e6); font-size: 13px;
+}
+.to-tool-tile.active .to-tool-ico { background: var(--primary, #4456e6); color: #fff; }
+.to-tool-name {
+  font-size: .68rem; font-weight: 700; color: var(--text, #1f2a44);
+  line-height: 1.15; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%;
+}
+.to-tool-count {
+  position: absolute; top: 3px; right: 3px;
+  min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px;
+  display: grid; place-items: center; font-weight: 800; font-size: .62rem; line-height: 1;
+  background: var(--primary, #4456e6); color: #fff;
+}
+.to-tool-ico-teal { background: rgba(13,148,136,.14) !important; color: #0f766e !important; }
+.to-tool-ico-cyan { background: rgba(8,145,178,.14) !important; color: #0e7490 !important; }
+.to-tool-ico-amber { background: rgba(217,119,6,.14) !important; color: #b45309 !important; }
+.to-tool-ico-green { background: rgba(22,163,74,.14) !important; color: #15803d !important; }
+.to-tool-ico-purple { background: rgba(124,58,237,.14) !important; color: #6d28d9 !important; }

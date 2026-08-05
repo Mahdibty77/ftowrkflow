@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Clients & FX · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Clients & FX{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Clients &amp; FX Rates</h1>
+    <div class="sub">Manage client records and the Rial exchange-rate board used for Proforma currency conversion.</div>
+  </div>
+</div>
+
+<div class="grid grid-2 md-hub-cards" style="gap:1rem;max-width:820px;">
+  <a href="{% url 'cases:client_list' %}" class="card md-hub-card">
+    <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.45rem;">
+      <span class="ic md-hub-ic" style="width:2.65rem;height:2.65rem;border-radius:10px;background:var(--accent-soft);color:var(--accent-strong);display:inline-flex;align-items:center;justify-content:center;font-size:1.2rem;"><i class="fa-solid fa-building"></i></span>
+      <h3 style="margin:0;font-size:1.05rem;">Clients</h3>
+    </div>
+    <div class="muted" style="font-size:.86rem;line-height:1.45;">Add, rename and search clients. Codes stay controlled by Commercial{% if is_admin_md %} — administrators can also wipe all clients and re-upload{% endif %}.</div>
+  </a>
+
+  {% if can_manage_fx %}
+  <a href="{% url 'cases:fx_rates' %}" class="card md-hub-card" style="position:relative;">
+    {% if fx_stale %}
+    <span class="nav-badge" style="position:absolute;top:.7rem;right:.7rem;" title="FX rates need updating"><i class="fa-solid fa-triangle-exclamation"></i></span>
+    {% endif %}
+    <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.45rem;">
+      <span class="ic md-hub-ic" style="width:2.65rem;height:2.65rem;border-radius:10px;background:var(--okbg);color:var(--ok);display:inline-flex;align-items:center;justify-content:center;font-size:1.2rem;"><i class="fa-solid fa-coins"></i></span>
+      <h3 style="margin:0;font-size:1.05rem;">FX Rates</h3>
+    </div>
+    <div class="muted" style="font-size:.86rem;line-height:1.45;">Rial prices for USD, EUR and other currencies. Keep them fresh (within 24 hours) so PI conversion works.</div>
+    {% if fx_stale %}
+    <div style="margin-top:.55rem;color:#b42318;font-size:.8rem;font-weight:600;"><i class="fa-solid fa-clock"></i> Rates are outdated — update required</div>
+    {% endif %}
+  </a>
+  {% endif %}
+</div>
+<style>
+  .md-hub-card {
+    display: block;
+    padding: 1.25rem 1.4rem;
+    text-decoration: none;
+    color: inherit;
+    border: 1px solid var(--line, #d8dee8);
+    border-radius: 10px;
+    background: var(--paper, #fff);
+    transition: border-color .12s, box-shadow .12s, transform .08s;
+  }
+  .md-hub-card:hover {
+    border-color: var(--accent, #4456e6);
+    box-shadow: 0 4px 14px rgba(0,0,0,.08);
+    transform: translateY(-1px);
+    text-decoration: none;
+    color: inherit;
+  }
+</style>
+{% endblock %}

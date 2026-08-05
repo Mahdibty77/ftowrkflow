@@ -1,0 +1,1190 @@
+{
+ "group": "valve",
+ "config": {
+  "tech_start": "7",
+  "tech_group": "06",
+  "item_start": "",
+  "item_group": "60",
+  "item_seq_digits": 7,
+  "item_feature_indexes": [
+   1,
+   2
+  ]
+ },
+ "features": [
+  {
+   "name": "group",
+   "position": 0,
+   "values": [
+    {
+     "value": "Gate Valve",
+     "code": "01"
+    },
+    {
+     "value": "Globe Valve",
+     "code": "02"
+    },
+    {
+     "value": "Ball Valve",
+     "code": "03"
+    },
+    {
+     "value": "Check Valve",
+     "code": "04"
+    },
+    {
+     "value": "Butterfly Valve",
+     "code": "05"
+    },
+    {
+     "value": "Plug Valve",
+     "code": "06"
+    },
+    {
+     "value": "Diaphragm Valve",
+     "code": "07"
+    },
+    {
+     "value": "Needle Valve",
+     "code": "08"
+    },
+    {
+     "value": "Pressure Relief Valve",
+     "code": "09"
+    },
+    {
+     "value": "Strainer",
+     "code": "10"
+    }
+   ]
+  },
+  {
+   "name": "type",
+   "position": 1,
+   "values": [
+    {
+     "value": "Solid Wedge",
+     "code": "01"
+    },
+    {
+     "value": "Flexible Wedge",
+     "code": "02"
+    },
+    {
+     "value": "Split Wedge",
+     "code": "03"
+    },
+    {
+     "value": "Slab / Through-Conduit",
+     "code": "04"
+    },
+    {
+     "value": "Compact Forged Gate",
+     "code": "05"
+    },
+    {
+     "value": "Corrosion-Resistant Gate",
+     "code": "06"
+    },
+    {
+     "value": "Knife Gate",
+     "code": "07"
+    },
+    {
+     "value": "T-pattern",
+     "code": "08"
+    },
+    {
+     "value": "Y-pattern / Angle",
+     "code": "09"
+    },
+    {
+     "value": "Compact Forged Globe",
+     "code": "10"
+    },
+    {
+     "value": "Floating Ball",
+     "code": "11"
+    },
+    {
+     "value": "Trunnion-Mounted Ball",
+     "code": "12"
+    },
+    {
+     "value": "Swing",
+     "code": "13"
+    },
+    {
+     "value": "Dual-Plate",
+     "code": "14"
+    },
+    {
+     "value": "Lift / Piston",
+     "code": "15"
+    },
+    {
+     "value": "Tilting-Disc",
+     "code": "16"
+    },
+    {
+     "value": "Ball Check",
+     "code": "17"
+    },
+    {
+     "value": "Compact Forged Check",
+     "code": "18"
+    },
+    {
+     "value": "Concentric Resilient",
+     "code": "19"
+    },
+    {
+     "value": "Double-Offset High-Performance",
+     "code": "20"
+    },
+    {
+     "value": "Triple-Offset Metal-Seat",
+     "code": "21"
+    },
+    {
+     "value": "Lubricated Plug",
+     "code": "22"
+    },
+    {
+     "value": "Sleeved / Non-Lubricated Plug",
+     "code": "23"
+    },
+    {
+     "value": "Eccentric Plug",
+     "code": "24"
+    },
+    {
+     "value": "Weir",
+     "code": "25"
+    },
+    {
+     "value": "Straight-Through",
+     "code": "26"
+    },
+    {
+     "value": "Needle",
+     "code": "27"
+    },
+    {
+     "value": "Conventional",
+     "code": "28"
+    },
+    {
+     "value": "Balanced-Bellows",
+     "code": "29"
+    },
+    {
+     "value": "Pilot-Operated",
+     "code": "30"
+    },
+    {
+     "value": "Y-Type",
+     "code": "31"
+    },
+    {
+     "value": "T-Type / Tee",
+     "code": "32"
+    },
+    {
+     "value": "Basket",
+     "code": "33"
+    },
+    {
+     "value": "Duplex",
+     "code": "34"
+    }
+   ]
+  },
+  {
+   "name": "material",
+   "position": 2,
+   "values": [
+    {
+     "value": "ASTM A216 Gr.WCB",
+     "code": "01"
+    },
+    {
+     "value": "ASTM A216 Gr.WCC",
+     "code": "02"
+    },
+    {
+     "value": "ASTM A105",
+     "code": "03"
+    },
+    {
+     "value": "ASTM A352 Gr.LCB",
+     "code": "04"
+    },
+    {
+     "value": "ASTM A352 Gr.LCC",
+     "code": "05"
+    },
+    {
+     "value": "ASTM A350 Gr.LF2",
+     "code": "06"
+    },
+    {
+     "value": "ASTM A217 Gr.WC6",
+     "code": "07"
+    },
+    {
+     "value": "ASTM A217 Gr.WC9",
+     "code": "08"
+    },
+    {
+     "value": "ASTM A217 Gr.C5",
+     "code": "09"
+    },
+    {
+     "value": "ASTM A217 Gr.C12A",
+     "code": "10"
+    },
+    {
+     "value": "ASTM A182 Gr.F11",
+     "code": "11"
+    },
+    {
+     "value": "ASTM A351 Gr.CF8",
+     "code": "12"
+    },
+    {
+     "value": "ASTM A351 Gr.CF8M",
+     "code": "13"
+    },
+    {
+     "value": "ASTM A351 Gr.CF3",
+     "code": "14"
+    },
+    {
+     "value": "ASTM A351 Gr.CF3M",
+     "code": "15"
+    },
+    {
+     "value": "ASTM A351 Gr.CF8C",
+     "code": "16"
+    },
+    {
+     "value": "ASTM A182 Gr.F316",
+     "code": "17"
+    },
+    {
+     "value": "ASTM A995 Gr.4A",
+     "code": "18"
+    },
+    {
+     "value": "ASTM A995 Gr.5A",
+     "code": "19"
+    },
+    {
+     "value": "ASTM A351 Gr.CN7M",
+     "code": "20"
+    },
+    {
+     "value": "ASTM B564 Gr.N04400",
+     "code": "21"
+    },
+    {
+     "value": "ASTM B564 Gr.N06625",
+     "code": "22"
+    },
+    {
+     "value": "ASTM B564 Gr.N10276",
+     "code": "23"
+    },
+    {
+     "value": "ASTM A395 Gr.60-40-18",
+     "code": "24"
+    },
+    {
+     "value": "ASTM B62 Gr.C83600",
+     "code": "25"
+    },
+    {
+     "value": "ASTM A182 Gr.F22",
+     "code": "26"
+    },
+    {
+     "value": "ASTM A995 Gr.6A",
+     "code": "27"
+    },
+    {
+     "value": "ASTM B564 Gr.N08825",
+     "code": "28"
+    },
+    {
+     "value": "ASTM A126 Gr.B",
+     "code": "29"
+    }
+   ]
+  },
+  {
+   "name": "construction",
+   "position": 3,
+   "values": [
+    {
+     "value": "1-Piece Body",
+     "code": "01"
+    },
+    {
+     "value": "2-Piece Body",
+     "code": "02"
+    },
+    {
+     "value": "3-Piece Body",
+     "code": "03"
+    },
+    {
+     "value": "Top-Entry",
+     "code": "04"
+    },
+    {
+     "value": "Side-Entry",
+     "code": "05"
+    },
+    {
+     "value": "$construction$",
+     "code": "06"
+    }
+   ]
+  },
+  {
+   "name": "bore",
+   "position": 4,
+   "values": [
+    {
+     "value": "Full Bore",
+     "code": "01"
+    },
+    {
+     "value": "Reduced Bore",
+     "code": "02"
+    },
+    {
+     "value": "$bore$",
+     "code": "03"
+    }
+   ]
+  },
+  {
+   "name": "rating",
+   "position": 5,
+   "values": [
+    {
+     "value": "Class 125",
+     "code": "01"
+    },
+    {
+     "value": "Class 150",
+     "code": "02"
+    },
+    {
+     "value": "Class 200",
+     "code": "03"
+    },
+    {
+     "value": "Class 250",
+     "code": "04"
+    },
+    {
+     "value": "Class 300",
+     "code": "05"
+    },
+    {
+     "value": "Class 600",
+     "code": "06"
+    },
+    {
+     "value": "Class 800",
+     "code": "07"
+    },
+    {
+     "value": "Class 900",
+     "code": "08"
+    },
+    {
+     "value": "Class 1500",
+     "code": "09"
+    },
+    {
+     "value": "Class 2500",
+     "code": "10"
+    },
+    {
+     "value": "1000 WOG",
+     "code": "11"
+    },
+    {
+     "value": "2000 WOG",
+     "code": "12"
+    },
+    {
+     "value": "3000 WOG",
+     "code": "13"
+    },
+    {
+     "value": "6000 WOG",
+     "code": "14"
+    },
+    {
+     "value": "PN6",
+     "code": "15"
+    },
+    {
+     "value": "PN10",
+     "code": "16"
+    },
+    {
+     "value": "PN16",
+     "code": "17"
+    },
+    {
+     "value": "PN25",
+     "code": "18"
+    },
+    {
+     "value": "PN40",
+     "code": "19"
+    },
+    {
+     "value": "Class 150 × Class 300",
+     "code": "20"
+    },
+    {
+     "value": "Class 150 × Class 600",
+     "code": "21"
+    },
+    {
+     "value": "Class 150 × Class 900",
+     "code": "22"
+    },
+    {
+     "value": "Class 300 × Class 150",
+     "code": "23"
+    },
+    {
+     "value": "Class 300 × Class 600",
+     "code": "24"
+    },
+    {
+     "value": "Class 300 × Class 900",
+     "code": "25"
+    },
+    {
+     "value": "Class 600 × Class 150",
+     "code": "26"
+    },
+    {
+     "value": "Class 600 × Class 300",
+     "code": "27"
+    },
+    {
+     "value": "Class 600 × Class 900",
+     "code": "28"
+    },
+    {
+     "value": "Class 900 × Class 150",
+     "code": "29"
+    },
+    {
+     "value": "Class 900 × Class 300",
+     "code": "30"
+    },
+    {
+     "value": "Class 900 × Class 600",
+     "code": "31"
+    }
+   ]
+  },
+  {
+   "name": "size",
+   "position": 6,
+   "values": [
+    {
+     "value": "1/4\"",
+     "code": "01"
+    },
+    {
+     "value": "3/8\"",
+     "code": "02"
+    },
+    {
+     "value": "1/2\"",
+     "code": "03"
+    },
+    {
+     "value": "3/4\"",
+     "code": "04"
+    },
+    {
+     "value": "1\"",
+     "code": "05"
+    },
+    {
+     "value": "1 1/4\"",
+     "code": "06"
+    },
+    {
+     "value": "1 1/2\"",
+     "code": "07"
+    },
+    {
+     "value": "2\"",
+     "code": "08"
+    },
+    {
+     "value": "2 1/2\"",
+     "code": "09"
+    },
+    {
+     "value": "3\"",
+     "code": "10"
+    },
+    {
+     "value": "4\"",
+     "code": "11"
+    },
+    {
+     "value": "5\"",
+     "code": "12"
+    },
+    {
+     "value": "6\"",
+     "code": "13"
+    },
+    {
+     "value": "8\"",
+     "code": "14"
+    },
+    {
+     "value": "10\"",
+     "code": "15"
+    },
+    {
+     "value": "12\"",
+     "code": "16"
+    },
+    {
+     "value": "DN15",
+     "code": "17"
+    },
+    {
+     "value": "DN20",
+     "code": "18"
+    },
+    {
+     "value": "DN25",
+     "code": "19"
+    },
+    {
+     "value": "DN32",
+     "code": "20"
+    },
+    {
+     "value": "DN40",
+     "code": "21"
+    },
+    {
+     "value": "DN50",
+     "code": "22"
+    },
+    {
+     "value": "DN65",
+     "code": "23"
+    },
+    {
+     "value": "DN80",
+     "code": "24"
+    },
+    {
+     "value": "DN100",
+     "code": "25"
+    },
+    {
+     "value": "DN125",
+     "code": "26"
+    },
+    {
+     "value": "DN150",
+     "code": "27"
+    },
+    {
+     "value": "DN200",
+     "code": "28"
+    },
+    {
+     "value": "DN250",
+     "code": "29"
+    },
+    {
+     "value": "DN300",
+     "code": "30"
+    },
+    {
+     "value": "14\"",
+     "code": "31"
+    },
+    {
+     "value": "16\"",
+     "code": "32"
+    },
+    {
+     "value": "18\"",
+     "code": "33"
+    },
+    {
+     "value": "20\"",
+     "code": "34"
+    },
+    {
+     "value": "24\"",
+     "code": "35"
+    },
+    {
+     "value": "DN350",
+     "code": "36"
+    },
+    {
+     "value": "DN400",
+     "code": "37"
+    },
+    {
+     "value": "DN450",
+     "code": "38"
+    },
+    {
+     "value": "DN500",
+     "code": "39"
+    },
+    {
+     "value": "DN600",
+     "code": "40"
+    },
+    {
+     "value": "3/4\" × 1/2\"",
+     "code": "41"
+    },
+    {
+     "value": "1\" × 3/4\"",
+     "code": "42"
+    },
+    {
+     "value": "1 1/4\" × 1\"",
+     "code": "43"
+    },
+    {
+     "value": "1 1/2\" × 1 1/4\"",
+     "code": "44"
+    },
+    {
+     "value": "2\" × 1 1/2\"",
+     "code": "45"
+    },
+    {
+     "value": "2 1/2\" × 2\"",
+     "code": "46"
+    },
+    {
+     "value": "3\" × 2 1/2\"",
+     "code": "47"
+    },
+    {
+     "value": "4\" × 3\"",
+     "code": "48"
+    },
+    {
+     "value": "6\" × 4\"",
+     "code": "49"
+    },
+    {
+     "value": "8\" × 6\"",
+     "code": "50"
+    },
+    {
+     "value": "10\" × 8\"",
+     "code": "51"
+    },
+    {
+     "value": "12\" × 10\"",
+     "code": "52"
+    },
+    {
+     "value": "14\" × 12\"",
+     "code": "53"
+    },
+    {
+     "value": "16\" × 14\"",
+     "code": "54"
+    },
+    {
+     "value": "18\" × 16\"",
+     "code": "55"
+    },
+    {
+     "value": "20\" × 18\"",
+     "code": "56"
+    },
+    {
+     "value": "24\" × 20\"",
+     "code": "57"
+    }
+   ]
+  },
+  {
+   "name": "end",
+   "position": 7,
+   "values": [
+    {
+     "value": "Flanged Raised Face (RF)",
+     "code": "01"
+    },
+    {
+     "value": "Flanged Ring-Joint (RTJ)",
+     "code": "02"
+    },
+    {
+     "value": "Flanged Flat Face (FF)",
+     "code": "03"
+    },
+    {
+     "value": "Butt-Weld (BW)",
+     "code": "04"
+    },
+    {
+     "value": "Socket-Weld (SW)",
+     "code": "05"
+    },
+    {
+     "value": "Threaded (NPT)",
+     "code": "06"
+    },
+    {
+     "value": "Wafer",
+     "code": "07"
+    },
+    {
+     "value": "Lug",
+     "code": "08"
+    },
+    {
+     "value": "Hub / Clamp",
+     "code": "09"
+    },
+    {
+     "value": "RF × RF",
+     "code": "10"
+    },
+    {
+     "value": "RF × RTJ",
+     "code": "11"
+    },
+    {
+     "value": "RF × FF",
+     "code": "12"
+    },
+    {
+     "value": "RTJ × RF",
+     "code": "13"
+    },
+    {
+     "value": "RTJ × RTJ",
+     "code": "14"
+    },
+    {
+     "value": "RTJ × FF",
+     "code": "15"
+    },
+    {
+     "value": "FF × RF",
+     "code": "16"
+    },
+    {
+     "value": "FF × RTJ",
+     "code": "17"
+    }
+   ]
+  },
+  {
+   "name": "bonnet",
+   "position": 8,
+   "values": [
+    {
+     "value": "Bolted Bonnet / Cover",
+     "code": "01"
+    },
+    {
+     "value": "Welded Bonnet",
+     "code": "02"
+    },
+    {
+     "value": "Pressure-Seal Bonnet",
+     "code": "03"
+    },
+    {
+     "value": "Union / Screwed Bonnet",
+     "code": "04"
+    },
+    {
+     "value": "Bellows-Seal Bonnet",
+     "code": "05"
+    },
+    {
+     "value": "Breech-Lock / Clamp Bonnet",
+     "code": "06"
+    },
+    {
+     "value": "One-Piece / Top-Entry",
+     "code": "07"
+    },
+    {
+     "value": "$bonnet$",
+     "code": "08"
+    }
+   ]
+  },
+  {
+   "name": "yoke",
+   "position": 9,
+   "values": [
+    {
+     "value": "Integral Yoke",
+     "code": "01"
+    },
+    {
+     "value": "Bolted-on Yoke",
+     "code": "02"
+    },
+    {
+     "value": "Yokeless",
+     "code": "03"
+    },
+    {
+     "value": "$yoke$",
+     "code": "04"
+    }
+   ]
+  },
+  {
+   "name": "stem",
+   "position": 10,
+   "values": [
+    {
+     "value": "Rising Stem - OS&Y",
+     "code": "01"
+    },
+    {
+     "value": "Rising Stem - Inside Screw",
+     "code": "02"
+    },
+    {
+     "value": "Non-Rising Stem (NRS)",
+     "code": "03"
+    },
+    {
+     "value": "Sliding Stem",
+     "code": "04"
+    },
+    {
+     "value": "Quarter-Turn",
+     "code": "05"
+    },
+    {
+     "value": "$stem$",
+     "code": "06"
+    }
+   ]
+  },
+  {
+   "name": "seat_type",
+   "position": 11,
+   "values": [
+    {
+     "value": "Integral Seat",
+     "code": "01"
+    },
+    {
+     "value": "Renewable - Threaded",
+     "code": "02"
+    },
+    {
+     "value": "Renewable - Seal-Welded ring",
+     "code": "03"
+    },
+    {
+     "value": "Soft / Resilient Insert",
+     "code": "04"
+    },
+    {
+     "value": "$seat_type$",
+     "code": "05"
+    },
+    {
+     "value": "Nozzle",
+     "code": "06"
+    }
+   ]
+  },
+  {
+   "name": "trim",
+   "position": 12,
+   "values": [
+    {
+     "value": "API Trim 1",
+     "code": "01"
+    },
+    {
+     "value": "API Trim 2",
+     "code": "02"
+    },
+    {
+     "value": "API Trim 4",
+     "code": "03"
+    },
+    {
+     "value": "API Trim 5",
+     "code": "04"
+    },
+    {
+     "value": "API Trim 8",
+     "code": "05"
+    },
+    {
+     "value": "API Trim 9",
+     "code": "06"
+    },
+    {
+     "value": "API Trim 10",
+     "code": "07"
+    },
+    {
+     "value": "API Trim 11",
+     "code": "08"
+    },
+    {
+     "value": "API Trim 12",
+     "code": "09"
+    },
+    {
+     "value": "API Trim 13",
+     "code": "10"
+    },
+    {
+     "value": "API Trim 14",
+     "code": "11"
+    },
+    {
+     "value": "API Trim 16",
+     "code": "12"
+    },
+    {
+     "value": "API Trim 17",
+     "code": "13"
+    },
+    {
+     "value": "Soft Seat - PTFE",
+     "code": "14"
+    },
+    {
+     "value": "Soft Seat - RPTFE",
+     "code": "15"
+    },
+    {
+     "value": "Soft Seat - PEEK",
+     "code": "16"
+    },
+    {
+     "value": "Metal Seat",
+     "code": "17"
+    },
+    {
+     "value": "Resilient Liner - NBR",
+     "code": "18"
+    },
+    {
+     "value": "Resilient Liner - EPDM",
+     "code": "19"
+    },
+    {
+     "value": "PTFE-Lined",
+     "code": "20"
+    },
+    {
+     "value": "$trim$",
+     "code": "21"
+    }
+   ]
+  },
+  {
+   "name": "mesh",
+   "position": 13,
+   "values": [
+    {
+     "value": "SS304 mesh/perforated screen",
+     "code": "01"
+    },
+    {
+     "value": "SS316 mesh/perforated screen",
+     "code": "02"
+    },
+    {
+     "value": "Monel mesh/perforated screen",
+     "code": "03"
+    },
+    {
+     "value": "Perforated carbon steel screen",
+     "code": "04"
+    },
+    {
+     "value": "$mesh$",
+     "code": "05"
+    }
+   ]
+  },
+  {
+   "name": "operation",
+   "position": 14,
+   "values": [
+    {
+     "value": "Handwheel",
+     "code": "01"
+    },
+    {
+     "value": "Lever",
+     "code": "02"
+    },
+    {
+     "value": "Gear Operator",
+     "code": "03"
+    },
+    {
+     "value": "Electric Actuator",
+     "code": "04"
+    },
+    {
+     "value": "Pneumatic Actuator",
+     "code": "05"
+    },
+    {
+     "value": "$operation$",
+     "code": "06"
+    }
+   ]
+  },
+  {
+   "name": "standard",
+   "position": 15,
+   "values": [
+    {
+     "value": "API 600",
+     "code": "01"
+    },
+    {
+     "value": "API 602",
+     "code": "02"
+    },
+    {
+     "value": "API 603",
+     "code": "03"
+    },
+    {
+     "value": "API 623",
+     "code": "04"
+    },
+    {
+     "value": "API 594",
+     "code": "05"
+    },
+    {
+     "value": "API 608",
+     "code": "06"
+    },
+    {
+     "value": "API 609",
+     "code": "07"
+    },
+    {
+     "value": "API 599",
+     "code": "08"
+    },
+    {
+     "value": "API 6D",
+     "code": "09"
+    },
+    {
+     "value": "API 526",
+     "code": "10"
+    },
+    {
+     "value": "BS 1873/1868/5163",
+     "code": "11"
+    },
+    {
+     "value": "ASME B16.34",
+     "code": "12"
+    },
+    {
+     "value": "MSS SP-80",
+     "code": "13"
+    },
+    {
+     "value": "MSS SP-70/71/85",
+     "code": "14"
+    },
+    {
+     "value": "EN 1984",
+     "code": "15"
+    },
+    {
+     "value": "EN 1171",
+     "code": "16"
+    },
+    {
+     "value": "EN 13709",
+     "code": "17"
+    },
+    {
+     "value": "EN 13789",
+     "code": "18"
+    },
+    {
+     "value": "EN 12334",
+     "code": "19"
+    },
+    {
+     "value": "EN 16767",
+     "code": "20"
+    },
+    {
+     "value": "EN 1983",
+     "code": "21"
+    },
+    {
+     "value": "ISO 17292",
+     "code": "22"
+    },
+    {
+     "value": "EN 593",
+     "code": "23"
+    }
+   ]
+  },
+  {
+   "name": "nace",
+   "position": 16,
+   "values": [
+    {
+     "value": "$nace$",
+     "code": "01"
+    },
+    {
+     "value": "NACE MR0175 / ISO 15156 (sour)",
+     "code": "02"
+    }
+   ]
+  }
+ ]
+}

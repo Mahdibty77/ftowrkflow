@@ -1,0 +1,3380 @@
+{
+ "group": "pipe",
+ "config": {
+  "tech_start": "7",
+  "tech_group": "01",
+  "item_start": "",
+  "item_group": "10",
+  "item_seq_digits": 5,
+  "item_feature_indexes": [
+   1,
+   3
+  ]
+ },
+ "features": [
+  {
+   "name": "material_group",
+   "position": 0,
+   "values": [
+    {
+     "value": "C.S",
+     "code": "01"
+    },
+    {
+     "value": "S.S",
+     "code": "02"
+    },
+    {
+     "value": "Polymer",
+     "code": "03"
+    },
+    {
+     "value": "Cast Iron",
+     "code": "04"
+    },
+    {
+     "value": "Copper",
+     "code": "05"
+    },
+    {
+     "value": "Alloy Steel",
+     "code": "06"
+    },
+    {
+     "value": "Aluminum",
+     "code": "07"
+    },
+    {
+     "value": "Composite",
+     "code": "08"
+    },
+    {
+     "value": "Nickel",
+     "code": "09"
+    },
+    {
+     "value": "Titanium",
+     "code": "10"
+    }
+   ]
+  },
+  {
+   "name": "material_type",
+   "position": 1,
+   "values": [
+    {
+     "value": "SMLS",
+     "code": "01"
+    },
+    {
+     "value": "ERW",
+     "code": "02"
+    },
+    {
+     "value": "LSAW",
+     "code": "03"
+    },
+    {
+     "value": "SSAW",
+     "code": "04"
+    },
+    {
+     "value": "DSAW",
+     "code": "05"
+    },
+    {
+     "value": "EFW",
+     "code": "06"
+    },
+    {
+     "value": "HFW",
+     "code": "07"
+    },
+    {
+     "value": "CW",
+     "code": "08"
+    },
+    {
+     "value": "LW",
+     "code": "09"
+    },
+    {
+     "value": "CDS",
+     "code": "10"
+    },
+    {
+     "value": "PE",
+     "code": "11"
+    },
+    {
+     "value": "HDPE",
+     "code": "12"
+    },
+    {
+     "value": "MDPE",
+     "code": "13"
+    },
+    {
+     "value": "PE-RT",
+     "code": "14"
+    },
+    {
+     "value": "PEX",
+     "code": "15"
+    },
+    {
+     "value": "PVC-U",
+     "code": "16"
+    },
+    {
+     "value": "PVC-O",
+     "code": "17"
+    },
+    {
+     "value": "CPVC",
+     "code": "18"
+    },
+    {
+     "value": "PP-R",
+     "code": "19"
+    },
+    {
+     "value": "PP-H",
+     "code": "20"
+    },
+    {
+     "value": "PP-B",
+     "code": "21"
+    },
+    {
+     "value": "PP-RCT",
+     "code": "22"
+    },
+    {
+     "value": "PB-1",
+     "code": "23"
+    },
+    {
+     "value": "LDPE",
+     "code": "24"
+    },
+    {
+     "value": "PEX-AL-PEX",
+     "code": "25"
+    },
+    {
+     "value": "PE-RT-AL-PE-RT",
+     "code": "26"
+    },
+    {
+     "value": "PP-R-AL-PP-R",
+     "code": "27"
+    },
+    {
+     "value": "EVOH Barrier",
+     "code": "28"
+    },
+    {
+     "value": "PVDF",
+     "code": "29"
+    },
+    {
+     "value": "PFA",
+     "code": "30"
+    },
+    {
+     "value": "PTFE",
+     "code": "31"
+    },
+    {
+     "value": "FEP",
+     "code": "32"
+    },
+    {
+     "value": "ECTFE",
+     "code": "33"
+    },
+    {
+     "value": "PA",
+     "code": "34"
+    },
+    {
+     "value": "GRP",
+     "code": "35"
+    },
+    {
+     "value": "GRE",
+     "code": "36"
+    },
+    {
+     "value": "FRP",
+     "code": "37"
+    },
+    {
+     "value": "Ductile Iron",
+     "code": "38"
+    }
+   ]
+  },
+  {
+   "name": "material",
+   "position": 2,
+   "values": [
+    {
+     "value": "API 5L Gr.B PSL1",
+     "code": "001"
+    },
+    {
+     "value": "API 5L Gr.B PSL2",
+     "code": "002"
+    },
+    {
+     "value": "API 5L Gr.X52 PSL1",
+     "code": "003"
+    },
+    {
+     "value": "API 5L Gr.X52 PSL2",
+     "code": "004"
+    },
+    {
+     "value": "API 5L Gr.X60 PSL1",
+     "code": "005"
+    },
+    {
+     "value": "API 5L Gr.X60 PSL2",
+     "code": "006"
+    },
+    {
+     "value": "API 5L Gr.X65 PSL1",
+     "code": "007"
+    },
+    {
+     "value": "API 5L Gr.X65 PSL2",
+     "code": "008"
+    },
+    {
+     "value": "API 5L Gr.X42 PSL1",
+     "code": "009"
+    },
+    {
+     "value": "API 5L Gr.X42 PSL2",
+     "code": "010"
+    },
+    {
+     "value": "API 5L Gr.X70 PSL1",
+     "code": "011"
+    },
+    {
+     "value": "API 5L Gr.X70 PSL2",
+     "code": "012"
+    },
+    {
+     "value": "ASTM A106 Gr.A",
+     "code": "013"
+    },
+    {
+     "value": "ASTM A106 Gr.B",
+     "code": "014"
+    },
+    {
+     "value": "ASTM A106 Gr.C",
+     "code": "015"
+    },
+    {
+     "value": "ASTM A53 Gr.A",
+     "code": "016"
+    },
+    {
+     "value": "ASTM A53 Gr.B",
+     "code": "017"
+    },
+    {
+     "value": "ASTM A536 Gr.60-40-18",
+     "code": "018"
+    },
+    {
+     "value": "ASTM A536 Gr.65-45-12",
+     "code": "019"
+    },
+    {
+     "value": "ASTM A536 Gr.80-55-06",
+     "code": "020"
+    },
+    {
+     "value": "ASTM A536 Gr.100-70-03",
+     "code": "021"
+    },
+    {
+     "value": "ASTM A536 Gr.120-90-02",
+     "code": "022"
+    },
+    {
+     "value": "ASTM A536 Gr.60-42-10",
+     "code": "023"
+    },
+    {
+     "value": "ASTM A536 Gr.70-50-05",
+     "code": "024"
+    },
+    {
+     "value": "ASTM A536 Gr.80-60-03",
+     "code": "025"
+    },
+    {
+     "value": "API 5L Gr.A PSL1",
+     "code": "026"
+    },
+    {
+     "value": "API 5L Gr.A PSL2",
+     "code": "027"
+    },
+    {
+     "value": "API 5L Gr.X56 PSL1",
+     "code": "028"
+    },
+    {
+     "value": "API 5L Gr.X56 PSL2",
+     "code": "029"
+    },
+    {
+     "value": "API 5CT Gr.L80 Type 1",
+     "code": "030"
+    },
+    {
+     "value": "API 5CT Gr.L80 3Cr",
+     "code": "031"
+    },
+    {
+     "value": "API 5CT Gr.L80 9Cr",
+     "code": "032"
+    },
+    {
+     "value": "API 5CT Gr.L80 13Cr",
+     "code": "033"
+    },
+    {
+     "value": "API 5CT Gr.N80 Type 1",
+     "code": "034"
+    },
+    {
+     "value": "API 5CT Gr.N80Q",
+     "code": "035"
+    },
+    {
+     "value": "API 5CT Gr.J55",
+     "code": "036"
+    },
+    {
+     "value": "API 5CT Gr.K55",
+     "code": "037"
+    },
+    {
+     "value": "API 5CT Gr.P110",
+     "code": "038"
+    },
+    {
+     "value": "ASTM A312 Gr.TP304",
+     "code": "039"
+    },
+    {
+     "value": "ASTM A312 Gr.TP304L",
+     "code": "040"
+    },
+    {
+     "value": "ASTM A312 Gr.TP304H",
+     "code": "041"
+    },
+    {
+     "value": "ASTM A312 Gr.TP304N",
+     "code": "042"
+    },
+    {
+     "value": "ASTM A312 Gr.TP304LN",
+     "code": "043"
+    },
+    {
+     "value": "ASTM A778 Gr.TP304L",
+     "code": "044"
+    },
+    {
+     "value": "ASTM A312 Gr.TP316",
+     "code": "045"
+    },
+    {
+     "value": "ASTM A312 Gr.TP316L",
+     "code": "046"
+    },
+    {
+     "value": "ASTM A312 Gr.TP316H",
+     "code": "047"
+    },
+    {
+     "value": "ASTM A312 Gr.TP316N",
+     "code": "048"
+    },
+    {
+     "value": "ASTM A312 Gr.TP316LN",
+     "code": "049"
+    },
+    {
+     "value": "ASTM A778 Gr.TP316L",
+     "code": "050"
+    },
+    {
+     "value": "ASTM A358 Gr.304L",
+     "code": "051"
+    },
+    {
+     "value": "ASTM A358 Gr.304LN",
+     "code": "052"
+    },
+    {
+     "value": "ASTM A376 Gr.304LN",
+     "code": "053"
+    },
+    {
+     "value": "ASTM A358 Gr.316L",
+     "code": "054"
+    },
+    {
+     "value": "ASTM A358 Gr.316LN",
+     "code": "055"
+    },
+    {
+     "value": "ASTM A376 Gr.316LN",
+     "code": "056"
+    },
+    {
+     "value": "PE100",
+     "code": "057"
+    },
+    {
+     "value": "PE80",
+     "code": "058"
+    },
+    {
+     "value": "ASTM B42 Gr.C12200",
+     "code": "059"
+    },
+    {
+     "value": "ASTM B315 Gr.C12200",
+     "code": "060"
+    },
+    {
+     "value": "ASTM B88 Gr.C12200 Type K",
+     "code": "061"
+    },
+    {
+     "value": "ASTM B88 Gr.C12200 Type L",
+     "code": "062"
+    },
+    {
+     "value": "ASTM B88 Gr.C12200 Type M",
+     "code": "063"
+    },
+    {
+     "value": "ASTM B42 Gr.C10200",
+     "code": "064"
+    },
+    {
+     "value": "API 5L Gr.X46 PSL1",
+     "code": "065"
+    },
+    {
+     "value": "API 5L Gr.X80 PSL1",
+     "code": "066"
+    },
+    {
+     "value": "API 5L Gr.X46 PSL2",
+     "code": "067"
+    },
+    {
+     "value": "API 5L Gr.X80 PSL2",
+     "code": "068"
+    },
+    {
+     "value": "API 5CT Gr.H40",
+     "code": "069"
+    },
+    {
+     "value": "API 5CT Gr.C90",
+     "code": "070"
+    },
+    {
+     "value": "API 5CT Gr.R95",
+     "code": "071"
+    },
+    {
+     "value": "API 5CT Gr.T95",
+     "code": "072"
+    },
+    {
+     "value": "API 5CT Gr.C110",
+     "code": "073"
+    },
+    {
+     "value": "API 5CT Gr.Q125",
+     "code": "074"
+    },
+    {
+     "value": "API 5DP Gr.E",
+     "code": "075"
+    },
+    {
+     "value": "API 5DP Gr.X",
+     "code": "076"
+    },
+    {
+     "value": "API 5DP Gr.G",
+     "code": "077"
+    },
+    {
+     "value": "API 5DP Gr.S",
+     "code": "078"
+    },
+    {
+     "value": "ISO 3183 Gr.L175 PSL1",
+     "code": "079"
+    },
+    {
+     "value": "ISO 3183 Gr.L210 PSL1",
+     "code": "080"
+    },
+    {
+     "value": "ISO 3183 Gr.L245 PSL1",
+     "code": "081"
+    },
+    {
+     "value": "ISO 3183 Gr.L290 PSL1",
+     "code": "082"
+    },
+    {
+     "value": "ISO 3183 Gr.L320 PSL1",
+     "code": "083"
+    },
+    {
+     "value": "ISO 3183 Gr.L360 PSL1",
+     "code": "084"
+    },
+    {
+     "value": "ISO 3183 Gr.L390 PSL1",
+     "code": "085"
+    },
+    {
+     "value": "ISO 3183 Gr.L415 PSL1",
+     "code": "086"
+    },
+    {
+     "value": "ISO 3183 Gr.L450 PSL1",
+     "code": "087"
+    },
+    {
+     "value": "ISO 3183 Gr.L485 PSL1",
+     "code": "088"
+    },
+    {
+     "value": "ISO 3183 Gr.L555 PSL1",
+     "code": "089"
+    },
+    {
+     "value": "ISO 3183 Gr.L625 PSL1",
+     "code": "090"
+    },
+    {
+     "value": "ISO 3183 Gr.L690 PSL1",
+     "code": "091"
+    },
+    {
+     "value": "ISO 3183 Gr.L175 PSL2",
+     "code": "092"
+    },
+    {
+     "value": "ISO 3183 Gr.L210 PSL2",
+     "code": "093"
+    },
+    {
+     "value": "ISO 3183 Gr.L245 PSL2",
+     "code": "094"
+    },
+    {
+     "value": "ISO 3183 Gr.L290 PSL2",
+     "code": "095"
+    },
+    {
+     "value": "ISO 3183 Gr.L320 PSL2",
+     "code": "096"
+    },
+    {
+     "value": "ISO 3183 Gr.L360 PSL2",
+     "code": "097"
+    },
+    {
+     "value": "ISO 3183 Gr.L390 PSL2",
+     "code": "098"
+    },
+    {
+     "value": "ISO 3183 Gr.L415 PSL2",
+     "code": "099"
+    },
+    {
+     "value": "ISO 3183 Gr.L450 PSL2",
+     "code": "100"
+    },
+    {
+     "value": "ISO 3183 Gr.L485 PSL2",
+     "code": "101"
+    },
+    {
+     "value": "ISO 3183 Gr.L555 PSL2",
+     "code": "102"
+    },
+    {
+     "value": "ISO 3183 Gr.L625 PSL2",
+     "code": "103"
+    },
+    {
+     "value": "ISO 3183 Gr.L690 PSL2",
+     "code": "104"
+    },
+    {
+     "value": "ISO 3183 Gr.L415 PSL3",
+     "code": "105"
+    },
+    {
+     "value": "ISO 3183 Gr.L450 PSL3",
+     "code": "106"
+    },
+    {
+     "value": "ISO 3183 Gr.L485 PSL3",
+     "code": "107"
+    },
+    {
+     "value": "ISO 3183 Gr.L555 PSL3",
+     "code": "108"
+    },
+    {
+     "value": "ISO 3183 Gr.L625 PSL3",
+     "code": "109"
+    },
+    {
+     "value": "ISO 3183 Gr.L690 PSL3",
+     "code": "110"
+    },
+    {
+     "value": "ASTM A333 Gr.1",
+     "code": "111"
+    },
+    {
+     "value": "ASTM A333 Gr.3",
+     "code": "112"
+    },
+    {
+     "value": "ASTM A333 Gr.4",
+     "code": "113"
+    },
+    {
+     "value": "ASTM A333 Gr.6",
+     "code": "114"
+    },
+    {
+     "value": "ASTM A333 Gr.7",
+     "code": "115"
+    },
+    {
+     "value": "ASTM A333 Gr.8",
+     "code": "116"
+    },
+    {
+     "value": "ASTM A333 Gr.9",
+     "code": "117"
+    },
+    {
+     "value": "ASTM A333 Gr.10",
+     "code": "118"
+    },
+    {
+     "value": "ASTM A333 Gr.11",
+     "code": "119"
+    },
+    {
+     "value": "ASTM A135 Gr.A",
+     "code": "120"
+    },
+    {
+     "value": "ASTM A135 Gr.B",
+     "code": "121"
+    },
+    {
+     "value": "ASTM A178 Gr.A",
+     "code": "122"
+    },
+    {
+     "value": "ASTM A178 Gr.C",
+     "code": "123"
+    },
+    {
+     "value": "ASTM A178 Gr.D",
+     "code": "124"
+    },
+    {
+     "value": "ASTM A210 Gr.A-1",
+     "code": "125"
+    },
+    {
+     "value": "ASTM A210 Gr.C",
+     "code": "126"
+    },
+    {
+     "value": "ASTM A252 Gr.1",
+     "code": "127"
+    },
+    {
+     "value": "ASTM A252 Gr.2",
+     "code": "128"
+    },
+    {
+     "value": "ASTM A252 Gr.3",
+     "code": "129"
+    },
+    {
+     "value": "ASTM A500 Gr.A",
+     "code": "130"
+    },
+    {
+     "value": "ASTM A500 Gr.B",
+     "code": "131"
+    },
+    {
+     "value": "ASTM A500 Gr.C",
+     "code": "132"
+    },
+    {
+     "value": "ASTM A500 Gr.D",
+     "code": "133"
+    },
+    {
+     "value": "ASTM A671 Gr.CA55",
+     "code": "134"
+    },
+    {
+     "value": "ASTM A671 Gr.CB60",
+     "code": "135"
+    },
+    {
+     "value": "ASTM A671 Gr.CB65",
+     "code": "136"
+    },
+    {
+     "value": "ASTM A671 Gr.CB70",
+     "code": "137"
+    },
+    {
+     "value": "ASTM A671 Gr.CC60",
+     "code": "138"
+    },
+    {
+     "value": "ASTM A671 Gr.CC65",
+     "code": "139"
+    },
+    {
+     "value": "ASTM A671 Gr.CC70",
+     "code": "140"
+    },
+    {
+     "value": "ASTM A671 Gr.CD70",
+     "code": "141"
+    },
+    {
+     "value": "ASTM A671 Gr.CD80",
+     "code": "142"
+    },
+    {
+     "value": "ASTM A671 Gr.CFA65",
+     "code": "143"
+    },
+    {
+     "value": "ASTM A671 Gr.CFB70",
+     "code": "144"
+    },
+    {
+     "value": "ASTM A671 Gr.CFD65",
+     "code": "145"
+    },
+    {
+     "value": "ASTM A671 Gr.CFE70",
+     "code": "146"
+    },
+    {
+     "value": "ASTM A671 Gr.CG100",
+     "code": "147"
+    },
+    {
+     "value": "ASTM A671 Gr.CH115",
+     "code": "148"
+    },
+    {
+     "value": "ASTM A671 Gr.CJA115",
+     "code": "149"
+    },
+    {
+     "value": "ASTM A671 Gr.CJB115",
+     "code": "150"
+    },
+    {
+     "value": "ASTM A671 Gr.CJE115",
+     "code": "151"
+    },
+    {
+     "value": "ASTM A671 Gr.CJF115",
+     "code": "152"
+    },
+    {
+     "value": "ASTM A671 Gr.CJH115",
+     "code": "153"
+    },
+    {
+     "value": "ASTM A671 Gr.CJP115",
+     "code": "154"
+    },
+    {
+     "value": "ASTM A671 Gr.CK75",
+     "code": "155"
+    },
+    {
+     "value": "ASTM A671 Gr.CP85",
+     "code": "156"
+    },
+    {
+     "value": "ASTM A672 Gr.A45",
+     "code": "157"
+    },
+    {
+     "value": "ASTM A672 Gr.A50",
+     "code": "158"
+    },
+    {
+     "value": "ASTM A672 Gr.A55",
+     "code": "159"
+    },
+    {
+     "value": "ASTM A672 Gr.B60",
+     "code": "160"
+    },
+    {
+     "value": "ASTM A672 Gr.B65",
+     "code": "161"
+    },
+    {
+     "value": "ASTM A672 Gr.B70",
+     "code": "162"
+    },
+    {
+     "value": "ASTM A672 Gr.C55",
+     "code": "163"
+    },
+    {
+     "value": "ASTM A672 Gr.C60",
+     "code": "164"
+    },
+    {
+     "value": "ASTM A672 Gr.C65",
+     "code": "165"
+    },
+    {
+     "value": "ASTM A672 Gr.C70",
+     "code": "166"
+    },
+    {
+     "value": "ASTM A672 Gr.D70",
+     "code": "167"
+    },
+    {
+     "value": "ASTM A672 Gr.D80",
+     "code": "168"
+    },
+    {
+     "value": "ASTM A672 Gr.H75",
+     "code": "169"
+    },
+    {
+     "value": "ASTM A672 Gr.H80",
+     "code": "170"
+    },
+    {
+     "value": "ASTM A672 Gr.J80",
+     "code": "171"
+    },
+    {
+     "value": "ASTM A672 Gr.J90",
+     "code": "172"
+    },
+    {
+     "value": "ASTM A672 Gr.J100",
+     "code": "173"
+    },
+    {
+     "value": "ASTM A672 Gr.L65",
+     "code": "174"
+    },
+    {
+     "value": "ASTM A672 Gr.L70",
+     "code": "175"
+    },
+    {
+     "value": "ASTM A672 Gr.L75",
+     "code": "176"
+    },
+    {
+     "value": "ASTM A672 Gr.N75",
+     "code": "177"
+    },
+    {
+     "value": "ASTM A334 Gr.1",
+     "code": "178"
+    },
+    {
+     "value": "ASTM A334 Gr.3",
+     "code": "179"
+    },
+    {
+     "value": "ASTM A334 Gr.6",
+     "code": "180"
+    },
+    {
+     "value": "ASTM A334 Gr.7",
+     "code": "181"
+    },
+    {
+     "value": "ASTM A334 Gr.8",
+     "code": "182"
+    },
+    {
+     "value": "ASTM A334 Gr.9",
+     "code": "183"
+    },
+    {
+     "value": "ASTM A334 Gr.11",
+     "code": "184"
+    },
+    {
+     "value": "EN 10216-1 Gr.P195TR1",
+     "code": "185"
+    },
+    {
+     "value": "EN 10216-1 Gr.P235TR1",
+     "code": "186"
+    },
+    {
+     "value": "EN 10216-1 Gr.P265TR1",
+     "code": "187"
+    },
+    {
+     "value": "EN 10216-1 Gr.P195TR2",
+     "code": "188"
+    },
+    {
+     "value": "EN 10216-1 Gr.P235TR2",
+     "code": "189"
+    },
+    {
+     "value": "EN 10216-1 Gr.P265TR2",
+     "code": "190"
+    },
+    {
+     "value": "EN 10216-2 Gr.P195GH",
+     "code": "191"
+    },
+    {
+     "value": "EN 10216-2 Gr.P235GH",
+     "code": "192"
+    },
+    {
+     "value": "EN 10216-2 Gr.P265GH",
+     "code": "193"
+    },
+    {
+     "value": "EN 10216-2 Gr.16Mo3",
+     "code": "194"
+    },
+    {
+     "value": "EN 10216-2 Gr.13CrMo4-5",
+     "code": "195"
+    },
+    {
+     "value": "EN 10216-2 Gr.10CrMo9-10",
+     "code": "196"
+    },
+    {
+     "value": "EN 10216-2 Gr.14MoV6-3",
+     "code": "197"
+    },
+    {
+     "value": "EN 10217-1 Gr.P195TR1",
+     "code": "198"
+    },
+    {
+     "value": "EN 10217-1 Gr.P235TR1",
+     "code": "199"
+    },
+    {
+     "value": "EN 10217-1 Gr.P265TR1",
+     "code": "200"
+    },
+    {
+     "value": "EN 10217-1 Gr.P195TR2",
+     "code": "201"
+    },
+    {
+     "value": "EN 10217-1 Gr.P235TR2",
+     "code": "202"
+    },
+    {
+     "value": "EN 10217-1 Gr.P265TR2",
+     "code": "203"
+    },
+    {
+     "value": "EN 10217-2 Gr.P195GH",
+     "code": "204"
+    },
+    {
+     "value": "EN 10217-2 Gr.P235GH",
+     "code": "205"
+    },
+    {
+     "value": "EN 10217-2 Gr.P265GH",
+     "code": "206"
+    },
+    {
+     "value": "EN 10217-2 Gr.16Mo3",
+     "code": "207"
+    },
+    {
+     "value": "EN 10208-2 Gr.L245NB",
+     "code": "208"
+    },
+    {
+     "value": "EN 10208-2 Gr.L290NB",
+     "code": "209"
+    },
+    {
+     "value": "EN 10208-2 Gr.L360NB",
+     "code": "210"
+    },
+    {
+     "value": "EN 10208-2 Gr.L415NB",
+     "code": "211"
+    },
+    {
+     "value": "EN 10208-2 Gr.L360QB",
+     "code": "212"
+    },
+    {
+     "value": "EN 10208-2 Gr.L415QB",
+     "code": "213"
+    },
+    {
+     "value": "EN 10208-2 Gr.L485QB",
+     "code": "214"
+    },
+    {
+     "value": "EN 10208-2 Gr.L555QB",
+     "code": "215"
+    },
+    {
+     "value": "EN 10208-2 Gr.L245MB",
+     "code": "216"
+    },
+    {
+     "value": "EN 10208-2 Gr.L290MB",
+     "code": "217"
+    },
+    {
+     "value": "EN 10208-2 Gr.L360MB",
+     "code": "218"
+    },
+    {
+     "value": "EN 10208-2 Gr.L415MB",
+     "code": "219"
+    },
+    {
+     "value": "EN 10208-2 Gr.L450MB",
+     "code": "220"
+    },
+    {
+     "value": "EN 10208-2 Gr.L485MB",
+     "code": "221"
+    },
+    {
+     "value": "EN 10208-2 Gr.L555MB",
+     "code": "222"
+    },
+    {
+     "value": "DIN 1629 Gr.ST37",
+     "code": "223"
+    },
+    {
+     "value": "DIN 1629 Gr.ST44",
+     "code": "224"
+    },
+    {
+     "value": "DIN 1629 Gr.ST52",
+     "code": "225"
+    },
+    {
+     "value": "ASTM A312 Gr.TPXM-19",
+     "code": "226"
+    },
+    {
+     "value": "ASTM A312 Gr.TPXM-10",
+     "code": "227"
+    },
+    {
+     "value": "ASTM A312 Gr.TPXM-11",
+     "code": "228"
+    },
+    {
+     "value": "ASTM A312 Gr.TPXM-29",
+     "code": "229"
+    },
+    {
+     "value": "ASTM A312 Gr.TP309S",
+     "code": "230"
+    },
+    {
+     "value": "ASTM A312 Gr.TP309H",
+     "code": "231"
+    },
+    {
+     "value": "ASTM A312 Gr.TP309cb",
+     "code": "232"
+    },
+    {
+     "value": "ASTM A312 Gr.TP309Hcb",
+     "code": "233"
+    },
+    {
+     "value": "ASTM A312 Gr.TP310S",
+     "code": "234"
+    },
+    {
+     "value": "ASTM A312 Gr.TP310H",
+     "code": "235"
+    },
+    {
+     "value": "ASTM A312 Gr.TP310cb",
+     "code": "236"
+    },
+    {
+     "value": "ASTM A312 Gr.TP310Hcb",
+     "code": "237"
+    },
+    {
+     "value": "ASTM A312 Gr.TP317",
+     "code": "238"
+    },
+    {
+     "value": "ASTM A312 Gr.TP317L",
+     "code": "239"
+    },
+    {
+     "value": "ASTM A312 Gr.TP321",
+     "code": "240"
+    },
+    {
+     "value": "ASTM A312 Gr.TP321H",
+     "code": "241"
+    },
+    {
+     "value": "ASTM A312 Gr.TP347",
+     "code": "242"
+    },
+    {
+     "value": "ASTM A312 Gr.TP347H",
+     "code": "243"
+    },
+    {
+     "value": "ASTM A312 Gr.TP347LN",
+     "code": "244"
+    },
+    {
+     "value": "ASTM A312 Gr.TP348",
+     "code": "245"
+    },
+    {
+     "value": "ASTM A312 Gr.TP348H",
+     "code": "246"
+    },
+    {
+     "value": "ASTM A312 Gr.TPXM-15",
+     "code": "247"
+    },
+    {
+     "value": "ASTM A358 Gr.201",
+     "code": "248"
+    },
+    {
+     "value": "ASTM A358 Gr.201LN",
+     "code": "249"
+    },
+    {
+     "value": "ASTM A358 Gr.304",
+     "code": "250"
+    },
+    {
+     "value": "ASTM A358 Gr.304N",
+     "code": "251"
+    },
+    {
+     "value": "ASTM A358 Gr.304H",
+     "code": "252"
+    },
+    {
+     "value": "ASTM A358 Gr.309Cb",
+     "code": "253"
+    },
+    {
+     "value": "ASTM A358 Gr.309S",
+     "code": "254"
+    },
+    {
+     "value": "ASTM A358 Gr.310Cb",
+     "code": "255"
+    },
+    {
+     "value": "ASTM A358 Gr.310S",
+     "code": "256"
+    },
+    {
+     "value": "ASTM A358 Gr.316",
+     "code": "257"
+    },
+    {
+     "value": "ASTM A358 Gr.316N",
+     "code": "258"
+    },
+    {
+     "value": "ASTM A358 Gr.316H",
+     "code": "259"
+    },
+    {
+     "value": "ASTM A358 Gr.317",
+     "code": "260"
+    },
+    {
+     "value": "ASTM A358 Gr.317L",
+     "code": "261"
+    },
+    {
+     "value": "ASTM A358 Gr.321",
+     "code": "262"
+    },
+    {
+     "value": "ASTM A358 Gr.321Hc",
+     "code": "263"
+    },
+    {
+     "value": "ASTM A358 Gr.347",
+     "code": "264"
+    },
+    {
+     "value": "ASTM A358 Gr.348",
+     "code": "265"
+    },
+    {
+     "value": "ASTM A358 Gr.XM-19",
+     "code": "266"
+    },
+    {
+     "value": "ASTM A358 Gr.XM-29",
+     "code": "267"
+    },
+    {
+     "value": "ASTM A778 Gr.TP317L",
+     "code": "268"
+    },
+    {
+     "value": "ASTM A778 Gr.TP321",
+     "code": "269"
+    },
+    {
+     "value": "ASTM A778 Gr.TP347",
+     "code": "270"
+    },
+    {
+     "value": "ASTM A790 Gr.S31200",
+     "code": "271"
+    },
+    {
+     "value": "ASTM A790 Gr.S31260",
+     "code": "272"
+    },
+    {
+     "value": "ASTM A790 Gr.S31500",
+     "code": "273"
+    },
+    {
+     "value": "ASTM A790 Gr.S31803",
+     "code": "274"
+    },
+    {
+     "value": "ASTM A790 Gr.S32003",
+     "code": "275"
+    },
+    {
+     "value": "ASTM A790 Gr.S32101",
+     "code": "276"
+    },
+    {
+     "value": "ASTM A790 Gr.S32205",
+     "code": "277"
+    },
+    {
+     "value": "ASTM A790 Gr.S32304",
+     "code": "278"
+    },
+    {
+     "value": "ASTM A790 Gr.S32520",
+     "code": "279"
+    },
+    {
+     "value": "ASTM A790 Gr.S32550",
+     "code": "280"
+    },
+    {
+     "value": "ASTM A790 Gr.S32750",
+     "code": "281"
+    },
+    {
+     "value": "ASTM A790 Gr.S32760",
+     "code": "282"
+    },
+    {
+     "value": "ASTM A790 Gr.S32808",
+     "code": "283"
+    },
+    {
+     "value": "ASTM A790 Gr.S32900",
+     "code": "284"
+    },
+    {
+     "value": "ASTM A790 Gr.S32906",
+     "code": "285"
+    },
+    {
+     "value": "ASTM A790 Gr.S32950",
+     "code": "286"
+    },
+    {
+     "value": "ASTM A790 Gr.S39274",
+     "code": "287"
+    },
+    {
+     "value": "ASTM A790 Gr.S39277",
+     "code": "288"
+    },
+    {
+     "value": "ASTM A928 Gr.S31200",
+     "code": "289"
+    },
+    {
+     "value": "ASTM A928 Gr.S31260",
+     "code": "290"
+    },
+    {
+     "value": "ASTM A928 Gr.S31500",
+     "code": "291"
+    },
+    {
+     "value": "ASTM A928 Gr.S31803",
+     "code": "292"
+    },
+    {
+     "value": "ASTM A928 Gr.S32205",
+     "code": "293"
+    },
+    {
+     "value": "ASTM A928 Gr.S32304",
+     "code": "294"
+    },
+    {
+     "value": "ASTM A928 Gr.S32550",
+     "code": "295"
+    },
+    {
+     "value": "ASTM A928 Gr.S32750",
+     "code": "296"
+    },
+    {
+     "value": "ASTM A928 Gr.S32900",
+     "code": "297"
+    },
+    {
+     "value": "ASTM A928 Gr.S32950",
+     "code": "298"
+    },
+    {
+     "value": "ASTM A928 Gr.S32760",
+     "code": "299"
+    },
+    {
+     "value": "ASTM A928 Gr.S32520",
+     "code": "300"
+    },
+    {
+     "value": "ASTM A376 Gr.304",
+     "code": "301"
+    },
+    {
+     "value": "ASTM A376 Gr.304H",
+     "code": "302"
+    },
+    {
+     "value": "ASTM A376 Gr.304N",
+     "code": "303"
+    },
+    {
+     "value": "ASTM A376 Gr.316",
+     "code": "304"
+    },
+    {
+     "value": "ASTM A376 Gr.316H",
+     "code": "305"
+    },
+    {
+     "value": "ASTM A376 Gr.316N",
+     "code": "306"
+    },
+    {
+     "value": "ASTM A376 Gr.321",
+     "code": "307"
+    },
+    {
+     "value": "ASTM A376 Gr.321H",
+     "code": "308"
+    },
+    {
+     "value": "ASTM A376 Gr.347",
+     "code": "309"
+    },
+    {
+     "value": "ASTM A376 Gr.347H",
+     "code": "310"
+    },
+    {
+     "value": "ASTM A376 Gr.348F",
+     "code": "311"
+    },
+    {
+     "value": "ASTM A376 Gr.16-8-2-H",
+     "code": "312"
+    },
+    {
+     "value": "EN 10216-5 Gr.X2CrNi18-9",
+     "code": "313"
+    },
+    {
+     "value": "EN 10216-5 Gr.X2CrNi19-11",
+     "code": "314"
+    },
+    {
+     "value": "EN 10216-5 Gr.X2CrNiN18-10",
+     "code": "315"
+    },
+    {
+     "value": "EN 10216-5 Gr.X5CrNi18-10",
+     "code": "316"
+    },
+    {
+     "value": "EN 10216-5 Gr.X6CrNiTi18-10",
+     "code": "317"
+    },
+    {
+     "value": "EN 10216-5 Gr.X6CrNiNb18-10",
+     "code": "318"
+    },
+    {
+     "value": "EN 10216-5 Gr.X1CrNi25-21",
+     "code": "319"
+    },
+    {
+     "value": "EN 10216-5 Gr.X2CrNiMo17-12-2",
+     "code": "320"
+    },
+    {
+     "value": "EN 10216-5 Gr.X5CrNiMo17-12-2",
+     "code": "321"
+    },
+    {
+     "value": "EN 10216-5 Gr.X1CrNiMoN22-2",
+     "code": "322"
+    },
+    {
+     "value": "EN 10216-5 Gr.X6CrNiMoTi17-12-2",
+     "code": "323"
+    },
+    {
+     "value": "EN 10216-5 Gr.X6CrNIMoNb17-12-2",
+     "code": "324"
+    },
+    {
+     "value": "EN 10216-5 Gr.X2CrNiMoN17-13-3",
+     "code": "325"
+    },
+    {
+     "value": "EN 10216-5 Gr.X3CrNiMo17-13-3",
+     "code": "326"
+    },
+    {
+     "value": "EN 10216-5 Gr.X2CrNiMo18-14-3",
+     "code": "327"
+    },
+    {
+     "value": "EN 10216-5 Gr.X2CrNiMoN17-13-5",
+     "code": "328"
+    },
+    {
+     "value": "EN 10216-5 Gr.X1NiCrMoCu31-27-4",
+     "code": "329"
+    },
+    {
+     "value": "EN 10216-5 Gr.X1NiCrMoCu25-20-5",
+     "code": "330"
+    },
+    {
+     "value": "EN 10216-5 Gr.X1NiCrMoCuN20-18-7",
+     "code": "331"
+    },
+    {
+     "value": "EN 10216-5 Gr.X1NiCrMoCuN25-20-7",
+     "code": "332"
+    },
+    {
+     "value": "EN 10216-5 Gr.X2NiCrAlTi32-20",
+     "code": "333"
+    },
+    {
+     "value": "EN 10216-5 Gr.X6CrNi18-10",
+     "code": "334"
+    },
+    {
+     "value": "EN 10216-5 Gr.X7CrNiTi18-10",
+     "code": "335"
+    },
+    {
+     "value": "EN 10216-5 Gr.X7CrNiNb18-10",
+     "code": "336"
+    },
+    {
+     "value": "EN 10216-5 Gr.X6CrNiTiB18-10",
+     "code": "337"
+    },
+    {
+     "value": "EN 10216-5 Gr.X6CrNiMo17-13-2",
+     "code": "338"
+    },
+    {
+     "value": "EN 10216-5 Gr.X5NiCrAlT31-20",
+     "code": "339"
+    },
+    {
+     "value": "EN 10216-5 Gr.X8CrNiAlTi32-21",
+     "code": "340"
+    },
+    {
+     "value": "EN 10216-5 Gr.X3CrNiMoBN17-13-3",
+     "code": "341"
+    },
+    {
+     "value": "EN 10216-5 Gr.X8CrNiNb16-13",
+     "code": "342"
+    },
+    {
+     "value": "EN 10216-5 Gr.X8CrNiMoVNb16-13",
+     "code": "343"
+    },
+    {
+     "value": "EN 10216-5 Gr.X8CrNiMoNb16-16",
+     "code": "344"
+    },
+    {
+     "value": "EN 10216-5 Gr.X10CrNiMoMnNbVB15-10-1",
+     "code": "345"
+    },
+    {
+     "value": "EN 10216-5 Gr.X2CrNiMoN22-5-3",
+     "code": "346"
+    },
+    {
+     "value": "EN 10216-5 Gr.X2CrNiMoSi18-5-3",
+     "code": "347"
+    },
+    {
+     "value": "EN 10216-5 Gr.X2CrNiN23-4",
+     "code": "348"
+    },
+    {
+     "value": "EN 10216-5 Gr.X2CrNiMoN25-7-4",
+     "code": "349"
+    },
+    {
+     "value": "EN 10216-5 Gr.X2CrNiMoCuN25-6-3",
+     "code": "350"
+    },
+    {
+     "value": "EN 10216-5 Gr.X2CrNiM0CuWN25-7-4",
+     "code": "351"
+    },
+    {
+     "value": "EN 10217-7 Gr.X2CrNi18-9",
+     "code": "352"
+    },
+    {
+     "value": "EN 10217-7 Gr.X2CrNi19-11",
+     "code": "353"
+    },
+    {
+     "value": "EN 10217-7 Gr.X2CrNiN18-10",
+     "code": "354"
+    },
+    {
+     "value": "EN 10217-7 Gr.X5CrNi18-10",
+     "code": "355"
+    },
+    {
+     "value": "EN 10217-7 Gr.X6CrNiTi18-10",
+     "code": "356"
+    },
+    {
+     "value": "EN 10217-7 Gr.X6CrNiNb18-10",
+     "code": "357"
+    },
+    {
+     "value": "EN 10217-7 Gr.X2CrNiMo17-12-2",
+     "code": "358"
+    },
+    {
+     "value": "EN 10217-7 Gr.X5CrNiMo17-12-2",
+     "code": "359"
+    },
+    {
+     "value": "EN 10217-7 Gr.XCrNiMoTi17-12-2",
+     "code": "360"
+    },
+    {
+     "value": "EN 10217-7 Gr.X2CrNiMo17-12-3",
+     "code": "361"
+    },
+    {
+     "value": "EN 10217-7 Gr.X2CrNiMoN17-13-3",
+     "code": "362"
+    },
+    {
+     "value": "EN 10217-7 Gr.X3CrNiMo17-13-3",
+     "code": "363"
+    },
+    {
+     "value": "EN 10217-7 Gr.X2CrNiMo18-14-3",
+     "code": "364"
+    },
+    {
+     "value": "EN 10217-7 Gr.X2CrNiMoN17-13-5",
+     "code": "365"
+    },
+    {
+     "value": "EN 10217-7 Gr.X2CrNiMo18-15-4",
+     "code": "366"
+    },
+    {
+     "value": "EN 10217-7 Gr.X1NiCrMoCu31-27-4",
+     "code": "367"
+    },
+    {
+     "value": "EN 10217-7 Gr.X1CrNiMoCu25-20-5",
+     "code": "368"
+    },
+    {
+     "value": "EN 10217-7 Gr.X1CrNiMoCuN20-18-7",
+     "code": "369"
+    },
+    {
+     "value": "EN 10217-7 Gr.X1NiCrMoCuN25-20-7",
+     "code": "370"
+    },
+    {
+     "value": "EN 10217-7 Gr.X2CrNiN23-4",
+     "code": "371"
+    },
+    {
+     "value": "EN 10217-7 Gr.X2CrNiMoN22-5-3",
+     "code": "372"
+    },
+    {
+     "value": "EN 10217-7 Gr.X2CrNiMoN25-7-4",
+     "code": "373"
+    },
+    {
+     "value": "EN 10217-7 Gr.X2CrNiMoCuWN25-7-4",
+     "code": "374"
+    },
+    {
+     "value": "ASTM A335 Gr.P1",
+     "code": "375"
+    },
+    {
+     "value": "ASTM A335 Gr.P2",
+     "code": "376"
+    },
+    {
+     "value": "ASTM A335 Gr.P5",
+     "code": "377"
+    },
+    {
+     "value": "ASTM A335 Gr.P5b",
+     "code": "378"
+    },
+    {
+     "value": "ASTM A335 Gr.P5c",
+     "code": "379"
+    },
+    {
+     "value": "ASTM A335 Gr.P9",
+     "code": "380"
+    },
+    {
+     "value": "ASTM A335 Gr.P11",
+     "code": "381"
+    },
+    {
+     "value": "ASTM A335 Gr.P12",
+     "code": "382"
+    },
+    {
+     "value": "ASTM A335 Gr.P15",
+     "code": "383"
+    },
+    {
+     "value": "ASTM A335 Gr.P21",
+     "code": "384"
+    },
+    {
+     "value": "ASTM A335 Gr.P22",
+     "code": "385"
+    },
+    {
+     "value": "ASTM A335 Gr.P23",
+     "code": "386"
+    },
+    {
+     "value": "ASTM A335 Gr.P24",
+     "code": "387"
+    },
+    {
+     "value": "ASTM A335 Gr.P36",
+     "code": "388"
+    },
+    {
+     "value": "ASTM A335 Gr.P91 Type1",
+     "code": "389"
+    },
+    {
+     "value": "ASTM A335 Gr.P91 Type2",
+     "code": "390"
+    },
+    {
+     "value": "ASTM A335 Gr.P92",
+     "code": "391"
+    },
+    {
+     "value": "ASTM A335 Gr.P115",
+     "code": "392"
+    },
+    {
+     "value": "ASTM A335 Gr.P122",
+     "code": "393"
+    },
+    {
+     "value": "ASTM A335 Gr.P911",
+     "code": "394"
+    },
+    {
+     "value": "ASTM A691 Gr.CM-65",
+     "code": "395"
+    },
+    {
+     "value": "ASTM A691 Gr.CM-70",
+     "code": "396"
+    },
+    {
+     "value": "ASTM A691 Gr.CM-75",
+     "code": "397"
+    },
+    {
+     "value": "ASTM A691 Gr.CMSH-70",
+     "code": "398"
+    },
+    {
+     "value": "ASTM A691 Gr.CMS-75",
+     "code": "399"
+    },
+    {
+     "value": "ASTM A691 Gr.CMSH-80",
+     "code": "400"
+    },
+    {
+     "value": "ASTM A691 Gr.1/2 Cr",
+     "code": "401"
+    },
+    {
+     "value": "ASTM A691 Gr.1 Cr",
+     "code": "402"
+    },
+    {
+     "value": "ASTM A691 Gr.1¼ Cr",
+     "code": "403"
+    },
+    {
+     "value": "ASTM A691 Gr.2¼ Cr",
+     "code": "404"
+    },
+    {
+     "value": "ASTM A691 Gr.3 Cr",
+     "code": "405"
+    },
+    {
+     "value": "ASTM A691 Gr.5 Cr",
+     "code": "406"
+    },
+    {
+     "value": "ASTM A691 Gr.9 Cr",
+     "code": "407"
+    },
+    {
+     "value": "ASTM A691 Gr.91 hd",
+     "code": "408"
+    },
+    {
+     "value": "ASTM A369 Gr.FPA",
+     "code": "409"
+    },
+    {
+     "value": "ASTM A369 Gr.FPB",
+     "code": "410"
+    },
+    {
+     "value": "ASTM A369 Gr.FP1",
+     "code": "411"
+    },
+    {
+     "value": "ASTM A369 Gr.FP2",
+     "code": "412"
+    },
+    {
+     "value": "ASTM A369 Gr.FP5",
+     "code": "413"
+    },
+    {
+     "value": "ASTM A369 Gr.FP9",
+     "code": "414"
+    },
+    {
+     "value": "ASTM A369 Gr.FP11",
+     "code": "415"
+    },
+    {
+     "value": "ASTM A369 Gr.FP12",
+     "code": "416"
+    },
+    {
+     "value": "ASTM A369 Gr.FP21",
+     "code": "417"
+    },
+    {
+     "value": "ASTM A369 Gr.FP22",
+     "code": "418"
+    },
+    {
+     "value": "ASTM A369 Gr.FP91",
+     "code": "419"
+    },
+    {
+     "value": "DIN 17175 Gr.St35.8",
+     "code": "420"
+    },
+    {
+     "value": "DIN 17175 Gr.St45.8",
+     "code": "421"
+    },
+    {
+     "value": "DIN 17175 Gr.15Mo3",
+     "code": "422"
+    },
+    {
+     "value": "DIN 17175 Gr.13CrMo44",
+     "code": "423"
+    },
+    {
+     "value": "DIN 17175 Gr.10CrMo910",
+     "code": "424"
+    },
+    {
+     "value": "DIN 17175 Gr.14MoV63",
+     "code": "425"
+    },
+    {
+     "value": "DIN 17175 Gr.X20CrMoV12-1",
+     "code": "426"
+    },
+    {
+     "value": "AWWA C151/A21.51",
+     "code": "427"
+    },
+    {
+     "value": "EN 545",
+     "code": "428"
+    },
+    {
+     "value": "EN 598",
+     "code": "429"
+    },
+    {
+     "value": "EN 969",
+     "code": "430"
+    },
+    {
+     "value": "EN 877",
+     "code": "431"
+    },
+    {
+     "value": "EN 1563 Gr.EN-GJS-400-15",
+     "code": "432"
+    },
+    {
+     "value": "EN 1563 Gr.EN-GJS-450-10",
+     "code": "433"
+    },
+    {
+     "value": "EN 1563 Gr.EN-GJS-500-7",
+     "code": "434"
+    },
+    {
+     "value": "EN 1563 Gr.EN-GJS-600-3",
+     "code": "435"
+    },
+    {
+     "value": "EN 1563 Gr.EN-GJS-700-2",
+     "code": "436"
+    },
+    {
+     "value": "EN 1561 Gr.EN-GJL-100",
+     "code": "437"
+    },
+    {
+     "value": "EN 1561 Gr.EN-GJL-150",
+     "code": "438"
+    },
+    {
+     "value": "EN 1561 Gr.EN-GJL-200",
+     "code": "439"
+    },
+    {
+     "value": "EN 1561 Gr.EN-GJL-250",
+     "code": "440"
+    },
+    {
+     "value": "EN 1561 Gr.EN-GJL-300",
+     "code": "441"
+    },
+    {
+     "value": "EN 1561 Gr.EN-GJL-350",
+     "code": "442"
+    },
+    {
+     "value": "EN 1561 Gr.EN-GJL-400",
+     "code": "443"
+    },
+    {
+     "value": "ASTM A48",
+     "code": "444"
+    },
+    {
+     "value": "PE63",
+     "code": "445"
+    },
+    {
+     "value": "ASTM B161 Gr.N02200",
+     "code": "446"
+    },
+    {
+     "value": "ASTM B161 Gr.N02201",
+     "code": "447"
+    },
+    {
+     "value": "ASTM B165 Gr.N04400",
+     "code": "448"
+    },
+    {
+     "value": "ASTM B167 Gr.N06600",
+     "code": "449"
+    },
+    {
+     "value": "ASTM B167 Gr.N06601",
+     "code": "450"
+    },
+    {
+     "value": "ASTM B167 Gr.N06690",
+     "code": "451"
+    },
+    {
+     "value": "ASTM B407 Gr.N08800",
+     "code": "452"
+    },
+    {
+     "value": "ASTM B407 Gr.N08810",
+     "code": "453"
+    },
+    {
+     "value": "ASTM B407 Gr.N08811",
+     "code": "454"
+    },
+    {
+     "value": "ASTM B423 Gr.N08825",
+     "code": "455"
+    },
+    {
+     "value": "ASTM B444 Gr.N06625",
+     "code": "456"
+    },
+    {
+     "value": "ASTM B622 Gr.N10276",
+     "code": "457"
+    },
+    {
+     "value": "ASTM B622 Gr.N06022",
+     "code": "458"
+    },
+    {
+     "value": "ASTM B622 Gr.N06455",
+     "code": "459"
+    },
+    {
+     "value": "ASTM B622 Gr.N10665",
+     "code": "460"
+    },
+    {
+     "value": "ASTM B622 Gr.N10675",
+     "code": "461"
+    },
+    {
+     "value": "ASTM B622 Gr.N06200",
+     "code": "462"
+    },
+    {
+     "value": "ASTM B622 Gr.N06059",
+     "code": "463"
+    },
+    {
+     "value": "ASTM B729 Gr.N08020",
+     "code": "464"
+    },
+    {
+     "value": "ASTM B690 Gr.N08367",
+     "code": "465"
+    },
+    {
+     "value": "ASTM B677 Gr.N08904",
+     "code": "466"
+    },
+    {
+     "value": "ASTM B677 Gr.N08926",
+     "code": "467"
+    },
+    {
+     "value": "ASTM B619 Gr.N10276",
+     "code": "468"
+    },
+    {
+     "value": "ASTM B619 Gr.N06022",
+     "code": "469"
+    },
+    {
+     "value": "ASTM B619 Gr.N10665",
+     "code": "470"
+    },
+    {
+     "value": "ASTM B514 Gr.N08800",
+     "code": "471"
+    },
+    {
+     "value": "ASTM B514 Gr.N08810",
+     "code": "472"
+    },
+    {
+     "value": "ASTM B705 Gr.N06625",
+     "code": "473"
+    },
+    {
+     "value": "ASTM B705 Gr.N08825",
+     "code": "474"
+    },
+    {
+     "value": "ASTM B468 Gr.N08020",
+     "code": "475"
+    },
+    {
+     "value": "ASTM B675 Gr.N08367",
+     "code": "476"
+    },
+    {
+     "value": "ASTM B673 Gr.N08904",
+     "code": "477"
+    },
+    {
+     "value": "ASTM B861 Gr.1",
+     "code": "478"
+    },
+    {
+     "value": "ASTM B861 Gr.2",
+     "code": "479"
+    },
+    {
+     "value": "ASTM B861 Gr.3",
+     "code": "480"
+    },
+    {
+     "value": "ASTM B861 Gr.5",
+     "code": "481"
+    },
+    {
+     "value": "ASTM B861 Gr.7",
+     "code": "482"
+    },
+    {
+     "value": "ASTM B861 Gr.9",
+     "code": "483"
+    },
+    {
+     "value": "ASTM B861 Gr.11",
+     "code": "484"
+    },
+    {
+     "value": "ASTM B861 Gr.12",
+     "code": "485"
+    },
+    {
+     "value": "ASTM B861 Gr.16",
+     "code": "486"
+    },
+    {
+     "value": "ASTM B861 Gr.17",
+     "code": "487"
+    },
+    {
+     "value": "ASTM B861 Gr.23",
+     "code": "488"
+    },
+    {
+     "value": "ASTM B861 Gr.26",
+     "code": "489"
+    },
+    {
+     "value": "ASTM B861 Gr.28",
+     "code": "490"
+    },
+    {
+     "value": "ASTM B862 Gr.2",
+     "code": "491"
+    },
+    {
+     "value": "ASTM B862 Gr.5",
+     "code": "492"
+    },
+    {
+     "value": "ASTM B862 Gr.7",
+     "code": "493"
+    },
+    {
+     "value": "ASTM B862 Gr.9",
+     "code": "494"
+    },
+    {
+     "value": "ASTM B862 Gr.12",
+     "code": "495"
+    },
+    {
+     "value": "ASTM B241 Gr.1060",
+     "code": "496"
+    },
+    {
+     "value": "ASTM B241 Gr.1100",
+     "code": "497"
+    },
+    {
+     "value": "ASTM B241 Gr.3003",
+     "code": "498"
+    },
+    {
+     "value": "ASTM B241 Gr.5052",
+     "code": "499"
+    },
+    {
+     "value": "ASTM B241 Gr.5083",
+     "code": "500"
+    },
+    {
+     "value": "ASTM B241 Gr.5086",
+     "code": "501"
+    },
+    {
+     "value": "ASTM B241 Gr.6061",
+     "code": "502"
+    },
+    {
+     "value": "ASTM B241 Gr.6063",
+     "code": "503"
+    },
+    {
+     "value": "ASTM B241 Gr.6082",
+     "code": "504"
+    },
+    {
+     "value": "ASTM B241 Gr.2024",
+     "code": "505"
+    },
+    {
+     "value": "ASTM B345 Gr.6061",
+     "code": "506"
+    },
+    {
+     "value": "ASTM B345 Gr.6063",
+     "code": "507"
+    },
+    {
+     "value": "ASTM B210 Gr.3003",
+     "code": "508"
+    },
+    {
+     "value": "EN 755 Gr.EN AW-6060",
+     "code": "509"
+    },
+    {
+     "value": "EN 755 Gr.EN AW-6082",
+     "code": "510"
+    },
+    {
+     "value": "ASTM B43 Gr.C23000",
+     "code": "511"
+    },
+    {
+     "value": "ASTM B315 Gr.C19400",
+     "code": "512"
+    },
+    {
+     "value": "ASTM B466 Gr.C70600",
+     "code": "513"
+    },
+    {
+     "value": "ASTM B466 Gr.C71500",
+     "code": "514"
+    },
+    {
+     "value": "ASTM B466 Gr.C71640",
+     "code": "515"
+    },
+    {
+     "value": "ASTM B467 Gr.C70600",
+     "code": "516"
+    },
+    {
+     "value": "ASTM B467 Gr.C71500",
+     "code": "517"
+    },
+    {
+     "value": "ASTM B608 Gr.C70600",
+     "code": "518"
+    },
+    {
+     "value": "EN 1057 Gr.Cu-DHP",
+     "code": "519"
+    },
+    {
+     "value": "ISO 14692 GRP/GRE",
+     "code": "520"
+    },
+    {
+     "value": "AWWA C950 Fiberglass",
+     "code": "521"
+    },
+    {
+     "value": "ASTM D2996 RTRP",
+     "code": "522"
+    },
+    {
+     "value": "ASTM D2997 RTRP",
+     "code": "523"
+    },
+    {
+     "value": "API 15HR/15LR RTRP",
+     "code": "524"
+    },
+    {
+     "value": "$material$",
+     "code": "525"
+    },
+    {
+     "value": "API 5L Gr.A25 PSL1",
+     "code": "526"
+    },
+    {
+     "value": "API 5L Gr.X90 PSL1",
+     "code": "527"
+    },
+    {
+     "value": "API 5L Gr.X100 PSL1",
+     "code": "528"
+    },
+    {
+     "value": "API 5L Gr.X120 PSL1",
+     "code": "529"
+    },
+    {
+     "value": "API 5L Gr.A25 PSL2",
+     "code": "530"
+    },
+    {
+     "value": "API 5L Gr.X90 PSL2",
+     "code": "531"
+    },
+    {
+     "value": "API 5L Gr.X100 PSL2",
+     "code": "532"
+    },
+    {
+     "value": "API 5L Gr.X120 PSL2",
+     "code": "533"
+    }
+   ]
+  },
+  {
+   "name": "coating",
+   "position": 3,
+   "values": [
+    {
+     "value": "$coating$",
+     "code": "01"
+    },
+    {
+     "value": "HDG",
+     "code": "02"
+    }
+   ]
+  },
+  {
+   "name": "design_standard",
+   "position": 4,
+   "values": [
+    {
+     "value": "ASME B36.10M",
+     "code": "01"
+    },
+    {
+     "value": "API 5L",
+     "code": "02"
+    },
+    {
+     "value": "ASME B36.19M",
+     "code": "03"
+    },
+    {
+     "value": "EN 10220",
+     "code": "04"
+    },
+    {
+     "value": "API 5CT",
+     "code": "05"
+    },
+    {
+     "value": "ISO 2531",
+     "code": "06"
+    },
+    {
+     "value": "EN 545 / EN 598",
+     "code": "07"
+    },
+    {
+     "value": "ASTM B88 / EN 1057",
+     "code": "08"
+    },
+    {
+     "value": "ISO 4065 / 11922",
+     "code": "09"
+    },
+    {
+     "value": "ASTM D1785 / D2241 / F714",
+     "code": "10"
+    },
+    {
+     "value": "AWWA C900 / C905 / C906",
+     "code": "11"
+    },
+    {
+     "value": "EN ISO 15494 / 15493",
+     "code": "12"
+    },
+    {
+     "value": "ISO 14692",
+     "code": "13"
+    },
+    {
+     "value": "AWWA C950 / ASTM D2996-D2997",
+     "code": "14"
+    },
+    {
+     "value": "DIN 2448 / 2458",
+     "code": "15"
+    },
+    {
+     "value": "ISO 4200",
+     "code": "16"
+    },
+    {
+     "value": "JIS G3459 / G3454",
+     "code": "17"
+    },
+    {
+     "value": "AWWA C151",
+     "code": "18"
+    },
+    {
+     "value": "API 5DP",
+     "code": "19"
+    },
+    {
+     "value": "ISO 21003",
+     "code": "20"
+    },
+    {
+     "value": "ISO 10931",
+     "code": "21"
+    },
+    {
+     "value": "ISO 12086",
+     "code": "22"
+    },
+    {
+     "value": "DIN 8077 / 8078",
+     "code": "23"
+    }
+   ]
+  },
+  {
+   "name": "nace",
+   "position": 5,
+   "values": [
+    {
+     "value": "Non-Sour",
+     "code": "01"
+    },
+    {
+     "value": "NACE MR0175",
+     "code": "02"
+    }
+   ]
+  },
+  {
+   "name": "sdr",
+   "position": 6,
+   "values": [
+    {
+     "value": "SDR11",
+     "code": "01"
+    },
+    {
+     "value": "SDR17",
+     "code": "02"
+    },
+    {
+     "value": "SDR17.6",
+     "code": "03"
+    },
+    {
+     "value": "SDR26",
+     "code": "04"
+    },
+    {
+     "value": "SDR21",
+     "code": "05"
+    },
+    {
+     "value": "SDR13.6",
+     "code": "06"
+    },
+    {
+     "value": "SDR9",
+     "code": "07"
+    },
+    {
+     "value": "SDR33",
+     "code": "08"
+    },
+    {
+     "value": "SDR7.4",
+     "code": "09"
+    },
+    {
+     "value": "SDR41",
+     "code": "10"
+    },
+    {
+     "value": "SDR51",
+     "code": "11"
+    },
+    {
+     "value": "SDR6.3",
+     "code": "12"
+    },
+    {
+     "value": "SDR6",
+     "code": "13"
+    },
+    {
+     "value": "SDR5",
+     "code": "14"
+    },
+    {
+     "value": "$sdr$",
+     "code": "15"
+    }
+   ]
+  },
+  {
+   "name": "pn",
+   "position": 7,
+   "values": [
+    {
+     "value": "PN10",
+     "code": "01"
+    },
+    {
+     "value": "PN16",
+     "code": "02"
+    },
+    {
+     "value": "PN6",
+     "code": "03"
+    },
+    {
+     "value": "PN25",
+     "code": "04"
+    },
+    {
+     "value": "PN20",
+     "code": "05"
+    },
+    {
+     "value": "PN12.5",
+     "code": "06"
+    },
+    {
+     "value": "PN8",
+     "code": "07"
+    },
+    {
+     "value": "PN4",
+     "code": "08"
+    },
+    {
+     "value": "PN5",
+     "code": "09"
+    },
+    {
+     "value": "PN3.2",
+     "code": "10"
+    },
+    {
+     "value": "PN9",
+     "code": "11"
+    },
+    {
+     "value": "PN28",
+     "code": "12"
+    },
+    {
+     "value": "PN32",
+     "code": "13"
+    },
+    {
+     "value": "PN40",
+     "code": "14"
+    },
+    {
+     "value": "PN1",
+     "code": "15"
+    },
+    {
+     "value": "PN2.5",
+     "code": "16"
+    },
+    {
+     "value": "$pn$",
+     "code": "17"
+    },
+    {
+     "value": "PN6.3",
+     "code": "18"
+    }
+   ]
+  },
+  {
+   "name": "sn",
+   "position": 8,
+   "values": [
+    {
+     "value": "SN 5000 (N/m2)",
+     "code": "01"
+    },
+    {
+     "value": "SN 10000 (N/m2)",
+     "code": "02"
+    },
+    {
+     "value": "SN 2500 (N/m2)",
+     "code": "03"
+    },
+    {
+     "value": "SN 1250 (N/m2)",
+     "code": "04"
+    },
+    {
+     "value": "$sn$",
+     "code": "05"
+    }
+   ]
+  },
+  {
+   "name": "wt",
+   "position": 9,
+   "values": [
+    {
+     "value": "6.4 lb/ft",
+     "code": "01"
+    },
+    {
+     "value": "6.5 lb/ft",
+     "code": "02"
+    },
+    {
+     "value": "8.6 lb/ft",
+     "code": "03"
+    },
+    {
+     "value": "8.7 lb/ft",
+     "code": "04"
+    },
+    {
+     "value": "9.2 lb/ft",
+     "code": "05"
+    },
+    {
+     "value": "9.3 lb/ft",
+     "code": "06"
+    },
+    {
+     "value": "10.2 lb/ft",
+     "code": "07"
+    },
+    {
+     "value": "11.6 lb/ft",
+     "code": "08"
+    },
+    {
+     "value": "13.0 lb/ft",
+     "code": "09"
+    },
+    {
+     "value": "14.0 lb/ft",
+     "code": "10"
+    },
+    {
+     "value": "15.5 lb/ft",
+     "code": "11"
+    },
+    {
+     "value": "17.0 lb/ft",
+     "code": "12"
+    },
+    {
+     "value": "20.0 lb/ft",
+     "code": "13"
+    },
+    {
+     "value": "23.0 lb/ft",
+     "code": "14"
+    },
+    {
+     "value": "24.0 lb/ft",
+     "code": "15"
+    },
+    {
+     "value": "26.0 lb/ft",
+     "code": "16"
+    },
+    {
+     "value": "29.0 lb/ft",
+     "code": "17"
+    },
+    {
+     "value": "32.0 lb/ft",
+     "code": "18"
+    },
+    {
+     "value": "35.0 lb/ft",
+     "code": "19"
+    },
+    {
+     "value": "38.0 lb/ft",
+     "code": "20"
+    },
+    {
+     "value": "40.0 lb/ft",
+     "code": "21"
+    },
+    {
+     "value": "43.5 lb/ft",
+     "code": "22"
+    },
+    {
+     "value": "47.0 lb/ft",
+     "code": "23"
+    },
+    {
+     "value": "53.5 lb/ft",
+     "code": "24"
+    },
+    {
+     "value": "13.30 lb/ft",
+     "code": "25"
+    },
+    {
+     "value": "15.50 lb/ft",
+     "code": "26"
+    },
+    {
+     "value": "19.50 lb/ft",
+     "code": "27"
+    },
+    {
+     "value": "21.90 lb/ft",
+     "code": "28"
+    },
+    {
+     "value": "24.70 lb/ft",
+     "code": "29"
+    },
+    {
+     "value": "$wt$",
+     "code": "30"
+    }
+   ]
+  },
+  {
+   "name": "size",
+   "position": 10,
+   "values": [
+    {
+     "value": "1/8\"",
+     "code": "001"
+    },
+    {
+     "value": "1/4\"",
+     "code": "002"
+    },
+    {
+     "value": "3/8\"",
+     "code": "003"
+    },
+    {
+     "value": "1/2\"",
+     "code": "004"
+    },
+    {
+     "value": "3/4\"",
+     "code": "005"
+    },
+    {
+     "value": "1\"",
+     "code": "006"
+    },
+    {
+     "value": "1 1/4\"",
+     "code": "007"
+    },
+    {
+     "value": "1 1/2\"",
+     "code": "008"
+    },
+    {
+     "value": "2\"",
+     "code": "009"
+    },
+    {
+     "value": "2 1/2\"",
+     "code": "010"
+    },
+    {
+     "value": "3\"",
+     "code": "011"
+    },
+    {
+     "value": "3 1/2\"",
+     "code": "012"
+    },
+    {
+     "value": "4\"",
+     "code": "013"
+    },
+    {
+     "value": "5\"",
+     "code": "014"
+    },
+    {
+     "value": "6\"",
+     "code": "015"
+    },
+    {
+     "value": "8\"",
+     "code": "016"
+    },
+    {
+     "value": "10\"",
+     "code": "017"
+    },
+    {
+     "value": "12\"",
+     "code": "018"
+    },
+    {
+     "value": "14\"",
+     "code": "019"
+    },
+    {
+     "value": "16\"",
+     "code": "020"
+    },
+    {
+     "value": "18\"",
+     "code": "021"
+    },
+    {
+     "value": "20\"",
+     "code": "022"
+    },
+    {
+     "value": "22\"",
+     "code": "023"
+    },
+    {
+     "value": "24\"",
+     "code": "024"
+    },
+    {
+     "value": "26\"",
+     "code": "025"
+    },
+    {
+     "value": "28\"",
+     "code": "026"
+    },
+    {
+     "value": "30\"",
+     "code": "027"
+    },
+    {
+     "value": "32\"",
+     "code": "028"
+    },
+    {
+     "value": "34\"",
+     "code": "029"
+    },
+    {
+     "value": "36\"",
+     "code": "030"
+    },
+    {
+     "value": "38\"",
+     "code": "031"
+    },
+    {
+     "value": "40\"",
+     "code": "032"
+    },
+    {
+     "value": "42\"",
+     "code": "033"
+    },
+    {
+     "value": "44\"",
+     "code": "034"
+    },
+    {
+     "value": "46\"",
+     "code": "035"
+    },
+    {
+     "value": "48\"",
+     "code": "036"
+    },
+    {
+     "value": "50\"",
+     "code": "037"
+    },
+    {
+     "value": "52\"",
+     "code": "038"
+    },
+    {
+     "value": "54\"",
+     "code": "039"
+    },
+    {
+     "value": "56\"",
+     "code": "040"
+    },
+    {
+     "value": "58\"",
+     "code": "041"
+    },
+    {
+     "value": "60\"",
+     "code": "042"
+    },
+    {
+     "value": "62\"",
+     "code": "043"
+    },
+    {
+     "value": "64\"",
+     "code": "044"
+    },
+    {
+     "value": "66\"",
+     "code": "045"
+    },
+    {
+     "value": "68\"",
+     "code": "046"
+    },
+    {
+     "value": "70\"",
+     "code": "047"
+    },
+    {
+     "value": "72\"",
+     "code": "048"
+    },
+    {
+     "value": "74\"",
+     "code": "049"
+    },
+    {
+     "value": "76\"",
+     "code": "050"
+    },
+    {
+     "value": "78\"",
+     "code": "051"
+    },
+    {
+     "value": "80\"",
+     "code": "052"
+    },
+    {
+     "value": "DN16",
+     "code": "053"
+    },
+    {
+     "value": "DN20",
+     "code": "054"
+    },
+    {
+     "value": "DN25",
+     "code": "055"
+    },
+    {
+     "value": "DN32",
+     "code": "056"
+    },
+    {
+     "value": "DN40",
+     "code": "057"
+    },
+    {
+     "value": "DN50",
+     "code": "058"
+    },
+    {
+     "value": "DN63",
+     "code": "059"
+    },
+    {
+     "value": "DN75",
+     "code": "060"
+    },
+    {
+     "value": "DN90",
+     "code": "061"
+    },
+    {
+     "value": "DN110",
+     "code": "062"
+    },
+    {
+     "value": "DN125",
+     "code": "063"
+    },
+    {
+     "value": "DN140",
+     "code": "064"
+    },
+    {
+     "value": "DN160",
+     "code": "065"
+    },
+    {
+     "value": "DN180",
+     "code": "066"
+    },
+    {
+     "value": "DN200",
+     "code": "067"
+    },
+    {
+     "value": "DN225",
+     "code": "068"
+    },
+    {
+     "value": "DN250",
+     "code": "069"
+    },
+    {
+     "value": "DN280",
+     "code": "070"
+    },
+    {
+     "value": "DN315",
+     "code": "071"
+    },
+    {
+     "value": "DN355",
+     "code": "072"
+    },
+    {
+     "value": "DN400",
+     "code": "073"
+    },
+    {
+     "value": "DN450",
+     "code": "074"
+    },
+    {
+     "value": "DN500",
+     "code": "075"
+    },
+    {
+     "value": "DN560",
+     "code": "076"
+    },
+    {
+     "value": "DN630",
+     "code": "077"
+    },
+    {
+     "value": "DN710",
+     "code": "078"
+    },
+    {
+     "value": "DN800",
+     "code": "079"
+    },
+    {
+     "value": "DN900",
+     "code": "080"
+    },
+    {
+     "value": "DN1000",
+     "code": "081"
+    },
+    {
+     "value": "DN1200",
+     "code": "082"
+    },
+    {
+     "value": "DN40 (DI)",
+     "code": "083"
+    },
+    {
+     "value": "DN50 (DI)",
+     "code": "084"
+    },
+    {
+     "value": "DN60 (DI)",
+     "code": "085"
+    },
+    {
+     "value": "DN65 (DI)",
+     "code": "086"
+    },
+    {
+     "value": "DN80 (DI)",
+     "code": "087"
+    },
+    {
+     "value": "DN100 (DI)",
+     "code": "088"
+    },
+    {
+     "value": "DN125 (DI)",
+     "code": "089"
+    },
+    {
+     "value": "DN150 (DI)",
+     "code": "090"
+    },
+    {
+     "value": "DN200 (DI)",
+     "code": "091"
+    },
+    {
+     "value": "DN250 (DI)",
+     "code": "092"
+    },
+    {
+     "value": "DN300 (DI)",
+     "code": "093"
+    },
+    {
+     "value": "DN350 (DI)",
+     "code": "094"
+    },
+    {
+     "value": "DN400 (DI)",
+     "code": "095"
+    },
+    {
+     "value": "DN450 (DI)",
+     "code": "096"
+    },
+    {
+     "value": "DN500 (DI)",
+     "code": "097"
+    },
+    {
+     "value": "DN600 (DI)",
+     "code": "098"
+    },
+    {
+     "value": "DN700 (DI)",
+     "code": "099"
+    },
+    {
+     "value": "DN800 (DI)",
+     "code": "100"
+    },
+    {
+     "value": "DN900 (DI)",
+     "code": "101"
+    },
+    {
+     "value": "DN1000 (DI)",
+     "code": "102"
+    },
+    {
+     "value": "DN1100 (DI)",
+     "code": "103"
+    },
+    {
+     "value": "DN1200 (DI)",
+     "code": "104"
+    },
+    {
+     "value": "DN1400 (DI)",
+     "code": "105"
+    },
+    {
+     "value": "DN1500 (DI)",
+     "code": "106"
+    },
+    {
+     "value": "DN1600 (DI)",
+     "code": "107"
+    },
+    {
+     "value": "DN1800 (DI)",
+     "code": "108"
+    },
+    {
+     "value": "DN2000 (DI)",
+     "code": "109"
+    },
+    {
+     "value": "OD (API 5CT)",
+     "code": "110"
+    },
+    {
+     "value": "OD (API 5DP)",
+     "code": "111"
+    }
+   ]
+  },
+  {
+   "name": "schedule",
+   "position": 11,
+   "values": [
+    {
+     "value": "STD",
+     "code": "01"
+    },
+    {
+     "value": "40",
+     "code": "02"
+    },
+    {
+     "value": "80",
+     "code": "03"
+    },
+    {
+     "value": "XS",
+     "code": "04"
+    },
+    {
+     "value": "160",
+     "code": "05"
+    },
+    {
+     "value": "XXs",
+     "code": "06"
+    },
+    {
+     "value": "10",
+     "code": "07"
+    },
+    {
+     "value": "20",
+     "code": "08"
+    },
+    {
+     "value": "30",
+     "code": "09"
+    },
+    {
+     "value": "60",
+     "code": "10"
+    },
+    {
+     "value": "120",
+     "code": "11"
+    },
+    {
+     "value": "140",
+     "code": "12"
+    },
+    {
+     "value": "5",
+     "code": "13"
+    },
+    {
+     "value": "40S",
+     "code": "14"
+    },
+    {
+     "value": "10S",
+     "code": "15"
+    },
+    {
+     "value": "80S",
+     "code": "16"
+    },
+    {
+     "value": "5S",
+     "code": "17"
+    },
+    {
+     "value": "160S",
+     "code": "18"
+    },
+    {
+     "value": "DI K9",
+     "code": "19"
+    },
+    {
+     "value": "DI C40",
+     "code": "20"
+    },
+    {
+     "value": "DI C30",
+     "code": "21"
+    },
+    {
+     "value": "DI C25",
+     "code": "22"
+    },
+    {
+     "value": "DI C20",
+     "code": "23"
+    },
+    {
+     "value": "DI C50",
+     "code": "24"
+    },
+    {
+     "value": "DI C64",
+     "code": "25"
+    },
+    {
+     "value": "DI C100",
+     "code": "26"
+    },
+    {
+     "value": "DI K7",
+     "code": "27"
+    },
+    {
+     "value": "DI K8",
+     "code": "28"
+    },
+    {
+     "value": "DI K10",
+     "code": "29"
+    },
+    {
+     "value": "DI K12",
+     "code": "30"
+    },
+    {
+     "value": "DI K14",
+     "code": "31"
+    },
+    {
+     "value": "Type L",
+     "code": "32"
+    },
+    {
+     "value": "Type K",
+     "code": "33"
+    },
+    {
+     "value": "Type M",
+     "code": "34"
+    },
+    {
+     "value": "$schedule$",
+     "code": "35"
+    },
+    {
+     "value": "100",
+     "code": "36"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Access · {{ person.display_name }}{% endblock %}
+{% block topbar %}Access · {{ person.display_name }}{% endblock %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-24">
+{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1><i class="fa-solid fa-user-check"></i> Access · {{ person.display_name }}</h1>
+    <div class="sub">Request types granted to this person</div>
+  </div>
+  <div class="btn-row">
+    <a href="{% url 'people:request_types' %}" class="btn btn-sm"><i class="fa-solid fa-clipboard-check"></i> Request types</a>
+    <a href="{% url 'people:person_detail' person.pk %}" class="btn btn-sm"><i class="fa-solid fa-arrow-left"></i> Back</a>
+  </div>
+</div>
+
+<div class="grid grid-2 md-hub-cards" style="gap:1rem;max-width:960px;">
+  {% for card in access_cards %}
+  <a href="{{ card.assign_url }}" class="card md-hub-card ppl-req-type-card">
+    <div class="md-hub-card-top">
+      <span class="md-hub-ic" aria-hidden="true"><i class="fa-solid {{ card.type.icon }}"></i></span>
+      <h3>{{ card.type.title }}</h3>
+      <span class="pill pill-green">Granted</span>
+    </div>
+    <div class="muted md-hub-desc">{{ card.type.description }}</div>
+    <div class="ppl-req-card-foot">
+      <div class="md-hub-meta muted">Manage assignment</div>
+      {% include "people/_request_type_route.html" %}
+    </div>
+  </a>
+  {% empty %}
+  <p class="muted">No request types are assigned to this person yet.</p>
+  {% endfor %}
+</div>
+<style>
+  .ppl-req-type-card{
+    cursor:pointer;text-decoration:none;color:inherit;
+    display:flex;flex-direction:column;
+  }
+  .ppl-req-type-card:hover{
+    border-color:color-mix(in srgb,var(--accent) 40%,var(--line));
+    box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent);
+    text-decoration:none;color:inherit;
+  }
+</style>
+{% endblock %}

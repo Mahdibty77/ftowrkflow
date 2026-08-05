@@ -1,0 +1,677 @@
+{% extends "base.html" %}
+{% block title %}Seats · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Seats{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1><i class="fa-solid fa-sitemap"></i> Seats</h1><div class="sub">
+    {% if can_manage_users %}Seat accounts grouped by Unit &amp; role. Passwords and sign-in-as are managed on People.
+    {% else %}Seat accounts on the platform.{% endif %}
+  </div></div>
+  {% if can_manage_users %}<a href="{% url 'accounts:user_create' %}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Create seat</a>{% endif %}
+</div>
+
+{% if can_manage_users and reveal_credential %}
+  <div class="cred-reveal">
+    <div class="cred-reveal-head"><i class="fa-solid fa-circle-check"></i> {{ reveal_credential.label }}</div>
+    <p class="cred-reveal-text">
+      This password is shown once. Write it down before leaving this page.
+    </p>
+    <div class="cred-row">
+      <span class="cred-label">Username</span>
+      <span class="cred-value mono">{{ reveal_credential.username }}</span>
+    </div>
+    <div class="cred-row">
+      <span class="cred-label">Temporary password</span>
+      <span class="cred-value mono" id="credPwValue">{{ reveal_credential.password }}</span>
+      <button type="button" class="btn btn-sm" id="credCopyBtn"><i class="fa-solid fa-copy"></i> Copy</button>
+    </div>
+  </div>
+            {% endif %}
+
+<div class="card sg-card">
+  <div class="sg-scroll table-wrap">
+    <div class="sg-grid sg-head" role="row">
+      <div class="sg-c sg-c-idx">Index</div>
+      <div class="sg-c sg-c-name">Name</div>
+      <div class="sg-c sg-c-user">Username</div>
+      <div class="sg-c sg-c-code">Detail code</div>
+      <div class="sg-c sg-c-status">Status</div>
+      <div class="sg-c sg-c-act">Actions</div>
+    </div>
+    <div class="sg-body" id="sgBody" aria-label="Seats list"></div>
+  </div>
+  {% if not role_groups %}
+    <div class="empty" style="padding:1.2rem;">No seats yet.</div>
+            {% endif %}
+</div>
+
+{% if can_manage_users %}
+  {% csrf_token %}
+  {{ people_choices|json_script:"sg-people-data" }}
+{% endif %}
+{{ seat_rows_json|json_script:"sg-seat-data" }}
+<script type="application/json" id="sg-edit-url">{% url 'accounts:user_edit' 0 %}</script>
+<script type="application/json" id="sg-assign-url">{% url 'accounts:seat_assign' 0 %}</script>
+<script type="application/json" id="sg-translate-url">{% url 'accounts:seat_translate' 0 %}</script>
+<script type="application/json" id="sg-return-url">{% url 'accounts:seat_return' 0 %}</script>
+<script type="application/json" id="sg-close-url">{% url 'accounts:seat_close' 0 %}</script>
+<script type="application/json" id="sg-delegate-url">{% url 'accounts:seat_delegate' 0 %}</script>
+<script type="application/json" id="sg-history-url">{% url 'accounts:seat_history' 0 %}</script>
+{% if row_flash_pk %}<script type="application/json" id="sg-flash-pk">{{ row_flash_pk }}</script>{% endif %}
+
+<style>
+  .cred-reveal{background:var(--okbg);border:1px solid var(--okline);border-radius:12px;padding:1rem 1.2rem;margin:0 0 1.1rem}
+  .cred-reveal-head{font-weight:750;color:var(--ok);display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem}
+  .cred-reveal-text{font-size:.86rem;margin:0 0 .7rem;line-height:1.5;color:var(--ink)}
+  .cred-row{display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem;flex-wrap:wrap}
+  .cred-label{font-size:.78rem;color:var(--muted);min-width:9rem}
+  .cred-value{font-size:.92rem;font-weight:700;color:var(--ink);background:var(--paper);border:1px solid var(--okline);border-radius:6px;padding:.25rem .6rem}
+
+  .sg-card{padding:0;overflow:hidden;background:var(--paper)}
+  .sg-scroll{
+    overflow-x:auto;overflow-y:visible;
+    background:var(--paper);
+    background-image:linear-gradient(
+      90deg,
+      color-mix(in srgb,var(--accent) 5%,var(--paper)),
+      var(--paper) 40%
+    );
+  }
+  .sg-body{min-width:900px;width:100%;background:var(--paper)}
+  .sg-grid{
+    display:grid;
+    grid-template-columns:
+      4.2rem minmax(6.5rem,1.05fr) minmax(7rem,1.1fr) minmax(5.2rem,.85fr)
+      minmax(7rem,1fr) minmax(19rem,1.9fr);
+    gap:0 .55rem;
+    align-items:center;
+    min-width:900px;
+    width:100%;
+    padding:0 1rem;
+    box-sizing:border-box;
+    background:var(--paper);
+  }
+  .sg-head{
+    position:sticky;top:0;z-index:3;
+    min-height:2.4rem;
+    background:color-mix(in srgb,var(--accent) 7%,var(--cloud));
+    border-bottom:1px solid color-mix(in srgb,var(--accent) 18%,var(--line));
+    font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);
+  }
+  .sg-group-bar{
+    display:flex;align-items:stretch;gap:0;
+    background:color-mix(in srgb,var(--accent) 9%,var(--paper));
+    border-bottom:1px solid color-mix(in srgb,var(--accent) 16%,var(--line-soft));
+    min-width:900px;width:100%;height:40px;box-sizing:border-box;
+  }
+  .sg-group-mark{width:4px;flex:0 0 auto;background:var(--accent)}
+  .sg-group-title{
+    display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;
+    padding:.55rem 1rem;color:var(--ink);font-size:.9rem;
+  }
+  .sg-group-meta{
+    font-size:.72rem;font-weight:650;color:var(--muted);
+    background:var(--paper);border:1px solid var(--line);border-radius:999px;
+    padding:.08rem .5rem;
+  }
+  .sg-group-tag{
+    font-size:.68rem;font-weight:750;letter-spacing:.03em;text-transform:uppercase;
+    border-radius:6px;padding:.12rem .45rem;
+    border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));
+    background:var(--accent-soft);color:var(--accent-strong);
+  }
+  .sg-group-tag.is-gm{
+    border-color:color-mix(in srgb,#0f766e 35%,var(--line));
+    background:color-mix(in srgb,#0f766e 12%,var(--paper));color:#0f766e;
+  }
+  .sg-row{
+    min-height:44px;font-size:.84rem;
+    border-bottom:1px solid var(--line-soft);
+    border-left:4px solid color-mix(in srgb,var(--accent) 28%,var(--line));
+    box-sizing:border-box;
+    -webkit-font-smoothing:auto;
+    -moz-osx-font-smoothing:auto;
+  }
+  .sg-c{
+    display:flex;align-items:center;min-height:100%;min-width:0;
+    color:var(--ink);
+    opacity:1;
+  }
+  .sg-c-user.mono,.sg-c-code.mono,.sg-idx.mono{
+    opacity:1;
+    color:var(--ink);
+    font-weight:650;
+  }
+  .sg-c-name,.sg-c-user,.sg-c-code{
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .sg-c-status{
+    justify-content:flex-start;
+    overflow:visible;white-space:nowrap;
+  }
+  .sg-c-act{
+    text-align:right;white-space:nowrap;
+    display:flex;flex-wrap:nowrap;justify-content:flex-end;align-items:center;gap:.28rem;
+    overflow:visible;
+  }
+  .sg-idx{
+    display:inline-flex;align-items:center;justify-content:center;
+    min-width:2.35rem;height:1.55rem;padding:0 .35rem;
+    border-radius:6px;font-weight:750;font-size:.8rem;
+    background:var(--accent-soft);color:var(--accent-strong);
+    border:1px solid color-mix(in srgb,var(--accent) 26%,var(--line));
+  }
+  .sg-c-act .btn{
+    margin-left:0;flex:0 0 auto;white-space:nowrap;
+    padding:.28rem .55rem;font-size:.74rem;gap:.28rem;line-height:1.2;
+  }
+  .sg-c-act .btn i{width:.85rem;text-align:center;font-size:.78rem}
+  .sg-pill{
+    display:inline-flex;align-items:center;gap:.28rem;flex-wrap:nowrap;
+    line-height:1;
+  }
+  .sg-pill .pill{vertical-align:middle;line-height:1.2;white-space:nowrap}
+  .page-head h1 i{color:var(--accent);margin-right:.35rem}
+
+  .sg-msg{
+    min-width:900px;width:100%;box-sizing:border-box;
+    padding:.55rem 1rem .55rem 1.35rem;font-size:.82rem;line-height:1.4;
+    border-bottom:1px solid var(--line-soft);
+    border-left:4px solid var(--accent);
+    display:flex;align-items:flex-start;gap:.5rem;
+    background:var(--paper);
+  }
+  .sg-msg.is-ok{background:var(--okbg);border-left-color:var(--ok);color:var(--ok)}
+  .sg-msg.is-warn{background:var(--warnbg);border-left-color:var(--warn);color:var(--warn)}
+  .sg-msg.is-err{background:var(--rejbg);border-left-color:var(--rej);color:var(--rej)}
+
+  .sg-assign-panel{
+    min-width:900px;width:100%;box-sizing:border-box;
+    padding:.75rem 1rem .85rem 1.35rem;
+    border-bottom:1px solid var(--line-soft);
+    border-left:4px solid var(--accent);
+    background:color-mix(in srgb,var(--accent) 6%,var(--paper));
+    overflow:visible;
+  }
+  .sg-assign-title{
+    display:flex;align-items:center;gap:.45rem;
+    font-weight:750;font-size:.88rem;color:var(--ink);margin:0 0 .35rem;
+  }
+  .sg-assign-title i{color:var(--accent)}
+  .sg-assign-meta{margin:0 0 .65rem;font-size:.8rem;color:var(--muted);line-height:1.45}
+  .sg-assign-label{display:block;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 .3rem}
+  .sg-assign-field{position:relative;max-width:26rem;z-index:5}
+  .sg-assign-search{
+    width:100%;box-sizing:border-box;
+    border:1px solid var(--line);border-radius:var(--radius-sm);
+    padding:.45rem .65rem;font:inherit;background:var(--paper);color:var(--ink);
+  }
+  .sg-assign-search:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+  .sg-people{
+    position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:40;
+    max-height:11.5rem;overflow:auto;
+    border:1px solid color-mix(in srgb,var(--accent) 28%,var(--line));
+    border-radius:var(--radius-sm);
+    background:var(--paper);
+    box-shadow:0 10px 28px color-mix(in srgb,var(--ink) 14%,transparent);
+  }
+  .sg-people-opt{
+    display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line-soft);
+    background:transparent;padding:.45rem .65rem;font:inherit;cursor:pointer;color:var(--ink);
+  }
+  .sg-people-opt:last-child{border-bottom:0}
+  .sg-people-opt:hover,.sg-people-opt.is-active{background:var(--accent-soft);color:var(--accent-strong)}
+  .sg-people-empty{padding:.55rem .65rem;color:var(--muted);font-size:.8rem}
+  .sg-assign-picked{
+    margin-top:.45rem;display:inline-flex;align-items:center;gap:.35rem;
+    font-size:.82rem;font-weight:650;color:var(--accent-strong);
+    background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 28%,var(--line));
+    border-radius:999px;padding:.15rem .55rem;
+  }
+  .sg-assign-step2{
+    margin-top:.65rem;padding:.65rem .75rem;border-radius:var(--radius-sm);
+    background:var(--warnbg);border:1px solid var(--warnline);color:var(--warn);
+    font-size:.84rem;line-height:1.45;
+  }
+  .sg-assign-actions{display:flex;flex-wrap:wrap;gap:.4rem;justify-content:flex-end;margin-top:.7rem}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var copy = document.getElementById('credCopyBtn');
+  var val = document.getElementById('credPwValue');
+  if (copy && val) {
+    copy.addEventListener('click', function () {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(val.textContent).then(function () {
+          var o = copy.innerHTML;
+          copy.innerHTML = '<i class="fa-solid fa-check"></i> Copied';
+          setTimeout(function () { copy.innerHTML = o; }, 1500);
+        });
+      }
+    });
+  }
+
+  var dataEl = document.getElementById('sg-seat-data');
+  var bodyEl = document.getElementById('sgBody');
+  var csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+  var csrf = csrfInput ? csrfInput.value : '';
+
+  var baseItems = [];
+  try { baseItems = JSON.parse((dataEl && dataEl.textContent) || '[]'); } catch (e) { baseItems = []; }
+
+  var people = [];
+  try {
+    var pe = document.getElementById('sg-people-data');
+    people = pe ? JSON.parse(pe.textContent || '[]') : [];
+  } catch (e2) { people = []; }
+
+  var editTpl = String((document.getElementById('sg-edit-url') || {}).textContent || '').trim().replace('/0/', '/__ID__/');
+  var assignTpl = String((document.getElementById('sg-assign-url') || {}).textContent || '').trim().replace('/0/', '/__ID__/');
+  var translateTpl = String((document.getElementById('sg-translate-url') || {}).textContent || '').trim().replace('/0/', '/__ID__/');
+  var returnTpl = String((document.getElementById('sg-return-url') || {}).textContent || '').trim().replace('/0/', '/__ID__/');
+  var closeTpl = String((document.getElementById('sg-close-url') || {}).textContent || '').trim().replace('/0/', '/__ID__/');
+  var delegateTpl = String((document.getElementById('sg-delegate-url') || {}).textContent || '').trim().replace('/0/', '/__ID__/');
+  var historyTpl = String((document.getElementById('sg-history-url') || {}).textContent || '').trim().replace('/0/', '/__ID__/');
+
+  // Inline panel under a seat row: assign | translate | return | close
+  var assignState = null; // { mode, pk, held, holder, index, name, step, personPk, personLabel, filter, listOpen, openTasks }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function buildItems() {
+    var out = [];
+    for (var i = 0; i < baseItems.length; i++) {
+      var it = baseItems[i];
+      if (it.t === 'a') continue;
+      out.push(it);
+      if (assignState && it.t === 'r' && String(it.pk) === String(assignState.pk)) {
+        out.push({ t: 'a' });
+      }
+    }
+    return out;
+  }
+
+  function filteredPeople(q) {
+    var f = (q || '').toLowerCase().trim();
+    if (!f) return people.slice(0, 80);
+    return people.filter(function (p) {
+      return String(p.label || '').toLowerCase().indexOf(f) !== -1;
+    }).slice(0, 80);
+  }
+
+  function renderAssignPanel() {
+    if (!assignState) return '';
+    var st = assignState;
+    var mode = st.mode || 'assign';
+    var html = '<div class="sg-assign-panel" data-sg-assign-panel="' + esc(st.pk) + '">';
+
+    if (mode === 'return') {
+      html += '<div class="sg-assign-title"><i class="fa-solid fa-rotate-left"></i> Return seat ' + esc(st.index) + '</div>';
+      html += '<div class="sg-assign-step2">' +
+        '<strong>Confirm return</strong><br>' +
+        'Return this seat from substitute <strong>' + esc(st.holder || 'the current holder') + '</strong> ' +
+        'to the origin owner?' +
+        '</div>';
+      html += '<div class="sg-assign-actions">' +
+        '<button type="button" class="btn btn-sm btn-ghost" data-sg-assign-cancel>Cancel</button>' +
+        '<button type="button" class="btn btn-sm btn-primary" data-sg-assign-final>' +
+        '<i class="fa-solid fa-check"></i> Confirm return</button></div></div>';
+      return html;
+    }
+
+    if (mode === 'close') {
+      html += '<div class="sg-assign-title"><i class="fa-solid fa-circle-xmark"></i> Close seat ' + esc(st.index) + '</div>';
+      if (st.openTasks > 0) {
+        html += '<div class="sg-assign-step2">' +
+          '<strong>Open tasks remain</strong><br>' +
+          'This seat has <strong>' + esc(st.openTasks) + '</strong> open task(s) that are not ended. ' +
+          'Delegate them before Close.' +
+          '</div>';
+        html += '<div class="sg-assign-actions">' +
+          '<button type="button" class="btn btn-sm btn-ghost" data-sg-assign-cancel>Cancel</button>' +
+          '<a class="btn btn-sm btn-primary" href="' + esc(delegateTpl.replace('__ID__', String(st.pk))) + '?then_close=1">' +
+          '<i class="fa-solid fa-share-from-square"></i> Delegate</a></div></div>';
+        return html;
+      }
+      html += '<div class="sg-assign-step2">' +
+        '<strong>Confirm close</strong><br>' +
+        'Free seat ' + esc(st.index) + ' held by <strong>' + esc(st.holder || '—') + '</strong> ' +
+        'back to the catalogue?' +
+        '</div>';
+      html += '<div class="sg-assign-actions">' +
+        '<button type="button" class="btn btn-sm btn-ghost" data-sg-assign-cancel>Cancel</button>' +
+        '<button type="button" class="btn btn-sm btn-danger" data-sg-assign-final>' +
+        '<i class="fa-solid fa-check"></i> Confirm close</button></div></div>';
+      return html;
+    }
+
+    var isTranslate = mode === 'translate';
+    html += '<div class="sg-assign-title"><i class="fa-solid ' +
+      (isTranslate ? 'fa-right-left' : 'fa-link') + '"></i> ' +
+      (isTranslate ? 'Translate' : 'Assign') + ' seat ' + esc(st.index) + '</div>';
+
+    if (st.step === 2) {
+      html += '<div class="sg-assign-step2">' +
+        '<strong>' + (isTranslate ? 'Confirm translate' : 'Confirm assign') + '</strong><br>' +
+        (isTranslate
+          ? ('Temporarily hand this seat from <strong>' + esc(st.holder || 'the current holder') + '</strong> ' +
+             'to substitute <strong>' + esc(st.personLabel || 'the selected person') + '</strong>?')
+          : ('Assign vacant seat ' + esc(st.index) + ' to <strong>' + esc(st.personLabel || 'the selected person') + '</strong>?')) +
+        '</div>';
+      html += '<div class="sg-assign-actions">' +
+        '<button type="button" class="btn btn-sm btn-ghost" data-sg-assign-back>Back</button>' +
+        '<button type="button" class="btn btn-sm btn-ghost" data-sg-assign-cancel>Cancel</button>' +
+        '<button type="button" class="btn btn-sm btn-primary" data-sg-assign-final>' +
+        '<i class="fa-solid fa-check"></i> Confirm</button></div></div>';
+      return html;
+    }
+
+    html += '<p class="sg-assign-meta">' +
+      (isTranslate
+        ? ('Currently held by <strong>' + esc(st.holder) + '</strong>. Pick a substitute.')
+        : ('Assign vacant seat ' + esc(st.index) + ' to a person.')) +
+      '</p>';
+    html += '<label class="sg-assign-label" for="sgAssignSearch">Person</label>';
+    html += '<div class="sg-assign-field">';
+    html += '<input type="search" class="sg-assign-search" id="sgAssignSearch" data-sg-assign-search ' +
+      'placeholder="Click to search people…" value="' + esc(st.filter || '') + '" autocomplete="off">';
+
+    if (!st.personPk && st.listOpen) {
+      var list = filteredPeople(st.filter);
+      html += '<div class="sg-people" data-sg-people>';
+      if (!list.length) {
+        html += '<div class="sg-people-empty">' +
+          (st.filter ? 'No matches' : 'Type to filter, or pick from the list') +
+          '</div>';
+      }
+      for (var i = 0; i < list.length; i++) {
+        var p = list[i];
+        html += '<button type="button" class="sg-people-opt" data-sg-pick="' + esc(p.pk) + '" data-sg-pick-label="' + esc(p.label) + '">' +
+          esc(p.label) + '</button>';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+
+    if (st.personPk) {
+      html += '<div class="sg-assign-picked"><i class="fa-solid fa-user-check"></i> ' + esc(st.personLabel) + '</div>';
+    }
+
+    html += '<div class="sg-assign-actions">' +
+      '<button type="button" class="btn btn-sm btn-ghost" data-sg-assign-cancel>Cancel</button>';
+    if (st.personPk) {
+      html += '<button type="button" class="btn btn-sm" data-sg-assign-clear>Change person</button>';
+      html += '<button type="button" class="btn btn-sm btn-primary" data-sg-assign-next>' +
+        '<i class="fa-solid fa-check"></i> Continue</button>';
+    }
+    html += '</div></div>';
+    return html;
+  }
+
+  function renderRow(it) {
+    if (it.t === 'g') {
+      var meta = '';
+      if (it.kind === 'admin') meta = '<span class="sg-group-tag">Unique</span>';
+      else if (it.kind === 'gm') meta = '<span class="sg-group-tag is-gm">Unique</span>';
+      else meta = '<span class="sg-group-meta">' + esc(it.count) + ' seat' + (it.count === 1 ? '' : 's') + '</span>';
+      return '<div class="sg-group-bar">' +
+        '<span class="sg-group-mark" aria-hidden="true"></span>' +
+        '<div class="sg-group-title"><strong>' + esc(it.title) + '</strong>' + meta + '</div></div>';
+    }
+    if (it.t === 'm') {
+      var lvl = it.level === 'err' ? 'err' : (it.level === 'warn' ? 'warn' : 'ok');
+      var icon = lvl === 'ok' ? 'fa-circle-check' : (lvl === 'warn' ? 'fa-triangle-exclamation' : 'fa-circle-xmark');
+      return '<div class="sg-msg is-' + lvl + '" role="status">' +
+        '<i class="fa-solid ' + icon + '"></i><span>' + esc(it.text) + '</span></div>';
+    }
+    if (it.t === 'a') return renderAssignPanel();
+
+    var status = it.active
+      ? '<span class="pill pill-green">Active</span>'
+      : '<span class="pill pill-grey">Disabled</span>';
+    if (it.pending) status += ' <span class="pill pill-amber">Pending</span>';
+    if (it.is_sub) status += ' <span class="pill pill-amber">Substitute</span>';
+    var act = '';
+    if (it.can_manage) {
+      var open = assignState && String(assignState.pk) === String(it.pk);
+      if (!it.held && assignTpl) {
+        act += '<button type="button" class="btn btn-sm' + (open && assignState.mode === 'assign' ? ' btn-primary' : '') + '" data-sg-panel="assign" data-sg-assign="' + esc(it.pk) + '"' +
+          ' data-held="0" data-holder="" data-index="' + esc(it.index) + '" data-name="' + esc(it.name) + '" data-tasks="0">' +
+          '<i class="fa-solid fa-link"></i> Assign</button>';
+      }
+      if (it.held) {
+        if (it.is_sub && returnTpl) {
+          act += '<button type="button" class="btn btn-sm' + (open && assignState.mode === 'return' ? ' btn-primary' : '') + '" data-sg-panel="return" data-sg-assign="' + esc(it.pk) + '"' +
+            ' data-held="1" data-holder="' + esc(it.holder || '') + '" data-index="' + esc(it.index) + '" data-name="' + esc(it.name) + '" data-tasks="' + esc(it.open_tasks || 0) + '">' +
+            '<i class="fa-solid fa-rotate-left"></i> Return</button>';
+        } else if (!it.is_sub && translateTpl) {
+          act += '<button type="button" class="btn btn-sm' + (open && assignState.mode === 'translate' ? ' btn-primary' : '') + '" data-sg-panel="translate" data-sg-assign="' + esc(it.pk) + '"' +
+            ' data-held="1" data-holder="' + esc(it.holder || '') + '" data-index="' + esc(it.index) + '" data-name="' + esc(it.name) + '" data-tasks="' + esc(it.open_tasks || 0) + '">' +
+            '<i class="fa-solid fa-right-left"></i> Translate</button>';
+        }
+        if (delegateTpl) {
+          act += '<a href="' + delegateTpl.replace('__ID__', String(it.pk)) + '" class="btn btn-sm" title="Delegate">' +
+            '<i class="fa-solid fa-share-from-square"></i> Delegate</a>';
+        }
+        if (closeTpl) {
+          act += '<button type="button" class="btn btn-sm' + (open && assignState.mode === 'close' ? ' btn-primary' : '') + '" data-sg-panel="close" data-sg-assign="' + esc(it.pk) + '"' +
+            ' data-held="1" data-holder="' + esc(it.holder || '') + '" data-index="' + esc(it.index) + '" data-name="' + esc(it.name) + '" data-tasks="' + esc(it.open_tasks || 0) + '" title="Close">' +
+            '<i class="fa-solid fa-lock"></i> Close</button>';
+        }
+      }
+      if (historyTpl) {
+        act += '<a href="' + historyTpl.replace('__ID__', String(it.pk)) + '" class="btn btn-sm" title="History">' +
+          '<i class="fa-solid fa-clock-rotate-left"></i> History</a>';
+      }
+    }
+    if (it.can_edit && editTpl) {
+      act += '<a href="' + editTpl.replace('__ID__', String(it.pk)) + '" class="btn btn-sm"><i class="fa-solid fa-pen"></i> Edit</a>';
+    }
+    return '<div class="sg-grid sg-row" role="row">' +
+      '<div class="sg-c sg-c-idx"><span class="sg-idx mono">' + esc(it.index) + '</span></div>' +
+      '<div class="sg-c sg-c-name">' + esc(it.name) + '</div>' +
+      '<div class="sg-c sg-c-user mono">' + esc(it.username) + '</div>' +
+      '<div class="sg-c sg-c-code mono">' + esc(it.detail_code) + '</div>' +
+      '<div class="sg-c sg-c-status"><span class="sg-pill">' + status + '</span></div>' +
+      '<div class="sg-c sg-c-act">' + act + '</div></div>';
+  }
+
+  var items = [];
+
+  function paint() {
+    if (!bodyEl) return;
+    items = buildItems();
+    var html = '';
+    for (var j = 0; j < items.length; j++) html += renderRow(items[j]);
+    bodyEl.innerHTML = html;
+
+    // Keep search focus after re-paint when typing.
+    if (assignState && assignState.step === 1 && document.activeElement &&
+        document.activeElement.getAttribute && document.activeElement.getAttribute('data-sg-assign-search') != null) {
+      // already focused
+    } else if (assignState && assignState.step === 1 && assignState._refocus) {
+      var inp = bodyEl.querySelector('[data-sg-assign-search]');
+      if (inp) {
+        inp.focus();
+        var v = inp.value;
+        inp.value = '';
+        inp.value = v;
+      }
+      assignState._refocus = false;
+    }
+  }
+
+  function refresh() {
+    paint();
+  }
+
+  function openAssign(btn) {
+    var pk = btn.getAttribute('data-sg-assign');
+    var mode = btn.getAttribute('data-sg-panel') || 'assign';
+    if (!pk) return;
+    if (assignState && String(assignState.pk) === String(pk) && assignState.mode === mode) {
+      assignState = null;
+      refresh();
+      return;
+    }
+    assignState = {
+      mode: mode,
+      pk: pk,
+      held: btn.getAttribute('data-held') === '1',
+      holder: btn.getAttribute('data-holder') || '',
+      index: btn.getAttribute('data-index') || '',
+      name: btn.getAttribute('data-name') || '—',
+      openTasks: parseInt(btn.getAttribute('data-tasks') || '0', 10) || 0,
+      step: (mode === 'return' || mode === 'close') ? 2 : 1,
+      personPk: '',
+      personLabel: '',
+      filter: '',
+      listOpen: false,
+      _refocus: false
+    };
+    refresh();
+    var panel = bodyEl && bodyEl.querySelector('[data-sg-assign-panel]');
+    if (panel && panel.scrollIntoView) {
+      panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }
+
+  function closeAssign() {
+    assignState = null;
+    refresh();
+  }
+
+  function submitAssign() {
+    if (!assignState || !assignState.pk) return;
+    var mode = assignState.mode || 'assign';
+    var tpl = assignTpl;
+    if (mode === 'translate') tpl = translateTpl;
+    else if (mode === 'return') tpl = returnTpl;
+    else if (mode === 'close') tpl = closeTpl;
+    if (!tpl) return;
+    if ((mode === 'assign' || mode === 'translate') && !assignState.personPk) return;
+    var form = document.createElement('form');
+    form.method = 'post';
+    form.action = tpl.replace('__ID__', String(assignState.pk));
+    var c = document.createElement('input');
+    c.type = 'hidden'; c.name = 'csrfmiddlewaretoken'; c.value = csrf;
+    form.appendChild(c);
+    if (mode === 'assign' || mode === 'translate') {
+      var p = document.createElement('input');
+      p.type = 'hidden'; p.name = 'person'; p.value = String(assignState.personPk);
+      form.appendChild(p);
+    }
+    document.body.appendChild(form);
+    form.submit();
+  }
+
+  if (bodyEl && baseItems.length) {
+    paint();
+    var flashEl = document.getElementById('sg-flash-pk');
+    if (flashEl) {
+      var flashPk = String(flashEl.textContent || '').trim();
+      var msg = bodyEl.querySelector('.sg-msg');
+      if (msg && msg.scrollIntoView) msg.scrollIntoView({ block: 'nearest' });
+      else if (flashPk) {
+        var rowBtn = bodyEl.querySelector('[data-sg-assign="' + flashPk + '"]');
+        if (rowBtn && rowBtn.closest) {
+          var row = rowBtn.closest('.sg-row');
+          if (row && row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
+        }
+      }
+    }
+  } else if (bodyEl && !baseItems.length) {
+    bodyEl.style.display = 'none';
+  }
+
+  var searchTimer = null;
+  document.addEventListener('focusin', function (ev) {
+    var inp = ev.target.closest && ev.target.closest('[data-sg-assign-search]');
+    if (!inp || !assignState || assignState.personPk) return;
+    if (!assignState.listOpen) {
+      assignState.listOpen = true;
+      assignState._refocus = true;
+      refresh();
+    }
+  });
+  document.addEventListener('input', function (ev) {
+    var inp = ev.target.closest && ev.target.closest('[data-sg-assign-search]');
+    if (!inp || !assignState) return;
+    assignState.filter = inp.value || '';
+    assignState.personPk = '';
+    assignState.personLabel = '';
+    assignState.listOpen = true;
+    assignState._refocus = true;
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(function () { refresh(); }, 60);
+  });
+
+  document.addEventListener('click', function (ev) {
+    var btn = ev.target.closest && ev.target.closest('[data-sg-assign]');
+    if (btn) {
+      ev.preventDefault();
+      openAssign(btn);
+      return;
+    }
+    if (!assignState) return;
+
+    // Close people dropdown when clicking outside the field (panel stays open).
+    if (assignState.listOpen && !assignState.personPk) {
+      var inField = ev.target.closest && ev.target.closest('.sg-assign-field');
+      if (!inField) {
+        assignState.listOpen = false;
+        refresh();
+      }
+    }
+
+    if (ev.target.closest && ev.target.closest('[data-sg-assign-cancel]')) {
+      ev.preventDefault();
+      closeAssign();
+      return;
+    }
+    if (ev.target.closest && ev.target.closest('[data-sg-assign-back]')) {
+      ev.preventDefault();
+      assignState.step = 1;
+      refresh();
+      return;
+    }
+    if (ev.target.closest && ev.target.closest('[data-sg-assign-clear]')) {
+      ev.preventDefault();
+      assignState.personPk = '';
+      assignState.personLabel = '';
+      assignState.filter = '';
+      assignState.listOpen = true;
+      assignState._refocus = true;
+      refresh();
+      return;
+    }
+    var pick = ev.target.closest && ev.target.closest('[data-sg-pick]');
+    if (pick) {
+      ev.preventDefault();
+      assignState.personPk = pick.getAttribute('data-sg-pick') || '';
+      assignState.personLabel = pick.getAttribute('data-sg-pick-label') || '';
+      refresh();
+      return;
+    }
+    if (ev.target.closest && ev.target.closest('[data-sg-assign-next]')) {
+      ev.preventDefault();
+      if (!assignState.personPk) return;
+      assignState.step = 2;
+      refresh();
+      return;
+    }
+    if (ev.target.closest && ev.target.closest('[data-sg-assign-final]')) {
+      ev.preventDefault();
+      submitAssign();
+    }
+  });
+})();
+</script>
+{% endblock %}

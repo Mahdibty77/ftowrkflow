@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ price_list.name }} prices · Data Management{% endblock %}
+{% block topbar %}Prices: {{ price_list.name }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ price_list.name }}</h1>
+  <div class="sub">{{ count }} prices · currency {{ price_list.currency }}. Upload a 2-column file: code, price.</div></div>
+  <a class="btn btn-sm" href="{% url 'dm_price_lists' %}">Back</a>
+</div>
+
+<div class="grid grid-2">
+  <div class="card" style="align-self:start;">
+    <div class="card-head"><h3>Upload / update prices</h3></div>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="field"><label>File (.csv / .xlsx) — columns: code, price <span class="req">*</span></label>
+        <input type="file" name="file" accept=".csv,.xlsx,.xls" required></div>
+      <div class="help">Existing codes are updated; new codes are added. Other lists are untouched.</div>
+      <button class="btn btn-primary" type="submit"><i class="fa-solid fa-upload"></i> Import prices</button>
+    </form>
+  </div>
+
+  <div class="card" style="overflow:auto;">
+    <div class="card-head"><h3>Sample (first 50)</h3></div>
+    <table class="data">
+      <thead><tr><th>Code</th><th class="num">Price</th></tr></thead>
+      <tbody>
+        {% for p in sample %}<tr><td class="mono">{{ p.code }}</td><td class="num">{{ p.price }}</td></tr>
+        {% empty %}<tr><td colspan="2" class="empty">No prices yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

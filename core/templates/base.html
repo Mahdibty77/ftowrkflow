@@ -1,0 +1,518 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Foolad Tabar Workflow{% endblock %}</title>
+  {% include "includes/favicon.html" %}
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=shift-end-3">
+  <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-17">
+  <link rel="stylesheet" href="{% static 'css/icons-offline.css' %}?v=shift-icons-4">
+  <script>
+    // Apply the saved appearance (colour skin + light/dark) before first paint.
+    (function () {
+      var r = document.documentElement, skin = 'blue', mode = 'light';
+      try {
+        skin = localStorage.getItem('ft-skin') || 'blue';
+        mode = localStorage.getItem('ft-mode') || localStorage.getItem('ft-theme') || 'light';
+      } catch (e) {}
+      if (skin === 'm') skin = 'blue'; if (skin === 'f') skin = 'rose';   // migrate old values
+      if (skin !== 'blue' && skin !== 'rose' && skin !== 'teal') skin = 'blue';
+      r.setAttribute('data-skin', skin);
+      r.setAttribute('data-mode', mode === 'dark' ? 'dark' : 'light');
+      if (mode === 'dark') r.setAttribute('data-theme', 'dark'); // keep app.css dark rules in sync
+    })();
+  </script>
+  {% block head_extra %}{% endblock %}
+</head>
+<body class="unit-{{ active_unit_code|lower }}">
+{% if user.is_authenticated %}
+<div class="shell">
+  <aside class="sidebar">
+    <div class="sb-brand">
+      <div class="sb-logo">FT</div>
+      <div class="sb-brand-text">
+        <strong>Foolad Tabar</strong>
+        <span class="sb-logo-sub">Workflow Platform</span>
+      </div>
+    </div>
+
+    <nav class="sb-nav">
+      {% with p=user.profile %}
+        {% if p.is_admin %}
+          <div class="sb-group">Administration</div>
+          <a href="{% url 'accounts:admin_console' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-gauge-high"></i></span>Console</a>
+          <a href="{% url 'accounts:user_list' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-sitemap"></i></span>Seats</a>
+          {% include "people/_nav.html" %}
+          <a href="{% url 'dm_home' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-database"></i></span>Tool Data</a>
+          <a href="{% url 'reports:dashboard' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-chart-line"></i></span>Dashboard</a>
+          <a href="{% url 'cases:archive' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-box-archive"></i></span>Case Archive</a>
+          <a href="{% url 'accounts:backup_console' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-floppy-disk"></i></span>Backups</a>
+          <div class="sb-group">Master Data</div>
+          <a href="{% url 'cases:master_data_hub' %}" class="sb-item">
+            <span class="ic"><i class="fa-solid fa-building"></i></span>Clients &amp; FX
+            {% if nav_fx_stale %}<span class="nav-badge" title="FX rates need updating"><i class="fa-solid fa-triangle-exclamation"></i></span>{% endif %}
+          </a>
+        {% else %}
+          {% if nav_is_general_manager %}
+          <div class="sb-group">General Management</div>
+          <a href="{% url 'reports:dashboard' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-chart-line"></i></span>Dashboard</a>
+          <a href="{% url 'cases:archive' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-box-archive"></i></span>Case Archive</a>
+          <a href="{% url 'accounts:user_list' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-sitemap"></i></span>Seats</a>
+          <a href="{% url 'people:gm_overtime_inbox' %}" class="sb-item">
+            <span class="ic"><i class="fa-solid fa-clipboard-check"></i></span>Requests
+            {% if nav_staff_request_count %}<span class="nav-badge">{{ nav_staff_request_count }}</span>{% endif %}
+          </a>
+          {% endif %}
+          {% if nav_roles %}
+            {% for nr in nav_roles %}
+              <details class="sb-role" {% if nr.is_active %}open{% endif %}>
+                <summary class="sb-role-sum">
+                  <span class="sb-role-ic"><i class="fa-solid {{ nr.icon|default:'fa-id-badge' }}"></i></span>
+                  <span class="sb-role-title">{{ nr.title }}</span>
+                  {% if nr.inbox_count %}<span class="nav-badge">{{ nr.inbox_count }}</span>{% endif %}
+                  <i class="fa-solid fa-chevron-down sb-role-chev"></i>
+                </summary>
+                <div class="sb-role-body">
+                  {% if nr.is_active %}
+                  <a href="{% url 'cases:inbox' %}" class="sb-item">
+                    <span class="ic"><i class="fa-solid fa-inbox"></i></span>Inbox
+                    {% if nav_inbox_count %}<span class="nav-badge">{{ nav_inbox_count }}</span>{% elif nr.inbox_count %}<span class="nav-badge">{{ nr.inbox_count }}</span>{% endif %}
+                  </a>
+                  {% if nr.can_create_case %}
+                    <a href="{% url 'cases:case_create' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-folder-plus"></i></span>New Case
+                    </a>
+                  {% endif %}
+                  <a href="{% url 'cases:archive' %}" class="sb-item">
+                    <span class="ic"><i class="fa-solid fa-box-archive"></i></span>Archive
+                  </a>
+                  {% if nr.show_dashboard %}
+                    <a href="{% url 'reports:dashboard' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-chart-pie"></i></span>Dashboard
+                    </a>
+                  {% endif %}
+                  {% if nr.show_pricing %}
+                    <a href="{% url 'dm_price_lists' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-tags"></i></span>Pricing Management
+                    </a>
+                  {% endif %}
+                  {% if nr.show_coding %}
+                    <a href="{% url 'dm_technical_home' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-database"></i></span>Coding Reference
+                    </a>
+                  {% endif %}
+                  {% if nr.show_clients %}
+                    <a href="{% url 'cases:master_data_hub' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-building"></i></span>Clients &amp; FX
+                      {% if nav_fx_stale %}<span class="nav-badge" title="FX rates need updating"><i class="fa-solid fa-triangle-exclamation"></i></span>{% endif %}
+                    </a>
+                  {% endif %}
+                  {% else %}
+                  <a href="{% url 'people:activate_role' nr.id %}?next={% url 'cases:inbox' %}" class="sb-item">
+                    <span class="ic"><i class="fa-solid fa-inbox"></i></span>Inbox
+                    {% if nr.inbox_count %}<span class="nav-badge">{{ nr.inbox_count }}</span>{% endif %}
+                  </a>
+                  {% if nr.can_create_case %}
+                    <a href="{% url 'people:activate_role' nr.id %}?next={% url 'cases:case_create' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-folder-plus"></i></span>New Case
+                    </a>
+                  {% endif %}
+                  <a href="{% url 'people:activate_role' nr.id %}?next={% url 'cases:archive' %}" class="sb-item">
+                    <span class="ic"><i class="fa-solid fa-box-archive"></i></span>Archive
+                  </a>
+                  {% if nr.show_dashboard %}
+                    <a href="{% url 'people:activate_role' nr.id %}?next={% url 'reports:dashboard' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-chart-pie"></i></span>Dashboard
+                    </a>
+                  {% endif %}
+                  {% if nr.show_pricing %}
+                    <a href="{% url 'people:activate_role' nr.id %}?next={% url 'dm_price_lists' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-tags"></i></span>Pricing Management
+                    </a>
+                  {% endif %}
+                  {% if nr.show_coding %}
+                    <a href="{% url 'people:activate_role' nr.id %}?next={% url 'dm_technical_home' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-database"></i></span>Coding Reference
+                    </a>
+                  {% endif %}
+                  {% if nr.show_clients %}
+                    <a href="{% url 'people:activate_role' nr.id %}?next={% url 'cases:master_data_hub' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-building"></i></span>Clients &amp; FX
+                    </a>
+                  {% endif %}
+                  {% endif %}
+                </div>
+              </details>
+            {% endfor %}
+          {% elif not nav_is_general_manager %}
+            {% if p.unit %}
+            <div class="sb-group">{{ p.unit_label }}</div>
+            <a href="{% url 'cases:inbox' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-inbox"></i></span>Inbox{% if nav_inbox_count %}<span class="nav-badge">{{ nav_inbox_count }}</span>{% endif %}</a>
+            {% if p.can_create_case %}
+              <a href="{% url 'cases:case_create' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-folder-plus"></i></span>New Case</a>
+            {% endif %}
+            <a href="{% url 'cases:archive' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-box-archive"></i></span>Archive</a>
+            {% if p.role == 'MANAGER' or p.role == 'SUPERVISOR' %}
+            <a href="{% url 'reports:dashboard' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-chart-pie"></i></span>Dashboard</a>
+            {% endif %}
+            {% if p.unit == 'SUPPLY' and p.role == 'MANAGER' %}
+              <div class="sb-group">Master Data</div>
+              <a href="{% url 'dm_price_lists' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-tags"></i></span>Pricing Management</a>
+            {% elif p.unit == 'TECHNICAL' and p.role == 'MANAGER' %}
+              <div class="sb-group">Master Data</div>
+              <a href="{% url 'dm_technical_home' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-database"></i></span>Coding Reference</a>
+            {% endif %}
+            {% if p.unit == 'COMMERCIAL' and p.role == 'MANAGER' %}
+              <div class="sb-group">Master Data</div>
+              <a href="{% url 'cases:master_data_hub' %}" class="sb-item">
+                <span class="ic"><i class="fa-solid fa-building"></i></span>Clients &amp; FX
+                {% if nav_fx_stale %}<span class="nav-badge" title="FX rates need updating"><i class="fa-solid fa-triangle-exclamation"></i></span>{% endif %}
+              </a>
+            {% endif %}
+            {% else %}
+            <div class="sb-group">Account</div>
+            <div class="sb-item" style="opacity:.7;cursor:default">
+              <span class="ic"><i class="fa-solid fa-circle-info"></i></span>
+              No roles assigned yet
+            </div>
+            {% endif %}
+          {% endif %}
+          {% if nav_show_person_requests %}
+          <div class="sb-group">Personal</div>
+          <a href="{% url 'people:my_requests' %}" class="sb-item">
+            <span class="ic"><i class="fa-solid fa-clipboard-check"></i></span>Requests
+            {% if nav_person_request_answers %}<span class="nav-badge">{{ nav_person_request_answers }}</span>{% endif %}
+          </a>
+          {% endif %}
+        {% endif %}
+      {% endwith %}
+    </nav>
+
+    <div class="sb-foot">
+      <span class="unit-dot"></span>
+      <span>{{ user.profile.title_line }}</span>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <h1 class="page-title">{% block topbar %}{% endblock %}</h1>
+      <div class="who" id="whoWidget">
+        {% with p=user.profile %}
+        <button class="who-btn" type="button" onclick="document.getElementById('profileMenu').classList.toggle('open')">
+          <span class="meta">
+            <span class="nm">{{ p.full_name }}</span>
+          </span>
+          {% if p.avatar_url %}
+            <span class="avatar has-img"><img src="{{ p.avatar_url }}" alt=""></span>
+          {% else %}
+            <span class="avatar">{{ p.full_name|slice:":1"|upper|default:"U" }}</span>
+          {% endif %}
+          <i class="fa-solid fa-chevron-down" style="font-size:11px;color:var(--muted)"></i>
+        </button>
+        <div class="profile-menu" id="profileMenu">
+          <div class="pm-head">
+            {% if p.avatar_url %}
+              <span class="avatar lg has-img"><img src="{{ p.avatar_url }}" alt=""></span>
+            {% else %}
+              <span class="avatar lg">{{ p.full_name|slice:":1"|upper|default:"U" }}</span>
+            {% endif %}
+            <div>
+              <div class="pm-name">{{ p.full_name }}</div>
+            </div>
+          </div>
+          <dl class="pm-kv">
+            <dt>Username</dt><dd>{{ user.username }}</dd>
+            {% if p.internal_code %}<dt>Internal code</dt><dd class="mono">{{ p.internal_code }}</dd>{% endif %}
+          </dl>
+          <a href="{% url 'accounts:my_profile' %}" class="pm-link"><i class="fa-solid fa-id-badge"></i> My profile</a>
+          <div class="pm-theme">
+            <div class="pm-theme-row">
+              <span class="pm-theme-label">Colour</span>
+              <div class="pm-skins">
+                <button type="button" class="pm-skin" data-skin="blue" title="Blue" aria-label="Blue theme"></button>
+                <button type="button" class="pm-skin" data-skin="rose" title="Rose" aria-label="Rose theme"></button>
+                <button type="button" class="pm-skin" data-skin="teal" title="Teal" aria-label="Teal theme"></button>
+              </div>
+            </div>
+            <div class="pm-theme-row">
+              <span class="pm-theme-label">Mode</span>
+              <div class="pm-modes">
+                <button type="button" class="pm-mode" data-mode="light" title="Light"><i class="fa-solid fa-sun"></i></button>
+                <button type="button" class="pm-mode" data-mode="dark" title="Dark"><i class="fa-solid fa-moon"></i></button>
+              </div>
+            </div>
+          </div>
+          <div class="pm-foot">
+            <form method="post" action="{% url 'accounts:logout' %}" class="pm-logout" id="pmLogoutForm">
+              {% csrf_token %}
+              <input type="hidden" name="explicit_shift_end" value="0" id="explicitShiftEnd">
+              <button type="submit" id="pmSignOutBtn"><i class="fa-solid fa-right-from-bracket"></i> Sign out</button>
+            </form>
+            <a href="{% url 'accounts:settings' %}" class="pm-settings" title="Settings" aria-label="Settings">
+              <i class="fa-solid fa-gear"></i>
+            </a>
+          </div>
+        </div>
+        {% endwith %}
+      </div>
+    </header>
+
+    {% if shift_warn %}
+      <div class="shift-warn-banner" role="status" data-shift-minutes="{{ shift_minutes_left }}">
+        <i class="fa-solid fa-hourglass-half"></i>
+        <span>{{ shift_warn_message }}{% if shift_end_label %} (until {{ shift_end_label }}){% endif %}
+          {% if shift_overtime_link %}
+            <a href="{{ shift_overtime_link }}" style="margin-left:.45rem;font-weight:700;color:inherit;text-decoration:underline;">Request overtime</a>
+          {% endif %}
+        </span>
+      </div>
+    {% endif %}
+
+    <div id="shiftEndOverlay" class="shift-end-overlay" hidden>
+      <div class="shift-end-welcome">
+        <span class="se-hi">Dear <span class="se-nm" id="shiftEndName">{{ shift_end_name|default:"colleague" }}</span>,</span>
+        <span class="se-msg">your work shift has ended.</span>
+        <span class="se-sub">Hope you had a good day — see you next shift.</span>
+        <span class="se-hint" id="shiftEndHint">Returning to sign-in…</span>
+      </div>
+    </div>
+
+    {% if shift_signout_confirm %}
+    <div id="signOutConfirm" class="shift-end-overlay so-confirm" hidden>
+      <div class="shift-end-welcome so-confirm-card">
+        <span class="se-hi">End your shift session?</span>
+        <span class="se-msg so-confirm-msg">Time away will not count as work hours until you sign in again.</span>
+        <div class="so-confirm-actions">
+          <button type="button" class="btn btn-ghost so-cancel" id="signOutCancel">Cancel</button>
+          <button type="button" class="btn btn-primary so-ok" id="signOutOk">Confirm Sign out</button>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if messages %}
+      <div class="messages">
+        {% for message in messages %}
+          <div class="flash flash-{{ message.tags }}"><i class="fa-solid fa-circle-info"></i><span>{{ message }}</span></div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% if is_impersonating %}
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 14px;
+        padding:12px 16px;border-radius:12px;background:#eef0ff;border:1px solid #c7ccfa;color:#3730a3;
+        font-size:14px;font-weight:600;">
+        <i class="fa-solid fa-user-shield"></i>
+        <span>You're viewing the platform as <strong>{{ user.get_full_name|default:user.username }}</strong>
+          — signed in as {{ impersonator_username }}.</span>
+        <a href="{% url 'accounts:impersonate_stop' %}" style="margin-left:auto;background:#3730a3;color:#fff;
+          text-decoration:none;padding:7px 14px;border-radius:8px;font-size:13px;">Return to admin account</a>
+      </div>
+    {% endif %}
+
+    {% if license_show_kartabl_warning %}
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 14px;
+        padding:12px 16px;border-radius:12px;background:#fff7e0;border:1px solid #f0d48a;color:#9a6700;
+        font-size:14px;font-weight:600;">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>{{ license_status.days_remaining }} day(s) remaining until the software license expires (expires {{ license_status.expiry_iso }}). Please renew soon to avoid interruption.</span>
+        <a href="{% url 'licensing:activate' %}" style="margin-left:auto;background:#9a6700;color:#fff;
+          text-decoration:none;padding:7px 14px;border-radius:8px;font-size:13px;">Enter new license</a>
+      </div>
+    {% endif %}
+
+    <main class="content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+<script>
+  document.addEventListener('click', function (e) {
+    var w = document.getElementById('whoWidget');
+    var m = document.getElementById('profileMenu');
+    if (m && w && !w.contains(e.target)) m.classList.remove('open');
+  });
+  // Mark the sidebar item matching the current path as active.
+  (function () {
+    var here = window.location.pathname;
+    var best = null, bestLen = -1;
+    document.querySelectorAll('.sb-nav .sb-item').forEach(function (a) {
+      var href = a.getAttribute('href') || '';
+      if (href && here.indexOf(href) === 0 && href.length > bestLen) { best = a; bestLen = href.length; }
+    });
+    if (best) best.classList.add('active');
+  })();
+  // Light / dark toggle (persisted per browser). Mode is one half of the theme;
+  // the colour skin is chosen on the profile page.
+  (function () {
+    var btn = document.getElementById('themeToggle');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      var r = document.documentElement;
+      var mode = r.getAttribute('data-mode') === 'dark' ? 'light' : 'dark';
+      r.setAttribute('data-mode', mode);
+      if (mode === 'dark') r.setAttribute('data-theme', 'dark'); else r.removeAttribute('data-theme');
+      try { localStorage.setItem('ft-mode', mode); localStorage.setItem('ft-theme', mode); } catch (e) {}
+    });
+  })();
+  // In-card theme switcher (colour skins + light/dark) — no need to open the
+  // profile page to switch. Mirrors the profile-page picker.
+  (function () {
+    var r = document.documentElement;
+    function curSkin() { var s = r.getAttribute('data-skin') || 'blue'; return (s === 'blue' || s === 'rose' || s === 'teal') ? s : 'blue'; }
+    function curMode() { return r.getAttribute('data-mode') === 'dark' ? 'dark' : 'light'; }
+    function mark() {
+      document.querySelectorAll('.pm-skin').forEach(function (b) { b.classList.toggle('sel', b.dataset.skin === curSkin()); });
+      document.querySelectorAll('.pm-mode').forEach(function (b) { b.classList.toggle('sel', b.dataset.mode === curMode()); });
+    }
+    document.querySelectorAll('.pm-skin').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        r.setAttribute('data-skin', b.dataset.skin);
+        try { localStorage.setItem('ft-skin', b.dataset.skin); } catch (e) {}
+        mark();
+      });
+    });
+    document.querySelectorAll('.pm-mode').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var mode = b.dataset.mode;
+        r.setAttribute('data-mode', mode);
+        if (mode === 'dark') r.setAttribute('data-theme', 'dark'); else r.removeAttribute('data-theme');
+        try { localStorage.setItem('ft-mode', mode); localStorage.setItem('ft-theme', mode); } catch (e) {}
+        mark();
+      });
+    });
+    mark();
+  })();
+  // Sign out: confirm that work hours stop after leaving intentionally
+  // (staff with a work shift only — admin / GM skip this dialog).
+  (function () {
+    var form = document.getElementById('pmLogoutForm');
+    var flag = document.getElementById('explicitShiftEnd');
+    var overlay = document.getElementById('signOutConfirm');
+    var cancel = document.getElementById('signOutCancel');
+    var ok = document.getElementById('signOutOk');
+    if (!form || !flag) return;
+    if (!overlay) return; // exempt roles: normal logout, no shift dialog
+    var armed = false;
+    form.addEventListener('submit', function (e) {
+      if (armed) return;
+      e.preventDefault();
+      overlay.hidden = false;
+      try {
+        var menu = document.getElementById('profileMenu');
+        if (menu) menu.classList.remove('open');
+      } catch (err) {}
+    });
+    if (cancel) {
+      cancel.addEventListener('click', function () {
+        overlay.hidden = true;
+        flag.value = '0';
+      });
+    }
+    if (ok) {
+      ok.addEventListener('click', function () {
+        flag.value = '1';
+        armed = true;
+        overlay.hidden = true;
+        form.submit();
+      });
+    }
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) {
+        overlay.hidden = true;
+        flag.value = '0';
+      }
+    });
+  })();
+  // Work-shift: presence heartbeat + live end-of-shift overlay (no refresh needed).
+  (function () {
+    var secondsLeft = {{ shift_seconds_left|default:'null' }};
+    var pingUrl = "{{ shift_ping_url|default:'' }}";
+    var endName = "{% filter escapejs %}{{ shift_end_name|default:'colleague' }}{% endfilter %}";
+    var loginUrl = "{% url 'accounts:login' %}";
+    var overlay = document.getElementById('shiftEndOverlay');
+    var nameEl = document.getElementById('shiftEndName');
+    var banner = document.querySelector('.shift-warn-banner');
+    var ended = false;
+    var deadline = (typeof secondsLeft === 'number' && secondsLeft >= 0)
+      ? (Date.now() + secondsLeft * 1000) : null;
+
+    function csrfToken() {
+      var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+      return m ? decodeURIComponent(m[1]) : '';
+    }
+
+    function showEnd() {
+      if (ended) return;
+      ended = true;
+      if (nameEl) nameEl.textContent = endName || 'colleague';
+      if (overlay) overlay.hidden = false;
+      try {
+        fetch("{% url 'accounts:logout' %}", {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': csrfToken(),
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          credentials: 'same-origin',
+          body: new URLSearchParams({ csrfmiddlewaretoken: csrfToken() })
+        }).catch(function () {});
+      } catch (e) {}
+      setTimeout(function () { window.location.href = loginUrl; }, 60000);
+    }
+
+    function tickBanner(mins) {
+      if (!banner) return;
+      var span = banner.querySelector('span');
+      if (!span) return;
+      if (mins > 30) { banner.hidden = true; return; }
+      banner.hidden = false;
+      span.textContent = (mins === 1)
+        ? '1 minute left until your cartable closes'
+        : (mins + ' minutes left until your cartable closes');
+    }
+
+    if (deadline != null) {
+      setInterval(function () {
+        var left = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
+        if (left <= 0) { showEnd(); return; }
+        tickBanner(Math.ceil(left / 60));
+      }, 1000);
+      if (secondsLeft === 0) showEnd();
+    }
+
+    if (pingUrl) {
+      setInterval(function () {
+        if (ended) return;
+        fetch(pingUrl, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': csrfToken(),
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          credentials: 'same-origin'
+        }).then(function (r) { return r.json(); }).then(function (data) {
+          if (!data || !data.ok) return;
+          if (data.allowed === false || data.seconds_left === 0) { showEnd(); return; }
+          if (typeof data.seconds_left === 'number' && data.seconds_left >= 0) {
+            deadline = Date.now() + data.seconds_left * 1000;
+          }
+          if (typeof data.minutes_left === 'number') tickBanner(data.minutes_left);
+        }).catch(function () {});
+      }, 60000);
+    }
+  })();
+</script>
+<script src="{% static 'js/ui.js' %}?v=copy-check-1"></script>
+{% else %}
+  {% block anon_content %}{% endblock %}
+{% endif %}
+{% block scripts %}{% endblock %}
+  <script src="{% static 'js/jalali_picker.js' %}?v=7"></script>
+</body>
+</html>

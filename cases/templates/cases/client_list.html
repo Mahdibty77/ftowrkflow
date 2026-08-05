@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Clients · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Clients{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Clients</h1><div class="sub">Client names are unique; codes are assigned automatically and only change via Excel upload. Numeric codes use 001 / 012 style (4+ digits stay as entered).</div></div>
+  <div class="btn-row">
+    <a href="{% url 'cases:master_data_hub' %}" class="btn btn-sm"><i class="fa-solid fa-arrow-left"></i> Back</a>
+    {% if can_add %}<a href="{% url 'cases:client_add' %}" class="btn btn-primary">Add client</a>{% endif %}
+    {% if can_upload %}<a href="{% url 'cases:client_upload' %}" class="btn">Upload codes</a>{% endif %}
+    {% if can_wipe_clients %}
+    <button type="button" class="btn btn-sm btn-danger" id="clientWipeOpen"><i class="fa-solid fa-trash"></i> Wipe all clients</button>
+    {% endif %}
+  </div>
+</div>
+
+{% if can_wipe_clients %}
+<div id="clientWipeModal" class="inq-comment-card" style="display:none;margin-bottom:1rem;max-width:520px;border-color:#b42318;background:#fff5f5;">
+  <div class="inq-comment-title" style="color:#b42318;"><i class="fa-solid fa-triangle-exclamation"></i> Wipe all clients</div>
+  <p class="muted" style="font-size:.86rem;margin:.4rem 0 .7rem;">This permanently deletes every client so you can upload a fresh Excel. It fails if any case still references a client.</p>
+  <form method="post" action="{% url 'cases:client_wipe' %}">
+    {% csrf_token %}
+    <div class="btn-row">
+      <button type="submit" class="btn btn-sm btn-danger">Yes, wipe all</button>
+      <button type="button" class="btn btn-sm btn-ghost" id="clientWipeCancel">Cancel</button>
+    </div>
+  </form>
+</div>
+{% endif %}
+
+<div class="row-flex" style="margin-bottom:1rem;">
+  <input type="text" id="clientFilter" placeholder="Search by name or code…" style="max-width:320px;" autocomplete="off" autofocus value="{{ query }}">
+</div>
+
+<div class="table-wrap">
+  <table class="data">
+    <thead><tr><th style="width:120px">Code</th><th>Name</th><th style="width:160px"></th></tr></thead>
+    <tbody id="clientRows">
+      {% for c in clients %}
+        <tr data-search="{{ c.name|lower }} {{ c.code|lower }}">
+          <td class="mono">{{ c.code }}</td>
+          <td>{{ c.name }}</td>
+          <td style="white-space:nowrap;text-align:right;">
+            {% if can_add %}<a href="{% url 'cases:client_rename' c.pk %}" class="btn btn-sm">Rename</a>{% endif %}
+            {% if can_wipe_clients %}
+            <form method="post" action="{% url 'cases:client_delete' c.pk %}" style="display:inline;"
+                  class="client-del-form"
+                  data-code="{{ c.code }}"
+                  data-name="{{ c.name|escape }}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-ghost" title="Delete this client"
+                      style="color:#b42318;"><i class="fa-solid fa-trash"></i></button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="3" class="empty">No clients yet.</td></tr>
+      {% endfor %}
+      <tr id="clientNoMatch" style="display:none;"><td colspan="3" class="empty">No client matches your search.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+  (function () {
+    var inp = document.getElementById('clientFilter');
+    if (inp) {
+      var rows = Array.prototype.slice.call(document.querySelectorAll('#clientRows tr[data-search]'));
+      var noMatch = document.getElementById('clientNoMatch');
+      inp.addEventListener('input', function () {
+        var q = inp.value.trim().toLowerCase();
+        var shown = 0;
+        rows.forEach(function (r) {
+          var ok = !q || r.dataset.search.indexOf(q) >= 0;
+          r.style.display = ok ? '' : 'none';
+          if (ok) shown++;
+        });
+        if (noMatch) noMatch.style.display = (q && shown === 0) ? '' : 'none';
+      });
+    }
+    var openBtn = document.getElementById('clientWipeOpen');
+    var modal = document.getElementById('clientWipeModal');
+    var cancel = document.getElementById('clientWipeCancel');
+    if (openBtn && modal) {
+      openBtn.addEventListener('click', function () { modal.style.display = ''; });
+      if (cancel) cancel.addEventListener('click', function () { modal.style.display = 'none'; });
+    }
+    document.querySelectorAll('.client-del-form').forEach(function (form) {
+      form.addEventListener('submit', function (e) {
+        var code = form.getAttribute('data-code') || '';
+        var name = form.getAttribute('data-name') || '';
+        var ok = window.confirm(
+          'Delete client ' + code + (name ? ' — ' + name : '') + '?\n\n' +
+          'Only allowed if no case was created with this client code.'
+        );
+        if (!ok) e.preventDefault();
+      });
+    });
+  })();
+</script>
+{% endblock %}

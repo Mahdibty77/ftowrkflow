@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% load ft_extras %}
+{% block title %}{{ feature }} values · {{ group }}{% endblock %}
+{% block topbar %}{{ group }} · {{ feature }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ feature }} <span class="muted" style="font-size:1rem;">({{ group }})</span></h1>
+  <div class="sub">Values &amp; codes. A new value must be linked into rules.json — pick at least one value of every other main feature so it can be reached when defining an item.</div></div>
+  <a class="btn btn-sm" href="{% url 'dm_features' group %}">Back to features</a>
+</div>
+
+<div class="grid grid-2">
+  <div class="card" style="align-self:start;">
+    <div class="card-head"><h3>Values ({{ values|length }})</h3></div>
+    {% if values %}
+    <table class="data">
+      <thead><tr><th>Value</th><th>Code</th><th></th></tr></thead>
+      <tbody>
+        {% for v in values %}
+          <tr>
+            <td>{{ v.value|featdisp }}</td>
+            <td><code style="font-weight:700;">{{ v.code }}</code></td>
+            <td>
+              {% if td_can_delete %}
+              <form method="post" style="margin:0;" onsubmit="return confirm('Remove this value?');">{% csrf_token %}
+                <input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="{{ v.id }}">
+                <button class="btn btn-sm btn-ghost" type="submit"><i class="fa-solid fa-trash"></i></button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="muted">No values yet.</div>{% endif %}
+  </div>
+
+  <div class="card" style="align-self:start;">
+    <div class="card-head"><h3>Add value</h3></div>
+    <form method="post" id="add-form">{% csrf_token %}
+      <input type="hidden" name="action" value="add">
+
+      <!-- Step 1: the value -->
+      <div class="field"><label>New value <span class="req">*</span></label>
+        <input type="text" name="value" id="new-value" placeholder='e.g. 60"' required autocomplete="off" style="text-transform:uppercase;"></div>
+      <div class="help" style="margin-bottom:.6rem;">Code is assigned automatically as the next number (<b>{{ suggested }}</b>).</div>
+      <button class="btn btn-primary" type="button" id="open-links"><i class="fa-solid fa-link"></i> Continue — set relations</button>
+
+      <!-- Step 2: the relation panel (revealed after Continue) -->
+      {% if others %}
+      <div id="rel-panel" style="display:none;margin-top:.8rem;border-top:1px solid var(--line);padding-top:.7rem;">
+        <div class="muted" style="font-size:.82rem;margin:.1rem 0 .6rem;">
+          Link “<b id="rel-value-echo"></b>”. Click a field, then click values to select (click again to remove). Pick at least one in every field.
+        </div>
+        {% for o in others %}
+          <div class="field rel-combo" data-feature="{{ o.name }}" style="margin-bottom:.55rem;">
+            <label style="display:flex;justify-content:space-between;align-items:center;">
+              <span>{{ o.name }} <span class="muted" style="font-size:.7rem;">({{ o.rel }})</span></span>
+              <span class="muted rel-count" style="font-size:.72rem;">0 selected</span>
+            </label>
+            <div class="combo">
+              <input type="text" class="combo-input rel-input" autocomplete="off" placeholder="click to choose…">
+              <div class="combo-list rel-list">
+                {% for val in o.values %}
+                  <div class="combo-opt rel-opt" data-val="{{ val|featdisp }}">
+                    <input type="checkbox" name="rel_{{ o.name }}" value="{{ val }}" style="display:none;">
+                    <span>{{ val|featdisp }}</span><span class="rel-tick" style="margin-left:auto;color:var(--accent);visibility:hidden;"><i class="fa-solid fa-check"></i></span>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+        <div id="rel-error" class="flash flash-error" style="display:none;margin:.4rem 0;"></div>
+        <button class="btn btn-primary" type="submit" id="save-link" style="margin-top:.3rem;"><i class="fa-solid fa-plus"></i> Add &amp; link value</button>
+      </div>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  var openBtn = document.getElementById("open-links");
+  var panel = document.getElementById("rel-panel");
+  var valueInput = document.getElementById("new-value");
+  var echo = document.getElementById("rel-value-echo");
+  var errBox = document.getElementById("rel-error");
+
+  if (openBtn && panel) {
+    openBtn.addEventListener("click", function () {
+      if (!valueInput.value.trim()) { valueInput.focus(); valueInput.reportValidity && valueInput.reportValidity(); return; }
+      if (echo) echo.textContent = valueInput.value.trim().toUpperCase();
+      panel.style.display = "block";
+      openBtn.style.display = "none";
+    });
+    valueInput.addEventListener("input", function () { if (echo) echo.textContent = valueInput.value.trim().toUpperCase(); });
+  }
+
+  document.querySelectorAll(".rel-combo").forEach(function (box) {
+    var input = box.querySelector(".rel-input");
+    var list = box.querySelector(".rel-list");
+    var count = box.querySelector(".rel-count");
+    var opts = box.querySelectorAll(".rel-opt");
+
+    function selectedVals() {
+      var out = [];
+      opts.forEach(function (o) { if (o.querySelector("input").checked) out.push(o.getAttribute("data-val")); });
+      return out;
+    }
+    function refresh() {
+      var sel = selectedVals();
+      count.textContent = sel.length + " selected";
+      box.classList.toggle("rel-empty", sel.length === 0);
+      // summary in the input when the field is not focused
+      if (document.activeElement !== input) input.value = sel.length ? sel.join(", ") : "";
+    }
+    opts.forEach(function (opt) {
+      var cb = opt.querySelector("input");
+      opt.addEventListener("mousedown", function (e) {
+        e.preventDefault();                       // keep the list open for multi-select
+        cb.checked = !cb.checked;
+        opt.style.background = cb.checked ? "var(--accent-soft)" : "";
+        opt.querySelector(".rel-tick").style.visibility = cb.checked ? "visible" : "hidden";
+        refresh();
+      });
+    });
+    input.addEventListener("focus", function () { input.value = ""; filter(""); list.classList.add("open"); });
+    input.addEventListener("input", function () { filter(input.value); list.classList.add("open"); });
+    input.addEventListener("blur", function () { setTimeout(function () { list.classList.remove("open"); refresh(); }, 160); });
+
+    function filter(q) {
+      q = (q || "").toLowerCase();
+      opts.forEach(function (o) {
+        o.style.display = (!q || o.getAttribute("data-val").toLowerCase().indexOf(q) !== -1) ? "flex" : "none";
+      });
+    }
+    refresh();
+  });
+
+  var form = document.getElementById("add-form");
+  if (form) form.addEventListener("submit", function (e) {
+    if (panel && panel.style.display === "none") { return; }   // step 1 only, shouldn't submit
+    var empty = [];
+    document.querySelectorAll(".rel-combo").forEach(function (box) {
+      var any = false;
+      box.querySelectorAll(".rel-opt input").forEach(function (cb) { if (cb.checked) any = true; });
+      if (!any) empty.push(box.getAttribute("data-feature"));
+    });
+    if (empty.length) {
+      e.preventDefault();
+      errBox.style.display = "block";
+      errBox.textContent = "Pick at least one value for: " + empty.join(", ");
+    }
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,905 @@
+{
+ "nut&bolt": {
+  "Stud Bolt (full thread) + 2 Heavy Hex Nuts": {
+   "grade": {
+    "ASTM A193 Gr.B7M (tempered, HB<=235)": {
+     "nut": [
+      "ASTM A194 Gr.2HM (sour)"
+     ]
+    },
+    "ASTM A193 Gr.B8T Cl.1 (321)": {
+     "nut": [
+      "ASTM A194 Gr.8T (321)"
+     ]
+    },
+    "ASTM A193 Gr.B8C Cl.1 (347)": {
+     "nut": [
+      "ASTM A194 Gr.8C (347)"
+     ]
+    },
+    "ASTM A320 Gr.L7M (low temp, tempered)": {
+     "nut": [
+      "ASTM A194 Gr.7M (sour)"
+     ]
+    },
+    "Property Class 8.8 (carbon/alloy)": {
+     "nut": [
+      "ISO 4032 Class 8 nut (metric)"
+     ]
+    },
+    "Property Class 10.9 (alloy, high strength)": {
+     "nut": [
+      "ISO 4032 Class 10 nut (metric)"
+     ]
+    },
+    "Property Class 12.9 (alloy, very high strength)": {
+     "nut": [
+      "ISO 4032 Class 12 nut (metric)"
+     ]
+    },
+    "Stainless A2-70 (304)": {
+     "nut": [
+      "Stainless A2 nut (304, metric)"
+     ]
+    },
+    "Stainless A4-80 (316)": {
+     "nut": [
+      "Stainless A4 nut (316, metric)"
+     ]
+    }
+   },
+   "nut": {
+    "ASTM A194 Gr.7": {
+     "grade": [
+      "ASTM A453 Gr.660 (high-temp age-hardened)"
+     ]
+    },
+    "ASTM A194 Gr.2HM (sour)": {
+     "grade": [
+      "ASTM A193 Gr.B7M (tempered, HB<=235)"
+     ]
+    },
+    "ASTM A194 Gr.8 (304)": {
+     "grade": [
+      "ASTM A193 Gr.B8 Cl.1 (304, solution treated)",
+      "ASTM A193 Gr.B8 Cl.2 (304, strain hardened)",
+      "ASTM A320 Gr.B8 Cl.1 (low temp 304)"
+     ]
+    },
+    "ASTM A194 Gr.8M (316)": {
+     "grade": [
+      "ASTM A193 Gr.B8M Cl.1 (316, solution treated)",
+      "ASTM A193 Gr.B8M Cl.2 (316, strain hardened)",
+      "ASTM A320 Gr.B8M Cl.1 (low temp 316)"
+     ]
+    },
+    "ASTM A194 Gr.8T (321)": {
+     "grade": [
+      "ASTM A193 Gr.B8T Cl.1 (321)"
+     ]
+    },
+    "ASTM A194 Gr.8C (347)": {
+     "grade": [
+      "ASTM A193 Gr.B8C Cl.1 (347)"
+     ]
+    },
+    "ASTM A194 Gr.7M (sour)": {
+     "grade": [
+      "ASTM A320 Gr.L7M (low temp, tempered)"
+     ]
+    },
+    "ASTM A563 Gr.A": {
+     "grade": [
+      "ASTM A307 Gr.A (low carbon, general)"
+     ]
+    },
+    "ASTM A563 Gr.DH": {
+     "grade": [
+      "ASTM A354 Gr.BD (alloy, very high strength)"
+     ]
+    },
+    "ISO 4032 Class 8 nut (metric)": {
+     "grade": [
+      "Property Class 8.8 (carbon/alloy)"
+     ]
+    },
+    "ISO 4032 Class 10 nut (metric)": {
+     "grade": [
+      "Property Class 10.9 (alloy, high strength)"
+     ]
+    },
+    "ISO 4032 Class 12 nut (metric)": {
+     "grade": [
+      "Property Class 12.9 (alloy, very high strength)"
+     ]
+    },
+    "Stainless A2 nut (304, metric)": {
+     "grade": [
+      "Stainless A2-70 (304)"
+     ]
+    },
+    "Stainless A4 nut (316, metric)": {
+     "grade": [
+      "Stainless A4-80 (316)"
+     ]
+    }
+   },
+   "nace": {
+    "NACE MR0175 / ISO 15156 (sour)": {
+     "grade": [
+      "ASTM A193 Gr.B7M (tempered, HB<=235)",
+      "ASTM A193 Gr.B8 Cl.1 (304, solution treated)",
+      "ASTM A193 Gr.B8C Cl.1 (347)",
+      "ASTM A193 Gr.B8M Cl.1 (316, solution treated)",
+      "ASTM A193 Gr.B8T Cl.1 (321)",
+      "ASTM A320 Gr.B8 Cl.1 (low temp 304)",
+      "ASTM A320 Gr.B8M Cl.1 (low temp 316)",
+      "ASTM A320 Gr.L7M (low temp, tempered)"
+     ],
+     "nut": [
+      "ASTM A194 Gr.2HM (sour)",
+      "ASTM A194 Gr.7M (sour)",
+      "ASTM A194 Gr.8 (304)",
+      "ASTM A194 Gr.8C (347)",
+      "ASTM A194 Gr.8M (316)",
+      "ASTM A194 Gr.8T (321)"
+     ],
+     "coating": [
+      "Cadmium Plated",
+      "Hot-Dip Galvanized (ASTM A153/F2329)",
+      "PTFE / Xylan fluoropolymer",
+      "Passivated (stainless)",
+      "Phosphate (Mn/Zn)",
+      "Plain / Black (bare, oiled)",
+      "Zinc Electroplated (ASTM B633)",
+      "Zinc Flake (Geomet/Dacromet)"
+     ],
+     "standard": [
+      "ASME B16.5 / B16.47 flange bolting (inch)",
+      "ASME B18.31.2 stud bolt (inch)"
+     ],
+     "thread": [
+      "8UN 8-thread series (inch, >1\")",
+      "UNC coarse (inch, <=1\")"
+     ]
+    }
+   },
+   "thread": {
+    "Metric coarse (M profile)": {
+     "grade": [
+      "Property Class 10.9 (alloy, high strength)",
+      "Property Class 12.9 (alloy, very high strength)",
+      "Property Class 8.8 (carbon/alloy)",
+      "Stainless A2-70 (304)",
+      "Stainless A4-80 (316)"
+     ],
+     "nut": [
+      "ISO 4032 Class 10 nut (metric)",
+      "ISO 4032 Class 12 nut (metric)",
+      "ISO 4032 Class 8 nut (metric)",
+      "Stainless A2 nut (304, metric)",
+      "Stainless A4 nut (316, metric)"
+     ],
+     "standard": [
+      "DIN 2510 stud bolt (metric)",
+      "EN 1515 flange bolting (metric)"
+     ]
+    }
+   }
+  },
+  "Tap-End Stud + 1 Heavy Hex Nut": {
+   "grade": {
+    "ASTM A193 Gr.B7M (tempered, HB<=235)": {
+     "nut": [
+      "ASTM A194 Gr.2HM (sour)"
+     ]
+    },
+    "ASTM A193 Gr.B8T Cl.1 (321)": {
+     "nut": [
+      "ASTM A194 Gr.8T (321)"
+     ]
+    },
+    "ASTM A193 Gr.B8C Cl.1 (347)": {
+     "nut": [
+      "ASTM A194 Gr.8C (347)"
+     ]
+    },
+    "ASTM A320 Gr.L7M (low temp, tempered)": {
+     "nut": [
+      "ASTM A194 Gr.7M (sour)"
+     ]
+    },
+    "Property Class 8.8 (carbon/alloy)": {
+     "nut": [
+      "ISO 4032 Class 8 nut (metric)"
+     ]
+    },
+    "Property Class 10.9 (alloy, high strength)": {
+     "nut": [
+      "ISO 4032 Class 10 nut (metric)"
+     ]
+    },
+    "Property Class 12.9 (alloy, very high strength)": {
+     "nut": [
+      "ISO 4032 Class 12 nut (metric)"
+     ]
+    },
+    "Stainless A2-70 (304)": {
+     "nut": [
+      "Stainless A2 nut (304, metric)"
+     ]
+    },
+    "Stainless A4-80 (316)": {
+     "nut": [
+      "Stainless A4 nut (316, metric)"
+     ]
+    }
+   },
+   "nut": {
+    "ASTM A194 Gr.7": {
+     "grade": [
+      "ASTM A453 Gr.660 (high-temp age-hardened)"
+     ]
+    },
+    "ASTM A194 Gr.2HM (sour)": {
+     "grade": [
+      "ASTM A193 Gr.B7M (tempered, HB<=235)"
+     ]
+    },
+    "ASTM A194 Gr.8 (304)": {
+     "grade": [
+      "ASTM A193 Gr.B8 Cl.1 (304, solution treated)",
+      "ASTM A193 Gr.B8 Cl.2 (304, strain hardened)",
+      "ASTM A320 Gr.B8 Cl.1 (low temp 304)"
+     ]
+    },
+    "ASTM A194 Gr.8M (316)": {
+     "grade": [
+      "ASTM A193 Gr.B8M Cl.1 (316, solution treated)",
+      "ASTM A193 Gr.B8M Cl.2 (316, strain hardened)",
+      "ASTM A320 Gr.B8M Cl.1 (low temp 316)"
+     ]
+    },
+    "ASTM A194 Gr.8T (321)": {
+     "grade": [
+      "ASTM A193 Gr.B8T Cl.1 (321)"
+     ]
+    },
+    "ASTM A194 Gr.8C (347)": {
+     "grade": [
+      "ASTM A193 Gr.B8C Cl.1 (347)"
+     ]
+    },
+    "ASTM A194 Gr.7M (sour)": {
+     "grade": [
+      "ASTM A320 Gr.L7M (low temp, tempered)"
+     ]
+    },
+    "ASTM A563 Gr.A": {
+     "grade": [
+      "ASTM A307 Gr.A (low carbon, general)"
+     ]
+    },
+    "ASTM A563 Gr.DH": {
+     "grade": [
+      "ASTM A354 Gr.BD (alloy, very high strength)"
+     ]
+    },
+    "ISO 4032 Class 8 nut (metric)": {
+     "grade": [
+      "Property Class 8.8 (carbon/alloy)"
+     ]
+    },
+    "ISO 4032 Class 10 nut (metric)": {
+     "grade": [
+      "Property Class 10.9 (alloy, high strength)"
+     ]
+    },
+    "ISO 4032 Class 12 nut (metric)": {
+     "grade": [
+      "Property Class 12.9 (alloy, very high strength)"
+     ]
+    },
+    "Stainless A2 nut (304, metric)": {
+     "grade": [
+      "Stainless A2-70 (304)"
+     ]
+    },
+    "Stainless A4 nut (316, metric)": {
+     "grade": [
+      "Stainless A4-80 (316)"
+     ]
+    }
+   },
+   "nace": {
+    "NACE MR0175 / ISO 15156 (sour)": {
+     "grade": [
+      "ASTM A193 Gr.B7M (tempered, HB<=235)",
+      "ASTM A193 Gr.B8 Cl.1 (304, solution treated)",
+      "ASTM A193 Gr.B8C Cl.1 (347)",
+      "ASTM A193 Gr.B8M Cl.1 (316, solution treated)",
+      "ASTM A193 Gr.B8T Cl.1 (321)",
+      "ASTM A320 Gr.B8 Cl.1 (low temp 304)",
+      "ASTM A320 Gr.B8M Cl.1 (low temp 316)",
+      "ASTM A320 Gr.L7M (low temp, tempered)"
+     ],
+     "nut": [
+      "ASTM A194 Gr.2HM (sour)",
+      "ASTM A194 Gr.7M (sour)",
+      "ASTM A194 Gr.8 (304)",
+      "ASTM A194 Gr.8C (347)",
+      "ASTM A194 Gr.8M (316)",
+      "ASTM A194 Gr.8T (321)"
+     ],
+     "coating": [
+      "Cadmium Plated",
+      "Hot-Dip Galvanized (ASTM A153/F2329)",
+      "PTFE / Xylan fluoropolymer",
+      "Passivated (stainless)",
+      "Phosphate (Mn/Zn)",
+      "Plain / Black (bare, oiled)",
+      "Zinc Electroplated (ASTM B633)",
+      "Zinc Flake (Geomet/Dacromet)"
+     ],
+     "standard": [
+      "ASME B16.5 / B16.47 flange bolting (inch)",
+      "ASME B18.31.2 stud bolt (inch)"
+     ],
+     "thread": [
+      "8UN 8-thread series (inch, >1\")",
+      "UNC coarse (inch, <=1\")"
+     ]
+    }
+   },
+   "thread": {
+    "Metric coarse (M profile)": {
+     "grade": [
+      "Property Class 10.9 (alloy, high strength)",
+      "Property Class 12.9 (alloy, very high strength)",
+      "Property Class 8.8 (carbon/alloy)",
+      "Stainless A2-70 (304)",
+      "Stainless A4-80 (316)"
+     ],
+     "nut": [
+      "ISO 4032 Class 10 nut (metric)",
+      "ISO 4032 Class 12 nut (metric)",
+      "ISO 4032 Class 8 nut (metric)",
+      "Stainless A2 nut (304, metric)",
+      "Stainless A4 nut (316, metric)"
+     ],
+     "standard": [
+      "DIN 2510 stud bolt (metric)",
+      "EN 1515 flange bolting (metric)"
+     ]
+    }
+   }
+  },
+  "Double-End Stud + 2 Heavy Hex Nuts": {
+   "grade": {
+    "ASTM A193 Gr.B7M (tempered, HB<=235)": {
+     "nut": [
+      "ASTM A194 Gr.2HM (sour)"
+     ]
+    },
+    "ASTM A193 Gr.B8T Cl.1 (321)": {
+     "nut": [
+      "ASTM A194 Gr.8T (321)"
+     ]
+    },
+    "ASTM A193 Gr.B8C Cl.1 (347)": {
+     "nut": [
+      "ASTM A194 Gr.8C (347)"
+     ]
+    },
+    "ASTM A320 Gr.L7M (low temp, tempered)": {
+     "nut": [
+      "ASTM A194 Gr.7M (sour)"
+     ]
+    },
+    "Property Class 8.8 (carbon/alloy)": {
+     "nut": [
+      "ISO 4032 Class 8 nut (metric)"
+     ]
+    },
+    "Property Class 10.9 (alloy, high strength)": {
+     "nut": [
+      "ISO 4032 Class 10 nut (metric)"
+     ]
+    },
+    "Property Class 12.9 (alloy, very high strength)": {
+     "nut": [
+      "ISO 4032 Class 12 nut (metric)"
+     ]
+    },
+    "Stainless A2-70 (304)": {
+     "nut": [
+      "Stainless A2 nut (304, metric)"
+     ]
+    },
+    "Stainless A4-80 (316)": {
+     "nut": [
+      "Stainless A4 nut (316, metric)"
+     ]
+    }
+   },
+   "nut": {
+    "ASTM A194 Gr.7": {
+     "grade": [
+      "ASTM A453 Gr.660 (high-temp age-hardened)"
+     ]
+    },
+    "ASTM A194 Gr.2HM (sour)": {
+     "grade": [
+      "ASTM A193 Gr.B7M (tempered, HB<=235)"
+     ]
+    },
+    "ASTM A194 Gr.8 (304)": {
+     "grade": [
+      "ASTM A193 Gr.B8 Cl.1 (304, solution treated)",
+      "ASTM A193 Gr.B8 Cl.2 (304, strain hardened)",
+      "ASTM A320 Gr.B8 Cl.1 (low temp 304)"
+     ]
+    },
+    "ASTM A194 Gr.8M (316)": {
+     "grade": [
+      "ASTM A193 Gr.B8M Cl.1 (316, solution treated)",
+      "ASTM A193 Gr.B8M Cl.2 (316, strain hardened)",
+      "ASTM A320 Gr.B8M Cl.1 (low temp 316)"
+     ]
+    },
+    "ASTM A194 Gr.8T (321)": {
+     "grade": [
+      "ASTM A193 Gr.B8T Cl.1 (321)"
+     ]
+    },
+    "ASTM A194 Gr.8C (347)": {
+     "grade": [
+      "ASTM A193 Gr.B8C Cl.1 (347)"
+     ]
+    },
+    "ASTM A194 Gr.7M (sour)": {
+     "grade": [
+      "ASTM A320 Gr.L7M (low temp, tempered)"
+     ]
+    },
+    "ASTM A563 Gr.A": {
+     "grade": [
+      "ASTM A307 Gr.A (low carbon, general)"
+     ]
+    },
+    "ASTM A563 Gr.DH": {
+     "grade": [
+      "ASTM A354 Gr.BD (alloy, very high strength)"
+     ]
+    },
+    "ISO 4032 Class 8 nut (metric)": {
+     "grade": [
+      "Property Class 8.8 (carbon/alloy)"
+     ]
+    },
+    "ISO 4032 Class 10 nut (metric)": {
+     "grade": [
+      "Property Class 10.9 (alloy, high strength)"
+     ]
+    },
+    "ISO 4032 Class 12 nut (metric)": {
+     "grade": [
+      "Property Class 12.9 (alloy, very high strength)"
+     ]
+    },
+    "Stainless A2 nut (304, metric)": {
+     "grade": [
+      "Stainless A2-70 (304)"
+     ]
+    },
+    "Stainless A4 nut (316, metric)": {
+     "grade": [
+      "Stainless A4-80 (316)"
+     ]
+    }
+   },
+   "nace": {
+    "NACE MR0175 / ISO 15156 (sour)": {
+     "grade": [
+      "ASTM A193 Gr.B7M (tempered, HB<=235)",
+      "ASTM A193 Gr.B8 Cl.1 (304, solution treated)",
+      "ASTM A193 Gr.B8C Cl.1 (347)",
+      "ASTM A193 Gr.B8M Cl.1 (316, solution treated)",
+      "ASTM A193 Gr.B8T Cl.1 (321)",
+      "ASTM A320 Gr.B8 Cl.1 (low temp 304)",
+      "ASTM A320 Gr.B8M Cl.1 (low temp 316)",
+      "ASTM A320 Gr.L7M (low temp, tempered)"
+     ],
+     "nut": [
+      "ASTM A194 Gr.2HM (sour)",
+      "ASTM A194 Gr.7M (sour)",
+      "ASTM A194 Gr.8 (304)",
+      "ASTM A194 Gr.8C (347)",
+      "ASTM A194 Gr.8M (316)",
+      "ASTM A194 Gr.8T (321)"
+     ],
+     "coating": [
+      "Cadmium Plated",
+      "Hot-Dip Galvanized (ASTM A153/F2329)",
+      "PTFE / Xylan fluoropolymer",
+      "Passivated (stainless)",
+      "Phosphate (Mn/Zn)",
+      "Plain / Black (bare, oiled)",
+      "Zinc Electroplated (ASTM B633)",
+      "Zinc Flake (Geomet/Dacromet)"
+     ],
+     "standard": [
+      "ASME B16.5 / B16.47 flange bolting (inch)",
+      "ASME B18.31.2 stud bolt (inch)"
+     ],
+     "thread": [
+      "8UN 8-thread series (inch, >1\")",
+      "UNC coarse (inch, <=1\")"
+     ]
+    }
+   },
+   "thread": {
+    "Metric coarse (M profile)": {
+     "grade": [
+      "Property Class 10.9 (alloy, high strength)",
+      "Property Class 12.9 (alloy, very high strength)",
+      "Property Class 8.8 (carbon/alloy)",
+      "Stainless A2-70 (304)",
+      "Stainless A4-80 (316)"
+     ],
+     "nut": [
+      "ISO 4032 Class 10 nut (metric)",
+      "ISO 4032 Class 12 nut (metric)",
+      "ISO 4032 Class 8 nut (metric)",
+      "Stainless A2 nut (304, metric)",
+      "Stainless A4 nut (316, metric)"
+     ],
+     "standard": [
+      "DIN 2510 stud bolt (metric)",
+      "EN 1515 flange bolting (metric)"
+     ]
+    }
+   }
+  },
+  "Heavy Hex Bolt + 1 Heavy Hex Nut": {
+   "grade": {
+    "ASTM A193 Gr.B7M (tempered, HB<=235)": {
+     "nut": [
+      "ASTM A194 Gr.2HM (sour)"
+     ]
+    },
+    "ASTM A193 Gr.B8T Cl.1 (321)": {
+     "nut": [
+      "ASTM A194 Gr.8T (321)"
+     ]
+    },
+    "ASTM A193 Gr.B8C Cl.1 (347)": {
+     "nut": [
+      "ASTM A194 Gr.8C (347)"
+     ]
+    },
+    "ASTM A320 Gr.L7M (low temp, tempered)": {
+     "nut": [
+      "ASTM A194 Gr.7M (sour)"
+     ]
+    },
+    "Property Class 8.8 (carbon/alloy)": {
+     "nut": [
+      "ISO 4032 Class 8 nut (metric)"
+     ]
+    },
+    "Property Class 10.9 (alloy, high strength)": {
+     "nut": [
+      "ISO 4032 Class 10 nut (metric)"
+     ]
+    },
+    "Property Class 12.9 (alloy, very high strength)": {
+     "nut": [
+      "ISO 4032 Class 12 nut (metric)"
+     ]
+    },
+    "Stainless A2-70 (304)": {
+     "nut": [
+      "Stainless A2 nut (304, metric)"
+     ]
+    },
+    "Stainless A4-80 (316)": {
+     "nut": [
+      "Stainless A4 nut (316, metric)"
+     ]
+    }
+   },
+   "nut": {
+    "ASTM A194 Gr.7": {
+     "grade": [
+      "ASTM A453 Gr.660 (high-temp age-hardened)"
+     ]
+    },
+    "ASTM A194 Gr.2HM (sour)": {
+     "grade": [
+      "ASTM A193 Gr.B7M (tempered, HB<=235)"
+     ]
+    },
+    "ASTM A194 Gr.8 (304)": {
+     "grade": [
+      "ASTM A193 Gr.B8 Cl.1 (304, solution treated)",
+      "ASTM A193 Gr.B8 Cl.2 (304, strain hardened)",
+      "ASTM A320 Gr.B8 Cl.1 (low temp 304)"
+     ]
+    },
+    "ASTM A194 Gr.8M (316)": {
+     "grade": [
+      "ASTM A193 Gr.B8M Cl.1 (316, solution treated)",
+      "ASTM A193 Gr.B8M Cl.2 (316, strain hardened)",
+      "ASTM A320 Gr.B8M Cl.1 (low temp 316)"
+     ]
+    },
+    "ASTM A194 Gr.8T (321)": {
+     "grade": [
+      "ASTM A193 Gr.B8T Cl.1 (321)"
+     ]
+    },
+    "ASTM A194 Gr.8C (347)": {
+     "grade": [
+      "ASTM A193 Gr.B8C Cl.1 (347)"
+     ]
+    },
+    "ASTM A194 Gr.7M (sour)": {
+     "grade": [
+      "ASTM A320 Gr.L7M (low temp, tempered)"
+     ]
+    },
+    "ASTM A563 Gr.A": {
+     "grade": [
+      "ASTM A307 Gr.A (low carbon, general)"
+     ]
+    },
+    "ASTM A563 Gr.DH": {
+     "grade": [
+      "ASTM A354 Gr.BD (alloy, very high strength)"
+     ]
+    },
+    "ISO 4032 Class 8 nut (metric)": {
+     "grade": [
+      "Property Class 8.8 (carbon/alloy)"
+     ]
+    },
+    "ISO 4032 Class 10 nut (metric)": {
+     "grade": [
+      "Property Class 10.9 (alloy, high strength)"
+     ]
+    },
+    "ISO 4032 Class 12 nut (metric)": {
+     "grade": [
+      "Property Class 12.9 (alloy, very high strength)"
+     ]
+    },
+    "Stainless A2 nut (304, metric)": {
+     "grade": [
+      "Stainless A2-70 (304)"
+     ]
+    },
+    "Stainless A4 nut (316, metric)": {
+     "grade": [
+      "Stainless A4-80 (316)"
+     ]
+    }
+   },
+   "nace": {
+    "NACE MR0175 / ISO 15156 (sour)": {
+     "grade": [
+      "ASTM A193 Gr.B7M (tempered, HB<=235)",
+      "ASTM A193 Gr.B8 Cl.1 (304, solution treated)",
+      "ASTM A193 Gr.B8C Cl.1 (347)",
+      "ASTM A193 Gr.B8M Cl.1 (316, solution treated)",
+      "ASTM A193 Gr.B8T Cl.1 (321)",
+      "ASTM A320 Gr.B8 Cl.1 (low temp 304)",
+      "ASTM A320 Gr.B8M Cl.1 (low temp 316)",
+      "ASTM A320 Gr.L7M (low temp, tempered)"
+     ],
+     "nut": [
+      "ASTM A194 Gr.2HM (sour)",
+      "ASTM A194 Gr.7M (sour)",
+      "ASTM A194 Gr.8 (304)",
+      "ASTM A194 Gr.8C (347)",
+      "ASTM A194 Gr.8M (316)",
+      "ASTM A194 Gr.8T (321)"
+     ],
+     "coating": [
+      "Cadmium Plated",
+      "Hot-Dip Galvanized (ASTM A153/F2329)",
+      "PTFE / Xylan fluoropolymer",
+      "Passivated (stainless)",
+      "Phosphate (Mn/Zn)",
+      "Plain / Black (bare, oiled)",
+      "Zinc Electroplated (ASTM B633)",
+      "Zinc Flake (Geomet/Dacromet)"
+     ],
+     "standard": [
+      "ASME B18.2.1 heavy hex bolt (inch)"
+     ],
+     "thread": [
+      "8UN 8-thread series (inch, >1\")",
+      "UNC coarse (inch, <=1\")"
+     ]
+    }
+   },
+   "standard": {
+    "ASME B18.2.1 heavy hex bolt (inch)": {
+     "grade": [
+      "ASTM A193 Gr.B16 (Cr-Mo-V, high temp)",
+      "ASTM A193 Gr.B7 (Cr-Mo, quench & temper)",
+      "ASTM A193 Gr.B7M (tempered, HB<=235)",
+      "ASTM A193 Gr.B8 Cl.1 (304, solution treated)",
+      "ASTM A193 Gr.B8 Cl.2 (304, strain hardened)",
+      "ASTM A193 Gr.B8C Cl.1 (347)",
+      "ASTM A193 Gr.B8M Cl.1 (316, solution treated)",
+      "ASTM A193 Gr.B8M Cl.2 (316, strain hardened)",
+      "ASTM A193 Gr.B8T Cl.1 (321)",
+      "ASTM A307 Gr.A (low carbon, general)",
+      "ASTM A307 Gr.B (carbon, flanged joints)",
+      "ASTM A320 Gr.B8 Cl.1 (low temp 304)",
+      "ASTM A320 Gr.B8M Cl.1 (low temp 316)",
+      "ASTM A320 Gr.L43 (low temp Ni-Cr-Mo)",
+      "ASTM A320 Gr.L7 (low temp Cr-Mo)",
+      "ASTM A320 Gr.L7M (low temp, tempered)",
+      "ASTM A354 Gr.BC (alloy, high strength)",
+      "ASTM A354 Gr.BD (alloy, very high strength)",
+      "ASTM A453 Gr.660 (high-temp age-hardened)"
+     ],
+     "nut": [
+      "ASTM A194 Gr.2H",
+      "ASTM A194 Gr.2HM (sour)",
+      "ASTM A194 Gr.4",
+      "ASTM A194 Gr.7",
+      "ASTM A194 Gr.7M (sour)",
+      "ASTM A194 Gr.8 (304)",
+      "ASTM A194 Gr.8C (347)",
+      "ASTM A194 Gr.8M (316)",
+      "ASTM A194 Gr.8T (321)",
+      "ASTM A563 Gr.A",
+      "ASTM A563 Gr.DH"
+     ],
+     "nace": [
+      "NACE MR0175 / ISO 15156 (sour)"
+     ],
+     "thread": [
+      "8UN 8-thread series (inch, >1\")",
+      "UNC coarse (inch, <=1\")"
+     ]
+    },
+    "ISO 4014 / DIN 931 hex bolt (metric)": {
+     "grade": [
+      "Property Class 10.9 (alloy, high strength)",
+      "Property Class 12.9 (alloy, very high strength)",
+      "Property Class 8.8 (carbon/alloy)",
+      "Stainless A2-70 (304)",
+      "Stainless A4-80 (316)"
+     ],
+     "nut": [
+      "ISO 4032 Class 10 nut (metric)",
+      "ISO 4032 Class 12 nut (metric)",
+      "ISO 4032 Class 8 nut (metric)",
+      "Stainless A2 nut (304, metric)",
+      "Stainless A4 nut (316, metric)"
+     ],
+     "thread": [
+      "Metric coarse (M profile)"
+     ]
+    }
+   },
+   "thread": {
+    "Metric coarse (M profile)": {
+     "grade": [
+      "Property Class 10.9 (alloy, high strength)",
+      "Property Class 12.9 (alloy, very high strength)",
+      "Property Class 8.8 (carbon/alloy)",
+      "Stainless A2-70 (304)",
+      "Stainless A4-80 (316)"
+     ],
+     "nut": [
+      "ISO 4032 Class 10 nut (metric)",
+      "ISO 4032 Class 12 nut (metric)",
+      "ISO 4032 Class 8 nut (metric)",
+      "Stainless A2 nut (304, metric)",
+      "Stainless A4 nut (316, metric)"
+     ],
+     "standard": [
+      "ISO 4014 / DIN 931 hex bolt (metric)"
+     ]
+    }
+   }
+  },
+  "Threaded Rod (cut to length, no nut)": {
+   "nace": {
+    "NACE MR0175 / ISO 15156 (sour)": {
+     "grade": [
+      "ASTM A193 Gr.B7M (tempered, HB<=235)",
+      "ASTM A193 Gr.B8 Cl.1 (304, solution treated)",
+      "ASTM A193 Gr.B8C Cl.1 (347)",
+      "ASTM A193 Gr.B8M Cl.1 (316, solution treated)",
+      "ASTM A193 Gr.B8T Cl.1 (321)",
+      "ASTM A320 Gr.B8 Cl.1 (low temp 304)",
+      "ASTM A320 Gr.B8M Cl.1 (low temp 316)",
+      "ASTM A320 Gr.L7M (low temp, tempered)"
+     ],
+     "coating": [
+      "Cadmium Plated",
+      "Hot-Dip Galvanized (ASTM A153/F2329)",
+      "PTFE / Xylan fluoropolymer",
+      "Passivated (stainless)",
+      "Phosphate (Mn/Zn)",
+      "Plain / Black (bare, oiled)",
+      "Zinc Electroplated (ASTM B633)",
+      "Zinc Flake (Geomet/Dacromet)"
+     ],
+     "standard": [
+      "ASME B18.31.3 threaded rod (inch)"
+     ],
+     "thread": [
+      "8UN 8-thread series (inch, >1\")",
+      "UNC coarse (inch, <=1\")"
+     ]
+    }
+   },
+   "standard": {
+    "ASME B18.31.3 threaded rod (inch)": {
+     "grade": [
+      "ASTM A193 Gr.B16 (Cr-Mo-V, high temp)",
+      "ASTM A193 Gr.B7 (Cr-Mo, quench & temper)",
+      "ASTM A193 Gr.B7M (tempered, HB<=235)",
+      "ASTM A193 Gr.B8 Cl.1 (304, solution treated)",
+      "ASTM A193 Gr.B8 Cl.2 (304, strain hardened)",
+      "ASTM A193 Gr.B8C Cl.1 (347)",
+      "ASTM A193 Gr.B8M Cl.1 (316, solution treated)",
+      "ASTM A193 Gr.B8M Cl.2 (316, strain hardened)",
+      "ASTM A193 Gr.B8T Cl.1 (321)",
+      "ASTM A307 Gr.A (low carbon, general)",
+      "ASTM A307 Gr.B (carbon, flanged joints)",
+      "ASTM A320 Gr.B8 Cl.1 (low temp 304)",
+      "ASTM A320 Gr.B8M Cl.1 (low temp 316)",
+      "ASTM A320 Gr.L43 (low temp Ni-Cr-Mo)",
+      "ASTM A320 Gr.L7 (low temp Cr-Mo)",
+      "ASTM A320 Gr.L7M (low temp, tempered)",
+      "ASTM A354 Gr.BC (alloy, high strength)",
+      "ASTM A354 Gr.BD (alloy, very high strength)",
+      "ASTM A453 Gr.660 (high-temp age-hardened)"
+     ],
+     "nace": [
+      "NACE MR0175 / ISO 15156 (sour)"
+     ],
+     "thread": [
+      "8UN 8-thread series (inch, >1\")",
+      "UNC coarse (inch, <=1\")"
+     ]
+    },
+    "DIN 976 threaded rod (metric)": {
+     "grade": [
+      "Property Class 10.9 (alloy, high strength)",
+      "Property Class 12.9 (alloy, very high strength)",
+      "Property Class 8.8 (carbon/alloy)",
+      "Stainless A2-70 (304)",
+      "Stainless A4-80 (316)"
+     ],
+     "thread": [
+      "Metric coarse (M profile)"
+     ]
+    }
+   },
+   "thread": {
+    "Metric coarse (M profile)": {
+     "grade": [
+      "Property Class 10.9 (alloy, high strength)",
+      "Property Class 12.9 (alloy, very high strength)",
+      "Property Class 8.8 (carbon/alloy)",
+      "Stainless A2-70 (304)",
+      "Stainless A4-80 (316)"
+     ],
+     "standard": [
+      "DIN 976 threaded rod (metric)"
+     ]
+    }
+   }
+  }
+ }
+}

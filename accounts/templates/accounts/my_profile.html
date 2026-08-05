@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}My profile · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}My Profile{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>My Profile</h1><div class="sub">{{ profile.title_line }}</div></div>
+  <div class="btn-row">
+    <a href="{% url 'accounts:settings' %}" class="btn btn-sm"><i class="fa-solid fa-gear"></i> Settings</a>
+    <a href="#" class="btn btn-sm" onclick="if(document.referrer){history.back();}else{window.location='{% url 'core:home' %}';}return false;"><i class="fa-solid fa-arrow-left"></i> Back</a>
+  </div>
+</div>
+
+<div class="card profile-hero">
+  <form method="post" enctype="multipart/form-data" id="avatar-form" class="avatar-pick">
+    {% csrf_token %}
+    <input type="hidden" name="save_avatar" value="1">
+    <button type="button" class="avatar-circle" id="avatarCircleBtn" title="Change profile photo" aria-label="Change profile photo">
+      {% if avatar_url %}
+        <img src="{{ avatar_url }}" alt="">
+        <span class="avatar-letter" hidden>{{ profile.full_name|slice:":1"|upper|default:"U" }}</span>
+      {% else %}
+        <span class="avatar-letter">{{ profile.full_name|slice:":1"|upper|default:"U" }}</span>
+      {% endif %}
+      <span class="avatar-cam"><i class="fa-solid fa-camera"></i></span>
+    </button>
+    <input type="file" name="avatar" id="avatarFileInput" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+  </form>
+  <div class="profile-hero-meta">
+    <div class="profile-hero-name">{{ profile.full_name }}</div>
+    <div class="muted">{{ profile.title_line }} · <span class="mono">{{ user.username }}</span></div>
+    <div class="btn-row" style="margin-top:.55rem;">
+      <button type="button" class="btn btn-sm" id="avatarPickBtn"><i class="fa-solid fa-camera"></i> Change photo</button>
+      {% if avatar_url %}
+      <form method="post" style="display:inline" onsubmit="return confirm('Remove your profile photo?');">
+        {% csrf_token %}
+        <input type="hidden" name="clear_avatar" value="1">
+        <button type="submit" class="btn btn-sm btn-ghost">Remove</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h3>Account information</h3></div>
+    <dl class="kv-ic compact">
+      <dt><i class="fa-solid fa-user"></i>Name</dt><dd>{{ profile.full_name|default:user.username }}</dd>
+      <dt><i class="fa-solid fa-at"></i>Username</dt><dd class="mono">{{ user.username }}</dd>
+      <dt><i class="fa-solid fa-sitemap"></i>Unit</dt><dd>{{ profile.unit_label|default:"—" }}</dd>
+      <dt><i class="fa-solid fa-user-shield"></i>Role</dt><dd>{{ profile.role_label|default:"—" }}</dd>
+      {% if profile.supply_kind %}<dt><i class="fa-solid fa-boxes-packing"></i>Supply type</dt><dd>{{ profile.get_supply_kind_display }}</dd>{% endif %}
+      <dt><i class="fa-solid fa-id-badge"></i>Internal code</dt><dd class="mono">{{ profile.internal_code|default:"—" }}</dd>
+      {% if profile.org_number %}<dt><i class="fa-solid fa-hashtag"></i>Org number</dt><dd class="mono">{{ profile.org_number }}</dd>{% endif %}
+      {% if profile.org_title %}<dt><i class="fa-solid fa-briefcase"></i>Org title</dt><dd>{{ profile.org_title }}</dd>{% endif %}
+      {% if user.email %}<dt><i class="fa-solid fa-envelope"></i>Email</dt><dd>{{ user.email }}</dd>{% endif %}
+    </dl>
+    <div class="help" style="margin-top:.5rem;"><i class="fa-solid fa-lock"></i> Only an administrator can change these details. You can update your signature on the right. Password, appearance and platform options are in Settings.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3>Signature</h3></div>
+    <div class="sig-preview-grid" style="display:grid;grid-template-columns:1fr;gap:1rem;margin-bottom:.9rem;">
+      <div>
+        <div class="muted" style="font-size:.78rem;margin-bottom:.35rem;">Current signature</div>
+        <div class="sig-frame" id="sig-preview-frame">
+          {% if signature_url %}
+            <img id="sig-preview-img" src="{{ signature_url }}" alt="">
+            <div class="muted" id="sig-preview-empty" hidden>No signature uploaded yet.</div>
+          {% else %}
+            <img id="sig-preview-img" alt="" hidden>
+            <div class="muted" id="sig-preview-empty">No signature uploaded yet.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <form method="post" enctype="multipart/form-data" id="sig-form">
+      {% csrf_token %}
+      {% for field in form %}
+        <div class="field">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+          {% if field.errors %}<ul class="errorlist">{% for e in field.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+        </div>
+      {% endfor %}
+      <button type="submit" class="btn btn-primary">Update signature</button>
+    </form>
+  </div>
+</div>
+
+<style>
+  .profile-hero{display:flex;align-items:center;gap:1.1rem;padding:1rem 1.15rem;margin:0 0 1rem}
+  .avatar-pick{margin:0}
+  .avatar-circle{
+    position:relative;width:96px;height:96px;border-radius:50%;overflow:hidden;display:grid;place-items:center;
+    background:var(--accent);color:#fff;cursor:pointer;border:3px solid var(--paper);
+    box-shadow:0 0 0 2px var(--line);flex:0 0 auto;padding:0;font:inherit;
+  }
+  .avatar-circle img{width:100%;height:100%;object-fit:cover;display:block}
+  .avatar-letter{font-size:2.1rem;font-weight:750;line-height:1}
+  .avatar-cam{
+    position:absolute;inset:auto 0 0 0;height:28px;display:grid;place-items:center;
+    background:rgba(15,23,42,.55);color:#fff;font-size:.85rem;pointer-events:none;
+  }
+  .avatar-circle:hover .avatar-cam{background:rgba(15,23,42,.72)}
+  .profile-hero-name{font-size:1.1rem;font-weight:700;color:var(--ink)}
+  .sig-frame{min-height:110px;border:1px solid var(--line);border-radius:var(--radius);padding:.55rem;
+    background:repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50% / 12px 12px;
+    display:flex;align-items:center;justify-content:center;}
+  .sig-frame img{max-width:100%;max-height:140px;object-fit:contain;display:block;}
+  #sig-form input[type=file]{width:100%;font:inherit;margin-top:.2rem}
+</style>
+<script>
+(function () {
+  var form = document.getElementById('avatar-form');
+  var file = document.getElementById('avatarFileInput');
+  var pick = document.getElementById('avatarPickBtn');
+  var circle = document.getElementById('avatarCircleBtn');
+  var saving = false;
+
+  function openPicker() {
+    if (file) file.click();
+  }
+  function saveSelected() {
+    if (!form || !file || !file.files || !file.files[0] || saving) return;
+    saving = true;
+    if (pick) {
+      pick.disabled = true;
+      pick.textContent = 'Saving…';
+    }
+    form.submit();
+  }
+  if (file) {
+    file.addEventListener('change', saveSelected);
+  }
+  if (pick) pick.addEventListener('click', openPicker);
+  if (circle) circle.addEventListener('click', openPicker);
+  var inp = document.querySelector('#sig-form input[name="signature"]');
+  var preview = document.getElementById('sig-preview-img');
+  var empty = document.getElementById('sig-preview-empty');
+  if (inp && preview) {
+    inp.addEventListener('change', function () {
+      var f = inp.files && inp.files[0];
+      if (!f) return;
+      preview.src = URL.createObjectURL(f);
+      preview.hidden = false;
+      if (empty) empty.hidden = true;
+    });
+  }
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Overtime · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Overtime request{% endblock %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-20">
+{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1><i class="fa-solid fa-stopwatch"></i> Overtime</h1>
+    <div class="sub">Link archive cases, set duration, then submit to the General Manager</div>
+  </div>
+  <div class="btn-row">
+    <a href="{% url 'people:my_requests' %}" class="btn btn-sm"><i class="fa-solid fa-arrow-left"></i> Back</a>
+  </div>
+</div>
+
+<div class="card ppl-card" style="max-width:720px;margin-bottom:1rem;">
+  <div class="card-head"><h3><i class="fa-solid fa-box-archive"></i> Linked cases</h3></div>
+  {% if cases %}
+  <ul style="list-style:none;margin:0;padding:0;">
+    {% for c in cases %}
+    <li style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.45rem 0;border-bottom:1px solid var(--line-soft);">
+      <span>
+        <strong class="mono">{{ c.label }}</strong>
+        {% if c.client %}<span class="muted"> · {{ c.client }}</span>{% endif %}
+        {% if c.missing %}<span class="pill pill-grey">Missing</span>{% endif %}
+      </span>
+      <form method="post" style="margin:0;">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="remove_case">
+        <input type="hidden" name="case_id" value="{{ c.pk }}">
+        <button type="submit" class="btn btn-sm btn-ghost">Remove</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  <div class="btn-row" style="margin-top:.85rem;">
+    <a href="{{ archive_select_url }}" class="btn btn-sm"><i class="fa-solid fa-plus"></i> Add from archive</a>
+    <form method="post" style="display:inline;">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="clear_cases">
+      <button type="submit" class="btn btn-sm btn-ghost">Clear all</button>
+    </form>
+  </div>
+  {% else %}
+  <p class="muted">No cases linked yet. Select one or more from the archive (filters work as usual; click a row to select).</p>
+  <a href="{{ archive_select_url }}" class="btn btn-primary" style="margin-top:.5rem;">
+    <i class="fa-solid fa-box-archive"></i> Select cases from archive
+  </a>
+  {% endif %}
+</div>
+
+<form method="post" class="card ppl-card" style="max-width:720px;margin-bottom:1.25rem;">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="submit">
+  <div class="card-head"><h3><i class="fa-solid fa-stopwatch"></i> Duration &amp; comment</h3></div>
+  <div class="field ppl-time-wrap">
+    <label for="id_ot_hours">Requested overtime</label>
+    <div class="ppl-hm">
+      <i class="fa-solid fa-hourglass-half ppl-hm-ic" aria-hidden="true"></i>
+      <select name="ot_hours" id="id_ot_hours" class="ppl-theme-select" aria-label="Hours">
+        {% for h in hour_choices %}
+          <option value="{{ h }}"{% if h == ot_h %} selected{% endif %}>{{ h }}</option>
+        {% endfor %}
+      </select>
+      <span class="ppl-hm-sep">:</span>
+      <select name="ot_minutes" id="id_ot_minutes" class="ppl-theme-select" aria-label="Minutes">
+        {% for m in minute_choices %}
+          <option value="{{ m }}"{% if m == ot_m %} selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="help muted" style="margin-top:.35rem;">Hours : minutes</div>
+  </div>
+  <div class="field" style="margin-top:.85rem;">
+    <label for="id_comment">Description / comment</label>
+    <textarea name="comment" id="id_comment" rows="4" placeholder="Optional note for the General Manager"
+      style="width:100%;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:.65rem .75rem;font:inherit;"></textarea>
+  </div>
+  <div class="btn-row" style="margin-top:1rem;">
+    <button type="submit" class="btn btn-primary" {% if not cases %}disabled{% endif %}>
+      <i class="fa-solid fa-paper-plane"></i> Submit to General Manager
+    </button>
+  </div>
+</form>
+
+{% include "people/_request_recent.html" with rows=recent_rows table_id="otRecentTable" show_person=False f_codes=f_codes f_types=f_types f_statuses=f_statuses f_people=f_people %}
+
+<script src="{% static 'people/js/people.js' %}?v=ppl-20"></script>
+{% endblock %}

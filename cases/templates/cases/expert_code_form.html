@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}{% if expert_code %}Edit{% else %}Add{% endif %} expert code · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% if expert_code %}Edit expert code{% else %}Add expert code{% endif %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{% if expert_code %}Edit expert code{% else %}Add expert code{% endif %}</h1></div>
+</div>
+
+<form method="post" class="card form-narrow">
+  {% csrf_token %}
+  {% for field in form %}
+    <div class="field">
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.errors %}<ul class="errorlist">{% for e in field.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+  {% endfor %}
+  <div class="btn-row">
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a href="{% url 'cases:expert_code_list' %}" class="btn btn-ghost">Cancel</a>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,1966 @@
+{
+ "group": "gasket",
+ "config": {
+  "tech_start": "7",
+  "tech_group": "04",
+  "item_start": "",
+  "item_group": "40",
+  "item_seq_digits": 6,
+  "item_feature_indexes": [
+   1,
+   2
+  ]
+ },
+ "features": [
+  {
+   "name": "design",
+   "position": 0,
+   "values": [
+    {
+     "value": "Non Metalic",
+     "code": "01"
+    },
+    {
+     "value": "Sem metalic (Spiral Wound)",
+     "code": "02"
+    },
+    {
+     "value": "Metalic (Ring Joint)",
+     "code": "03"
+    }
+   ]
+  },
+  {
+   "name": "type",
+   "position": 1,
+   "values": [
+    {
+     "value": "R",
+     "code": "01"
+    },
+    {
+     "value": "RI",
+     "code": "02"
+    },
+    {
+     "value": "CR",
+     "code": "03"
+    },
+    {
+     "value": "CGI",
+     "code": "04"
+    },
+    {
+     "value": "RTJ R Octagonal",
+     "code": "05"
+    },
+    {
+     "value": "RTJ R Oval",
+     "code": "06"
+    },
+    {
+     "value": "RTJ BX",
+     "code": "07"
+    },
+    {
+     "value": "RTJ RX",
+     "code": "08"
+    },
+    {
+     "value": "Sheet - Stock (sold by area / roll)",
+     "code": "09"
+    }
+   ]
+  },
+  {
+   "name": "face",
+   "position": 2,
+   "values": [
+    {
+     "value": "Raised Face",
+     "code": "01"
+    },
+    {
+     "value": "Full Face",
+     "code": "02"
+    },
+    {
+     "value": "$face$",
+     "code": "03"
+    }
+   ]
+  },
+  {
+   "name": "material_group_r_ring",
+   "position": 3,
+   "values": [
+    {
+     "value": "CNAF / CAF",
+     "code": "01"
+    },
+    {
+     "value": "PTFE",
+     "code": "02"
+    },
+    {
+     "value": "Graphite",
+     "code": "03"
+    },
+    {
+     "value": "Rubber NBR",
+     "code": "04"
+    },
+    {
+     "value": "Rubber EPDM",
+     "code": "05"
+    },
+    {
+     "value": "Rubber FKM / VITON",
+     "code": "06"
+    },
+    {
+     "value": "Rubber Silicone",
+     "code": "07"
+    },
+    {
+     "value": "Rubber Neoprene",
+     "code": "08"
+    },
+    {
+     "value": "Rubber Natural",
+     "code": "09"
+    },
+    {
+     "value": "Ceramic",
+     "code": "10"
+    },
+    {
+     "value": "Mica",
+     "code": "11"
+    },
+    {
+     "value": "C.S",
+     "code": "12"
+    },
+    {
+     "value": "Carbon Steel Soft Iron",
+     "code": "13"
+    },
+    {
+     "value": "S.S",
+     "code": "14"
+    },
+    {
+     "value": "S.S / Non metalic",
+     "code": "15"
+    },
+    {
+     "value": "Alloy Steel",
+     "code": "16"
+    },
+    {
+     "value": "CNAF / CAF Reinforced Wire",
+     "code": "17"
+    },
+    {
+     "value": "CNAF / CAF Reinforced Yarn",
+     "code": "18"
+    },
+    {
+     "value": "Graphite Reinforced Wire",
+     "code": "19"
+    },
+    {
+     "value": "Graphite Reinforced Sheet",
+     "code": "20"
+    },
+    {
+     "value": "Graphite Reinforced Yarn",
+     "code": "21"
+    },
+    {
+     "value": "Rubber NBR Reinforced Wire",
+     "code": "22"
+    },
+    {
+     "value": "Rubber NBR Reinforced Yarn",
+     "code": "23"
+    },
+    {
+     "value": "Rubber EPDM Reinforced Wire",
+     "code": "24"
+    },
+    {
+     "value": "Rubber EPDM Reinforced Yarn",
+     "code": "25"
+    },
+    {
+     "value": "Rubber FKM / VITON Reinforced Wire",
+     "code": "26"
+    },
+    {
+     "value": "Rubber FKM / VITON Reinforced Yarn",
+     "code": "27"
+    },
+    {
+     "value": "Rubber Silicone Reinforced Wire",
+     "code": "28"
+    },
+    {
+     "value": "Rubber Silicone Reinforced Yarn",
+     "code": "29"
+    },
+    {
+     "value": "Rubber Neoprene Reinforced Wire",
+     "code": "30"
+    },
+    {
+     "value": "Rubber Neoprene Reinforced Yarn",
+     "code": "31"
+    },
+    {
+     "value": "Rubber Natural Reinforced Wire",
+     "code": "32"
+    },
+    {
+     "value": "Rubber Natural Reinforced Yarn",
+     "code": "33"
+    }
+   ]
+  },
+  {
+   "name": "grade_material_r_ring",
+   "position": 4,
+   "values": [
+    {
+     "value": "ASTM F104",
+     "code": "01"
+    },
+    {
+     "value": "ASTM D4894 / D4895",
+     "code": "02"
+    },
+    {
+     "value": "ASTM F2168",
+     "code": "03"
+    },
+    {
+     "value": "ASTM D2000",
+     "code": "04"
+    },
+    {
+     "value": "ASTM D1418",
+     "code": "05"
+    },
+    {
+     "value": "ASTM C892",
+     "code": "06"
+    },
+    {
+     "value": "ASTM D351",
+     "code": "07"
+    },
+    {
+     "value": "ASTM A105",
+     "code": "08"
+    },
+    {
+     "value": "ASTM 350 Gr. LF2",
+     "code": "09"
+    },
+    {
+     "value": "ASTM A109",
+     "code": "10"
+    },
+    {
+     "value": "ASTM A1008",
+     "code": "11"
+    },
+    {
+     "value": "ASTM A182 Gr.F304",
+     "code": "12"
+    },
+    {
+     "value": "ASTM A182 Gr.F304L",
+     "code": "13"
+    },
+    {
+     "value": "ASTM A182 Gr.F316",
+     "code": "14"
+    },
+    {
+     "value": "ASTM A182 Gr.F316L",
+     "code": "15"
+    },
+    {
+     "value": "ASTM A182 Gr.F321",
+     "code": "16"
+    },
+    {
+     "value": "ASTM A182 Gr.F347",
+     "code": "17"
+    },
+    {
+     "value": "ASTM A182 Gr.F51",
+     "code": "18"
+    },
+    {
+     "value": "ASTM A182 Gr.F53",
+     "code": "19"
+    },
+    {
+     "value": "ASTM A182 Gr.F55",
+     "code": "20"
+    },
+    {
+     "value": "ASTM A182 Gr.F5",
+     "code": "21"
+    },
+    {
+     "value": "ASTM A182 Gr.F9",
+     "code": "22"
+    },
+    {
+     "value": "ASTM A182 Gr.F11",
+     "code": "23"
+    },
+    {
+     "value": "ASTM A182 Gr.F22",
+     "code": "24"
+    },
+    {
+     "value": "ASTM A182 Gr.F91",
+     "code": "25"
+    },
+    {
+     "value": "ASTM A240 Gr.304 + PTFE",
+     "code": "26"
+    },
+    {
+     "value": "ASTM A240 Gr.304L + PTFE",
+     "code": "27"
+    },
+    {
+     "value": "ASTM A240 Gr.316 + PTFE",
+     "code": "28"
+    },
+    {
+     "value": "ASTM A240 Gr.316L + PTFE",
+     "code": "29"
+    },
+    {
+     "value": "ASTM A240 Gr.321 + PTFE",
+     "code": "30"
+    },
+    {
+     "value": "ASTM A240 Gr.347 + PTFE",
+     "code": "31"
+    },
+    {
+     "value": "ASTM A240 Gr.304 + Graphite",
+     "code": "32"
+    },
+    {
+     "value": "ASTM A240 Gr.304L + Graphite",
+     "code": "33"
+    },
+    {
+     "value": "ASTM A240 Gr.316 + Graphite",
+     "code": "34"
+    },
+    {
+     "value": "ASTM A240 Gr.316L + Graphite",
+     "code": "35"
+    },
+    {
+     "value": "ASTM A240 Gr.321 + Graphite",
+     "code": "36"
+    },
+    {
+     "value": "ASTM A240 Gr.347 + Graphite",
+     "code": "37"
+    }
+   ]
+  },
+  {
+   "name": "material_group_i_ring",
+   "position": 5,
+   "values": [
+    {
+     "value": "Stainless Steel",
+     "code": "01"
+    },
+    {
+     "value": "$material_group_i_ring$",
+     "code": "02"
+    }
+   ]
+  },
+  {
+   "name": "grade_material_i_ring",
+   "position": 6,
+   "values": [
+    {
+     "value": "ASTM A240 Gr.304",
+     "code": "01"
+    },
+    {
+     "value": "ASTM A240 Gr.304L",
+     "code": "02"
+    },
+    {
+     "value": "ASTM A240 Gr.316",
+     "code": "03"
+    },
+    {
+     "value": "ASTM A240 Gr.316L",
+     "code": "04"
+    },
+    {
+     "value": "ASTM A240 Gr.321",
+     "code": "05"
+    },
+    {
+     "value": "ASTM A240 Gr.347",
+     "code": "06"
+    },
+    {
+     "value": "$grade_material_i_ring$",
+     "code": "07"
+    }
+   ]
+  },
+  {
+   "name": "material_group_c_ring",
+   "position": 7,
+   "values": [
+    {
+     "value": "Carbon Steel",
+     "code": "01"
+    },
+    {
+     "value": "Stainless Steel",
+     "code": "02"
+    },
+    {
+     "value": "$material_group_c_ring$",
+     "code": "03"
+    }
+   ]
+  },
+  {
+   "name": "grade_material_c_ring",
+   "position": 8,
+   "values": [
+    {
+     "value": "ASTM A36",
+     "code": "01"
+    },
+    {
+     "value": "ASTM 350 Gr. LF2",
+     "code": "02"
+    },
+    {
+     "value": "ASTM A240 Gr.304",
+     "code": "03"
+    },
+    {
+     "value": "ASTM A240 Gr.304L",
+     "code": "04"
+    },
+    {
+     "value": "ASTM A240 Gr.316",
+     "code": "05"
+    },
+    {
+     "value": "ASTM A240 Gr.316L",
+     "code": "06"
+    },
+    {
+     "value": "ASTM A240 Gr.321",
+     "code": "07"
+    },
+    {
+     "value": "ASTM A240 Gr.347",
+     "code": "08"
+    },
+    {
+     "value": "$grade_material_c_ring$",
+     "code": "09"
+    }
+   ]
+  },
+  {
+   "name": "nace",
+   "position": 9,
+   "values": [
+    {
+     "value": "$nace$",
+     "code": "01"
+    },
+    {
+     "value": "NACE MR0175 / ISO 15156 (sour)",
+     "code": "02"
+    }
+   ]
+  },
+  {
+   "name": "design_standard",
+   "position": 10,
+   "values": [
+    {
+     "value": "Asme B16.20",
+     "code": "01"
+    },
+    {
+     "value": "Asme B16.21",
+     "code": "02"
+    },
+    {
+     "value": "Asme B16.47 Serie A",
+     "code": "03"
+    },
+    {
+     "value": "Asme B16.47 Serie B",
+     "code": "04"
+    },
+    {
+     "value": "EN 1514",
+     "code": "05"
+    },
+    {
+     "value": "DIN 2690",
+     "code": "06"
+    },
+    {
+     "value": "EN 12560",
+     "code": "07"
+    },
+    {
+     "value": "API 6A",
+     "code": "08"
+    },
+    {
+     "value": "DIN 2691",
+     "code": "09"
+    },
+    {
+     "value": "$design_standard$",
+     "code": "10"
+    }
+   ]
+  },
+  {
+   "name": "pressure_class",
+   "position": 11,
+   "values": [
+    {
+     "value": "Class 75",
+     "code": "01"
+    },
+    {
+     "value": "Class 150",
+     "code": "02"
+    },
+    {
+     "value": "Class 300",
+     "code": "03"
+    },
+    {
+     "value": "Class 400",
+     "code": "04"
+    },
+    {
+     "value": "Class 600",
+     "code": "05"
+    },
+    {
+     "value": "Class 900",
+     "code": "06"
+    },
+    {
+     "value": "Class 1500",
+     "code": "07"
+    },
+    {
+     "value": "Class 2000",
+     "code": "08"
+    },
+    {
+     "value": "Class 2500",
+     "code": "09"
+    },
+    {
+     "value": "Class 3000",
+     "code": "10"
+    },
+    {
+     "value": "Class 5000",
+     "code": "11"
+    },
+    {
+     "value": "Class 10000",
+     "code": "12"
+    },
+    {
+     "value": "Class 15000",
+     "code": "13"
+    },
+    {
+     "value": "Class 20000",
+     "code": "14"
+    },
+    {
+     "value": "PN6",
+     "code": "15"
+    },
+    {
+     "value": "PN10",
+     "code": "16"
+    },
+    {
+     "value": "PN16",
+     "code": "17"
+    },
+    {
+     "value": "PN25",
+     "code": "18"
+    },
+    {
+     "value": "PN40",
+     "code": "19"
+    },
+    {
+     "value": "PN63",
+     "code": "20"
+    },
+    {
+     "value": "PN100",
+     "code": "21"
+    },
+    {
+     "value": "$pressure_class$",
+     "code": "22"
+    }
+   ]
+  },
+  {
+   "name": "thickness",
+   "position": 12,
+   "values": [
+    {
+     "value": "1mm",
+     "code": "01"
+    },
+    {
+     "value": "1.5mm",
+     "code": "02"
+    },
+    {
+     "value": "2mm",
+     "code": "03"
+    },
+    {
+     "value": "2.5mm",
+     "code": "04"
+    },
+    {
+     "value": "3mm",
+     "code": "05"
+    },
+    {
+     "value": "3.5mm",
+     "code": "06"
+    },
+    {
+     "value": "4mm",
+     "code": "07"
+    },
+    {
+     "value": "4.5mm",
+     "code": "08"
+    },
+    {
+     "value": "5mm",
+     "code": "09"
+    },
+    {
+     "value": "$thickness$",
+     "code": "10"
+    }
+   ]
+  },
+  {
+   "name": "width",
+   "position": 13,
+   "values": [
+    {
+     "value": "1000 x 1000 mm sheet",
+     "code": "01"
+    },
+    {
+     "value": "1500 x 1500 mm sheet",
+     "code": "02"
+    },
+    {
+     "value": "2000 x 2000 mm sheet",
+     "code": "03"
+    },
+    {
+     "value": "1000 x 2000 mm sheet",
+     "code": "04"
+    },
+    {
+     "value": "1500 x 3000 mm sheet (roll)",
+     "code": "05"
+    },
+    {
+     "value": "$width$",
+     "code": "06"
+    }
+   ]
+  },
+  {
+   "name": "size",
+   "position": 14,
+   "values": [
+    {
+     "value": "1/2\"",
+     "code": "001"
+    },
+    {
+     "value": "3/4\"",
+     "code": "002"
+    },
+    {
+     "value": "1\"",
+     "code": "003"
+    },
+    {
+     "value": "1 1/4\"",
+     "code": "004"
+    },
+    {
+     "value": "1 1/2\"",
+     "code": "005"
+    },
+    {
+     "value": "2\"",
+     "code": "006"
+    },
+    {
+     "value": "2 1/2\"",
+     "code": "007"
+    },
+    {
+     "value": "3\"",
+     "code": "008"
+    },
+    {
+     "value": "3 1/2\"",
+     "code": "009"
+    },
+    {
+     "value": "4\"",
+     "code": "010"
+    },
+    {
+     "value": "5\"",
+     "code": "011"
+    },
+    {
+     "value": "6\"",
+     "code": "012"
+    },
+    {
+     "value": "8\"",
+     "code": "013"
+    },
+    {
+     "value": "10\"",
+     "code": "014"
+    },
+    {
+     "value": "12\"",
+     "code": "015"
+    },
+    {
+     "value": "14\"",
+     "code": "016"
+    },
+    {
+     "value": "16\"",
+     "code": "017"
+    },
+    {
+     "value": "18\"",
+     "code": "018"
+    },
+    {
+     "value": "20\"",
+     "code": "019"
+    },
+    {
+     "value": "22\"",
+     "code": "020"
+    },
+    {
+     "value": "24\"",
+     "code": "021"
+    },
+    {
+     "value": "26\"",
+     "code": "022"
+    },
+    {
+     "value": "28\"",
+     "code": "023"
+    },
+    {
+     "value": "30\"",
+     "code": "024"
+    },
+    {
+     "value": "32\"",
+     "code": "025"
+    },
+    {
+     "value": "34\"",
+     "code": "026"
+    },
+    {
+     "value": "36\"",
+     "code": "027"
+    },
+    {
+     "value": "38\"",
+     "code": "028"
+    },
+    {
+     "value": "40\"",
+     "code": "029"
+    },
+    {
+     "value": "42\"",
+     "code": "030"
+    },
+    {
+     "value": "44\"",
+     "code": "031"
+    },
+    {
+     "value": "46\"",
+     "code": "032"
+    },
+    {
+     "value": "48\"",
+     "code": "033"
+    },
+    {
+     "value": "50\"",
+     "code": "034"
+    },
+    {
+     "value": "52\"",
+     "code": "035"
+    },
+    {
+     "value": "54\"",
+     "code": "036"
+    },
+    {
+     "value": "56\"",
+     "code": "037"
+    },
+    {
+     "value": "58\"",
+     "code": "038"
+    },
+    {
+     "value": "60\"",
+     "code": "039"
+    },
+    {
+     "value": "DN10",
+     "code": "040"
+    },
+    {
+     "value": "DN15",
+     "code": "041"
+    },
+    {
+     "value": "DN20",
+     "code": "042"
+    },
+    {
+     "value": "DN25",
+     "code": "043"
+    },
+    {
+     "value": "DN32",
+     "code": "044"
+    },
+    {
+     "value": "DN40",
+     "code": "045"
+    },
+    {
+     "value": "DN50",
+     "code": "046"
+    },
+    {
+     "value": "DN65",
+     "code": "047"
+    },
+    {
+     "value": "DN80",
+     "code": "048"
+    },
+    {
+     "value": "DN100",
+     "code": "049"
+    },
+    {
+     "value": "DN125",
+     "code": "050"
+    },
+    {
+     "value": "DN150",
+     "code": "051"
+    },
+    {
+     "value": "DN200",
+     "code": "052"
+    },
+    {
+     "value": "DN250",
+     "code": "053"
+    },
+    {
+     "value": "DN300",
+     "code": "054"
+    },
+    {
+     "value": "DN350",
+     "code": "055"
+    },
+    {
+     "value": "DN400",
+     "code": "056"
+    },
+    {
+     "value": "DN450",
+     "code": "057"
+    },
+    {
+     "value": "DN500",
+     "code": "058"
+    },
+    {
+     "value": "DN600",
+     "code": "059"
+    },
+    {
+     "value": "DN700",
+     "code": "060"
+    },
+    {
+     "value": "DN800",
+     "code": "061"
+    },
+    {
+     "value": "DN900",
+     "code": "062"
+    },
+    {
+     "value": "DN1000",
+     "code": "063"
+    },
+    {
+     "value": "DN1200",
+     "code": "064"
+    },
+    {
+     "value": "DN1400",
+     "code": "065"
+    },
+    {
+     "value": "DN1600",
+     "code": "066"
+    },
+    {
+     "value": "DN1800",
+     "code": "067"
+    },
+    {
+     "value": "DN2000",
+     "code": "068"
+    },
+    {
+     "value": "DN2200",
+     "code": "069"
+    },
+    {
+     "value": "DN2400",
+     "code": "070"
+    },
+    {
+     "value": "DN2600",
+     "code": "071"
+    },
+    {
+     "value": "DN2800",
+     "code": "072"
+    },
+    {
+     "value": "DN3000",
+     "code": "073"
+    },
+    {
+     "value": "DN3200",
+     "code": "074"
+    },
+    {
+     "value": "DN3400",
+     "code": "075"
+    },
+    {
+     "value": "DN3600",
+     "code": "076"
+    },
+    {
+     "value": "1 13/16\"",
+     "code": "077"
+    },
+    {
+     "value": "2 1/16\"",
+     "code": "078"
+    },
+    {
+     "value": "2 9/16\"",
+     "code": "079"
+    },
+    {
+     "value": "3 1/8\"",
+     "code": "080"
+    },
+    {
+     "value": "3 1/16\"",
+     "code": "081"
+    },
+    {
+     "value": "4 1/16\"",
+     "code": "082"
+    },
+    {
+     "value": "5 1/8\"",
+     "code": "083"
+    },
+    {
+     "value": "7 1/16\"",
+     "code": "084"
+    },
+    {
+     "value": "9\"",
+     "code": "085"
+    },
+    {
+     "value": "11\"",
+     "code": "086"
+    },
+    {
+     "value": "13 5/8\"",
+     "code": "087"
+    },
+    {
+     "value": "16 3/4\"",
+     "code": "088"
+    },
+    {
+     "value": "18 3/4\"",
+     "code": "089"
+    },
+    {
+     "value": "20 3/4\"",
+     "code": "090"
+    },
+    {
+     "value": "21 1/4\"",
+     "code": "091"
+    },
+    {
+     "value": "R11",
+     "code": "092"
+    },
+    {
+     "value": "R12",
+     "code": "093"
+    },
+    {
+     "value": "R13",
+     "code": "094"
+    },
+    {
+     "value": "R14",
+     "code": "095"
+    },
+    {
+     "value": "R15",
+     "code": "096"
+    },
+    {
+     "value": "R16",
+     "code": "097"
+    },
+    {
+     "value": "R17",
+     "code": "098"
+    },
+    {
+     "value": "R18",
+     "code": "099"
+    },
+    {
+     "value": "R19",
+     "code": "100"
+    },
+    {
+     "value": "R20",
+     "code": "101"
+    },
+    {
+     "value": "R21",
+     "code": "102"
+    },
+    {
+     "value": "R22",
+     "code": "103"
+    },
+    {
+     "value": "R23",
+     "code": "104"
+    },
+    {
+     "value": "R24",
+     "code": "105"
+    },
+    {
+     "value": "R25",
+     "code": "106"
+    },
+    {
+     "value": "R26",
+     "code": "107"
+    },
+    {
+     "value": "R27",
+     "code": "108"
+    },
+    {
+     "value": "R28",
+     "code": "109"
+    },
+    {
+     "value": "R29",
+     "code": "110"
+    },
+    {
+     "value": "R30",
+     "code": "111"
+    },
+    {
+     "value": "R31",
+     "code": "112"
+    },
+    {
+     "value": "R32",
+     "code": "113"
+    },
+    {
+     "value": "R33",
+     "code": "114"
+    },
+    {
+     "value": "R34",
+     "code": "115"
+    },
+    {
+     "value": "R35",
+     "code": "116"
+    },
+    {
+     "value": "R36",
+     "code": "117"
+    },
+    {
+     "value": "R37",
+     "code": "118"
+    },
+    {
+     "value": "R38",
+     "code": "119"
+    },
+    {
+     "value": "R39",
+     "code": "120"
+    },
+    {
+     "value": "R40",
+     "code": "121"
+    },
+    {
+     "value": "R41",
+     "code": "122"
+    },
+    {
+     "value": "R42",
+     "code": "123"
+    },
+    {
+     "value": "R43",
+     "code": "124"
+    },
+    {
+     "value": "R44",
+     "code": "125"
+    },
+    {
+     "value": "R45",
+     "code": "126"
+    },
+    {
+     "value": "R46",
+     "code": "127"
+    },
+    {
+     "value": "R47",
+     "code": "128"
+    },
+    {
+     "value": "R48",
+     "code": "129"
+    },
+    {
+     "value": "R49",
+     "code": "130"
+    },
+    {
+     "value": "R50",
+     "code": "131"
+    },
+    {
+     "value": "R51",
+     "code": "132"
+    },
+    {
+     "value": "R52",
+     "code": "133"
+    },
+    {
+     "value": "R53",
+     "code": "134"
+    },
+    {
+     "value": "R54",
+     "code": "135"
+    },
+    {
+     "value": "R55",
+     "code": "136"
+    },
+    {
+     "value": "R56",
+     "code": "137"
+    },
+    {
+     "value": "R57",
+     "code": "138"
+    },
+    {
+     "value": "R58",
+     "code": "139"
+    },
+    {
+     "value": "R59",
+     "code": "140"
+    },
+    {
+     "value": "R60",
+     "code": "141"
+    },
+    {
+     "value": "R61",
+     "code": "142"
+    },
+    {
+     "value": "R62",
+     "code": "143"
+    },
+    {
+     "value": "R63",
+     "code": "144"
+    },
+    {
+     "value": "R64",
+     "code": "145"
+    },
+    {
+     "value": "R65",
+     "code": "146"
+    },
+    {
+     "value": "R66",
+     "code": "147"
+    },
+    {
+     "value": "R67",
+     "code": "148"
+    },
+    {
+     "value": "R68",
+     "code": "149"
+    },
+    {
+     "value": "R69",
+     "code": "150"
+    },
+    {
+     "value": "R70",
+     "code": "151"
+    },
+    {
+     "value": "R71",
+     "code": "152"
+    },
+    {
+     "value": "R72",
+     "code": "153"
+    },
+    {
+     "value": "R73",
+     "code": "154"
+    },
+    {
+     "value": "R74",
+     "code": "155"
+    },
+    {
+     "value": "R75",
+     "code": "156"
+    },
+    {
+     "value": "R76",
+     "code": "157"
+    },
+    {
+     "value": "R77",
+     "code": "158"
+    },
+    {
+     "value": "R78",
+     "code": "159"
+    },
+    {
+     "value": "R79",
+     "code": "160"
+    },
+    {
+     "value": "R80",
+     "code": "161"
+    },
+    {
+     "value": "R81",
+     "code": "162"
+    },
+    {
+     "value": "R82",
+     "code": "163"
+    },
+    {
+     "value": "R83",
+     "code": "164"
+    },
+    {
+     "value": "R84",
+     "code": "165"
+    },
+    {
+     "value": "R85",
+     "code": "166"
+    },
+    {
+     "value": "R86",
+     "code": "167"
+    },
+    {
+     "value": "R87",
+     "code": "168"
+    },
+    {
+     "value": "R88",
+     "code": "169"
+    },
+    {
+     "value": "R89",
+     "code": "170"
+    },
+    {
+     "value": "R90",
+     "code": "171"
+    },
+    {
+     "value": "R91",
+     "code": "172"
+    },
+    {
+     "value": "R92",
+     "code": "173"
+    },
+    {
+     "value": "R93",
+     "code": "174"
+    },
+    {
+     "value": "R94",
+     "code": "175"
+    },
+    {
+     "value": "R95",
+     "code": "176"
+    },
+    {
+     "value": "R96",
+     "code": "177"
+    },
+    {
+     "value": "R97",
+     "code": "178"
+    },
+    {
+     "value": "R98",
+     "code": "179"
+    },
+    {
+     "value": "R99",
+     "code": "180"
+    },
+    {
+     "value": "R100",
+     "code": "181"
+    },
+    {
+     "value": "R101",
+     "code": "182"
+    },
+    {
+     "value": "R102",
+     "code": "183"
+    },
+    {
+     "value": "R103",
+     "code": "184"
+    },
+    {
+     "value": "R104",
+     "code": "185"
+    },
+    {
+     "value": "R105",
+     "code": "186"
+    },
+    {
+     "value": "RX20",
+     "code": "187"
+    },
+    {
+     "value": "RX21",
+     "code": "188"
+    },
+    {
+     "value": "RX22",
+     "code": "189"
+    },
+    {
+     "value": "RX23",
+     "code": "190"
+    },
+    {
+     "value": "RX24",
+     "code": "191"
+    },
+    {
+     "value": "RX25",
+     "code": "192"
+    },
+    {
+     "value": "RX26",
+     "code": "193"
+    },
+    {
+     "value": "RX27",
+     "code": "194"
+    },
+    {
+     "value": "RX28",
+     "code": "195"
+    },
+    {
+     "value": "RX29",
+     "code": "196"
+    },
+    {
+     "value": "RX30",
+     "code": "197"
+    },
+    {
+     "value": "RX31",
+     "code": "198"
+    },
+    {
+     "value": "RX32",
+     "code": "199"
+    },
+    {
+     "value": "RX33",
+     "code": "200"
+    },
+    {
+     "value": "RX34",
+     "code": "201"
+    },
+    {
+     "value": "RX35",
+     "code": "202"
+    },
+    {
+     "value": "RX36",
+     "code": "203"
+    },
+    {
+     "value": "RX37",
+     "code": "204"
+    },
+    {
+     "value": "RX38",
+     "code": "205"
+    },
+    {
+     "value": "RX39",
+     "code": "206"
+    },
+    {
+     "value": "RX40",
+     "code": "207"
+    },
+    {
+     "value": "RX41",
+     "code": "208"
+    },
+    {
+     "value": "RX42",
+     "code": "209"
+    },
+    {
+     "value": "RX43",
+     "code": "210"
+    },
+    {
+     "value": "RX44",
+     "code": "211"
+    },
+    {
+     "value": "RX45",
+     "code": "212"
+    },
+    {
+     "value": "RX46",
+     "code": "213"
+    },
+    {
+     "value": "RX47",
+     "code": "214"
+    },
+    {
+     "value": "RX48",
+     "code": "215"
+    },
+    {
+     "value": "RX49",
+     "code": "216"
+    },
+    {
+     "value": "RX50",
+     "code": "217"
+    },
+    {
+     "value": "RX51",
+     "code": "218"
+    },
+    {
+     "value": "RX52",
+     "code": "219"
+    },
+    {
+     "value": "RX53",
+     "code": "220"
+    },
+    {
+     "value": "RX54",
+     "code": "221"
+    },
+    {
+     "value": "RX55",
+     "code": "222"
+    },
+    {
+     "value": "RX56",
+     "code": "223"
+    },
+    {
+     "value": "RX57",
+     "code": "224"
+    },
+    {
+     "value": "RX58",
+     "code": "225"
+    },
+    {
+     "value": "RX59",
+     "code": "226"
+    },
+    {
+     "value": "RX60",
+     "code": "227"
+    },
+    {
+     "value": "RX61",
+     "code": "228"
+    },
+    {
+     "value": "RX62",
+     "code": "229"
+    },
+    {
+     "value": "RX63",
+     "code": "230"
+    },
+    {
+     "value": "RX64",
+     "code": "231"
+    },
+    {
+     "value": "RX65",
+     "code": "232"
+    },
+    {
+     "value": "RX66",
+     "code": "233"
+    },
+    {
+     "value": "RX67",
+     "code": "234"
+    },
+    {
+     "value": "RX68",
+     "code": "235"
+    },
+    {
+     "value": "RX69",
+     "code": "236"
+    },
+    {
+     "value": "RX70",
+     "code": "237"
+    },
+    {
+     "value": "RX71",
+     "code": "238"
+    },
+    {
+     "value": "RX72",
+     "code": "239"
+    },
+    {
+     "value": "RX73",
+     "code": "240"
+    },
+    {
+     "value": "RX74",
+     "code": "241"
+    },
+    {
+     "value": "RX75",
+     "code": "242"
+    },
+    {
+     "value": "RX76",
+     "code": "243"
+    },
+    {
+     "value": "RX77",
+     "code": "244"
+    },
+    {
+     "value": "RX78",
+     "code": "245"
+    },
+    {
+     "value": "RX79",
+     "code": "246"
+    },
+    {
+     "value": "RX80",
+     "code": "247"
+    },
+    {
+     "value": "RX81",
+     "code": "248"
+    },
+    {
+     "value": "RX82",
+     "code": "249"
+    },
+    {
+     "value": "RX83",
+     "code": "250"
+    },
+    {
+     "value": "RX84",
+     "code": "251"
+    },
+    {
+     "value": "RX85",
+     "code": "252"
+    },
+    {
+     "value": "RX86",
+     "code": "253"
+    },
+    {
+     "value": "RX87",
+     "code": "254"
+    },
+    {
+     "value": "RX88",
+     "code": "255"
+    },
+    {
+     "value": "RX89",
+     "code": "256"
+    },
+    {
+     "value": "RX90",
+     "code": "257"
+    },
+    {
+     "value": "RX91",
+     "code": "258"
+    },
+    {
+     "value": "BX150",
+     "code": "259"
+    },
+    {
+     "value": "BX151",
+     "code": "260"
+    },
+    {
+     "value": "BX152",
+     "code": "261"
+    },
+    {
+     "value": "BX153",
+     "code": "262"
+    },
+    {
+     "value": "BX154",
+     "code": "263"
+    },
+    {
+     "value": "BX155",
+     "code": "264"
+    },
+    {
+     "value": "BX156",
+     "code": "265"
+    },
+    {
+     "value": "BX157",
+     "code": "266"
+    },
+    {
+     "value": "BX158",
+     "code": "267"
+    },
+    {
+     "value": "BX159",
+     "code": "268"
+    },
+    {
+     "value": "BX160",
+     "code": "269"
+    },
+    {
+     "value": "BX161",
+     "code": "270"
+    },
+    {
+     "value": "BX162",
+     "code": "271"
+    },
+    {
+     "value": "BX163",
+     "code": "272"
+    },
+    {
+     "value": "BX164",
+     "code": "273"
+    },
+    {
+     "value": "BX165",
+     "code": "274"
+    },
+    {
+     "value": "BX166",
+     "code": "275"
+    },
+    {
+     "value": "BX167",
+     "code": "276"
+    },
+    {
+     "value": "BX168",
+     "code": "277"
+    },
+    {
+     "value": "BX169",
+     "code": "278"
+    },
+    {
+     "value": "BX170",
+     "code": "279"
+    },
+    {
+     "value": "BX171",
+     "code": "280"
+    },
+    {
+     "value": "BX172",
+     "code": "281"
+    },
+    {
+     "value": "BX173",
+     "code": "282"
+    },
+    {
+     "value": "BX174",
+     "code": "283"
+    },
+    {
+     "value": "BX175",
+     "code": "284"
+    },
+    {
+     "value": "BX176",
+     "code": "285"
+    },
+    {
+     "value": "BX177",
+     "code": "286"
+    },
+    {
+     "value": "BX178",
+     "code": "287"
+    },
+    {
+     "value": "BX179",
+     "code": "288"
+    },
+    {
+     "value": "BX180",
+     "code": "289"
+    },
+    {
+     "value": "BX181",
+     "code": "290"
+    },
+    {
+     "value": "BX182",
+     "code": "291"
+    },
+    {
+     "value": "BX183",
+     "code": "292"
+    },
+    {
+     "value": "BX184",
+     "code": "293"
+    },
+    {
+     "value": "BX185",
+     "code": "294"
+    },
+    {
+     "value": "BX186",
+     "code": "295"
+    },
+    {
+     "value": "BX187",
+     "code": "296"
+    },
+    {
+     "value": "BX188",
+     "code": "297"
+    },
+    {
+     "value": "BX189",
+     "code": "298"
+    },
+    {
+     "value": "BX190",
+     "code": "299"
+    },
+    {
+     "value": "BX191",
+     "code": "300"
+    },
+    {
+     "value": "BX192",
+     "code": "301"
+    },
+    {
+     "value": "BX193",
+     "code": "302"
+    },
+    {
+     "value": "BX194",
+     "code": "303"
+    },
+    {
+     "value": "BX195",
+     "code": "304"
+    },
+    {
+     "value": "BX196",
+     "code": "305"
+    },
+    {
+     "value": "BX197",
+     "code": "306"
+    },
+    {
+     "value": "BX198",
+     "code": "307"
+    },
+    {
+     "value": "BX199",
+     "code": "308"
+    },
+    {
+     "value": "$size$",
+     "code": "309"
+    }
+   ]
+  }
+ ]
+}

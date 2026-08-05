@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% block title %}{% if export_fmt == 'html' %}Print view{% else %}PDF{% endif %} Terms — {{ form.get_kind_display }}{% endblock %}
+{% block content %}
+<style>
+  .terms-editor { max-width: 1100px; margin: 0 auto; }
+  .terms-editor h1 { font-size: 1.35rem; margin: 0 0 .4rem; }
+  .terms-editor .lead { color: var(--muted, #5a6a7a); margin-bottom: 1.2rem; font-size: .92rem; }
+  .te-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .6rem; margin-bottom: 1.2rem; }
+  .te-meta .box { background: #f4f7fa; border: 1px solid #d0d7de; border-radius: 8px; padding: .55rem .75rem; }
+  .te-meta .box b { display: block; font-size: .7rem; text-transform: uppercase; color: #5a6a7a; letter-spacing: .04em; }
+  .te-intro { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; margin-bottom: 1rem; }
+  .te-intro label { display: block; font-size: .78rem; font-weight: 700; margin-bottom: .25rem; color: #1b3a4b; }
+  .te-intro textarea { width: 100%; min-height: 64px; border: 1px solid #c9d2dc; border-radius: 8px; padding: .55rem .7rem; font: inherit; }
+  .te-cat { border: 1px solid #d0d7de; border-radius: 10px; margin-bottom: .9rem; overflow: hidden; background: #fff; }
+  .te-cat-h { background: #1b3a4b; color: #fff; padding: .55rem .85rem; font-size: .85rem; font-weight: 700; }
+  .te-cat-h .fa { display: block; font-size: .78rem; font-weight: 600; opacity: .9; margin-top: .15rem; }
+  .te-cat-b { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; padding: .85rem; }
+  .te-cat-b label { display: block; font-size: .72rem; font-weight: 700; color: #5a6a7a; margin-bottom: .2rem; text-transform: uppercase; }
+  .te-cat-b input[type=text] { width: 100%; border: 1px solid #c9d2dc; border-radius: 6px; padding: .4rem .55rem; margin-bottom: .45rem; font: inherit; }
+  .te-cat-b textarea { width: 100%; min-height: 110px; border: 1px solid #c9d2dc; border-radius: 6px; padding: .5rem .6rem; font: inherit; line-height: 1.4; }
+  .te-hint { font-size: .75rem; color: #6b7785; margin: .15rem 0 .35rem; }
+  .te-actions { display: flex; gap: .6rem; justify-content: flex-end; margin: 1.2rem 0 2rem; flex-wrap: wrap; align-items: center; }
+  .te-actions .btn-primary { background: #0b42a8; color: #fff; border: none; }
+  .te-status { font-size: .85rem; color: #5a6a7a; margin-right: auto; }
+  @media (max-width: 800px) {
+    .te-intro, .te-cat-b { grid-template-columns: 1fr; }
+  }
+</style>
+
+{% with is_html=export_fmt|default:"pdf" %}
+<div class="terms-editor">
+  <h1>{% if is_html == 'html' %}Print view{% else %}PDF Export{% endif %} — Terms &amp; Conditions</h1>
+  <p class="lead">
+    Edit English and Persian terms for this export only. After you confirm,
+    {% if is_html == 'html' %}
+      the Print view opens in a new tab with these texts on the last page.
+    {% else %}
+      the PDF opens in a new tab with these texts on the last page.
+    {% endif %}
+    The next export starts from the default texts again.
+  </p>
+
+  <div class="te-meta">
+    <div class="box"><b>Form</b>{{ form.get_kind_display }} · v{{ form.version|stringformat:"02d" }}</div>
+    <div class="box"><b>Doc No.</b>{{ doc_no }}</div>
+    <div class="box"><b>Client</b>{{ client }}</div>
+    <div class="box"><b>Date</b>{{ form_date }}</div>
+  </div>
+
+  <form id="terms-export-form"
+        method="post"
+        action="{{ confirm_url }}"
+        data-mode="{% if is_html == 'html' %}html{% else %}pdf{% endif %}"
+        data-filename="{{ doc_no }}.{% if is_html == 'html' %}html{% else %}pdf{% endif %}"
+        data-doc-no="{{ doc_no }}">
+    {% csrf_token %}
+    <div class="te-intro">
+      <div>
+        <label>Intro (English)</label>
+        <textarea name="intro_en">{{ terms.intro_en }}</textarea>
+      </div>
+      <div>
+        <label>مقدمه (فارسی)</label>
+        <textarea name="intro_fa" dir="rtl">{{ terms.intro_fa }}</textarea>
+      </div>
+    </div>
+
+    {% for cat in terms.categories %}
+    <div class="te-cat">
+      <div class="te-cat-h">
+        {{ cat.title_en|default:"Section" }}
+        {% if cat.title_fa %}<span class="fa" dir="rtl">{{ cat.title_fa }}</span>{% endif %}
+      </div>
+      <div class="te-cat-b">
+        <div>
+          <label>Title (EN)</label>
+          <input type="text" name="cat_{{ forloop.counter0 }}_title_en" value="{{ cat.title_en }}">
+          <p class="te-hint">One clause per line</p>
+          <label>Clauses (EN)</label>
+          <textarea name="cat_{{ forloop.counter0 }}_items_en">{% for item in cat.items_en %}{{ item }}{% if not forloop.last %}
+{% endif %}{% endfor %}</textarea>
+        </div>
+        <div>
+          <label>عنوان (FA)</label>
+          <input type="text" name="cat_{{ forloop.counter0 }}_title_fa" value="{{ cat.title_fa }}" dir="rtl">
+          <p class="te-hint">هر بند در یک خط</p>
+          <label>بندها (FA)</label>
+          <textarea name="cat_{{ forloop.counter0 }}_items_fa" dir="rtl">{% for item in cat.items_fa %}{{ item }}{% if not forloop.last %}
+{% endif %}{% endfor %}</textarea>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+
+    <div class="te-actions">
+      <span class="te-status" id="te-status" hidden></span>
+      <a class="btn" href="{% url 'cases:case_detail' case.pk %}">Cancel</a>
+      {% if is_html == 'html' %}
+      <button type="submit" class="btn btn-primary" id="te-submit"><i class="fa-solid fa-file-lines"></i> Confirm &amp; Open Print view</button>
+      {% else %}
+      <button type="submit" class="btn btn-primary" id="te-submit"><i class="fa-solid fa-file-lines"></i> Confirm &amp; Download PDF</button>
+      {% endif %}
+    </div>
+  </form>
+</div>
+{% endwith %}
+<script>
+(function () {
+  var form = document.getElementById("terms-export-form");
+  if (!form) return;
+  var btn = document.getElementById("te-submit");
+  var status = document.getElementById("te-status");
+  var mode = (form.getAttribute("data-mode") || "pdf").toLowerCase();
+  var isHtml = mode === "html";
+  var defaultName = form.getAttribute("data-filename")
+    || ((form.getAttribute("data-doc-no") || "document") + (isHtml ? ".html" : ".pdf"));
+
+  function cookieValue(name) {
+    var parts = ("; " + document.cookie).split("; " + name + "=");
+    if (parts.length < 2) return "";
+    return decodeURIComponent(parts.pop().split(";").shift() || "");
+  }
+
+  function b64ToBlob(b64, mime) {
+    var bin = atob(b64);
+    var len = bin.length;
+    var bytes = new Uint8Array(len);
+    for (var i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type: mime || "application/octet-stream" });
+  }
+
+  function isPdfBlob(blob) {
+    return blob.slice(0, 5).arrayBuffer().then(function (buf) {
+      var u8 = new Uint8Array(buf);
+      return u8[0] === 0x25 && u8[1] === 0x50 && u8[2] === 0x44 && u8[3] === 0x46;
+    });
+  }
+
+  function saveBlob(blob, name) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = name || defaultName;
+    a.rel = "noopener";
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    return "downloaded";
+  }
+
+  function openBlobInNewTab(blob, fallbackName) {
+    var url = URL.createObjectURL(blob);
+    var win = window.open(url, "_blank");
+    if (!win) {
+      // Popup blocked — fall back to download.
+      return saveBlob(blob, fallbackName || defaultName);
+    }
+    setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+    return "opened";
+  }
+
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+    if (btn) btn.disabled = true;
+    if (status) {
+      status.hidden = false;
+      status.textContent = isHtml ? "Generating Print view…" : "Generating PDF…";
+    }
+
+    var csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
+    var csrf = (csrfInput && csrfInput.value) || cookieValue("csrftoken");
+    var headers = {
+      "X-Requested-With": "XMLHttpRequest",
+      "Accept": "application/json"
+    };
+    if (csrf) headers["X-CSRFToken"] = csrf;
+
+    fetch(form.action, {
+      method: "POST",
+      body: new FormData(form),
+      credentials: "same-origin",
+      headers: headers,
+      cache: "no-store"
+    }).then(async function (res) {
+      var ct = (res.headers.get("Content-Type") || "").toLowerCase();
+      if (res.status === 403) {
+        throw new Error("Security token expired. Refresh this page and try again.");
+      }
+      if (!res.ok) {
+        if (ct.indexOf("json") !== -1) {
+          var errJson = await res.json();
+          throw new Error(errJson.error || ("Request failed (" + res.status + ")"));
+        }
+        throw new Error("Request failed (" + res.status + "). Refresh the page and try again.");
+      }
+      if (ct.indexOf("json") === -1) {
+        throw new Error("Unexpected server response. Refresh the page and try again.");
+      }
+      var payload = await res.json();
+      if (!payload.ok) {
+        throw new Error(payload.error || "Generation failed.");
+      }
+      var name = payload.filename || defaultName;
+      if (isHtml) {
+        if (!payload.html_base64) throw new Error(payload.error || "Print view generation failed.");
+        var htmlBlob = b64ToBlob(payload.html_base64, "text/html;charset=utf-8");
+        return openBlobInNewTab(htmlBlob, name);
+      }
+      if (!payload.pdf_base64) throw new Error(payload.error || "PDF generation failed.");
+      var pdfBlob = b64ToBlob(payload.pdf_base64, "application/pdf");
+      var ok = await isPdfBlob(pdfBlob);
+      if (!ok) throw new Error("Invalid PDF received from server.");
+      return openBlobInNewTab(pdfBlob, name);
+    }).then(function (modeDone) {
+      if (!status) return;
+      if (modeDone === "cancelled") status.textContent = "Save cancelled.";
+      else if (modeDone === "opened") status.textContent = isHtml
+        ? "Print view opened in a new tab."
+        : "PDF opened in a new tab.";
+      else if (modeDone === "downloaded") status.textContent = "Download started — check your browser Downloads folder.";
+      else status.textContent = "Download started — check your browser Downloads folder.";
+    }).catch(function (err) {
+      var msg = (err && err.message) || (isHtml ? "Could not open Print view." : "Could not open PDF.");
+      if (/Failed to fetch|NetworkError/i.test(msg)) {
+        msg = "Could not reach the export endpoint. Refresh the page and try again.";
+      }
+      if (status) status.textContent = msg;
+      alert(msg);
+    }).finally(function () {
+      if (btn) btn.disabled = false;
+    });
+  });
+})();
+</script>
+{% endblock %}

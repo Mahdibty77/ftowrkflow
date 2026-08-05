@@ -1,0 +1,172 @@
+{% load ft_extras %}
+{% if sd.can_submit_tech or sd.can_close or sd.can_cancel or sd.can_approve_cancel or sd.can_tech_assign or sd.can_send_supply or sd.can_return_comm or sd.can_submit_comm or sd.can_return_supply_from_tech or sd.can_send or sd.can_return or sd.can_cannot or sd.can_assign or sd.can_finalize or sd.can_final_close or sd.can_burn or sd.can_return_supply or sd.pi_blocked or sd.to_blocked or sd.arrival_comment or sd.assign_comment %}
+  <div class="side-actions-card">
+    <div class="side-actions-head"><i class="fa-solid fa-code-branch"></i> {{ sd.label }}</div>
+
+    {% if sd.can_tech_assign %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="field confirm-action" data-comment>
+        {% csrf_token %}<input type="hidden" name="action" value="assign"><input type="hidden" name="side" value="{{ sd.code }}">
+        <div class="row-flex">
+          <select name="assignee" data-combo data-placeholder="Search technical expert…" style="flex:1">
+            {% for u in sd.tech_pool %}<option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}{% if u.profile.internal_code %} ({{ u.profile.internal_code }}){% endif %}</option>{% endfor %}
+          </select>
+          <button type="button" data-confirm-trigger class="btn btn-sm btn-primary">Assign</button>
+        </div>
+      </form>
+    {% endif %}
+
+    {% if sd.can_assign %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="field confirm-action" data-comment>
+        {% csrf_token %}<input type="hidden" name="action" value="assign"><input type="hidden" name="side" value="{{ sd.code }}">
+        <div class="row-flex">
+          <select name="assignee" data-combo data-placeholder="Search {{ sd.label|lower }} expert…" style="flex:1">
+            {% for u in sd.pool %}<option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}{% if u.profile.internal_code %} ({{ u.profile.internal_code }}){% endif %}</option>{% endfor %}
+          </select>
+          <button type="button" data-confirm-trigger class="btn btn-sm btn-primary">Assign</button>
+        </div>
+      </form>
+    {% endif %}
+
+    {% if sd.can_submit_tech %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment>
+        {% csrf_token %}<input type="hidden" name="action" value="submit_to_technical"><input type="hidden" name="side" value="{{ sd.code }}">
+        <button type="button" data-confirm-trigger class="btn btn-sm btn-primary btn-block"><i class="fa-solid fa-paper-plane"></i> Submit to Technical</button>
+      </form>
+    {% endif %}
+    {% if sd.can_send_supply %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment>
+        {% csrf_token %}<input type="hidden" name="action" value="send_to_supply"><input type="hidden" name="side" value="{{ sd.code }}">
+        <button type="button" data-confirm-trigger class="btn btn-sm btn-primary btn-block"><i class="fa-solid fa-paper-plane"></i> Submit to Supply</button>
+      </form>
+    {% elif sd.to_blocked %}
+      <div class="alert-inline alert-warn" style="margin-bottom:.5rem;">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        {% if sd.to_blocked_issues %}
+        <span><strong>Blocked</strong> — this side's TO has <em>Technical Problem</em> rows. Clear all flags to submit to Supply.</span>
+        {% elif sd.to_blocked_brand %}
+        <span><strong>Blocked</strong> — one or more rows still have an empty <em>BRAND</em>. Fill BRAND on every active row to submit to Supply.</span>
+        {% else %}
+        <span><strong>Blocked</strong> — this side's TO cannot be submitted to Supply yet.</span>
+        {% endif %}
+      </div>
+    {% endif %}
+    {% if sd.can_send %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment>
+        {% csrf_token %}<input type="hidden" name="action" value="send_to_commercial"><input type="hidden" name="side" value="{{ sd.code }}">
+        <button type="button" data-confirm-trigger class="btn btn-sm btn-primary btn-block"><i class="fa-solid fa-paper-plane"></i> Submitted to Commercial</button>
+      </form>
+    {% elif sd.pi_blocked and not sd.can_submit_comm %}
+      <div class="alert-inline alert-warn" style="margin-bottom:.5rem;">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <span><strong>Blocked</strong> — some items still miss a required field ({% if require_ftco_code %}FTCO code, {% endif %}price, brand or time). Complete them (or mark the row not-suppliable, or return to {% if sd.at_tech %}Supply{% else %}Technical{% endif %}) to submit to Commercial.</span>
+      </div>
+    {% endif %}
+    
+    {% if sd.can_submit_comm %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment>
+        {% csrf_token %}<input type="hidden" name="action" value="send_to_commercial"><input type="hidden" name="side" value="{{ sd.code }}">
+        <button type="button" data-confirm-trigger class="btn btn-sm btn-primary btn-block"><i class="fa-solid fa-paper-plane"></i> Submitted to Commercial</button>
+      </form>
+    {% endif %}
+    
+    {% if sd.can_return_supply_from_tech and not sd.to_blocked %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment>
+        {% csrf_token %}<input type="hidden" name="action" value="return_to_supply"><input type="hidden" name="side" value="{{ sd.code }}">
+        <button type="button" data-confirm-trigger class="btn btn-sm btn-block"><i class="fa-solid fa-rotate-left"></i> Return to Supply</button>
+      </form>
+    {% endif %}
+
+    {% if sd.can_return_comm %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment>
+        {% csrf_token %}<input type="hidden" name="action" value="return_to_commercial"><input type="hidden" name="side" value="{{ sd.code }}">
+        <button type="button" data-confirm-trigger class="btn btn-sm btn-block"><i class="fa-solid fa-rotate-left"></i> Return to Commercial</button>
+      </form>
+    {% endif %}
+    {% if sd.can_return %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment>
+        {% csrf_token %}<input type="hidden" name="action" value="return_to_technical"><input type="hidden" name="side" value="{{ sd.code }}">
+        <button type="button" data-confirm-trigger class="btn btn-sm btn-block"><i class="fa-solid fa-rotate-left"></i> Return to Technical</button>
+      </form>
+    {% endif %}
+    {% if sd.can_cannot %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment data-required>
+        {% csrf_token %}<input type="hidden" name="action" value="cannot_supply"><input type="hidden" name="side" value="{{ sd.code }}">
+        <button type="button" data-confirm-trigger class="btn btn-sm btn-danger btn-block"><i class="fa-solid fa-ban"></i> Mark cannot supply</button>
+      </form>
+    {% endif %}
+
+    {% if sd.can_close or sd.can_cancel %}
+      <div class="btn-row" style="margin-top:.2rem;">
+        {% if sd.can_close %}
+          <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment>
+            {% csrf_token %}<input type="hidden" name="action" value="send_to_client"><input type="hidden" name="side" value="{{ sd.code }}">
+            <button type="button" data-confirm-trigger class="btn btn-sm btn-primary"><i class="fa-solid fa-paper-plane"></i> Close — sent to client</button>
+          </form>
+        {% endif %}
+        {% if sd.can_cancel %}
+          <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment data-required>
+            {% csrf_token %}<input type="hidden" name="action" value="request_cancel"><input type="hidden" name="side" value="{{ sd.code }}">
+            <button type="button" data-confirm-trigger class="btn btn-sm btn-danger"><i class="fa-solid fa-xmark"></i> Request cancel</button>
+          </form>
+        {% endif %}
+      </div>
+    {% endif %}
+    {% if sd.can_approve_cancel %}
+      <div class="flash flash-warning" style="margin:.4rem 0;"><i class="fa-solid fa-triangle-exclamation"></i>
+        <span>{% if case.proposed_action|slice:":2" == "bs" %}Burn requested for this side — manager approval required.{% else %}Cancellation requested for this side — manager approval required.{% endif %}</span>
+      </div>
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="field">
+        {% csrf_token %}
+        <input type="hidden" name="side" value="{{ sd.code }}">
+        <textarea name="comment" rows="2" placeholder="Approval / rejection note…"></textarea>
+        <div class="btn-row" style="margin-top:.4rem;">
+          <button class="btn btn-sm btn-danger" name="action" value="approve_cancel">{% if case.proposed_action|slice:":2" == "bs" %}Approve burn{% else %}Approve cancellation{% endif %}</button>
+          <button class="btn btn-sm" name="action" value="reject_cancel">Reject</button>
+        </div>
+      </form>
+    {% endif %}
+    {% if sd.can_return_supply and not sd.to_blocked %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment>
+        {% csrf_token %}<input type="hidden" name="action" value="return_to_supply"><input type="hidden" name="side" value="{{ sd.code }}">
+        <button type="button" data-confirm-trigger class="btn btn-sm btn-block"><i class="fa-solid fa-rotate-left"></i> Return to Supply</button>
+      </form>
+    {% endif %}
+    {% if sd.can_finalize %}
+      <div class="btn-row" style="margin-top:.2rem;">
+        <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment>
+          {% csrf_token %}<input type="hidden" name="action" value="finalize"><input type="hidden" name="side" value="{{ sd.code }}">
+          <button type="button" data-confirm-trigger class="btn btn-sm btn-primary"><i class="fa-solid fa-circle-check"></i> Final Approved</button>
+        </form>
+        {% if sd.can_burn %}
+          <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment data-required>
+            {% csrf_token %}<input type="hidden" name="action" value="burn"><input type="hidden" name="side" value="{{ sd.code }}">
+            <button type="button" data-confirm-trigger class="btn btn-sm btn-dark"><i class="fa-solid fa-fire"></i> Burned</button>
+          </form>
+        {% endif %}
+      </div>
+    {% endif %}
+    {% if sd.can_final_close %}
+      <div class="btn-row" style="margin-top:.2rem;">
+        <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment data-required>
+          {% csrf_token %}<input type="hidden" name="action" value="final_close"><input type="hidden" name="side" value="{{ sd.code }}">
+          <button type="button" data-confirm-trigger class="btn btn-sm btn-dark"><i class="fa-solid fa-lock"></i> Final Closed</button>
+        </form>
+      </div>
+    {% endif %}
+
+    {% if sd.arrival_comment %}
+      <div class="arrival-note unit-note u-{{ sd.arrival_comment.from_unit }}">
+        <div class="an-head"><i class="fa-solid fa-comment-dots"></i> {{ sd.label }} · Note from {{ sd.arrival_comment.from_unit }} — {{ sd.arrival_comment.actor_display_name }}</div>
+        <div class="an-body">{{ sd.arrival_comment.comment }}</div>
+        <div class="an-time">{{ sd.arrival_comment.created_at|jalali:"Y.m.d H:i" }}</div>
+      </div>
+    {% endif %}
+    {% if sd.assign_comment %}
+      <div class="arrival-note unit-note u-{{ sd.assign_comment.to_unit }}">
+        <div class="an-head"><i class="fa-solid fa-user-plus"></i> {{ sd.label }} · Assignment note — {{ sd.assign_comment.actor_display_name }}</div>
+        <div class="an-body">{{ sd.assign_comment.comment }}</div>
+        <div class="an-time">{{ sd.assign_comment.created_at|jalali:"Y.m.d H:i" }}</div>
+      </div>
+    {% endif %}
+  </div>
+{% endif %}

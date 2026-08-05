@@ -1,0 +1,31 @@
+{% extends "admin/base.html" %}
+{% load i18n %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Foolad Tabar Workflow admin') }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+{% include "includes/favicon.html" %}
+{% endblock %}
+
+{% block branding %}
+<div id="site-name"><a href="{% url 'admin:index' %}">{{ site_header|default:_('Foolad Tabar Workflow administration') }}</a></div>
+{% if license_status %}
+  {% if license_status.ok %}
+    {% if license_status.days_remaining <= 3 %}
+      <div class="ft-lic-strip ft-lic-warn">License &middot; {{ license_status.days_remaining }} day(s) remaining &middot; expires {{ license_status.expiry_iso }}{% if license_status.in_grace %} &middot; grace period{% endif %}</div>
+    {% else %}
+      <div class="ft-lic-strip ft-lic-ok">License &middot; {{ license_status.days_remaining }} day(s) remaining &middot; expires {{ license_status.expiry_iso }}</div>
+    {% endif %}
+  {% else %}
+    <div class="ft-lic-strip ft-lic-bad">License inactive &middot; {{ license_status.reason_text }}</div>
+  {% endif %}
+  <style>
+    .ft-lic-strip{display:inline-block;margin:6px 0 0;padding:3px 12px;border-radius:14px;
+      font-size:12px;font-weight:600;line-height:1.6;}
+    .ft-lic-ok{background:#e7f6ea;color:#1f7a3d;border:1px solid #b6e0c2;}
+    .ft-lic-warn{background:#fff7e0;color:#9a6700;border:1px solid #f0d48a;}
+    .ft-lic-bad{background:#ffe9ec;color:#c5293a;border:1px solid #f3b9c1;}
+  </style>
+{% endif %}
+{% endblock %}

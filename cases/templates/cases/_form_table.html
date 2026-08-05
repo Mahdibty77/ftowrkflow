@@ -1,0 +1,113 @@
+{% load ft_extras %}
+{% with form_cur=form_obj|pi_form_currency %}
+<div class="row-flex" style="margin-bottom:.6rem;flex-wrap:wrap;gap:.35rem;">
+  {% if form_obj.two_stage %}
+    <span class="badge" style="background:#e8f5ec;color:#0f5132;border:1px solid #1a7f37;font-weight:600;"><i class="fa-solid fa-layer-group"></i> Offer type: TO &amp; PI (Two Stage)</span>
+  {% else %}
+    {% with offer_meta=form_obj.meta|dictget:"Offer type" %}
+      {% if offer_meta %}<span class="badge" style="background:var(--surface-2);color:var(--ink-soft);border:1px solid var(--hairline);">Offer type: <span class="mono">{{ offer_meta }}</span></span>{% endif %}
+    {% endwith %}
+  {% endif %}
+  {% with m=form_obj.meta %}
+    {% if m|dictget:'update_price_requested' and not m|dictget:'update_price' %}
+      <span class="badge nv-flag-badge nv-flag-update"><i class="fa-solid fa-tags"></i> Update Price</span>
+    {% endif %}
+    {% if m|dictget:'unit_convert_requested' and not m|dictget:'currency_conversion_only' %}
+      <span class="badge nv-flag-badge nv-flag-unit"><i class="fa-solid fa-right-left"></i> Unit Convert</span>
+    {% endif %}
+  {% endwith %}
+  {% if form_obj.meta %}
+    {% for k, v in form_obj.meta.items %}
+      {% if v and k != 'Offer type' and k != 'currency' and k != 'currency_converted' and k != 'currency_label' and k != 'calc' and k != 'currency_rate' and k != 'currency_from' and k != 'currency_conversion_only' and k != 'update_price' and k != 'update_price_requested' and k != 'unit_convert_requested' %}
+        {% if v|stringformat:"s"|slice:":1" != "{" and v|stringformat:"s"|slice:":1" != "[" %}
+          <span class="badge" style="background:var(--surface-2);color:var(--ink-soft);border:1px solid var(--hairline);">{{ k }}: <span class="mono">{{ v }}</span></span>
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+  {% if form_obj.kind == 'PI' %}
+    {% with rate_note=form_obj|pi_form_rate_note %}
+    <span class="badge" style="background:#eef4ff;color:#0b42a8;border:1px solid #b6c8e6;">Currency: <span class="mono">{{ form_cur|currency_unit_label }}</span>{% if rate_note %} &middot; Rate: <span class="mono">{{ rate_note }}</span>{% endif %}</span>
+    {% endwith %}
+  {% endif %}
+</div>
+
+{% if form_obj.kind == 'TO' %}
+  {% with issues=form_obj|technical_issue_rows %}
+  {% if issues %}
+  <div class="tp-reasons-card">
+    <h4><i class="fa-solid fa-screwdriver-wrench"></i> Technical problems</h4>
+    <ul class="tp-reasons-list">
+      {% for it in issues %}
+      <li><span class="tp-item">#{{ it.client_no }}</span><span class="tp-text">{{ it.reason }}</span></li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  {% endwith %}
+{% endif %}
+
+<div class="table-wrap vscroll" data-form-kind="{{ form_obj.kind }}"
+     data-pi-form-id="{{ form_obj.pk }}"
+     data-pi-currency="{{ form_cur }}"
+     data-pi-converted="{% if form_obj.meta|dictget:'currency_converted' %}1{% else %}0{% endif %}"
+     data-pi-is-current="{% if form_obj.is_current %}1{% else %}0{% endif %}">
+  {% with pf_map=form_obj|to_proforma_remarks %}
+  <table class="data" data-pi-prices="{% if form_obj.kind == 'PI' %}1{% else %}0{% endif %}">
+    <thead>
+      <tr>
+        {% for title, key in form_obj|visible_form_columns %}<th data-col-key="{{ key }}">{{ title }}</th>{% endfor %}
+        {% if pf_map %}<th data-col-key="proforma remark">PROFORMA REMARK</th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in form_obj.table %}
+        {% with is_del=row|dictget:'_deleted' is_add=row|dictget:'_added' is_issue=row|dictget:'_issue' is_unsup=row|dictget:'_unsuppliable' %}
+        <tr class="{{ row|row_flag_class }}{% if is_del == '1' %} row-soft-deleted{% endif %}{% if is_add == '1' %} row-soft-added{% endif %}"{% if form_obj.kind == 'PI' %}{% with svc_c=row|dictget:'_service_comment'|clean_cell_display svc_r=row|dictget:'_service_price_raw'|clean_cell_display svc_alt=row|dictget:'SERVICE PRICE'|clean_cell_display %} data-svc-comment="{{ svc_c }}" data-svc-raw="{% if svc_c %}{% if svc_alt %}{{ svc_alt }}{% else %}{{ svc_r }}{% endif %}{% endif %}" data-svc-qty="{{ row|dictget:'qty'|clean_cell_display }}"{% endwith %}{% endif %}>
+          {% for title, key in form_obj|visible_form_columns %}
+            <td data-col-key="{{ key }}"{% if key == 'UNIT PRICE' or key == 'TOTAL PRICE' or key == 'SERVICE PRICE' %} data-base-value="{% if key == 'SERVICE PRICE' %}{{ row|service_unit_price }}{% else %}{{ row|dictget:key }}{% endif %}"{% endif %}{% if key == '#' or key == 'Item Code' %} class="client-no"{% endif %}>
+              {% if key == '#' %}
+                <span class="client-no-text">{{ row|dictget:key|hash_display }}</span>
+                {% if is_del == '1' %}<span class="row-mark row-mark-del" title="Deleted">−</span>{% elif is_add == '1' %}<span class="row-mark row-mark-add" title="Added">+</span>{% endif %}
+              {% elif key == 'Item Code' %}
+                <span class="client-no-text">{{ row|dictget:key|clean_cell_display }}</span>
+              {% elif form_obj.kind == 'PI' %}
+                {% if key == 'UNIT PRICE' or key == 'TOTAL PRICE' %}
+                  {{ row|dictget:key|money_with_currency:form_cur }}
+                {% elif key == 'SERVICE PRICE' %}
+                  {% if row|has_service_comment %}{{ row|service_unit_price|money_with_currency:form_cur }}{% endif %}
+                {% elif key == 'Final Arranged Text' %}
+                  {% if is_issue == '1' %}
+                    <span class="flag-chip flag-chip-issue">TECHNICAL PROBLEM</span>
+                  {% elif is_unsup == '1' %}
+                    <span class="flag-chip flag-chip-unsup">NOT SUPPLIABLE</span>
+                  {% else %}
+                    {{ row|dictget:key|ftco_desc_display }}{% if row|has_service_comment %} <span class="flag-chip flag-chip-service">SERVICE</span>{% endif %}
+                  {% endif %}
+                {% else %}
+                  {{ row|dictget:key }}
+                {% endif %}
+              {% elif key == 'Final Arranged Text' %}
+                {% if is_issue == '1' %}
+                  <span class="flag-chip flag-chip-issue">TECHNICAL PROBLEM</span>
+                {% elif is_unsup == '1' %}
+                  <span class="flag-chip flag-chip-unsup">NOT SUPPLIABLE</span>
+                {% else %}
+                  {{ row|dictget:key|ftco_desc_display }}
+                {% endif %}
+              {% else %}
+                {{ row|dictget:key }}
+              {% endif %}
+            </td>
+          {% endfor %}
+          {% if pf_map %}<td data-col-key="proforma remark" class="pf-remark-cell{% with pf=pf_map|pf_remark_of:row %}{% if pf %} has-pf{% endif %}{% endwith %}">{{ pf_map|pf_remark_of:row }}</td>{% endif %}
+        </tr>
+        {% endwith %}
+      {% empty %}
+        <tr><td colspan="20" class="empty">No rows.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endwith %}
+</div>
+{% endwith %}

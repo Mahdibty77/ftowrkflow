@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ group }} items · Data Management{% endblock %}
+{% block topbar %}Browse: {{ group }}{% endblock %}
+{% block content %}
+<script src="{% static 'js/grid_filters.js' %}?v=2-cache"></script>
+<div class="page-head"><div><h1>“{{ group }}” — {{ total }} items</h1>
+  <div class="sub">Virtual scroll over the whole group. Filter by main features (instant). Only <b>sub</b> &amp; <b>info</b> cells are editable; codes &amp; main features are locked.</div></div>
+  <div class="btn-row">
+    <a class="btn btn-sm btn-primary" href="{% url 'dm_item_new' group %}"><i class="fa-solid fa-plus"></i> Add item</a>
+    <a class="btn btn-sm" href="{% url 'dm_features' group %}"><i class="fa-solid fa-sliders"></i> Features</a>
+    <a class="btn btn-sm" href="{% url 'dm_offer' group %}"><i class="fa-solid fa-diagram-project"></i> Offer</a>
+    <a class="btn btn-sm" href="{% url td_home_url_name %}">Back</a>
+  </div>
+</div>
+
+{% csrf_token %}
+{% if main_filters %}
+<div class="card" style="margin-bottom:1rem;">
+  <div class="card-head"><h3><i class="fa-solid fa-filter"></i> Filter</h3>
+    <span style="display:flex;gap:.6rem;align-items:center;">
+      <button class="btn btn-sm btn-ghost" type="button" id="clear-filters"><i class="fa-solid fa-xmark"></i> Clear</button>
+      <span class="muted" id="total-count">{{ total }} items</span>
+    </span>
+  </div>
+  <div class="grid grid-4" id="filters">
+    {% for mf in main_filters %}
+      <div class="field"><label style="font-size:.72rem;">{{ mf.name }}</label>
+        <div class="combo fcombo" data-col="{{ mf.col }}">
+          <input type="text" class="combo-input" autocomplete="off" placeholder="All {{ mf.name }}">
+          <div class="combo-list"></div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  <div class="muted" style="font-size:.74rem;margin-top:.35rem;">Each filter shows only values still available; press Delete in a field to clear it.</div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-head"><h3><i class="fa-solid fa-table-list"></i> Items</h3><span class="muted" style="font-size:.8rem;">scroll to load more</span></div>
+  <div id="scroll-box" style="max-height:62vh;overflow:auto;">
+    <table class="data" id="grid">
+      <thead><tr><th class="num">#</th>{% for idx,c,ed in cols_with_flags %}<th>{{ c }}</th>{% endfor %}<th></th></tr></thead>
+      <tbody id="grid-body"></tbody>
+    </table>
+    <div id="loading" class="muted" style="padding:.8rem;text-align:center;display:none;">Loading…</div>
+    <div id="end-note" class="muted" style="padding:.8rem;text-align:center;display:none;">End of list.</div>
+  </div>
+</div>
+
+{% if td_can_delete %}
+<div class="card" style="margin-top:1.2rem;border:1px solid var(--rej);">
+  <div class="card-head"><h3 style="color:var(--rej);">Danger zone</h3></div>
+  <form method="post" onsubmit="return confirm('Delete ALL data for {{ group }} from the database? This cannot be undone.');">
+    {% csrf_token %}<input type="hidden" name="action" value="wipe">
+    <button class="btn btn-sm" type="submit" style="background:var(--rej);color:#fff;"><i class="fa-solid fa-triangle-exclamation"></i> Wipe entire “{{ group }}” group</button>
+  </form>
+</div>
+{% endif %}
+
+{{ no_variant|json_script:"nv-data" }}
+<script>
+(function () {
+  var CAN_DELETE = {{ can_delete|yesno:"true,false" }};
+  var ROWS_URL = "{% url 'dm_code_rows_api' group %}";
+  var EDIT_URL = "{% url 'dm_code_rows' group %}";
+  var DISTINCT_URL = "{% url 'dm_code_distinct_api' group %}";
+  var csrf = document.querySelector('input[name=csrfmiddlewaretoken]').value;
+  var EDITABLE = [{% for idx,c,ed in cols_with_flags %}{{ ed }}{% if not forloop.last %},{% endif %}{% endfor %}];
+  var COLS = [{% for idx,c,ed in cols_with_flags %}{idx:{{ idx }},ed:{{ ed }}}{% if not forloop.last %},{% endif %}{% endfor %}];
+  var NO_VARIANT = JSON.parse(document.getElementById('nv-data').textContent);
+  var NCOLS = EDITABLE.length;
+  var body = document.getElementById("grid-body");
+  var box = document.getElementById("scroll-box");
+  var loading = document.getElementById("loading");
+  var endNote = document.getElementById("end-note");
+  var after = -1, busy = false, done = false;
+
+  var GF = window.buildGridFilters ? buildGridFilters({
+    container: document.getElementById("filters"),
+    distinctUrl: DISTINCT_URL,
+    onChange: function () { reset(); }
+  }) : { getFilters: function () { return {}; } };
+
+  function filters() { return GF.getFilters(); }
+  function qs(o) { return Object.keys(o).map(function (k) { return encodeURIComponent(k) + "=" + encodeURIComponent(o[k]); }).join("&"); }
+  function post(url, data) {
+    return fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrf }, body: new URLSearchParams(data).toString() }).then(function (r) { return r.json(); });
+  }
+  function reset() { after = -1; busy = false; done = false; body.innerHTML = ""; endNote.style.display = "none"; load(); }
+
+  function load() {
+    if (busy || done) return;
+    busy = true; loading.style.display = "block";
+    var p = filters(); p.after = after;
+    fetch(ROWS_URL + "?" + qs(p)).then(function (r) { return r.json(); }).then(function (d) {
+      loading.style.display = "none"; busy = false;
+      document.getElementById("total-count").textContent = (d.total || 0).toLocaleString() + " items";
+      (d.rows || []).forEach(addRow);
+      if (d.next === null || d.next === undefined) { done = true; endNote.style.display = body.children.length ? "block" : "none"; }
+      else after = d.next;
+      if (!done && box.scrollHeight <= box.clientHeight + 40) load();
+    }).catch(function () { loading.style.display = "none"; busy = false; });
+  }
+
+  function addRow(r) {
+    var tr = document.createElement("tr"); tr.setAttribute("data-row", r.row_no);
+    var td0 = document.createElement("td"); td0.className = "num muted"; td0.textContent = r.row_no; tr.appendChild(td0);
+    COLS.forEach(function (col) {
+      var td = document.createElement("td");
+      var raw = (r.cells && r.cells[col.idx] != null) ? String(r.cells[col.idx]) : "";
+      var v = (window.displayVal ? window.displayVal(raw) : raw.toUpperCase());
+      if (v === "" && NO_VARIANT[col.idx]) v = NO_VARIANT[col.idx];   // empty coating -> NO COATING
+      if (col.ed) {
+        var inp = document.createElement("input"); inp.type = "text"; inp.value = v; inp.setAttribute("data-col", col.idx); inp.style.width = "120px";
+        inp.addEventListener("change", function (e) { saveCell(r.row_no, e.target); });
+        inp.addEventListener("keydown", function (e) { if (e.key === "Delete") { e.preventDefault(); e.target.value = ""; saveCell(r.row_no, e.target); } });
+        inp.addEventListener("paste", function (e) { handlePaste(e, tr, parseInt(e.target.getAttribute("data-col"), 10)); });
+        td.appendChild(inp);
+      } else td.textContent = v;
+      tr.appendChild(td);
+    });
+    var tdd = document.createElement("td");
+    if (CAN_DELETE) {
+      var del = document.createElement("button"); del.type = "button"; del.className = "btn btn-sm btn-ghost"; del.innerHTML = '<i class="fa-solid fa-trash"></i>';
+      del.addEventListener("click", function () {
+        if (!confirm("Delete row " + r.row_no + "?")) return;
+        post(EDIT_URL, { action: "delete_row", row_no: r.row_no }).then(function (d) { if (d.ok && tr.parentNode) tr.parentNode.removeChild(tr); });
+      });
+      tdd.appendChild(del);
+    }
+    tr.appendChild(tdd); body.appendChild(tr);
+  }
+
+  function paint(inp, ok) { inp.style.background = (inp.value === "") ? "" : (ok ? "var(--okbg)" : "var(--rejbg)"); }
+
+  function saveCell(rowNo, inp) {
+    post(EDIT_URL, { action: "edit_cell", row_no: rowNo, col: inp.getAttribute("data-col"), value: inp.value })
+      .then(function (d) { paint(inp, d.ok); }).catch(function () { inp.style.background = "var(--rejbg)"; });
+  }
+
+  // Undo stack: each entry is a list of {input, prev} captured before a paste.
+  var undoStack = [];
+
+  // Paste an Excel column down consecutive rows in the same column.
+  function handlePaste(e, startTr, col) {
+    var text = (e.clipboardData || window.clipboardData).getData("text");
+    if (!text || text.indexOf("\n") === -1) return;  // single value -> default behavior
+    e.preventDefault();
+    var vals = text.replace(/\r/g, "").split("\n").filter(function (x, i, a) { return !(i === a.length - 1 && x === ""); });
+    var tr = startTr, snapshot = [];
+    vals.forEach(function (val) {
+      if (!tr) return;
+      var inp = tr.querySelector('input[data-col="' + col + '"]');
+      if (inp) { snapshot.push({ input: inp, prev: inp.value, row: parseInt(tr.getAttribute("data-row"), 10) }); inp.value = val; saveCell(snapshot[snapshot.length - 1].row, inp); }
+      tr = tr.nextElementSibling;
+    });
+    if (snapshot.length) undoStack.push(snapshot);
+  }
+
+  function undo() {
+    var snap = undoStack.pop();
+    if (!snap) return;
+    snap.forEach(function (s) { s.input.value = s.prev; saveCell(s.row, s.input); });
+  }
+  document.addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) { e.preventDefault(); undo(); }
+  });
+
+  var clearBtn = document.getElementById("clear-filters");
+  if (clearBtn) clearBtn.addEventListener("click", function () { if (GF.clearAll) GF.clearAll(); });
+
+  box.addEventListener("scroll", function () { if (box.scrollTop + box.clientHeight >= box.scrollHeight - 150) load(); });
+  reset();
+})();
+</script>
+{% endblock %}

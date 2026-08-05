@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ kind }} tool · {{ case.doc_no }}</title>
+    {% load static %}
+    {% include "includes/favicon.html" %}
+    <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-15">
+    <link rel="stylesheet" href="{% static 'itemcoder/css/tool-layout.css' %}?v=autosize-1">
+    <link rel="stylesheet" href="{% static 'itemcoder/css/tool-cells-status.css' %}?v=to-brand-2">
+    <link rel="stylesheet" href="{% static 'itemcoder/css/tool-panels.css' %}?v=attach-brand-1">
+    <link rel="stylesheet" href="{% static 'itemcoder/css/tool-icons.css' %}?v=reorg-1">
+    <link rel="stylesheet" href="{% static 'itemcoder/css/tool-dark-mode.css' %}?v=reorg-1">
+    {% if kind == 'TO' %}<link rel="stylesheet" href="{% static 'itemcoder/css/engineering_assistant.css' %}?v=ea-wrap-2">{% endif %}
+    <script>
+      // Apply the saved appearance (colour skin + light/dark) before paint, so the
+      // tool matches the app shell and the user's chosen theme.
+      (function () {
+        var r = document.documentElement, skin = 'm', mode = 'light';
+        try {
+          skin = localStorage.getItem('ft-skin') || 'blue';
+          mode = localStorage.getItem('ft-mode') || localStorage.getItem('ft-theme') || 'light';
+        } catch (e) {}
+        if (skin === 'm') skin = 'blue'; if (skin === 'f') skin = 'rose';
+        if (skin !== 'blue' && skin !== 'rose' && skin !== 'teal') skin = 'blue';
+        r.setAttribute('data-skin', skin);
+        r.setAttribute('data-mode', mode === 'dark' ? 'dark' : 'light');
+        if (mode === 'dark') r.setAttribute('data-theme', 'dark');
+      })();
+    </script>
+    <style>
+        /* Typography only — all colours now come from the active theme. */
+        :root{
+            --font:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;
+        }
+        .highlight-red { color: var(--danger); font-weight: bold; }
+        .tool-bar { position: sticky; top: 0; z-index: 200; display: flex; align-items: center;
+            gap: 10px; padding: 10px 16px; background: var(--surface); color: var(--text);
+            border-bottom: 1px solid var(--border); }
+        .tool-bar .doc { font-family: monospace; font-weight: 700; color: var(--primary); }
+        .tool-bar .builder { font-weight: 600; }
+        .tool-bar .spacer { flex: 1; }
+        /* Uniform header buttons: same height, padding, and min-width so they line
+           up neatly (Language toggle, Save, Back to case). */
+        .tb-btn {
+            font: inherit; cursor: pointer; border-radius: 8px;
+            border: 1px solid var(--border); background: var(--surface-soft);
+            color: var(--text); text-decoration: none;
+            height: 38px; min-width: 120px; padding: 0 14px;
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            box-sizing: border-box; white-space: nowrap; font-size: 13px; font-weight: 600;
+        }
+        .tb-btn:hover { border-color: var(--primary); }
+        .tb-btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .tb-btn.primary:hover { background: var(--primary-light); border-color: var(--primary-light); }
+        .tb-btn.lang-toggle.is-fa { background: var(--primary-soft, #eef2ff); border-color: var(--primary); color: var(--primary); }
+        .tb-pill { cursor: default; font-size: 12px; opacity: .85; height: 38px; display: inline-flex; align-items: center; }
+        .tool-bar a, .tool-bar button, .tool-bar .pill-note {
+            font: inherit; cursor: pointer; border-radius: 7px; }
+        .tool-bar .primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .theme-toggle { width: 38px; padding: 7px 0 !important; text-align: center; }
+        h1 { padding: 0 16px; color: var(--primary); font-size: 1.15rem; }
+        h2 { padding: 0 16px; }
+        .tool-empty { padding: 1rem 16px; color: var(--danger); }
+
+        /* Always-hidden helper columns (kept in the DOM for the coding logic,
+           hidden from view). Form-specific hiding + all column widths are done
+           deterministically in table_ui.js so the layout can never break. */
+        th[data-col-name="وزن"], td[data-col-name="وزن"],
+        th[data-col-name="Group"], td[data-col-name="Group"],
+        th[data-col-name="Type"], td[data-col-name="Type"],
+        th[data-col-name="Filled_Features"], td[data-col-name="Filled_Features"] { display: none !important; }
+    </style>
+</head>
+<body data-tool-kind="{{ kind }}"{% if hide_pricing %} data-hide-pricing="1"{% endif %}>
+
+    <div class="tool-bar">
+        <span class="doc">{{ case.doc_no }}</span>
+        {% if kind == 'TO' and case.attach_no %}<span class="tb-attach mono" title="Attach No."><i class="fa-solid fa-folder"></i> {{ case.attach_no }}</span>{% endif %}
+        <span class="builder">{{ kind }} builder{% if side_label %} · {{ side_label }}{% endif %}</span>
+        {% if kind == 'PI' and doc_kind == 'TENDER' %}<span class="indent-note"><i class="fa-solid fa-circle-info"></i> Tender case — items can't be marked “not suppliable”.</span>{% endif %}
+        <span class="spacer"></span>
+        {% if tool_mode == 'edit' %}<span class="tb-pill">Editing current version</span>{% elif tool_mode == 'newversion' %}<span class="tb-pill">New version from the last</span>{% endif %}
+        <!-- Language: button shows the TARGET language (click to switch to it). -->
+        <select class="lang-switch" data-json-url="{% url 'app_json_resource' 'data_translation.json' %}" hidden>
+            <option value="en" selected>English</option>
+            <option value="fa">Persian</option>
+        </select>
+        <button type="button" class="tb-btn lang-toggle" id="lang-toggle-btn" title="Toggle document language">
+            <i class="fa-solid fa-language"></i> <span class="lang-toggle-text">Persian</span>
+        </button>
+        <button type="button" class="tb-btn primary" id="tool-save-btn">Save {{ kind }}</button>
+        <a class="tb-btn" href="/cases/{{ case.pk }}/">Back to case</a>
+    </div>
+    <script>
+    (function () {
+      var sel = document.querySelector('.lang-switch');
+      var btn = document.getElementById('lang-toggle-btn');
+      if (!sel || !btn) return;
+      var txt = btn.querySelector('.lang-toggle-text');
+      function paint() {
+        var fa = sel.value === 'fa';
+        // Label = language you switch TO (opposite of current view).
+        if (txt) txt.textContent = fa ? 'English' : 'Persian';
+        btn.classList.toggle('is-fa', fa);
+      }
+      btn.addEventListener('click', function () {
+        sel.value = (sel.value === 'fa') ? 'en' : 'fa';
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+        paint();
+      });
+      paint();
+    })();
+    </script>
+
+    <h1 class="tool-page-title">{% if kind == 'PI' %}Proforma Invoice{% else %}Technical Offer{% endif %}{% if side_label %} · {{ side_label }}{% endif %}</h1>
+
+    {% if table_html %}
+        {% if kind == 'PI' %}
+        <section id="calculation-control-card" class="calculation-card" hidden data-config="{{ calculation_ui_config }}">
+            <div class="calc-grid calc-grid-pi" data-fx-api="{% url 'cases:fx_rates_api' %}">
+                <div class="calc-section calc-section-target" id="calc-target-host">
+                    <!-- Target total injected by pi_pricing.js -->
+                </div>
+                <div class="calc-section calc-section-convert">
+                    <div class="calc-section-title"><i class="fa-solid fa-right-left"></i> Unit conversion</div>
+                    <div class="calc-inline">
+                        <label>From
+                            <select id="calc-convert-from" disabled>
+                                {% if external_currency %}
+                                <option value="usd" selected>USD ($)</option>
+                                {% else %}
+                                <option value="rial" selected>Rial</option>
+                                {% endif %}
+                            </select>
+                        </label>
+                        <label>To
+                            <div id="calc-convert-to-combo" class="gm-combo"></div>
+                            <select id="calc-convert-to" hidden>
+                                {% if external_currency %}
+                                <option value="usd" selected>USD ($)</option>
+                                <option value="eur">EUR (€)</option>
+                                {% else %}
+                                <option value="rial" selected>Rial</option>
+                                <option value="usd">USD ($)</option>
+                                <option value="eur">EUR (€)</option>
+                                {% endif %}
+                            </select>
+                        </label>
+                        <label id="calc-convert-rate-wrap" class="calc-rate-wrap" hidden>
+                            Rate
+                            <span class="calc-rate-field">
+                                <input type="text" id="calc-convert-rate" class="calc-rate-locked" value=""
+                                       readonly tabindex="-1" aria-readonly="true">
+                                <span id="calc-convert-rate-unit" class="calc-rate-unit"></span>
+                            </span>
+                        </label>
+                        <input type="hidden" id="calc-convert-pending-to" value="">
+                        <div class="calc-conv-actions">
+                            <button type="button" id="calc-convert-confirm" class="btn btn-sm btn-primary" disabled>
+                                <i class="fa-solid fa-check"></i> Confirm
+                            </button>
+                            <button type="button" id="calc-convert-reset" class="btn btn-sm btn-ghost" hidden title="Restore default From currency">
+                                <i class="fa-solid fa-rotate-left"></i> Reset
+                            </button>
+                        </div>
+                    </div>
+                    <div id="calc-fx-note" class="muted" style="font-size:.72rem;margin-top:.35rem;"></div>
+                </div>
+                <div class="calc-section calc-section-margin">
+                    <div class="calc-section-title"><i class="fa-solid fa-percent"></i> Margin</div>
+                    <div class="gm-layout">
+                        <div class="gm-controls">
+                            <div class="gm-row">
+                                <label>Group
+                                    <div id="gm-group-combo" class="gm-combo"></div>
+                                    <select id="global-margin-group" hidden>
+                                        <option value="__all__">All</option>
+                                        {% for group_name in group_options %}
+                                            <option value="{{ group_name }}">{{ group_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </label>
+                                <div id="global-margin-list" class="gm-list">
+                                    <div class="global-margin-row">
+                                        <input class="global-margin-percent" type="text" inputmode="decimal" placeholder="Margin %">
+                                    </div>
+                                </div>
+                                <div class="calc-actions gm-actions">
+                                    <button type="button" id="add-global-margin" title="Add a margin step">+</button>
+                                    <button type="button" id="remove-global-margin" title="Remove last margin step">−</button>
+                                </div>
+                            </div>
+                            <div class="gm-report-actions">
+                                <label class="calc-switch-row gm-perrow-row" for="toggle-row-margin">
+                                  <span class="calc-switch-label">Per-row margin editor</span>
+                                  <span class="ft-switch"><input type="checkbox" id="toggle-row-margin"><span class="ft-switch-slider"></span></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div id="gm-report" class="gm-report" hidden></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        {% endif %}
+
+        {% if kind == 'PI' and not hide_pricing %}
+        <div id="pi-grand-strip" class="pi-grand-strip" data-vat-percent="{{ vat_percent|default:10 }}">
+          <div class="pi-tot-pill">
+            <span class="pi-grand-strip-label">Subtotal</span>
+            <strong id="pi-subtotal">0</strong>
+          </div>
+          <div class="pi-tot-pill" id="pi-svc-total-pill" hidden>
+            <span class="pi-grand-strip-label"><i class="fa-solid fa-screwdriver-wrench"></i> Total service price</span>
+            <strong id="pi-svc-total">0</strong>
+          </div>
+          <div class="pi-tot-pill">
+            <span class="pi-grand-strip-label" id="pi-vat-label">VAT ({{ vat_percent|default:10 }}%)</span>
+            <strong id="pi-vat-total">0</strong>
+          </div>
+          <div class="pi-tot-pill pi-tot-pill-grand">
+            <span class="pi-grand-strip-label"><i class="fa-solid fa-equals"></i> Grand total</span>
+            <strong id="pi-grand-total">0</strong>
+          </div>
+        </div>
+        {% elif kind == 'PI' %}
+        {% comment %} hide_pricing: pi_pricing.js falls back to #excel-table-container as its
+           insertion anchor when #pi-grand-strip doesn't exist — every totals-strip
+           element lookup in that file is already null-guarded, so omitting this
+           block entirely is safe, not just visually equivalent to hiding it. {% endcomment %}
+        {% else %}
+        <div class="to-top-grid">
+          <div class="to-panel">
+            <div class="to-panel-title"><i class="fa-solid fa-table-list"></i> Details table</div>
+            <div class="to-metric to-metric-amber">
+              <span class="to-metric-ico"><i class="fa-solid fa-barcode"></i></span>
+              <div class="to-metric-body"><span class="to-metric-num" id="to-nocode-count">0</span><span class="to-metric-label">rows without an FT CODE</span><span class="to-metric-rows" id="to-nocode-rows"></span></div>
+              <label class="ft-switch" title="Show only these rows"><input type="checkbox" id="to-nocode-chk"><span class="ft-switch-slider"></span></label>
+            </div>
+            <div class="to-metric to-metric-purple">
+              <span class="to-metric-ico"><i class="fa-solid fa-screwdriver-wrench"></i></span>
+              <div class="to-metric-body"><span class="to-metric-num" id="to-issue-count">0</span><span class="to-metric-label">rows flagged Technical Problem</span><span class="to-metric-rows" id="to-issue-rows"></span></div>
+              <label class="ft-switch" title="Show only these rows"><input type="checkbox" id="to-issue-chk"><span class="ft-switch-slider"></span></label>
+            </div>
+            <div class="to-metric to-metric-blue">
+              <span class="to-metric-ico"><i class="fa-solid fa-copyright"></i></span>
+              <div class="to-metric-body"><span class="to-metric-num" id="to-nobrand-count">0</span><span class="to-metric-label">rows without a BRAND</span><span class="to-metric-rows" id="to-nobrand-rows"></span></div>
+              <label class="ft-switch" title="Show only these rows"><input type="checkbox" id="to-nobrand-chk"><span class="ft-switch-slider"></span></label>
+            </div>
+            <div class="to-brand-bulk to-metric to-metric-blue" title="Apply Brand to currently visible (filtered) rows">
+              <label for="to-brand-input"><i class="fa-solid fa-copyright"></i> Brand</label>
+              <div class="to-brand-bulk-row">
+                <input id="to-brand-input" type="text" placeholder="Brand…" autocomplete="off">
+                <button type="button" id="to-brand-apply" class="btn btn-sm btn-primary">Apply</button>
+              </div>
+            </div>
+            {% if proforma_remark_count %}
+            <div class="to-metric to-metric-amber">
+              <span class="to-metric-ico"><i class="fa-solid fa-comment-dots"></i></span>
+              <div class="to-metric-body"><span class="to-metric-num" id="pf-remark-count">{{ proforma_remark_count }}</span><span class="to-metric-label">rows with Proforma remark</span><span class="to-metric-rows" id="pf-remark-rows"></span></div>
+              <label class="ft-switch" title="Show only these rows"><input type="checkbox" id="pf-filter-chk"><span class="ft-switch-slider"></span></label>
+            </div>
+            {% endif %}
+          </div>
+          <div class="to-panel to-panel-tools">
+            <div class="to-panel-title"><i class="fa-solid fa-screwdriver-wrench"></i> Technical tools</div>
+            <div class="to-tool-row">
+              <div class="to-metric to-metric-teal to-qty6-card" title="Click the label to round pipe Qty up to ×6; use the switch to filter those rows">
+                <button type="button" id="tool-pipe-qty" class="to-qty6-action">
+                  <span class="to-metric-ico"><i class="fa-solid fa-ruler-combined"></i></span>
+                  <div class="to-metric-body">
+                    <span class="to-metric-num" id="pipe-qty-count">0</span>
+                    <span class="to-metric-label">Qty ×6</span>
+                  </div>
+                </button>
+                <label class="ft-switch" title="Show only rows rounded by Qty ×6">
+                  <input type="checkbox" id="tool-pipe-qty-filter" disabled>
+                  <span class="ft-switch-slider"></span>
+                </label>
+              </div>
+              <button type="button" class="to-tool-tile" data-pipe-tool="nps" title="NPS ↔ DN steel sizes">
+                <span class="to-tool-ico to-tool-ico-teal"><i class="fa-solid fa-right-left"></i></span>
+                <span class="to-tool-name">NPS ↔ DN</span>
+              </button>
+              <button type="button" class="to-tool-tile" data-pipe-tool="polymer" title="Polymer DN / SDR">
+                <span class="to-tool-ico to-tool-ico-cyan"><i class="fa-solid fa-droplet"></i></span>
+                <span class="to-tool-name">Polymer</span>
+              </button>
+              <button type="button" class="to-tool-tile" data-pipe-tool="sch" title="Schedule → wall thickness">
+                <span class="to-tool-ico to-tool-ico-amber"><i class="fa-solid fa-table-list"></i></span>
+                <span class="to-tool-name">Schedule</span>
+              </button>
+              <button type="button" class="to-tool-tile" data-pipe-tool="units" title="Unit converter">
+                <span class="to-tool-ico to-tool-ico-green"><i class="fa-solid fa-calculator"></i></span>
+                <span class="to-tool-name">Units</span>
+              </button>
+              <button type="button" class="to-tool-tile" data-pipe-tool="valvetrim" title="Valve trim numbers &amp; materials (API 600)">
+                <span class="to-tool-ico to-tool-ico-purple"><i class="fa-solid fa-gears"></i></span>
+                <span class="to-tool-name">Valve trim</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div id="tp-reason-card" class="tp-reason-card" hidden>
+          <div class="tp-reason-left">
+            <div class="tp-reason-title">Technical problem detail · <b id="tp-reason-item">—</b></div>
+            <p id="tp-reason-hint" class="tp-reason-hint" hidden></p>
+            <textarea id="tp-reason-input" rows="3" placeholder="One reason for all selected rows…"></textarea>
+            <div id="tp-reason-error" class="tp-reason-error" hidden></div>
+            <div class="tp-reason-actions">
+              <button type="button" class="btn btn-sm" id="tp-reason-cancel">Cancel</button>
+              <button type="button" class="btn btn-sm btn-primary" id="tp-reason-confirm">Confirm</button>
+            </div>
+          </div>
+          <div class="tp-reason-right">
+            <div class="tp-reason-title">Confirmed problems</div>
+            <ul id="tp-reason-list" class="tp-reason-list"></ul>
+          </div>
+        </div>
+        {% if proforma_remark_count %}
+        {{ proforma_remarks_map|json_script:"ft-proforma-remarks" }}
+        {% endif %}
+        {% endif %}
+        <div id="ft-paste-note" class="ft-paste-note" hidden></div>
+        {% if hide_pricing and pricing_applied %}
+        <div class="pi-pricing-applied-badge"><i class="fa-solid fa-circle-check"></i> Pricing Applied</div>
+        {% endif %}
+        <div id="ft-rowcount-bar" class="ft-rowcount-bar ft-rowcount-{{ kind|lower }}">
+          <span class="ft-rowcount-chip"><i class="fa-solid fa-list-ol"></i> <b id="ft-rowcount-num">0</b> item</span>
+        </div>
+        <div id="excel-table-container">
+            <div id="virtual-scroll-viewport">
+                <div id="virtual-scroll-spacer" style="position:absolute;top:0;left:0;right:0;width:100%;pointer-events:none;"></div>
+                <table id="virtual-scroll-table">
+                    <thead><tr id="virtual-scroll-header-row"></tr></thead>
+                    <tbody id="virtual-scroll-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <template id="raw-excel-template">{{ table_html|safe }}</template>
+    {% else %}
+        {% if seed_error %}
+        <p class="tool-empty"><i class="fa-solid fa-triangle-exclamation"></i> {{ seed_error }}</p>
+        {% else %}
+        <p class="tool-empty">This case has no inquiry rows to load. Add inquiry items first.</p>
+        {% endif %}
+    {% endif %}
+
+    <script>
+      window.FT_TOOL_SAVE = { saveUrl: "{{ save_url }}", statusUrl: "/tool/case/{{ case.pk }}/{{ kind }}/status/?side={{ side|default:'' }}", currencyLogUrl: "{% url 'cases:log_currency_conversion' case.pk %}", csrfToken: "{{ csrf_token }}", mode: "{{ tool_mode }}", kind: "{{ kind }}", docKind: "{{ doc_kind }}", pricingLocked: {% if pricing_locked %}true{% else %}false{% endif %}, requireFtcoCode: {% if require_ftco_code %}true{% else %}false{% endif %}, externalCurrency: {% if external_currency %}true{% else %}false{% endif %}, unlockCommercial: {% if unlock_commercial %}true{% else %}false{% endif %}, side: "{{ side|default:'' }}", caseId: {{ case.pk }}, hidePricing: {% if hide_pricing %}true{% else %}false{% endif %} };
+    </script>
+    {{ group_features_map|json_script:"ft-group-features" }}
+    {{ group_feature_aliases|json_script:"ft-group-feature-aliases" }}
+    {{ group_feature_values|json_script:"ft-group-feature-values" }}
+    {{ group_compound_map|json_script:"ft-group-compound-map" }}
+    {{ saved_calc_map|json_script:"ft-saved-calc" }}
+    {% if kind == 'TO' %}<script src="{% static 'itemcoder/js/to_proforma.js' %}?v=to-brand-1"></script>
+    <script src="{% static 'itemcoder/js/pipe_tools.js' %}?v=pipetools-2-valvetrim"></script>
+    <script src="{% static 'itemcoder/js/feature_filter.js' %}?v=tofilter-9-parse"></script>
+    <script src="{% static 'itemcoder/js/engineering_assistant.js' %}?v=ea-wrap-2"></script>{% endif %}
+    {% if kind == 'PI' %}<script src="{% static 'itemcoder/js/pi_columns.js' %}?v=price-sep-1"></script>{% endif %}
+    <script src="{% static 'itemcoder/js/undo_manager.js' %}?v=undo-3"></script>
+    <script src="{% static 'itemcoder/js/proforma_remark_column.js' %}?v=pfcol-5-count"></script>
+    <script src="{% static 'itemcoder/js/remark_split.js' %}?v=rmksplit-5-rejectprev-pi"></script>
+    <script src="{% static 'itemcoder/js/brand_split.js' %}?v=brdsplit-2"></script>
+    <script src="{% static 'itemcoder/js/virtual_scroll_engine.js' %}?v=vs-svc-col-1"></script>
+    <script src="{% static 'itemcoder/js/item_flag.js' %}?v=tp-multi-2"></script>
+    <script src="{% static 'itemcoder/js/row_processor.js' %}?v=ftco-edit-3"></script>
+    <script src="{% static 'itemcoder/js/table_ui.js' %}?v=self-append-1"></script>
+    <script src="{% static 'itemcoder/js/excel_paste.js' %}?v=pasteundo-5"></script>
+    <script src="{% static 'itemcoder/js/calculation_controls.js' %}?v=fxboard-5"></script>
+    <script src="{% static 'itemcoder/js/translator.js' %}?v=ftco-edit-3"></script>
+    <script src="{% static 'itemcoder/js/tool_save.js' %}?v=brand-split-scope-1"></script>
+    {% if kind == 'PI' %}<script src="{% static 'itemcoder/js/pi_pricing.js' %}?v=price-sep-1"></script>
+    <script src="{% static 'itemcoder/js/pi_same_code_sync.js' %}?v=no-brand-remark-sync-1"></script>
+    <script src="{% static 'itemcoder/js/service_price.js' %}?v=svcprice-5"></script>{% endif %}
+    <script src="{% static 'itemcoder/js/tool_guard.js' %}?v=kickout-1"></script>
+</body>
+</html>

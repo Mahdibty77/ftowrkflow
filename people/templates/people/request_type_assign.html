@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Assign {{ request_type.title }} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Assign · {{ request_type.title }}{% endblock %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-18">
+{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1><i class="fa-solid {{ request_type.icon }}"></i> Assign · {{ request_type.title }}</h1>
+    <div class="sub">{{ request_type.description }} · Currently granted: {{ granted_count }}</div>
+  </div>
+  <div class="btn-row">
+    <a href="{% url 'people:request_types' %}" class="btn btn-sm"><i class="fa-solid fa-arrow-left"></i> Back</a>
+  </div>
+</div>
+
+<form method="post" id="assignForm" class="card ppl-assign-card">
+  {% csrf_token %}
+  <div class="ppl-assign-toolbar">
+    <input type="search" id="personSearch" class="ppl-assign-search" placeholder="Search people…" autocomplete="off">
+    <button type="button" class="btn btn-sm" id="selectAllBtn">Select all</button>
+  </div>
+  <div class="ppl-assign-list" id="assignList" role="listbox" aria-multiselectable="true">
+    {% for row in rows %}
+    <label class="ppl-assign-row{% if row.checked %} is-selected{% endif %}"
+           data-label="{{ row.label|lower }} {{ row.code|lower }} {{ row.username|lower }}"
+           data-assign-row>
+      <input type="checkbox" name="person_ids" value="{{ row.person.pk }}" class="ppl-assign-check" hidden {% if row.checked %}checked{% endif %}>
+      <span class="ppl-assign-bar" aria-hidden="true"></span>
+      <span class="ppl-assign-meta">
+        <strong class="ppl-assign-name">{{ row.label }}</strong>
+        {% if row.code %}<span class="muted mono ppl-assign-code">{{ row.code }}</span>{% endif %}
+        {% if row.username %}<span class="muted ppl-assign-user">{{ row.username }}</span>{% endif %}
+      </span>
+    </label>
+    {% empty %}
+    <p class="muted" style="padding:1rem;">No people found.</p>
+    {% endfor %}
+  </div>
+  <div class="btn-row" style="margin-top:1rem;">
+    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save assignment</button>
+    <a href="{% url 'people:request_types' %}" class="btn btn-ghost">Cancel</a>
+  </div>
+</form>
+<style>
+  .ppl-assign-card{max-width:720px;padding:1.1rem 1.2rem 1.25rem;}
+  .ppl-assign-toolbar{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:.85rem;}
+  .ppl-assign-search{
+    flex:1;min-width:12rem;background:var(--paper);color:var(--ink);
+    border:1px solid var(--line);border-radius:9px;padding:.5rem .7rem;font:inherit;
+  }
+  .ppl-assign-list{
+    display:flex;flex-direction:column;gap:.2rem;max-height:420px;overflow:auto;
+    border:1px solid var(--line);border-radius:10px;padding:.35rem;
+    background:color-mix(in srgb,var(--accent) 3%,var(--paper));
+  }
+  .ppl-assign-row{
+    display:grid;grid-template-columns:4px 1fr;gap:0 .75rem;align-items:center;
+    padding:.48rem .7rem .48rem .55rem;border-radius:8px;cursor:pointer;
+    border:1px solid transparent;background:var(--paper);
+    transition:background .12s,border-color .12s;
+  }
+  .ppl-assign-bar{
+    width:4px;align-self:stretch;border-radius:4px;min-height:1.35rem;
+    background:transparent;transition:background .12s;
+  }
+  .ppl-assign-meta{
+    display:flex;flex-direction:row;flex-wrap:wrap;align-items:baseline;
+    gap:.2rem .65rem;min-width:0;padding:.05rem 0;
+  }
+  .ppl-assign-name{font-size:.9rem;line-height:1.25;white-space:nowrap;}
+  .ppl-assign-code,.ppl-assign-user{font-size:.8rem;line-height:1.25;white-space:nowrap;}
+  .ppl-assign-row:hover{
+    background:color-mix(in srgb,var(--accent) 8%,var(--paper));
+    border-color:color-mix(in srgb,var(--accent) 18%,var(--line));
+  }
+  .ppl-assign-row.is-selected{
+    background:color-mix(in srgb,var(--accent) 14%,var(--paper));
+    border-color:color-mix(in srgb,var(--accent) 35%,var(--line));
+  }
+  .ppl-assign-row.is-selected .ppl-assign-bar{background:var(--accent);}
+  .ppl-assign-row.is-filtered-out{display:none !important;}
+</style>
+<script>
+(function () {
+  var q = document.getElementById('personSearch');
+  var allBtn = document.getElementById('selectAllBtn');
+  var rows = Array.prototype.slice.call(document.querySelectorAll('[data-assign-row]'));
+
+  function visibleRows() {
+    return rows.filter(function (r) { return !r.classList.contains('is-filtered-out'); });
+  }
+  function syncRow(row) {
+    var cb = row.querySelector('.ppl-assign-check');
+    row.classList.toggle('is-selected', !!(cb && cb.checked));
+  }
+  function syncAllBtn() {
+    if (!allBtn) return;
+    var vis = visibleRows();
+    var n = 0;
+    vis.forEach(function (r) {
+      var cb = r.querySelector('.ppl-assign-check');
+      if (cb && cb.checked) n++;
+    });
+    var allOn = vis.length > 0 && n === vis.length;
+    allBtn.textContent = allOn ? 'Clear all' : 'Select all';
+    allBtn.classList.toggle('btn-primary', allOn);
+  }
+  function sync() {
+    rows.forEach(syncRow);
+    syncAllBtn();
+  }
+
+  rows.forEach(function (row) {
+    row.addEventListener('click', function (e) {
+      e.preventDefault();
+      var cb = row.querySelector('.ppl-assign-check');
+      if (!cb) return;
+      cb.checked = !cb.checked;
+      sync();
+    });
+  });
+
+  if (q) {
+    q.addEventListener('input', function () {
+      var s = (q.value || '').toLowerCase().trim();
+      rows.forEach(function (r) {
+        var hay = r.getAttribute('data-label') || '';
+        r.classList.toggle('is-filtered-out', !!(s && hay.indexOf(s) === -1));
+      });
+      syncAllBtn();
+    });
+  }
+  if (allBtn) {
+    allBtn.addEventListener('click', function () {
+      var vis = visibleRows();
+      var n = 0;
+      vis.forEach(function (r) {
+        var cb = r.querySelector('.ppl-assign-check');
+        if (cb && cb.checked) n++;
+      });
+      var turnOn = !(vis.length > 0 && n === vis.length);
+      vis.forEach(function (r) {
+        var cb = r.querySelector('.ppl-assign-check');
+        if (cb) cb.checked = turnOn;
+      });
+      sync();
+    });
+  }
+  sync();
+})();
+</script>
+{% endblock %}

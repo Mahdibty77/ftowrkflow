@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}New case · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}New Case{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>New Case</h1><div class="sub">Open a commercial case and enter the inquiry items.</div></div>
+</div>
+
+<form method="post" enctype="multipart/form-data" id="case-form" novalidate autocomplete="off">
+  {% csrf_token %}
+
+  <div class="flash flash-error" id="client-error" style="display:none;">
+    <strong><i class="fa-solid fa-triangle-exclamation"></i> </strong><span></span>
+  </div>
+
+  {% if form.errors %}
+    <div class="flash flash-error" style="display:block;">
+      <strong><i class="fa-solid fa-triangle-exclamation"></i> The case could not be created:</strong>
+      <ul style="margin:.4rem 0 0 1.1rem;">
+        {% for err in form.non_field_errors %}<li>{{ err }}</li>{% endfor %}
+        {% for field in form %}{% for err in field.errors %}<li>{{ field.label }}: {{ err }}</li>{% endfor %}{% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <div class="btn-row form-actions-top">
+    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-circle-plus"></i> Create case</button>
+    <a href="{% url 'cases:inbox' %}" class="btn btn-ghost">Cancel</a>
+    <span class="spacer"></span>
+    <span class="muted" style="font-size:.78rem;"><span class="req">*</span> Required &nbsp;·&nbsp; Draft is kept until the case is created.</span>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3><i class="fa-solid fa-building"></i> Client information</h3></div>
+    <div class="grid grid-3">
+      <div class="field">
+        <label for="{{ form.client.id_for_label }}"><i class="fa-solid fa-building"></i> {{ form.client.label }}<span class="req" title="Required">*</span></label>
+        {{ form.client }}
+        {% if form.client.errors %}<ul class="errorlist">{% for e in form.client.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.order_no.id_for_label }}"><i class="fa-solid fa-file-lines"></i> {{ form.order_no.label }}<span class="req" title="Required">*</span></label>
+        {{ form.order_no }}
+        {% if form.order_no.errors %}<ul class="errorlist">{% for e in form.order_no.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.client_commercial_expert.id_for_label }}"><i class="fa-solid fa-user"></i> {{ form.client_commercial_expert.label }}</label>
+        {{ form.client_commercial_expert }}
+      </div>
+      <div class="field">
+        <label for="{{ form.client_commercial_phone.id_for_label }}"><i class="fa-solid fa-phone"></i> {{ form.client_commercial_phone.label }}</label>
+        {{ form.client_commercial_phone }}
+        <div class="help">Optional.</div>
+      </div>
+      <div class="field">
+        <label for="{{ form.client_technical_expert.id_for_label }}"><i class="fa-solid fa-user-gear"></i> {{ form.client_technical_expert.label }}</label>
+        {{ form.client_technical_expert }}
+      </div>
+      <div class="field">
+        <label for="{{ form.client_technical_phone.id_for_label }}"><i class="fa-solid fa-phone"></i> {{ form.client_technical_phone.label }}</label>
+        {{ form.client_technical_phone }}
+        <div class="help">Optional.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3><i class="fa-solid fa-sliders"></i> Offer details</h3></div>
+    <div class="grid grid-3">
+      <div class="field">
+        <label for="{{ form.kind.id_for_label }}"><i class="fa-solid fa-tag"></i> {{ form.kind.label }}<span class="req" title="Required">*</span></label>
+        {{ form.kind }}
+        {% if form.kind.errors %}<ul class="errorlist">{% for e in form.kind.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.offer_type.id_for_label }}"><i class="fa-solid fa-file-invoice-dollar"></i> {{ form.offer_type.label }}<span class="req" title="Required">*</span></label>
+        {{ form.offer_type }}
+        <div class="help">Choose “TO &amp; PI” when the case needs pricing by Supply.</div>
+        {% if form.offer_type.errors %}<ul class="errorlist">{% for e in form.offer_type.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.price_type.id_for_label }}"><i class="fa-solid fa-layer-group"></i> {{ form.price_type.label }}<span class="req" title="Required">*</span></label>
+        {{ form.price_type }}
+        <div class="help">Internal, External, or both — splits the case into sub-streams.</div>
+        {% if form.price_type.errors %}<ul class="errorlist">{% for e in form.price_type.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.deadline.id_for_label }}"><i class="fa-solid fa-clock"></i> {{ form.deadline.label }}</label>
+        {{ form.deadline }}
+        <div class="help">Optional. If set, it cannot be earlier than now.</div>
+        {% if form.deadline.errors %}<ul class="errorlist">{% for e in form.deadline.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h3>Inquiry items</h3>
+      <div class="btn-row">
+        <button type="button" class="btn btn-sm" id="add-row">+ Add row</button>
+        <button type="button" class="btn btn-sm" id="clear-rows">Clear</button>
+      </div>
+    </div>
+    <p class="muted" style="margin-top:0;font-size:.8rem;">
+      Paste rows straight from Excel (Description, Size, Qty, Unit) anywhere in the grid,
+      or add rows by hand. Alternatively upload an Excel file below.
+      Description ≥ 7 characters · Size ≤ 20 · Qty numbers only · Unit letters ( . / - _ % allowed).
+    </p>
+
+    <div class="table-wrap vscroll">
+      <table class="data" id="items-table">
+        <thead>
+          <tr><th class="inq-col-num" style="width:44px">#</th><th class="inq-col-num" style="width:64px">Item No.</th><th>Description</th><th style="width:140px">Size</th><th style="width:90px">Qty</th><th style="width:110px">Unit</th><th style="width:40px"></th></tr>
+        </thead>
+        <tbody id="items-body"></tbody>
+      </table>
+    </div>
+
+    <div class="field" style="margin-top:1rem;max-width:520px;">
+      <label for="{{ form.excel_file.id_for_label }}">…or upload Excel (first 4 columns: Description, Size, Qty, Unit)</label>
+      <div class="btn-row" style="align-items:center;">
+        {{ form.excel_file }}
+        <button type="button" class="btn btn-sm btn-primary" id="upload-excel-btn" style="display:none;"><i class="fa-solid fa-file-arrow-up"></i> Upload &amp; fill grid</button>
+        <span id="upload-status" class="muted" style="font-size:.78rem;"></span>
+      </div>
+    </div>
+
+    {{ form.pasted_table }}
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>window.FT_PREVIEW_URL = "{% url 'cases:preview_excel' %}";</script>
+<script src="{% static 'js/inquiry_grid_validate.js' %}?v=4"></script>
+<script src="{% static 'js/case_create.js' %}?v=10"></script>
+<script>
+/* Standalone New-Case validator. Independent of case_create.js and of the CSS
+   cascade: it paints the empty required fields red with INLINE styles and shows
+   a banner. Runs in the capture phase so it executes before any other submit
+   handler and can stop submission. */
+(function () {
+  function ready(fn) {
+    if (document.readyState !== "loading") fn();
+    else document.addEventListener("DOMContentLoaded", fn);
+  }
+  ready(function () {
+    var form = document.getElementById("case-form");
+    if (!form) return;
+    // Disable native HTML5 constraint validation: the required <select>s are
+    // hidden by the search combo (display:none), and a hidden required control
+    // makes the browser abort submit with "not focusable" BEFORE any JS runs.
+    // We validate ourselves (below) and on the server, so turn the native one off.
+    form.noValidate = true;
+    form.setAttribute("novalidate", "novalidate");
+    form.querySelectorAll("[required]").forEach(function (el) { el.removeAttribute("required"); });
+
+    var RED = "#d11", RING = "0 0 0 2px rgba(209,17,17,.20)";
+
+    function fieldOf(el) { return el.closest(".field") || el.parentNode; }
+    function control(field) {
+      return field.querySelector(".combo-input") || field.querySelector("input, select, textarea");
+    }
+    function paint(field, on) {
+      var c = control(field);
+      if (!c) return;
+      if (on) { c.style.borderColor = RED; c.style.boxShadow = RING; field.classList.add("is-error"); }
+      else { c.style.borderColor = ""; c.style.boxShadow = ""; field.classList.remove("is-error"); }
+    }
+    function hasItems() {
+      var b = document.getElementById("items-body");
+      if (!b) return true;
+      return Array.prototype.some.call(b.querySelectorAll("input"), function (i) {
+        return i.value && i.value.trim();
+      });
+    }
+
+    // Clear a field's red state as soon as it gets a value.
+    form.querySelectorAll("[data-required]").forEach(function (el) {
+      el.addEventListener("change", function () {
+        if (el.value && String(el.value).trim()) paint(fieldOf(el), false);
+      });
+    });
+
+    form.addEventListener("submit", function (e) {
+      var missing = 0, firstBad = null;
+      form.querySelectorAll("[data-required]").forEach(function (el) {
+        var empty = !el.value || !String(el.value).trim();
+        paint(fieldOf(el), empty);
+        if (empty) { missing++; if (!firstBad) firstBad = fieldOf(el); }
+      });
+      var noItems = !hasItems();
+      var table = document.getElementById("items-table");
+      if (table) { table.style.outline = noItems ? "2px solid " + RED : ""; table.style.outlineOffset = "2px"; }
+
+      // An Excel file chosen but not previewed into the grid must be loaded
+      // first (otherwise the rows would not be visible/editable and could be
+      // double-counted). Block submit and tell the user to click the load button.
+      var needsPreview = (typeof window.FT_excelNeedsPreview === "function") && window.FT_excelNeedsPreview();
+      if (needsPreview) {
+        e.preventDefault();
+        e.stopPropagation();
+        var b2 = document.getElementById("client-error");
+        if (b2) {
+          var s2 = b2.querySelector("span");
+          var m2 = "You uploaded an Excel file — click “Upload & fill grid” to load its rows before creating the case.";
+          if (s2) s2.textContent = m2; else b2.textContent = m2;
+          b2.style.display = "flex";
+        }
+        var up = document.getElementById("upload-excel-btn");
+        if (up && up.focus) { try { up.focus(); } catch (err) {} }
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return false;
+      }
+
+      var inqCheck = (typeof window.FT_validateInquiryGrid === "function")
+        ? window.FT_validateInquiryGrid()
+        : { ok: true };
+      if (!inqCheck.ok) {
+        e.preventDefault();
+        e.stopPropagation();
+        var b3 = document.getElementById("client-error");
+        if (b3) {
+          var s3 = b3.querySelector("span");
+          var m3 = (inqCheck.message || "Inquiry items are invalid.").replace(/\n/g, " · ");
+          if (s3) s3.textContent = m3; else b3.textContent = m3;
+          b3.style.display = "flex";
+        }
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return false;
+      }
+
+      if (missing || noItems) {
+        e.preventDefault();
+        e.stopPropagation();
+        var banner = document.getElementById("client-error");
+        if (banner) {
+          var span = banner.querySelector("span");
+          var msg = "Please fill the highlighted required field(s)";
+          if (noItems) msg += missing ? " and add at least one item to the table." : ". Add at least one item to the table.";
+          else msg += ".";
+          if (span) span.textContent = msg; else banner.textContent = msg;
+          banner.style.display = "flex";
+        }
+        var c = firstBad && control(firstBad);
+        if (c && c.focus) { try { c.focus(); } catch (err) {} }
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return false;
+      }
+    }, true);  // capture phase
+  });
+})();
+</script>
+{% endblock %}

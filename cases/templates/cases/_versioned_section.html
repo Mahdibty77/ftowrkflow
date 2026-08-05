@@ -1,0 +1,16 @@
+{% load ft_extras %}
+
+{% if forms %}
+  <div class="vchips" data-vgroup="{{ group_id }}">
+    {% for f in forms %}
+      <button type="button" class="vchip{% if forloop.last %} active{% endif %}" data-vgroup="{{ group_id }}" data-vtarget="{{ group_id }}-{{ forloop.counter0 }}" data-version="{{ f.version }}">Version {{ f.version|stringformat:"02d" }}{% if f.two_stage %} · Two&nbsp;Stage{% endif %}{% if f.meta|dictget:'currency_conversion_only' %} · Unit convert{% endif %}{% if f.meta|dictget:'update_price' %} · Update price{% endif %}</button>
+    {% endfor %}
+  </div>
+  {% for f in forms %}
+    <div class="vbody" id="{{ group_id }}-{{ forloop.counter0 }}"{% if not forloop.last %} style="display:none"{% endif %}>
+      {% include "cases/_form_table.html" with form_obj=f %}
+    </div>
+  {% endfor %}
+{% else %}
+  <div class="empty">{{ empty_text }}</div>
+{% endif %}

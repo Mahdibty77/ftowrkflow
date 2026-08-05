@@ -1,0 +1,519 @@
+{% extends "base.html" %}
+{% load ft_extras %}
+{% block title %}{{ case.doc_no }} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Case {{ case.doc_no }}{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">
+      <span class="docno-line">
+        <span class="docno"><span>{{ case.doc_no }}</span></span>{% if case.is_delegated %} <span class="pill pill-delegated">Delegated</span>{% endif %}
+      </span>
+      {% if is_split %}
+        {% for s_label, s_status, s_color in status_rows %}
+          <span class="status-tag" style="--sc:{{ s_color }}">{% if s_label %}{{ s_label }}: {% endif %}{{ s_status }}</span>
+        {% endfor %}
+      {% else %}
+        <span class="status-tag" style="--sc:{{ case.status_color }}">{{ case.status_label }}</span>
+      {% endif %}
+    </h1>
+    {% if viewer_unit != 'SUPPLY' %}<div class="sub">{{ case.client.name }} <span class="mono">({{ case.client.code }})</span></div>{% endif %}
+  </div>
+</div>
+
+<div class="grid grid-3">
+  <div class="card" style="grid-column:span 2;">
+    <div class="card-head">
+      <h3><i class="fa-solid fa-circle-info" style="color:var(--accent-strong);margin-right:.4rem;"></i>Case information</h3>
+      {% if 'edit_info' in actions and is_fresh_draft %}
+        <a href="{% url 'cases:edit_items' case.pk %}" class="btn btn-sm"><i class="fa-solid fa-pen"></i> Edit information</a>
+      {% elif 'edit_contacts' in actions %}
+        <a href="{% url 'cases:edit_items' case.pk %}?contacts=1" class="btn btn-sm"><i class="fa-solid fa-pen"></i> Edit information</a>
+      {% endif %}
+    </div>
+
+    <div class="infobox">
+      <div class="box hot">
+        <span class="bi"><i class="fa-solid fa-file-invoice-dollar"></i></span>
+        <div><div class="bl">Offer type</div>
+          <div class="bv">
+            {% if case.needs_pricing %}TO &amp; PI (Technical Offer + Proforma){% if case.upgraded_two_stage %} <span class="stage-chip">Two&nbsp;Stage</span>{% endif %}
+            {% else %}TO (Technical Offer){% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="box">
+        <span class="bi"><i class="fa-solid fa-tag"></i></span>
+        <div><div class="bl">Document kind</div><div class="bv">{{ case.get_kind_display }}</div></div>
+      </div>
+      <div class="box">
+        <span class="bi"><i class="fa-solid fa-flag"></i></span>
+        <div><div class="bl">Status</div><div class="bv">
+          {% if is_split %}
+            {% for s_label, s_status, s_color in status_rows %}
+              <div style="margin-bottom:.25rem;"><span class="status-tag" style="--sc:{{ s_color }}">{% if s_label %}{{ s_label }}: {% endif %}{{ s_status }}</span></div>
+            {% endfor %}
+          {% else %}
+            <span class="status-tag" style="--sc:{{ case.status_color }}">{{ case.status_label }}</span>
+          {% endif %}
+        </div></div>
+      </div>
+      <div class="box hot">
+        <span class="bi"><i class="fa-solid fa-layer-group"></i></span>
+        <div><div class="bl">Price type</div><div class="bv">
+          {{ case.price_type_label }}{% if case.price_upgraded_two_stage %} <span class="stage-chip">Two&nbsp;Stage</span>{% endif %}
+        </div></div>
+      </div>
+    </div>
+
+    <div class="grid grid-2 info-split">
+      {% if viewer_unit != 'SUPPLY' %}
+      <div class="subcard">
+        <div class="sc-head"><i class="fa-solid fa-building"></i> Client information</div>
+        <dl class="kv-ic compact">
+          <dt><i class="fa-solid fa-building"></i>Client</dt><dd>{{ case.client.name }} <span class="mono muted">({{ case.client.code }})</span></dd>
+          {% if case.order_no %}<dt><i class="fa-solid fa-file-lines"></i>Order No. / Project Name</dt><dd>{{ case.order_no }}</dd>{% endif %}
+          {% if case.client_commercial_expert %}<dt><i class="fa-solid fa-user"></i>Client commercial contact</dt><dd>{{ case.client_commercial_expert }}</dd>{% endif %}
+          {% if case.client_commercial_phone %}<dt><i class="fa-solid fa-phone"></i>Client commercial phone</dt><dd class="mono">{{ case.client_commercial_phone }}</dd>{% endif %}
+          {% if case.client_technical_expert %}<dt><i class="fa-solid fa-user-gear"></i>Client technical contact</dt><dd>{{ case.client_technical_expert }}</dd>{% endif %}
+          {% if case.client_technical_phone %}<dt><i class="fa-solid fa-phone"></i>Client technical phone</dt><dd class="mono">{{ case.client_technical_phone }}</dd>{% endif %}
+        </dl>
+      </div>
+      {% endif %}
+      <div class="subcard">
+        <div class="sc-head"><i class="fa-solid fa-sliders"></i> Offer details</div>
+        <dl class="kv-ic compact">
+          <dt><i class="fa-solid fa-hashtag"></i>Document No.</dt>
+          <dd>
+            <span class="docno-line">
+              <span class="mono">{{ case.doc_no }}</span>{% if case.is_delegated %} <span class="pill pill-delegated">Delegated</span>{% endif %}
+            </span>
+          </dd>
+          <dt><i class="fa-solid fa-folder"></i>Attach No.</dt><dd class="mono">{% if case.attach_no %}<span id="attach-no-val">{{ case.attach_no }}</span> <i class="fa-regular fa-copy copy-btn" data-copy-target="attach-no-val" role="button" tabindex="0" aria-label="Copy attach number"></i>{% else %}—{% endif %}</dd>
+          <dt><i class="fa-solid fa-user-tie"></i>Commercial Expert</dt>
+          <dd>
+            {% if case.commercial_expert_display %}
+              {{ case.commercial_expert_display }}
+            {% else %}
+              {{ case.created_by.get_full_name|default:case.created_by.username }}
+              <span class="mono muted">({{ case.created_by.profile.internal_code|default:case.expert_code }})</span>
+            {% endif %}
+          </dd>
+          {% if case.technical_expert_display or to_author %}
+          <dt><i class="fa-solid fa-screwdriver-wrench"></i>Technical expert</dt>
+          <dd>
+            {% if case.technical_expert_display %}
+              {{ case.technical_expert_display }}
+            {% elif to_author %}
+              {{ to_author.get_full_name|default:to_author.username }}{% if to_author.profile.internal_code %} <span class="mono muted">({{ to_author.profile.internal_code }})</span>{% endif %}
+            {% endif %}
+          </dd>
+          {% endif %}
+          <dt><i class="fa-solid fa-sitemap"></i>Holder unit</dt><dd>{{ case.holder_unit|default:"—" }}</dd>
+          <dt><i class="fa-solid fa-calendar-plus"></i>Created</dt><dd>{{ case.created_at|jalali:"Y.m.d H:i" }}</dd>
+          {% if case.deadline %}<dt><i class="fa-solid fa-clock"></i>Deadline</dt><dd>{{ case.deadline|jalali:"Y.m.d H:i" }}</dd>{% endif %}
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3>Actions</h3></div>
+    {% if case.awaiting_approval %}
+      <div class="flash flash-warning">An expert has requested to send this case ({{ case.get_proposed_action_display|default:case.proposed_action }}). Manager approval required.</div>
+    {% endif %}
+
+    {% if 'assign' in actions and case.holder_unit == 'SUPPLY' %}
+      
+      {% for sd in sides_data %}
+        {% if sd.can_assign %}
+          <form method="post" action="{% url 'cases:transition' case.pk %}" class="field confirm-action" data-comment style="margin-bottom:.5rem;">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="assign">
+            <input type="hidden" name="side" value="{{ sd.code }}">
+            <label><i class="fa-solid fa-user-plus"></i> Assign {{ sd.label }} to expert</label>
+            <div class="row-flex">
+              <select name="assignee" data-combo data-placeholder="Search {{ sd.label|lower }} expert…" style="flex:1">
+                {% for u in sd.pool %}<option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }} ({{ u.profile.internal_code }})</option>{% endfor %}
+              </select>
+              <button type="button" data-confirm-trigger class="btn btn-sm btn-primary">Assign</button>
+            </div>
+          </form>
+        {% endif %}
+      {% endfor %}
+    {% elif 'assign' in actions and not is_split %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="field confirm-action" data-comment>
+        {% csrf_token %}
+        <input type="hidden" name="action" value="assign">
+        <label><i class="fa-solid fa-user-plus"></i> Assign to expert</label>
+        <div class="row-flex">
+          <select name="assignee" data-combo data-placeholder="Search expert…" style="flex:1">
+            {% for u in assignees %}<option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}</option>{% endfor %}
+          </select>
+          <button type="button" data-confirm-trigger class="btn btn-sm btn-primary">Assign</button>
+        </div>
+      </form>
+    {% endif %}
+
+    {% if tech_split_can_assign %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="field confirm-action" data-comment>
+        {% csrf_token %}
+        <input type="hidden" name="action" value="assign">
+        <label><i class="fa-solid fa-user-plus"></i> Assign to expert (both sides)</label>
+        <div class="row-flex">
+          <select name="assignee" data-combo data-placeholder="Search technical expert…" style="flex:1">
+            {% for u in tech_pool %}<option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}{% if u.profile.internal_code %} ({{ u.profile.internal_code }}){% endif %}</option>{% endfor %}
+          </select>
+          <button type="button" data-confirm-trigger class="btn btn-sm btn-primary">Assign</button>
+        </div>
+      </form>
+    {% endif %}
+
+    {% if is_split %}
+      {% for sd in sides_data %}
+        {% include "cases/_side_actions.html" %}
+      {% endfor %}
+    {% endif %}
+    
+    {% if 'submit_to_technical' in actions and not is_split %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment style="margin-bottom:.4rem;">
+        {% csrf_token %}<input type="hidden" name="action" value="submit_to_technical">
+        <button type="button" data-confirm-trigger class="btn btn-sm btn-primary"><i class="fa-solid fa-paper-plane"></i> Submit to Technical</button>
+      </form>
+    {% endif %}
+    {% if 'send_to_supply' in actions and not is_split %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment style="margin-bottom:.4rem;">
+        {% csrf_token %}<input type="hidden" name="action" value="send_to_supply">
+        <button type="button" data-confirm-trigger class="btn btn-sm btn-primary"><i class="fa-solid fa-paper-plane"></i> Submit to Supply</button>
+      </form>
+    {% elif to_blocked_by_issues %}
+      <div class="alert-inline alert-warn" style="margin-bottom:.5rem;">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <span><strong>Cannot submit to Supply</strong> — the Technical Offer has rows flagged as <em>Technical Problem</em>.
+        Resolve all flags in the TO tool before forwarding.</span>
+      </div>
+    {% elif to_blocked_by_brand %}
+      <div class="alert-inline alert-warn" style="margin-bottom:.5rem;">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <span><strong>Cannot submit to Supply</strong> — one or more rows still have an empty <em>BRAND</em>.
+        Fill BRAND on every active row in the TO tool before forwarding.</span>
+      </div>
+    {% endif %}
+    {% if 'send_to_commercial' in actions and not is_split %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment style="margin-bottom:.4rem;">
+        {% csrf_token %}<input type="hidden" name="action" value="send_to_commercial">
+        <button type="button" data-confirm-trigger class="btn btn-sm btn-primary"><i class="fa-solid fa-paper-plane"></i> Submitted to Commercial</button>
+      </form>
+    {% elif pi_blocked_by_remark %}
+      <div class="alert-inline alert-warn" style="margin-bottom:.5rem;">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <span><strong>Can't submit to Commercial</strong> — some items still miss a required field ({% if require_ftco_code %}FTCO code, {% endif %}price, brand or time). Complete them, or mark the row not-suppliable, first.</span>
+      </div>
+    {% endif %}
+
+    {% if 'approve_send' in actions %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment style="margin-bottom:.4rem;">
+        {% csrf_token %}<input type="hidden" name="action" value="approve_send">
+        <button type="button" data-confirm-trigger class="btn btn-sm btn-primary">Approve & send</button>
+      </form>
+    {% endif %}
+
+    {% if 'propose_send' in actions %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="field" style="margin-top:.5rem;">
+        {% csrf_token %}<input type="hidden" name="action" value="propose_send">
+        <label>Request manager to send</label>
+        <select name="proposed_action">
+          {% if case.needs_pricing %}<option value="send_to_supply">Submit to Supply</option>{% endif %}
+          <option value="send_to_commercial">Submitted to Commercial</option>
+        </select>
+        <button class="btn btn-sm" style="margin-top:.4rem;">Request approval</button>
+      </form>
+    {% endif %}
+
+    {% if 'return_to_commercial' in actions and not is_split %}
+      <hr class="sep">
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment style="margin-bottom:.4rem;">
+        {% csrf_token %}<input type="hidden" name="action" value="return_to_commercial">
+        <button type="button" data-confirm-trigger class="btn btn-sm"><i class="fa-solid fa-rotate-left"></i> Return to Commercial</button>
+      </form>
+    {% endif %}
+    {% if 'return_to_technical' in actions and not is_split %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment style="margin-bottom:.4rem;">
+        {% csrf_token %}<input type="hidden" name="action" value="return_to_technical">
+        <button type="button" data-confirm-trigger class="btn btn-sm"><i class="fa-solid fa-rotate-left"></i> Return to Technical</button>
+      </form>
+    {% endif %}
+    {% if 'return_to_supply' in actions and not is_split and not to_blocked_by_issues and not to_blocked_by_brand %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment style="margin-bottom:.4rem;">
+        {% csrf_token %}<input type="hidden" name="action" value="return_to_supply">
+        <button type="button" data-confirm-trigger class="btn btn-sm"><i class="fa-solid fa-rotate-left"></i> Return to Supply</button>
+      </form>
+    {% endif %}
+
+    {% if 'cannot_supply' in actions and not is_split %}
+      <hr class="sep">
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment data-required>
+        {% csrf_token %}<input type="hidden" name="action" value="cannot_supply">
+        <button type="button" data-confirm-trigger class="btn btn-sm btn-danger"><i class="fa-solid fa-ban"></i> Mark cannot supply</button>
+      </form>
+    {% endif %}
+
+    {% if not is_split and 'close' in actions or not is_split and 'request_cancel' in actions %}
+      <hr class="sep">
+      <div class="btn-row" style="margin-bottom:.5rem;">
+        {% if 'close' in actions %}
+          <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment>
+            {% csrf_token %}<input type="hidden" name="action" value="close">
+            <button type="button" data-confirm-trigger class="btn btn-sm btn-primary"><i class="fa-solid fa-paper-plane"></i> Close — sent to client</button>
+          </form>
+        {% endif %}
+        {% if 'request_cancel' in actions %}
+          <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment data-required>
+            {% csrf_token %}<input type="hidden" name="action" value="request_cancel">
+            <button type="button" data-confirm-trigger class="btn btn-sm btn-danger"><i class="fa-solid fa-xmark"></i> Request cancel</button>
+          </form>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    {% if 'approve_cancel' in actions %}
+      <hr class="sep">
+      <div class="flash flash-warning" style="margin-bottom:.5rem;"><i class="fa-solid fa-triangle-exclamation"></i><span>{% if case.proposed_action|slice:":4" == "burn" %}A burn was requested. Manager approval required.{% else %}A cancellation was requested. Manager approval required.{% endif %}</span></div>
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="field">
+        {% csrf_token %}
+        <textarea name="comment" rows="2" placeholder="Approval / rejection note…"></textarea>
+        <div class="btn-row" style="margin-top:.4rem;">
+          <button class="btn btn-sm btn-danger" name="action" value="approve_cancel">{% if case.proposed_action|slice:":4" == "burn" %}Approve burn{% else %}Approve cancellation{% endif %}</button>
+          <button class="btn btn-sm" name="action" value="reject_cancel">Reject</button>
+        </div>
+      </form>
+    {% endif %}
+
+    {% if 'approve_unsuppliable' in actions %}
+      <hr class="sep">
+      <div class="flash flash-warning" style="margin-bottom:.5rem;"><i class="fa-solid fa-triangle-exclamation"></i><span>A “cannot supply” request needs your approval.</span></div>
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="field">
+        {% csrf_token %}
+        <textarea name="comment" rows="2" placeholder="Approval / rejection note…"></textarea>
+        <div class="btn-row" style="margin-top:.4rem;">
+          <button class="btn btn-sm btn-danger" name="action" value="approve_unsuppliable">Approve — cannot supply</button>
+          <button class="btn btn-sm" name="action" value="reject_unsuppliable">Reject</button>
+        </div>
+      </form>
+    {% endif %}
+
+    {% if 'finalize' in actions and not is_split %}
+      <hr class="sep">
+      <div class="btn-row" style="margin-bottom:.5rem;">
+        <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment>
+          {% csrf_token %}<input type="hidden" name="action" value="finalize">
+          <button type="button" data-confirm-trigger class="btn btn-sm btn-primary"><i class="fa-solid fa-circle-check"></i> Final Approved</button>
+        </form>
+        <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment data-required>
+          {% csrf_token %}<input type="hidden" name="action" value="burn">
+          <button type="button" data-confirm-trigger class="btn btn-sm btn-dark"><i class="fa-solid fa-fire"></i> Burned</button>
+        </form>
+      </div>
+    {% endif %}
+
+    {% if 'final_close' in actions and not is_split %}
+      <hr class="sep">
+      <div class="btn-row" style="margin-bottom:.5rem;">
+        <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment data-required>
+          {% csrf_token %}<input type="hidden" name="action" value="final_close">
+          <button type="button" data-confirm-trigger class="btn btn-sm btn-dark"><i class="fa-solid fa-lock"></i> Final Closed</button>
+        </form>
+      </div>
+    {% endif %}
+
+    {% if 'margin' in actions %}
+      <hr class="sep">
+      <div class="muted" style="font-size:.78rem;">Commercial margin can be applied on the priced PI before export.</div>
+    {% endif %}
+
+    {% if arrival_comment and not is_split %}
+      <div class="arrival-note unit-note u-{{ arrival_comment.from_unit }}">
+        <div class="an-head"><i class="fa-solid fa-comment-dots"></i> Note from {{ arrival_comment.from_unit }} — {{ arrival_comment.actor_display_name }}</div>
+        <div class="an-body">{{ arrival_comment.comment }}</div>
+        <div class="an-time">{{ arrival_comment.created_at|jalali:"Y.m.d H:i" }}</div>
+      </div>
+    {% endif %}
+    {% if assign_comment and not is_split %}
+      <div class="arrival-note unit-note u-{{ assign_comment.to_unit }}">
+        <div class="an-head"><i class="fa-solid fa-user-plus"></i> Assignment note — {{ assign_comment.actor_display_name }}</div>
+        <div class="an-body">{{ assign_comment.comment }}</div>
+        <div class="an-time">{{ assign_comment.created_at|jalali:"Y.m.d H:i" }}</div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if lifecycle_report %}
+
+{% for lc in lifecycle_report.cards %}
+<div class="card lifecycle-card">
+  <div class="lc-bar">
+    <h3><i class="fa-solid fa-stopwatch"></i> Case lifecycle{% if lc.side_label %} · {{ lc.side_label }}{% endif %}</h3>
+    <span class="lc-chip"><b>{{ lc.item_count }}</b> items</span>
+    <span class="lc-chip"><i class="fa-regular fa-calendar"></i> {{ lc.created_at|jalali:"Y.m.d H:i" }}</span>
+    <span class="lc-chip lc-total"><i class="fa-solid fa-hourglass-half"></i> {{ lc.total }} {% if lc.is_terminal %}total{% else %}so far{% endif %}</span>
+    {% if forloop.first %}<span class="lc-badge">Managers</span>{% endif %}
+  </div>
+  <div class="lc-flow">
+    {% for r in lc.rows %}
+      <div class="lc-cell u-{{ r.unit }}">
+        <div class="lc-cell-unit">{{ r.label }}</div>
+        <div class="lc-entry">
+          <span class="lc-time">{{ r.duration }}</span>
+          <span class="lc-person">{{ r.person }}</span>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+{% if multi_side %}
+<div class="side-switch">
+  {% for sd in sides_data %}
+    <button type="button" class="side-tab {% if forloop.first %}active{% endif %} u-side-{{ sd.code }}" data-side-tab="{{ sd.code }}">
+      <i class="fa-solid fa-layer-group"></i> {{ sd.label }}
+    </button>
+  {% endfor %}
+  {% if not hide_combined %}<button type="button" class="side-tab" data-side-tab="ALL"><i class="fa-solid fa-list-ul"></i> Combined timeline</button>{% endif %}
+</div>
+{% endif %}
+
+{% for sd in sides_data %}
+<div class="side-section" data-side-panel="{{ sd.code }}" {% if not forloop.first %}style="display:none;"{% endif %}>
+  {% include "cases/_side_section.html" with sd=sd primary=forloop.first %}
+</div>
+{% endfor %}
+
+{% if not hide_combined %}
+<div class="side-section" data-side-panel="ALL" style="display:none;">
+  <div class="tab-panel active" id="panel-combined">
+    <div class="card">
+      <div class="card-head"><h3>Audit timeline{% if multi_side %} · all sub-streams{% endif %}</h3></div>
+      <ul class="timeline">
+        {% for ev in combined_events %}
+          <li>
+            <div class="tl-action">
+              {% if ev.action == 'EDIT' and ev.form_kind %}Edited {{ ev.form_kind }} form
+              {% elif ev.action == 'NEW_VERSION' and ev.form_kind == 'INQUIRY' %}New inquiry form
+              {% elif ev.action == 'NEW_VERSION' and ev.form_kind %}New {{ ev.form_kind }} form
+              {% else %}{{ ev.action_label }}{% endif %}
+              {% if ev.form_version is not None %}<span class="tl-ver">Version {{ ev.form_version|stringformat:"02d" }}</span>{% endif %}
+              {% if ev.two_stage %}<span class="stage-chip">Two&nbsp;Stage</span>{% endif %}
+              {% if ev.side and case.has_internal and case.has_external %}<span class="side-chip u-side-{{ ev.side }}">{{ ev.side_label }}</span>{% endif %}
+              {% if ev.from_unit and ev.to_unit and ev.from_unit != ev.to_unit %}
+                · <span class="tl-route"><span class="unit u-{{ ev.from_unit }}">{{ ev.from_unit }}</span><i class="fa-solid fa-arrow-right-long arrow"></i><span class="unit u-{{ ev.to_unit }}">{{ ev.to_unit }}</span></span>
+              {% endif %}
+            </div>
+            <div class="tl-meta">{{ ev.actor_display_name }}{% if ev.actor_is_substitute %} <span class="tl-sub-tag">Substitute</span>{% endif %} · {{ ev.created_at|jalali:"Y.m.d H:i" }}</div>
+            {% if ev.comment %}<div class="tl-comment">{{ ev.comment }}</div>{% endif %}
+          </li>
+        {% empty %}
+          <li class="muted">No activity yet.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+  // Internal/External side switcher + per-section tab switcher.
+  (function () {
+    // Keep the viewport exactly where it is across a panel swap (panels have
+    // different heights, which would otherwise make the page jump).
+    function keepScroll(fn) {
+      var y = window.scrollY;
+      fn();
+      window.scrollTo(0, y);
+      requestAnimationFrame(function () { window.scrollTo(0, y); });
+    }
+    var sideTabs = document.querySelectorAll('.side-switch .side-tab');
+    sideTabs.forEach(function (b) {
+      b.addEventListener('click', function () {
+        keepScroll(function () {
+          var code = b.dataset.sideTab;
+          sideTabs.forEach(function (x) { x.classList.remove('active'); });
+          b.classList.add('active');
+          document.querySelectorAll('.side-section').forEach(function (sec) {
+            sec.style.display = (sec.dataset.sidePanel === code) ? '' : 'none';
+          });
+        });
+      });
+    });
+    function activateTab(tab) {
+      keepScroll(function () {
+        var name = tab.dataset.tab;
+        var scope = tab.closest('.side-section') || document;
+        scope.querySelectorAll('.side-tabs .tab').forEach(function (x) { x.classList.remove('active'); });
+        scope.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+        tab.classList.add('active');
+        var panel = scope.querySelector('#panel-' + name);
+        if (panel) panel.classList.add('active');
+      });
+    }
+    document.querySelectorAll('.side-tabs .tab').forEach(function (t) {
+      t.addEventListener('click', function () { activateTab(t); });
+    });
+
+    // AJAX comment posting: keep the user on the same tab, just update the list.
+    document.querySelectorAll('.ajax-comment-form').forEach(function (form) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var ta = form.querySelector('textarea[name="comment"]');
+        var text = (ta.value || '').trim();
+        if (!text) return;
+        var btn = form.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        fetch(form.dataset.actionUrl, {
+          method: 'POST',
+          body: new FormData(form),
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          credentials: 'same-origin'
+        }).then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+          .then(function (data) {
+            var ul = document.getElementById(form.dataset.target);
+            if (ul) {
+              var empty = ul.querySelector('li.muted');
+              if (empty) empty.remove();
+              var li = document.createElement('li');
+              li.innerHTML = '<div class="tl-action">Comment</div>'
+                + '<div class="tl-meta"></div>'
+                + '<div class="tl-comment"></div>';
+              var meta = li.querySelector('.tl-meta');
+              var actorLabel = (data.actor || form.dataset.userName || 'You');
+              meta.appendChild(document.createTextNode(actorLabel + ' '));
+              if (data.substitute) {
+                var tag = document.createElement('span');
+                tag.className = 'tl-sub-tag';
+                tag.textContent = 'Substitute';
+                meta.appendChild(tag);
+                meta.appendChild(document.createTextNode(' '));
+              }
+              meta.appendChild(document.createTextNode('· just now'));
+              li.querySelector('.tl-comment').textContent = data.comment || text;
+              ul.insertBefore(li, ul.firstChild);
+            }
+            ta.value = '';
+            btn.disabled = false;
+          }).catch(function () {
+            btn.disabled = false;
+            alert('Could not post the comment. Please try again.');
+          });
+      });
+    });
+  })();
+</script>
+{% endblock %}
+
+{% block scripts %}
+{% load static %}
+{% if is_comm or is_supply or is_admin_view %}<script src="{% static 'js/pi_commercial_preview.js' %}?v=fxboard-4-totals"></script>{% endif %}
+{% endblock %}

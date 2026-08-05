@@ -1,0 +1,33 @@
+{
+    "pipe": {
+        "all-in": {
+            "size": "itemcoder/resources/csv/size/find_size_pipe.csv"
+        }
+    },
+    "fitting": {
+        "all_in": {
+            "size": "itemcoder/resources/csv/size/find_size_fitting.csv"
+        }
+    },
+    "flange": {
+        "all_in": {
+            "size": "itemcoder/resources/csv/size/find_size_flange.csv"
+        }
+    },
+    "gasket": {
+        "all_in": {
+            "size": "itemcoder/resources/csv/size/find_size_gasket.csv"
+        }
+    },
+    "studbolt": {
+        "all_in": {
+            "size": "itemcoder/resources/csv/size/find_size_studbolt.csv"
+        }
+    },
+    "valve": {
+        "all_in": {
+            "size": "itemcoder/resources/csv/size/find_size_valve.csv"
+        }
+    },
+    "_note": "Size lookup is per-group via find_size_<group>.csv. Missing group files skip mapping and keep the raw Size cell."
+}

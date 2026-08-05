@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == 'create' %}Create seat{% else %}Edit seat{% endif %} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% if mode == 'create' %}Create seat{% else %}Edit seat{% endif %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{% if mode == 'create' %}Create seat{% else %}Edit seat{% endif %}</h1>
+    <div class="sub">
+      {% if mode == 'create' %}
+        Next index for this Unit &amp; role will be <strong class="mono">{{ form.next_seat_code }}</strong>
+        (recalculated for the role you pick). Leave Person empty to create a vacant seat.
+      {% else %}
+        Index <strong class="mono">{{ form.initial.seat_code|default:edited_user.profile.seat_code }}</strong>
+        {% if form.role_locked %}· Unit and role are locked after first use.{% endif %}
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="card form-narrow seat-form" autocomplete="off" data-seat-form>
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="flash flash-error">{{ form.non_field_errors }}</div>{% endif %}
+
+  <section class="seat-form-sec">
+    <h3 class="seat-form-h">Index</h3>
+    <div class="field">
+      {% if mode == 'create' %}
+        <label>Next index</label>
+        <input type="text" class="mono" value="{{ form.next_seat_code }}" disabled>
+        <div class="help">Assigned automatically on create for the selected Unit &amp; role.</div>
+      {% else %}
+        <label for="{{ form.seat_code.id_for_label }}">{{ form.seat_code.label }}</label>
+        {{ form.seat_code }}
+        {% if form.seat_code.help_text %}<div class="help">{{ form.seat_code.help_text }}</div>{% endif %}
+        {% if form.seat_code.errors %}<ul class="errorlist">{% for e in form.seat_code.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="seat-form-sec">
+    <h3 class="seat-form-h">Organisation</h3>
+    {% if mode == 'edit' and form.is_admin and not form.is_admin.is_hidden %}
+    <div class="field">
+      <label for="{{ form.is_admin.id_for_label }}">{{ form.is_admin.label }}</label>
+      {{ form.is_admin }}
+      {% if form.is_admin.errors %}<ul class="errorlist">{% for e in form.is_admin.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    {% endif %}
+    {% if mode == 'create' and form.gm_available %}
+    <div class="field">
+      <label for="{{ form.is_general_manager.id_for_label }}">{{ form.is_general_manager.label }}</label>
+      {{ form.is_general_manager }}
+      {% if form.is_general_manager.help_text %}<div class="help">{{ form.is_general_manager.help_text }}</div>{% endif %}
+      {% if form.is_general_manager.errors %}<ul class="errorlist">{% for e in form.is_general_manager.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    {% endif %}
+    <div class="field-row">
+      <div class="field">
+        <label for="{{ form.unit.id_for_label }}">{{ form.unit.label }}</label>
+        {{ form.unit }}
+        {% if form.unit.errors %}<ul class="errorlist">{% for e in form.unit.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.role.id_for_label }}">{{ form.role.label }}</label>
+        {{ form.role }}
+        {% if form.role.errors %}<ul class="errorlist">{% for e in form.role.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+    </div>
+    <div class="field" data-supply-wrap hidden>
+      <label for="{{ form.supply_kind.id_for_label }}">{{ form.supply_kind.label }}</label>
+      {{ form.supply_kind }}
+      {% if form.supply_kind.help_text %}<div class="help">{{ form.supply_kind.help_text }}</div>{% endif %}
+      {% if form.supply_kind.errors %}<ul class="errorlist">{% for e in form.supply_kind.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    {% if mode == 'create' %}
+    <div class="field">
+      <label for="{{ form.person.id_for_label }}">{{ form.person.label }}</label>
+      {% if locked_person %}
+        <input type="text" value="{{ locked_person.display_name }} · {{ locked_person.detail_code }}" disabled>
+        <input type="hidden" name="locked_person" value="{{ locked_person.pk }}">
+        {% if form.person.help_text %}<div class="help">{{ form.person.help_text }}</div>{% endif %}
+      {% else %}
+        {{ form.person }}
+        {% if form.person.help_text %}<div class="help">{{ form.person.help_text }}</div>{% endif %}
+        {% if form.person.errors %}<ul class="errorlist">{% for e in form.person.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      {% endif %}
+    </div>
+    {% endif %}
+  </section>
+
+  <div class="btn-row">
+    <button type="submit" class="btn btn-primary">{% if mode == 'create' %}Create seat{% else %}Save changes{% endif %}</button>
+    <a href="{% url 'accounts:user_list' %}" class="btn btn-ghost">Cancel</a>
+  </div>
+</form>
+
+<style>
+  .seat-form-sec{margin:0 0 1.25rem;padding:0 0 1rem;border-bottom:1px solid var(--line)}
+  .seat-form-sec:last-of-type{border-bottom:0}
+  .seat-form-h{font-size:.78rem;font-weight:750;text-transform:uppercase;letter-spacing:.06em;color:var(--accent-strong);margin:0 0 .55rem}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+  @media(max-width:560px){.field-row{grid-template-columns:1fr}}
+  .field input:disabled,.field select:disabled{opacity:.75;cursor:not-allowed;background:var(--cloud)}
+</style>
+<script>
+(function(){
+  var form = document.querySelector('[data-seat-form]');
+  if(!form) return;
+  var unit = form.querySelector('#id_unit');
+  var role = form.querySelector('#id_role');
+  var wrap = form.querySelector('[data-supply-wrap]');
+  var gm = form.querySelector('#id_is_general_manager');
+  function sync(){
+    if(!wrap) return;
+    var u = unit ? unit.value : '';
+    var r = role ? role.value : '';
+    var show = u === 'SUPPLY' && r === 'EXPERT';
+    wrap.hidden = !show;
+    if(!show){
+      var sk = form.querySelector('#id_supply_kind');
+      if(sk && !sk.disabled) sk.value = '';
+    }
+  }
+  function syncGm(){
+    if(!gm || !gm.checked){ sync(); return; }
+    if(unit && !unit.disabled) unit.value = '';
+    if(role && !role.disabled) role.value = '';
+    sync();
+  }
+  if(unit) unit.addEventListener('change', sync);
+  if(role) role.addEventListener('change', sync);
+  if(gm) gm.addEventListener('change', syncGm);
+  sync();
+})();
+</script>
+{% endblock %}

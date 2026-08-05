@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}Console · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Administration Console{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Administration Console</h1>
+    <div class="sub">People, roles and workload at a glance.</div>
+  </div>
+  <div class="btn-row">
+    <a href="{% url 'people:person_list' %}" class="btn btn-primary"><i class="fa-solid fa-users"></i> People</a>
+    <a href="{% url 'accounts:user_list' %}" class="btn"><i class="fa-solid fa-sitemap"></i> Seats</a>
+    <a href="{% url 'accounts:user_create' %}" class="btn"><i class="fa-solid fa-user-plus"></i> Create seat</a>
+  </div>
+</div>
+
+<div class="grid grid-4">
+  <div class="stat" style="border-left:4px solid var(--accent);">
+    <div class="num">{{ person_count }}</div>
+    <div class="lbl"><i class="fa-solid fa-id-badge"></i> People</div>
+    <div class="muted" style="font-size:.72rem;margin-top:.2rem;">{{ active_people }} active</div>
+  </div>
+  <div class="stat" style="border-left:4px solid #2563eb;">
+    <div class="num">{{ with_roles }}</div>
+    <div class="lbl"><i class="fa-solid fa-briefcase"></i> With roles</div>
+    <div class="muted" style="font-size:.72rem;margin-top:.2rem;">{{ without_roles }} without a role</div>
+  </div>
+  <div class="stat" style="border-left:4px solid #16a34a;">
+    <div class="num">{{ role_assignment_count }}</div>
+    <div class="lbl"><i class="fa-solid fa-sitemap"></i> Role seats</div>
+    <div class="muted" style="font-size:.72rem;margin-top:.2rem;">assigned across people</div>
+  </div>
+  <div class="stat" style="border-left:4px solid #d97706;">
+    <div class="num">{{ case_count }}</div>
+    <div class="lbl"><i class="fa-solid fa-folder-open"></i> Cases</div>
+    <div class="muted" style="font-size:.72rem;margin-top:.2rem;">{{ client_count }} clients</div>
+  </div>
+</div>
+
+<div class="grid grid-2" style="margin-top:1.1rem;align-items:start;">
+  <div class="card">
+    <div class="card-head">
+      <h3><i class="fa-solid fa-chart-pie"></i> Roles in use</h3>
+      <span class="count">{{ role_summary|length }}</span>
+    </div>
+    {% if role_summary %}
+      <table class="data">
+        <thead><tr><th>Role</th><th class="num">People</th></tr></thead>
+        <tbody>
+          {% for r in role_summary %}
+            <tr>
+              <td>{{ r.title }}</td>
+              <td class="num"><span class="pill pill-blue">{{ r.count }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty">No roles assigned yet. Open People and assign seats.</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3><i class="fa-solid fa-bolt"></i> Quick links</h3></div>
+    <div class="btn-row" style="padding:.25rem 0 .5rem;">
+      <a href="{% url 'people:person_list' %}" class="btn"><i class="fa-solid fa-users"></i> Directory</a>
+      <a href="{% url 'accounts:user_list' %}" class="btn"><i class="fa-solid fa-sitemap"></i> Seats</a>
+      <a href="{% url 'cases:archive' %}" class="btn"><i class="fa-solid fa-box-archive"></i> Archive</a>
+      <a href="{% url 'reports:dashboard' %}" class="btn"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
+      <a href="{% url 'cases:master_data_hub' %}" class="btn"><i class="fa-solid fa-building"></i> Clients &amp; FX</a>
+    </div>
+    <p class="muted" style="font-size:.8rem;margin:0;">
+      Console focuses on <strong>people</strong> and the organisational roles they hold.
+      Seat accounts and passwords are managed under Seats.
+    </p>
+  </div>
+</div>
+
+<div class="card" style="margin-top:1.1rem;">
+  <div class="card-head">
+    <h3><i class="fa-solid fa-users"></i> People &amp; roles</h3>
+    <span class="count">{{ person_rows|length }}</span>
+  </div>
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Detail code</th>
+          <th>Person</th>
+          <th>Login</th>
+          <th>Roles</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in person_rows %}
+          <tr{% if not p.active %} style="opacity:.62"{% endif %}>
+            <td><span class="mono">{{ p.detail_code }}</span></td>
+            <td>
+              <div style="font-weight:650;">{{ p.name }}</div>
+            </td>
+            <td class="mono muted">{{ p.username|default:"—" }}</td>
+            <td>
+              {% if p.roles %}
+                <span class="chips-row">
+                  {% for r in p.roles %}
+                    <span class="chip" title="{% if r.code %}{{ r.code }}{% endif %}">
+                      {% if r.seat %}<span class="mono">{{ r.seat }}</span>{% endif %}
+                      {{ r.title }}
+                    </span>
+                  {% endfor %}
+                </span>
+              {% else %}
+                <span class="muted">No role yet</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if p.active %}<span class="pill pill-green">Active</span>
+              {% else %}<span class="pill pill-grey">Departed</span>{% endif %}
+            </td>
+            <td class="num" style="white-space:nowrap;">
+              <a href="{% url 'people:person_edit' p.pk %}" class="btn btn-sm"><i class="fa-solid fa-id-badge"></i> Details</a>
+              <a href="{% url 'people:person_seats' p.pk %}" class="btn btn-sm"><i class="fa-solid fa-sitemap"></i> Seats{% if p.role_count %} ({{ p.role_count }}){% endif %}</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6" class="empty">No people recorded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

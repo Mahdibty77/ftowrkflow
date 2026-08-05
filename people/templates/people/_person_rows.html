@@ -1,0 +1,178 @@
+{% comment %}
+The results half of the people list: the counts, the table and the pager.
+
+Kept apart from person_list.html because typing in the filter box re-fetches
+exactly this and swaps it in. Sending the sidebar, the top bar and the
+stylesheet again on every keystroke would be most of the bytes for none of the
+change — and the two paths render the same template from the same query, so the
+live list cannot drift from the one a plain page load produces.
+
+Expects: page_obj, total, active_count, seatless_count, free_seat_count,
+base_query, filtered.
+{% endcomment %}
+<div class="row-flex ppl-stats">
+  <span class="count">{{ total }} shown</span>
+  <span class="count">{{ active_count }} active</span>
+  {% if seatless_count %}
+    <span class="pill pill-amber" title="Active people who hold no account yet">
+      {{ seatless_count }} without a seat
+    </span>
+  {% endif %}
+  {% if free_seat_count %}
+    <span class="pill pill-grey" title="Accounts nobody holds">
+      {{ free_seat_count }} free seats
+    </span>
+  {% endif %}
+</div>
+
+<div class="table-wrap">
+  <table class="data ppl-table">
+    <thead>
+      <tr>
+        <th class="ppl-col-code">Detail code</th>
+        <th class="ppl-col-latin">Name &amp; username</th>
+        <th>Roles</th>
+        <th class="ppl-col-status">Status</th>
+        <th class="ppl-col-act"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for person in page_obj %}
+        <tr class="{% if not person.is_active %}ppl-departed{% endif %}">
+          <td><span class="ppl-code">{{ person.detail_code }}</span></td>
+          <td>
+            <div>{{ person.full_name_en|default:person.display_name|default:"—" }}</div>
+            {% if person.username %}
+              <div class="mono muted ppl-sub">{{ person.username }}</div>
+            {% endif %}
+          </td>
+          <td>
+            {% with roles=person.roles.all %}
+            {% if roles %}
+              <span class="chips-row">
+                {% for role in roles %}
+                  <span class="chip ppl-seat-chip" title="{{ role.title_line }}">
+                    {% if role.seat_code %}<span class="mono">{{ role.seat_code }}</span>{% endif %}
+                    <span class="ppl-chip-role">{{ role.title_line }}</span>
+                  </span>
+                {% endfor %}
+              </span>
+            {% else %}
+              <span class="muted">—</span>
+            {% endif %}
+            {% endwith %}
+          </td>
+          <td>
+            {% if person.is_active %}
+              <span class="pill pill-green">Active</span>
+            {% else %}
+              <span class="pill pill-grey">Departed</span>
+            {% endif %}
+          </td>
+          <td class="ppl-actions">
+            <a href="{% url 'people:person_detail' person.pk %}" class="btn btn-sm" title="Details">
+              <i class="fa-solid fa-id-badge"></i> Details
+            </a>
+            <a href="{% url 'people:person_seats' person.pk %}" class="btn btn-sm">
+              <i class="fa-solid fa-sitemap"></i> Seats
+              {% if person.role_count %}<span class="ppl-badge">{{ person.role_count }}</span>{% endif %}
+            </a>
+            {% with login_user=person.login_user %}
+            {% if login_user and person.is_active and login_user.is_active %}
+            <form method="post" action="{% url 'accounts:impersonate_start' login_user.pk %}" style="display:inline">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm" title="Sign in as this person">
+                <i class="fa-solid fa-user-shield"></i> Log in as
+              </button>
+            </form>
+            {% endif %}
+            {% if login_user %}
+            <form method="post" action="{% url 'people:person_reset_password' person.pk %}" style="display:inline"
+                  onsubmit="return confirm('Generate a new one-time password for {{ person.display_name|escapejs }}?');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm" title="Reset password">
+                <i class="fa-solid fa-lock"></i> Reset password
+              </button>
+            </form>
+            {% endif %}
+            {% endwith %}
+            {% if person.is_active %}
+              <button type="button" class="btn btn-sm btn-danger"
+                      data-confirm-toggle="ppl-cf-{{ person.pk }}"
+                      aria-expanded="false" aria-controls="ppl-cf-{{ person.pk }}">
+                <i class="fa-solid fa-ban"></i> Deactivate
+              </button>
+            {% else %}
+              <button type="button" class="btn btn-sm"
+                      data-confirm-toggle="ppl-cf-{{ person.pk }}"
+                      aria-expanded="false" aria-controls="ppl-cf-{{ person.pk }}">
+                <i class="fa-solid fa-rotate-left"></i> Reactivate
+              </button>
+            {% endif %}
+          </td>
+        </tr>
+        <tr id="ppl-cf-{{ person.pk }}" class="ppl-confirm-row" data-confirm-box hidden>
+          <td colspan="5">
+            <div class="ppl-confirm">
+              <span class="ppl-confirm-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+              <span class="ppl-confirm-q">
+                {% if person.is_active %}
+                  Mark «{{ person.display_name }}» as departed?
+                  If no leaving date is set, today’s date is recorded. Their seats
+                  stay linked and no history is deleted.
+                {% else %}
+                  Reactivate «{{ person.display_name }}»?
+                  The leaving date will be cleared.
+                {% endif %}
+              </span>
+              <span class="ppl-confirm-act">
+                <form method="post" action="{% url 'people:person_toggle_status' person.pk %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="back" value="{{ base_query }}">
+                  <button type="submit"
+                          class="btn btn-sm {% if person.is_active %}btn-danger{% else %}btn-primary{% endif %}">
+                    <i class="fa-solid fa-check"></i> Confirm
+                  </button>
+                </form>
+                <button type="button" class="btn btn-sm btn-ghost" data-confirm-cancel>
+                  <i class="fa-solid fa-xmark"></i> Cancel
+                </button>
+              </span>
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5" class="empty">
+            {% if filtered %}
+              No person matches this search.
+            {% else %}
+              No people recorded yet. Add the first one to get started —
+              existing accounts keep working untouched until you assign them.
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if page_obj.paginator.num_pages > 1 %}
+  <nav class="pager" aria-label="Pagination">
+    {% if page_obj.has_previous %}
+      <a class="pager-btn" href="?{% if base_query %}{{ base_query }}&amp;{% endif %}page={{ page_obj.previous_page_number }}">
+        <i class="fa-solid fa-arrow-left"></i> Prev
+      </a>
+    {% else %}
+      <span class="pager-btn is-disabled"><i class="fa-solid fa-arrow-left"></i> Prev</span>
+    {% endif %}
+    <span class="pager-info">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+      <a class="pager-btn" href="?{% if base_query %}{{ base_query }}&amp;{% endif %}page={{ page_obj.next_page_number }}">
+        Next <i class="fa-solid fa-arrow-right-long"></i>
+      </a>
+    {% else %}
+      <span class="pager-btn is-disabled">Next <i class="fa-solid fa-arrow-right-long"></i></span>
+    {% endif %}
+  </nav>
+{% endif %}

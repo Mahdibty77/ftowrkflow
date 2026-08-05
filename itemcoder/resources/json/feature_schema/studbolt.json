@@ -1,0 +1,694 @@
+{
+ "group": "studbolt",
+ "config": {
+  "tech_start": "7",
+  "tech_group": "05",
+  "item_start": "",
+  "item_group": "50",
+  "item_seq_digits": 6,
+  "item_feature_indexes": [
+   1,
+   2
+  ]
+ },
+ "features": [
+  {
+   "name": "type",
+   "position": 0,
+   "values": [
+    {
+     "value": "Stud Bolt (full thread) + 2 Heavy Hex Nuts",
+     "code": "01"
+    },
+    {
+     "value": "Tap-End Stud + 1 Heavy Hex Nut",
+     "code": "02"
+    },
+    {
+     "value": "Double-End Stud + 2 Heavy Hex Nuts",
+     "code": "03"
+    },
+    {
+     "value": "Heavy Hex Bolt + 1 Heavy Hex Nut",
+     "code": "04"
+    },
+    {
+     "value": "Threaded Rod (cut to length, no nut)",
+     "code": "05"
+    }
+   ]
+  },
+  {
+   "name": "grade",
+   "position": 1,
+   "values": [
+    {
+     "value": "ASTM A193 Gr.B7",
+     "code": "01"
+    },
+    {
+     "value": "ASTM A193 Gr.B7M",
+     "code": "02"
+    },
+    {
+     "value": "ASTM A193 Gr.B16",
+     "code": "03"
+    },
+    {
+     "value": "ASTM A193 Gr.B8 Cl.1",
+     "code": "04"
+    },
+    {
+     "value": "ASTM A193 Gr.B8 Cl.2",
+     "code": "05"
+    },
+    {
+     "value": "ASTM A193 Gr.B8M Cl.1",
+     "code": "06"
+    },
+    {
+     "value": "ASTM A193 Gr.B8M Cl.2",
+     "code": "07"
+    },
+    {
+     "value": "ASTM A193 Gr.B8T Cl.1",
+     "code": "08"
+    },
+    {
+     "value": "ASTM A193 Gr.B8C Cl.1",
+     "code": "09"
+    },
+    {
+     "value": "ASTM A320 Gr.L7",
+     "code": "10"
+    },
+    {
+     "value": "ASTM A320 Gr.L7M",
+     "code": "11"
+    },
+    {
+     "value": "ASTM A320 Gr.L43",
+     "code": "12"
+    },
+    {
+     "value": "ASTM A320 Gr.B8 Cl.1",
+     "code": "13"
+    },
+    {
+     "value": "ASTM A320 Gr.B8M Cl.1",
+     "code": "14"
+    },
+    {
+     "value": "ASTM A307 Gr.A",
+     "code": "15"
+    },
+    {
+     "value": "ASTM A307 Gr.B",
+     "code": "16"
+    },
+    {
+     "value": "ASTM A354 Gr.BC",
+     "code": "17"
+    },
+    {
+     "value": "ASTM A354 Gr.BD",
+     "code": "18"
+    },
+    {
+     "value": "ASTM A453 Gr.660",
+     "code": "19"
+    },
+    {
+     "value": "Property Class 8.8",
+     "code": "20"
+    },
+    {
+     "value": "Property Class 10.9",
+     "code": "21"
+    },
+    {
+     "value": "Property Class 12.9",
+     "code": "22"
+    },
+    {
+     "value": "Stainless A2-70",
+     "code": "23"
+    },
+    {
+     "value": "Stainless A4-80",
+     "code": "24"
+    },
+    {
+     "value": "ASTM A193 Gr.B5",
+     "code": "25"
+    },
+    {
+     "value": "ASTM A193 Gr.B6",
+     "code": "26"
+    }
+   ]
+  },
+  {
+   "name": "nut",
+   "position": 2,
+   "values": [
+    {
+     "value": "ASTM A194 Gr.2H",
+     "code": "01"
+    },
+    {
+     "value": "ASTM A194 Gr.2HM",
+     "code": "02"
+    },
+    {
+     "value": "ASTM A194 Gr.4",
+     "code": "03"
+    },
+    {
+     "value": "ASTM A194 Gr.7",
+     "code": "04"
+    },
+    {
+     "value": "ASTM A194 Gr.7M",
+     "code": "05"
+    },
+    {
+     "value": "ASTM A194 Gr.8",
+     "code": "06"
+    },
+    {
+     "value": "ASTM A194 Gr.8M",
+     "code": "07"
+    },
+    {
+     "value": "ASTM A194 Gr.8T",
+     "code": "08"
+    },
+    {
+     "value": "ASTM A194 Gr.8C",
+     "code": "09"
+    },
+    {
+     "value": "ASTM A563 Gr.A",
+     "code": "10"
+    },
+    {
+     "value": "ASTM A563 Gr.DH",
+     "code": "11"
+    },
+    {
+     "value": "ISO 4032 Class 8 nut",
+     "code": "12"
+    },
+    {
+     "value": "ISO 4032 Class 10 nut",
+     "code": "13"
+    },
+    {
+     "value": "ISO 4032 Class 12 nut",
+     "code": "14"
+    },
+    {
+     "value": "Stainless A2 nut",
+     "code": "15"
+    },
+    {
+     "value": "Stainless A4 nut",
+     "code": "16"
+    },
+    {
+     "value": "$nut$",
+     "code": "17"
+    },
+    {
+     "value": "ASTM A194 Gr.3",
+     "code": "18"
+    },
+    {
+     "value": "ASTM A194 Gr.6",
+     "code": "19"
+    }
+   ]
+  },
+  {
+   "name": "coating",
+   "position": 3,
+   "values": [
+    {
+     "value": "Plain / Black (bare, oiled)",
+     "code": "01"
+    },
+    {
+     "value": "Hot-Dip Galvanized (ASTM A153/F2329)",
+     "code": "02"
+    },
+    {
+     "value": "Zinc Electroplated (ASTM B633)",
+     "code": "03"
+    },
+    {
+     "value": "PTFE / Xylan fluoropolymer",
+     "code": "04"
+    },
+    {
+     "value": "Cadmium Plated",
+     "code": "05"
+    },
+    {
+     "value": "Zinc Flake (Geomet/Dacromet)",
+     "code": "06"
+    },
+    {
+     "value": "Phosphate (Mn/Zn)",
+     "code": "07"
+    },
+    {
+     "value": "Passivated (stainless)",
+     "code": "08"
+    }
+   ]
+  },
+  {
+   "name": "nace",
+   "position": 4,
+   "values": [
+    {
+     "value": "Non-Sour (standard service)",
+     "code": "01"
+    },
+    {
+     "value": "NACE MR0175 / ISO 15156 (sour)",
+     "code": "02"
+    }
+   ]
+  },
+  {
+   "name": "design_standard",
+   "position": 5,
+   "values": [
+    {
+     "value": "ASME B16.5 / B16.47 flange bolting (inch)",
+     "code": "01"
+    },
+    {
+     "value": "ASME B18.31.2 stud bolt (inch)",
+     "code": "02"
+    },
+    {
+     "value": "ASME B18.2.1 heavy hex bolt (inch)",
+     "code": "03"
+    },
+    {
+     "value": "ASME B18.31.3 threaded rod (inch)",
+     "code": "04"
+    },
+    {
+     "value": "DIN 2510 stud bolt (metric)",
+     "code": "05"
+    },
+    {
+     "value": "EN 1515 flange bolting (metric)",
+     "code": "06"
+    },
+    {
+     "value": "ISO 4014 / DIN 931 hex bolt (metric)",
+     "code": "07"
+    },
+    {
+     "value": "DIN 976 threaded rod (metric)",
+     "code": "08"
+    }
+   ]
+  },
+  {
+   "name": "diameter",
+   "position": 6,
+   "values": [
+    {
+     "value": "1/2\" dia",
+     "code": "01"
+    },
+    {
+     "value": "5/8\" dia",
+     "code": "02"
+    },
+    {
+     "value": "3/4\" dia",
+     "code": "03"
+    },
+    {
+     "value": "7/8\" dia",
+     "code": "04"
+    },
+    {
+     "value": "1\" dia",
+     "code": "05"
+    },
+    {
+     "value": "1 1/8\" dia",
+     "code": "06"
+    },
+    {
+     "value": "1 1/4\" dia",
+     "code": "07"
+    },
+    {
+     "value": "1 3/8\" dia",
+     "code": "08"
+    },
+    {
+     "value": "1 1/2\" dia",
+     "code": "09"
+    },
+    {
+     "value": "1 5/8\" dia",
+     "code": "10"
+    },
+    {
+     "value": "1 3/4\" dia",
+     "code": "11"
+    },
+    {
+     "value": "1 7/8\" dia",
+     "code": "12"
+    },
+    {
+     "value": "2\" dia",
+     "code": "13"
+    },
+    {
+     "value": "2 1/4\" dia",
+     "code": "14"
+    },
+    {
+     "value": "2 1/2\" dia",
+     "code": "15"
+    },
+    {
+     "value": "2 3/4\" dia",
+     "code": "16"
+    },
+    {
+     "value": "3\" dia",
+     "code": "17"
+    },
+    {
+     "value": "3 1/4\" dia",
+     "code": "18"
+    },
+    {
+     "value": "3 1/2\" dia",
+     "code": "19"
+    },
+    {
+     "value": "4\" dia",
+     "code": "20"
+    },
+    {
+     "value": "M12 dia",
+     "code": "21"
+    },
+    {
+     "value": "M16 dia",
+     "code": "22"
+    },
+    {
+     "value": "M20 dia",
+     "code": "23"
+    },
+    {
+     "value": "M24 dia",
+     "code": "24"
+    },
+    {
+     "value": "M27 dia",
+     "code": "25"
+    },
+    {
+     "value": "M30 dia",
+     "code": "26"
+    },
+    {
+     "value": "M33 dia",
+     "code": "27"
+    },
+    {
+     "value": "M36 dia",
+     "code": "28"
+    },
+    {
+     "value": "M39 dia",
+     "code": "29"
+    },
+    {
+     "value": "M42 dia",
+     "code": "30"
+    },
+    {
+     "value": "M45 dia",
+     "code": "31"
+    },
+    {
+     "value": "M48 dia",
+     "code": "32"
+    },
+    {
+     "value": "M52 dia",
+     "code": "33"
+    },
+    {
+     "value": "M56 dia",
+     "code": "34"
+    },
+    {
+     "value": "M64 dia",
+     "code": "35"
+    }
+   ]
+  },
+  {
+   "name": "thread",
+   "position": 7,
+   "values": [
+    {
+     "value": "UNC coarse (inch, <=1\")",
+     "code": "01"
+    },
+    {
+     "value": "8UN 8-thread series (inch, >1\")",
+     "code": "02"
+    },
+    {
+     "value": "Metric coarse (M profile)",
+     "code": "03"
+    }
+   ]
+  },
+  {
+   "name": "length",
+   "position": 8,
+   "values": [
+    {
+     "value": "1.5\" length",
+     "code": "01"
+    },
+    {
+     "value": "2\" length",
+     "code": "02"
+    },
+    {
+     "value": "2.5\" length",
+     "code": "03"
+    },
+    {
+     "value": "3\" length",
+     "code": "04"
+    },
+    {
+     "value": "3.5\" length",
+     "code": "05"
+    },
+    {
+     "value": "4\" length",
+     "code": "06"
+    },
+    {
+     "value": "4.5\" length",
+     "code": "07"
+    },
+    {
+     "value": "5\" length",
+     "code": "08"
+    },
+    {
+     "value": "5.5\" length",
+     "code": "09"
+    },
+    {
+     "value": "6\" length",
+     "code": "10"
+    },
+    {
+     "value": "6.5\" length",
+     "code": "11"
+    },
+    {
+     "value": "7\" length",
+     "code": "12"
+    },
+    {
+     "value": "7.5\" length",
+     "code": "13"
+    },
+    {
+     "value": "8\" length",
+     "code": "14"
+    },
+    {
+     "value": "9\" length",
+     "code": "15"
+    },
+    {
+     "value": "10\" length",
+     "code": "16"
+    },
+    {
+     "value": "11\" length",
+     "code": "17"
+    },
+    {
+     "value": "12\" length",
+     "code": "18"
+    },
+    {
+     "value": "13\" length",
+     "code": "19"
+    },
+    {
+     "value": "14\" length",
+     "code": "20"
+    },
+    {
+     "value": "16\" length",
+     "code": "21"
+    },
+    {
+     "value": "18\" length",
+     "code": "22"
+    },
+    {
+     "value": "20\" length",
+     "code": "23"
+    },
+    {
+     "value": "22\" length",
+     "code": "24"
+    },
+    {
+     "value": "24\" length",
+     "code": "25"
+    },
+    {
+     "value": "40 mm length",
+     "code": "26"
+    },
+    {
+     "value": "50 mm length",
+     "code": "27"
+    },
+    {
+     "value": "60 mm length",
+     "code": "28"
+    },
+    {
+     "value": "70 mm length",
+     "code": "29"
+    },
+    {
+     "value": "80 mm length",
+     "code": "30"
+    },
+    {
+     "value": "90 mm length",
+     "code": "31"
+    },
+    {
+     "value": "100 mm length",
+     "code": "32"
+    },
+    {
+     "value": "110 mm length",
+     "code": "33"
+    },
+    {
+     "value": "120 mm length",
+     "code": "34"
+    },
+    {
+     "value": "130 mm length",
+     "code": "35"
+    },
+    {
+     "value": "140 mm length",
+     "code": "36"
+    },
+    {
+     "value": "150 mm length",
+     "code": "37"
+    },
+    {
+     "value": "160 mm length",
+     "code": "38"
+    },
+    {
+     "value": "180 mm length",
+     "code": "39"
+    },
+    {
+     "value": "200 mm length",
+     "code": "40"
+    },
+    {
+     "value": "220 mm length",
+     "code": "41"
+    },
+    {
+     "value": "240 mm length",
+     "code": "42"
+    },
+    {
+     "value": "260 mm length",
+     "code": "43"
+    },
+    {
+     "value": "280 mm length",
+     "code": "44"
+    },
+    {
+     "value": "300 mm length",
+     "code": "45"
+    },
+    {
+     "value": "340 mm length",
+     "code": "46"
+    },
+    {
+     "value": "380 mm length",
+     "code": "47"
+    },
+    {
+     "value": "420 mm length",
+     "code": "48"
+    },
+    {
+     "value": "460 mm length",
+     "code": "49"
+    },
+    {
+     "value": "500 mm length",
+     "code": "50"
+    }
+   ]
+  }
+ ]
+}

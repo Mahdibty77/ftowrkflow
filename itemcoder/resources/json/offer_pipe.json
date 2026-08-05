@@ -1,0 +1,366 @@
+{
+ "pipe": {
+  "pipe": {
+   "material_group": {
+    "C.S": {
+     "material_type": [
+      "CW",
+      "DSAW",
+      "ERW",
+      "HFW",
+      "SSAW"
+     ],
+     "material": [
+      "API 5CT",
+      "API 5DP",
+      "API 5L",
+      "ASTM A106",
+      "ASTM A135",
+      "ASTM A178",
+      "ASTM A210",
+      "ASTM A252",
+      "ASTM A333",
+      "ASTM A334",
+      "ASTM A500",
+      "ASTM A53",
+      "ASTM A671",
+      "ASTM A672",
+      "DIN 1629",
+      "EN 10208-2",
+      "EN 10216-1",
+      "EN 10217-1",
+      "ISO 3183"
+     ],
+     "design_standard": [
+      "API 5CT",
+      "API 5DP",
+      "API 5L"
+     ],
+     "coating": [
+      "HDG"
+     ]
+    },
+    "Polymer": {
+     "material_type": [
+      "CPVC",
+      "ECTFE",
+      "EVOH Barrier",
+      "FEP",
+      "HDPE",
+      "LDPE",
+      "MDPE",
+      "PA",
+      "PB-1",
+      "PE",
+      "PE-RT",
+      "PE-RT-AL-PE-RT",
+      "PEX",
+      "PEX-AL-PEX",
+      "PFA",
+      "PP-B",
+      "PP-H",
+      "PP-R",
+      "PP-R-AL-PP-R",
+      "PP-RCT",
+      "PTFE",
+      "PVC-O",
+      "PVC-U",
+      "PVDF"
+     ],
+     "material": [
+      "PE100",
+      "PE63",
+      "PE80"
+     ],
+     "design_standard": [
+      "ASTM D1785 / D2241 / F714",
+      "AWWA C900 / C905 / C906",
+      "DIN 8077 / 8078",
+      "EN ISO 15494 / 15493",
+      "ISO 10931",
+      "ISO 12086",
+      "ISO 21003",
+      "ISO 4065 / 11922"
+     ]
+    },
+    "Composite": {
+     "material_type": [
+      "FRP",
+      "GRE",
+      "GRP"
+     ],
+     "material": [
+      "API 15HR/15LR RTRP",
+      "ASTM D2996 RTRP",
+      "ASTM D2997 RTRP",
+      "AWWA C950 Fiberglass",
+      "ISO 14692 GRP/GRE"
+     ],
+     "design_standard": [
+      "AWWA C950 / ASTM D2996-D2997",
+      "ISO 14692"
+     ]
+    },
+    "Cast Iron": {
+     "material_type": [
+      "Ductile Iron"
+     ],
+     "material": [
+      "ASTM A48",
+      "ASTM A536",
+      "AWWA C151/A21.51",
+      "EN 1561",
+      "EN 1563",
+      "EN 545",
+      "EN 598",
+      "EN 877",
+      "EN 969"
+     ],
+     "design_standard": [
+      "AWWA C151",
+      "EN 545 / EN 598",
+      "ISO 2531"
+     ]
+    },
+    "S.S": {
+     "material": [
+      "ASTM A312",
+      "ASTM A358",
+      "ASTM A376",
+      "ASTM A778",
+      "ASTM A790",
+      "ASTM A928",
+      "EN 10216-5",
+      "EN 10217-7"
+     ]
+    },
+    "Copper": {
+     "material": [
+      "ASTM B315",
+      "ASTM B42",
+      "ASTM B43",
+      "ASTM B466",
+      "ASTM B467",
+      "ASTM B608",
+      "ASTM B88",
+      "EN 1057"
+     ],
+     "design_standard": [
+      "ASTM B88 / EN 1057"
+     ]
+    },
+    "Alloy Steel": {
+     "material": [
+      "ASTM A335",
+      "ASTM A369",
+      "ASTM A691",
+      "DIN 17175"
+     ]
+    },
+    "Nickel": {
+     "material": [
+      "ASTM B161",
+      "ASTM B165",
+      "ASTM B167",
+      "ASTM B407",
+      "ASTM B423",
+      "ASTM B444",
+      "ASTM B468",
+      "ASTM B514",
+      "ASTM B619",
+      "ASTM B622",
+      "ASTM B673",
+      "ASTM B675",
+      "ASTM B677",
+      "ASTM B690",
+      "ASTM B705",
+      "ASTM B729"
+     ]
+    },
+    "Titanium": {
+     "material": [
+      "ASTM B861",
+      "ASTM B862"
+     ]
+    },
+    "Aluminum": {
+     "material": [
+      "ASTM B210",
+      "ASTM B241",
+      "ASTM B345",
+      "EN 755"
+     ]
+    }
+   },
+   "material_type": {
+    "Ductile Iron": {
+     "material_group": [
+      "Cast Iron"
+     ],
+     "material": [
+      "ASTM A48",
+      "ASTM A536",
+      "AWWA C151/A21.51",
+      "EN 1561",
+      "EN 1563",
+      "EN 545",
+      "EN 598",
+      "EN 877",
+      "EN 969"
+     ],
+     "design_standard": [
+      "AWWA C151",
+      "EN 545 / EN 598",
+      "ISO 2531"
+     ]
+    },
+    "SMLS": {
+     "material_group": [
+      "Aluminum"
+     ],
+     "material": [
+      "ASTM B161",
+      "ASTM B165",
+      "ASTM B167",
+      "ASTM B210",
+      "ASTM B241",
+      "ASTM B315",
+      "ASTM B345",
+      "ASTM B407",
+      "ASTM B42",
+      "ASTM B423",
+      "ASTM B43",
+      "ASTM B444",
+      "ASTM B466",
+      "ASTM B622",
+      "ASTM B677",
+      "ASTM B690",
+      "ASTM B729",
+      "ASTM B861",
+      "ASTM B88",
+      "EN 1057",
+      "EN 755"
+     ]
+    },
+    "EFW": {
+     "material": [
+      "ASTM B467",
+      "ASTM B468",
+      "ASTM B514",
+      "ASTM B608",
+      "ASTM B619",
+      "ASTM B673",
+      "ASTM B675",
+      "ASTM B705",
+      "ASTM B862"
+     ]
+    },
+    "PVDF": {
+     "design_standard": [
+      "ISO 10931"
+     ]
+    },
+    "PA": {
+     "design_standard": [
+      "DIN 8077 / 8078"
+     ]
+    }
+   },
+   "design_standard": {
+    "ASTM B88 / EN 1057": {
+     "material_group": [
+      "Copper"
+     ],
+     "material": [
+      "ASTM B315",
+      "ASTM B42",
+      "ASTM B43",
+      "ASTM B466",
+      "ASTM B467",
+      "ASTM B608",
+      "ASTM B88",
+      "EN 1057"
+     ]
+    },
+    "EN ISO 15494 / 15493": {
+     "material_type": [
+      "PP-RCT"
+     ]
+    },
+    "ISO 21003": {
+     "material_type": [
+      "EVOH Barrier",
+      "PE-RT-AL-PE-RT",
+      "PEX-AL-PEX",
+      "PP-R-AL-PP-R"
+     ]
+    },
+    "ISO 10931": {
+     "material_type": [
+      "PVDF"
+     ]
+    },
+    "ISO 12086": {
+     "material_type": [
+      "ECTFE",
+      "FEP",
+      "PFA",
+      "PTFE"
+     ]
+    },
+    "DIN 8077 / 8078": {
+     "material_type": [
+      "PA"
+     ]
+    },
+    "ASME B36.10M": {
+     "material": [
+      "ASTM A106",
+      "ASTM A135",
+      "ASTM A178",
+      "ASTM A210",
+      "ASTM A252",
+      "ASTM A333",
+      "ASTM A334",
+      "ASTM A335",
+      "ASTM A369",
+      "ASTM A500",
+      "ASTM A53",
+      "ASTM A671",
+      "ASTM A672",
+      "ASTM A691"
+     ]
+    },
+    "API 5CT": {
+     "material": [
+      "API 5CT"
+     ]
+    },
+    "ASME B36.19M": {
+     "material": [
+      "ASTM A358",
+      "ASTM A928"
+     ]
+    },
+    "API 5DP": {
+     "material": [
+      "API 5DP"
+     ]
+    },
+    "DIN 2448 / 2458": {
+     "material": [
+      "DIN 1629",
+      "DIN 17175"
+     ]
+    },
+    "ISO 2531": {
+     "material": [
+      "ASTM A48",
+      "EN 1561",
+      "EN 877"
+     ]
+    }
+   }
+  }
+ }
+}

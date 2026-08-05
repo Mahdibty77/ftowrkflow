@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Preview import · Data Management{% endblock %}
+{% block topbar %}Preview import{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Preview — group “{{ group }}”</h1>
+  <div class="sub">{{ columns|length }} columns. Showing the first {{ preview_rows|length }} rows (the full file is imported on confirm).</div></div>
+  <a class="btn btn-sm" href="{% url 'dm_code_upload' %}">Cancel</a>
+</div>
+
+<div class="flash flash-warning"><i class="fa-solid fa-triangle-exclamation"></i>
+  Confirming replaces the existing “{{ group }}” data with the fast database.</div>
+
+<div class="card" style="margin-bottom:1rem;">
+  <div class="card-head"><h3><i class="fa-solid fa-list-check"></i> Detected columns</h3></div>
+  <div class="muted" style="font-size:.82rem;margin-bottom:.5rem;">A header ending with <code>(not main)</code> is a <b>sub</b> feature, <code>(info)</code> is an <b>info</b> column; everything else (including optional <code>(main)</code>) is a <b>main</b> feature. Column 1 = big code, column 2 = small code. Features are taken from this file — not limited to a fixed schema count.</div>
+  <div style="display:flex;flex-wrap:wrap;gap:.4rem;">
+    {% for name, kind in classed %}
+      <span class="pill {% if kind == 'main' %}pill-blue{% elif kind == 'sub' %}pill-amber{% elif kind == 'info' %}pill-grey{% else %}pill-green{% endif %}">{{ name }} · {{ kind }}</span>
+    {% endfor %}
+  </div>
+</div>
+
+<form method="post" action="{% url 'dm_code_confirm' %}" style="margin-top:1rem;">
+  {% csrf_token %}
+  <input type="hidden" name="group" value="{{ group }}">
+  <input type="hidden" name="temp_name" value="{{ temp_name }}">
+
+  <div class="card" style="margin-bottom:1rem;">
+    <div class="card-head"><h3><i class="fa-solid fa-hashtag"></i> Code numbers for “{{ group }}”</h3></div>
+    <div class="muted" style="font-size:.82rem;margin-bottom:.6rem;">Set once for this group (used to build the codes; fixed afterwards).</div>
+    <div class="grid grid-4">
+      <div class="field"><label>Big-code start digit</label><input type="text" name="tech_start" placeholder="e.g. 7" required></div>
+      <div class="field"><label>Big-code group code</label><input type="text" name="tech_group" placeholder="e.g. 01" required></div>
+      <div class="field"><label>Small-code group code</label><input type="text" name="item_group" placeholder="e.g. 10" required></div>
+      <div class="field"><label>Sequence digits</label><input type="number" name="item_seq_digits" value="5" min="3" max="9"></div>
+    </div>
+    <input type="hidden" name="item_start" value="">
+    <div class="help">Big code = start + group code + codes of main features. Small code = small-code group code + codes of the two small-code features + sequence.</div>
+  </div>
+
+  <div class="card" style="overflow:auto;margin-bottom:1rem;">
+    <table class="data">
+      <thead><tr><th class="num">#</th>{% for c in columns %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for row in preview_rows %}
+          <tr><td class="num muted">{{ forloop.counter }}</td>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <button class="btn btn-primary" type="submit"><i class="fa-solid fa-database"></i> Confirm &amp; import</button>
+</form>
+{% endblock %}

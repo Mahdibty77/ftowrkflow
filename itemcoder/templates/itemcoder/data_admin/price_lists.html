@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Price lists · Data Management{% endblock %}
+{% block topbar %}Price lists{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{% if td_is_supply_manager %}Pricing Management{% else %}Price lists{% endif %}</h1>
+  <div class="sub">{% if td_is_supply_manager %}Create price lists, upload bulk prices, and edit rates in the workspace. Clearing prices is reserved for the platform administrator.{% else %}Each list holds one price per code. A code can have a price in several lists.{% endif %}</div></div>
+  <a class="btn btn-sm" href="{% url td_home_url_name %}">Back</a>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h3>Existing lists</h3></div>
+    {% if price_lists %}
+    <table class="data">
+      <thead><tr><th>Name</th><th>Currency</th><th class="num">Codes</th><th></th></tr></thead>
+      <tbody>
+        {% for pl in price_lists %}
+          <tr><td><strong>{{ pl.name }}</strong>{% if pl.note %}<div class="muted" style="font-size:.76rem;">{{ pl.note }}</div>{% endif %}</td>
+            <td>{{ pl.currency }}</td><td class="num">{{ pl.count }}</td>
+            <td class="btn-row" style="gap:.25rem;">
+              <a class="btn btn-sm btn-primary" href="{% url 'dm_price_workspace' pl.pk %}">Workspace</a>
+              <a class="btn btn-sm" href="{% url 'dm_price_upload' pl.pk %}">Bulk upload</a>
+            </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="muted">No price lists yet.</div>{% endif %}
+  </div>
+
+  <div class="card" style="align-self:start;">
+    <div class="card-head"><h3>New price list</h3></div>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create">
+      <div class="field"><label>Name <span class="req">*</span></label>
+        <input type="text" name="name" placeholder="e.g. Steel-1404Q1" required></div>
+      <div class="field"><label>Currency</label>
+        <select name="currency"><option value="rial">Rial</option><option value="usd">USD</option><option value="eur">EUR</option></select></div>
+      <div class="field"><label>Note</label><input type="text" name="note" placeholder="optional"></div>
+      <button class="btn btn-primary" type="submit"><i class="fa-solid fa-plus"></i> Create</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

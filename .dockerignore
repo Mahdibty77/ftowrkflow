@@ -1,0 +1,38 @@
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local development database. The server uses PostgreSQL, so this file must NOT
+# go into the image. (The itemcoder reference code tables under
+# itemcoder/resources/db/ are intentionally NOT ignored - they are bundled.)
+/db.sqlite3
+
+# Collected static + uploads are generated/persisted at runtime.
+/staticfiles/
+/media/
+
+# Runtime license state (sealed state + cached fingerprint) is created at run
+# time on a persisted volume and must never be baked into the image.
+/.license/
+.runtime_state
+.machine_fp
+
+# Backup archives are runtime data on a host folder, not part of the image.
+/backups/*.tar.gz
+/backups/.control/
+/backups/.work_*
+/backups/.restore_work
+
+# Tooling / packaging / VCS
+.git/
+.gitignore
+*.zip
+.DS_Store
+.venv/
+venv/
+*.log
+
+# Secrets - never bake the real environment file into an image.
+.env

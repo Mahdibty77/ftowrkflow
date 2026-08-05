@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{% if mode == 'create' %}New person{% else %}Profile · {{ person.display_name }}{% endif %} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% if mode == 'create' %}New person{% else %}Profile · {{ person.display_name }}{% endif %}{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-12">
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>
+      {% if mode == 'create' %}
+        Add a person
+      {% else %}
+        Profile · {{ person.display_name }}
+      {% endif %}
+    </h1>
+    <div class="sub">
+      {% if mode == 'create' %}
+        A detail code is assigned when you save, and never changes afterwards.
+      {% else %}
+        Detail code <span class="ppl-code">{{ person.detail_code }}</span>
+        {% if person.username %} · <span class="mono">{{ person.username }}</span>{% endif %}
+        — fixed on creation.
+      {% endif %}
+    </div>
+  </div>
+  <div class="btn-row">
+    {% if mode == 'edit' %}
+      <a href="{% url 'people:person_seats' person.pk %}" class="btn btn-sm">
+        <i class="fa-solid fa-sitemap"></i> Seats
+        {% if person.role_count %}<span class="count">{{ person.role_count }}</span>{% endif %}
+      </a>
+      <a href="{% url 'people:person_detail' person.pk %}" class="btn btn-sm">
+        <i class="fa-solid fa-arrow-left"></i> Back to details
+      </a>
+    {% else %}
+      <a href="{% url 'people:person_list' %}" class="btn btn-sm">
+        <i class="fa-solid fa-arrow-left"></i> Back to people
+      </a>
+    {% endif %}
+  </div>
+</div>
+
+{{ job_titles|json_script:"ppl-job-titles" }}
+
+<form method="post" autocomplete="off" novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}
+    <div class="flash flash-error">{{ form.non_field_errors }}</div>
+  {% endif %}
+
+  {% if mode == 'edit' %}
+  <div class="card">
+    <div class="card-head">
+      <h3>Record</h3>
+      {% if person.is_active %}
+        <span class="pill pill-green">Active</span>
+      {% else %}
+        <span class="pill pill-grey">Departed</span>
+      {% endif %}
+    </div>
+    <dl class="kv">
+      <dt>Detail code</dt><dd><span class="ppl-code">{{ person.detail_code }}</span></dd>
+      <dt>Username</dt>
+      <dd>
+        {% if person.username %}
+          <span class="mono">{{ person.username }}</span>
+        {% else %}
+          <span class="muted">Fill in the Latin name to generate one.</span>
+        {% endif %}
+      </dd>
+      <dt>Internal code</dt>
+      <dd>
+        <div class="ppl-record-icode">
+          {{ form.p_internal_code }}
+          {% if form.p_internal_code.errors %}
+            <ul class="errorlist">{% for e in form.p_internal_code.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+          {% endif %}
+        </div>
+      </dd>
+      <dt>Roles</dt>
+      <dd>
+        {% with roles=person.roles.all %}
+        {% if roles %}
+          <span class="chips-row">
+            {% for role in roles %}
+              <span class="chip ppl-seat-chip">
+                {% if role.seat_code %}<span class="mono">{{ role.seat_code }}</span>{% endif %}
+                <span class="ppl-chip-role">{{ role.title_line }}</span>
+              </span>
+            {% endfor %}
+          </span>
+        {% else %}
+          <span class="muted">None yet —
+            <a href="{% url 'people:person_seats' person.pk %}">assign one</a>.</span>
+        {% endif %}
+        {% endwith %}
+      </dd>
+      {% if person.national_id %}
+        <dt>National ID</dt>
+        <dd>
+          <span class="ppl-sensitive">
+            <span class="ppl-sensitive-value" data-value="{{ person.national_id }}" data-shown="0">••••••••••</span>
+            <button type="button" class="ppl-sensitive-toggle" data-sensitive-toggle
+                    title="Show" aria-label="Show national ID"><i class="fa-solid fa-eye"></i></button>
+          </span>
+        </dd>
+      {% endif %}
+    </dl>
+  </div>
+  {% endif %}
+
+  <div class="ppl-fa">
+    {% include "people/_cards.html" %}
+  </div>
+
+  <div class="btn-row ppl-form-actions">
+    <button type="submit" class="btn btn-primary">
+      <i class="fa-solid fa-floppy-disk"></i>
+      {% if mode == 'create' %}Add person{% else %}Save changes{% endif %}
+    </button>
+    {% if mode == 'edit' %}
+      <a href="{% url 'people:person_detail' person.pk %}" class="btn btn-ghost">Cancel</a>
+    {% else %}
+      <a href="{% url 'people:person_list' %}" class="btn btn-ghost">Cancel</a>
+    {% endif %}
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'js/ft_format.js' %}?v=1"></script>
+  <script src="{% static 'people/js/people.js' %}?v=ppl-12"></script>
+{% endblock %}
