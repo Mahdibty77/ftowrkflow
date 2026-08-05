@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Foolad Tabar Workflow{% endblock %}</title>
   {% include "includes/favicon.html" %}
-  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=shift-end-5">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=shift-end-6">
   <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-17">
   <link rel="stylesheet" href="{% static 'css/icons-offline.css' %}?v=shift-icons-4">
   <script>
@@ -261,44 +261,31 @@
     </header>
 
     {% if shift_seconds_left is not None %}
-      {# OT sentence + link are separate nodes; JS must only touch timer / minute number. #}
-      <div class="shift-warn-banner" role="status"
+      {# OT sentence + link are separate nodes; JS only updates timer / minute number / urgency. #}
+      <div class="shift-warn-banner" id="shiftWarnBanner" role="alert" aria-live="assertive"
            data-shift-seconds="{{ shift_seconds_left }}"
            data-has-ot="{% if shift_overtime_link %}1{% else %}0{% endif %}"
            {% if not shift_warn %}hidden{% endif %}>
-        <i class="fa-solid fa-hourglass-half"></i>
-        <strong class="shift-warn-timer">{{ shift_timer_label }}</strong>
-        <span class="shift-warn-text">
-          <span class="shift-mins-num">{{ shift_minutes_left }}</span>
-          <span class="shift-mins-word"> {{ shift_mins_word }}</span>
-          left until your cartable closes{% if shift_overtime_link %}<span class="shift-ot-sentence">. If you need more time, you can submit an Overtime request.</span>{% endif %}{% if shift_end_label %}<span class="shift-until"> (until {{ shift_end_label }})</span>{% endif %}
-        </span>
-        {% if shift_overtime_link %}
-          <a class="shift-ot-link" href="{{ shift_overtime_link }}">Request overtime</a>
-        {% endif %}
-      </div>
-    {% endif %}
-
-    <div id="shiftEndOverlay" class="shift-end-overlay" hidden>
-      <div class="shift-end-welcome">
-        <span class="se-hi">Dear <span class="se-nm" id="shiftEndName">{{ shift_end_name|default:"colleague" }}</span>,</span>
-        <span class="se-msg">your work shift has ended.</span>
-        <span class="se-sub">Hope you had a good day — see you next shift.</span>
-        <span class="se-hint" id="shiftEndHint">Returning to sign-in in <span id="shiftEndSecs">40</span>s…</span>
-      </div>
-    </div>
-
-    {% if shift_signout_confirm %}
-    <div id="signOutConfirm" class="shift-end-overlay so-confirm" hidden>
-      <div class="shift-end-welcome so-confirm-card">
-        <span class="se-hi">End your shift session?</span>
-        <span class="se-msg so-confirm-msg">Time away will not count as work hours until you sign in again.</span>
-        <div class="so-confirm-actions">
-          <button type="button" class="btn btn-ghost so-cancel" id="signOutCancel">Cancel</button>
-          <button type="button" class="btn btn-primary so-ok" id="signOutOk">Confirm Sign out</button>
+        <div class="shift-warn-inner">
+          <div class="shift-warn-icon" aria-hidden="true"><i class="fa-solid fa-hourglass-half"></i></div>
+          <div class="shift-warn-timer-wrap">
+            <strong class="shift-warn-timer">{{ shift_timer_label }}</strong>
+            <span class="shift-warn-timer-label">time left</span>
+          </div>
+          <div class="shift-warn-copy">
+            <div class="shift-warn-title">
+              Your cartable closes in
+              <span class="shift-mins-num">{{ shift_minutes_left }}</span><span class="shift-mins-word"> {{ shift_mins_word }}</span>{% if shift_end_label %}<span class="shift-until"> · until {{ shift_end_label }}</span>{% endif %}
+            </div>
+            <div class="shift-warn-text">
+              Finish your work or request overtime before the shift ends.{% if shift_overtime_link %}<span class="shift-ot-sentence"> You can submit an Overtime request now.</span>{% endif %}
+            </div>
+          </div>
+          {% if shift_overtime_link %}
+            <a class="shift-ot-link" href="{{ shift_overtime_link }}"><i class="fa-solid fa-stopwatch"></i> Request overtime</a>
+          {% endif %}
         </div>
       </div>
-    </div>
     {% endif %}
 
     {% if messages %}
@@ -337,13 +324,36 @@
     </main>
   </div>
 </div>
+
+{# End-of-shift overlay outside .shell so position:fixed always covers the viewport. #}
+<div id="shiftEndOverlay" class="shift-end-overlay" hidden>
+  <div class="shift-end-welcome">
+    <span class="se-hi">Dear <span class="se-nm" id="shiftEndName">{{ shift_end_name|default:"colleague" }}</span>,</span>
+    <span class="se-msg">your work shift has ended.</span>
+    <span class="se-sub">Hope you had a good day — see you next shift.</span>
+    <span class="se-hint" id="shiftEndHint">Returning to sign-in in <span id="shiftEndSecs">40</span>s…</span>
+  </div>
+</div>
+
+{% if shift_signout_confirm %}
+<div id="signOutConfirm" class="shift-end-overlay so-confirm" hidden>
+  <div class="shift-end-welcome so-confirm-card">
+    <span class="se-hi">End your shift session?</span>
+    <span class="se-msg so-confirm-msg">Time away will not count as work hours until you sign in again.</span>
+    <div class="so-confirm-actions">
+      <button type="button" class="btn btn-ghost so-cancel" id="signOutCancel">Cancel</button>
+      <button type="button" class="btn btn-primary so-ok" id="signOutOk">Confirm Sign out</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <script>
   document.addEventListener('click', function (e) {
     var w = document.getElementById('whoWidget');
     var m = document.getElementById('profileMenu');
     if (m && w && !w.contains(e.target)) m.classList.remove('open');
   });
-  // Mark the sidebar item matching the current path as active.
   (function () {
     var here = window.location.pathname;
     var best = null, bestLen = -1;
@@ -353,8 +363,6 @@
     });
     if (best) best.classList.add('active');
   })();
-  // Light / dark toggle (persisted per browser). Mode is one half of the theme;
-  // the colour skin is chosen on the profile page.
   (function () {
     var btn = document.getElementById('themeToggle');
     if (!btn) return;
@@ -366,8 +374,6 @@
       try { localStorage.setItem('ft-mode', mode); localStorage.setItem('ft-theme', mode); } catch (e) {}
     });
   })();
-  // In-card theme switcher (colour skins + light/dark) — no need to open the
-  // profile page to switch. Mirrors the profile-page picker.
   (function () {
     var r = document.documentElement;
     function curSkin() { var s = r.getAttribute('data-skin') || 'blue'; return (s === 'blue' || s === 'rose' || s === 'teal') ? s : 'blue'; }
@@ -396,8 +402,6 @@
     });
     mark();
   })();
-  // Sign out: confirm that work hours stop after leaving intentionally
-  // (staff with a work shift only — admin / GM skip this dialog).
   (function () {
     var form = document.getElementById('pmLogoutForm');
     var flag = document.getElementById('explicitShiftEnd');
@@ -405,7 +409,7 @@
     var cancel = document.getElementById('signOutCancel');
     var ok = document.getElementById('signOutOk');
     if (!form || !flag) return;
-    if (!overlay) return; // exempt roles: normal logout, no shift dialog
+    if (!overlay) return;
     var armed = false;
     form.addEventListener('submit', function (e) {
       if (armed) return;
@@ -437,23 +441,29 @@
       }
     });
   })();
-  // Work-shift: live 30-min banner + 40s end overlay.
-  // Important: never rewrite .shift-warn-text / OT nodes — only timer + minute number.
+  // Auto end-of-shift (no refresh) + prominent last-30-minute banner.
   (function () {
     var secondsLeft = {{ shift_seconds_left|default_if_none:'null' }};
     var pingUrl = "{{ shift_ping_url|default:'' }}";
     var endName = "{% filter escapejs %}{{ shift_end_name|default:'colleague' }}{% endfilter %}";
     var loginUrl = "{% url 'accounts:login' %}";
+    var logoutUrl = "{% url 'accounts:logout' %}";
     var overlay = document.getElementById('shiftEndOverlay');
     var nameEl = document.getElementById('shiftEndName');
     var hintNum = document.getElementById('shiftEndSecs');
-    var banner = document.querySelector('.shift-warn-banner');
+    var banner = document.getElementById('shiftWarnBanner') || document.querySelector('.shift-warn-banner');
     var WARN_SECS = 30 * 60;
+    var URGENT_SECS = 10 * 60;
+    var CRITICAL_SECS = 5 * 60;
     var GOODBYE_SECS = 40;
     var ended = false;
-    // Anchor to page-load monotonic countdown from server seconds (not wall-clock sync).
     var loadedAt = Date.now();
     var initialLeft = (typeof secondsLeft === 'number' && secondsLeft >= 0) ? secondsLeft : null;
+    var pingTimer = null;
+
+    if (overlay && overlay.parentNode !== document.body) document.body.appendChild(overlay);
+    var confirmOverlay = document.getElementById('signOutConfirm');
+    if (confirmOverlay && confirmOverlay.parentNode !== document.body) document.body.appendChild(confirmOverlay);
 
     function csrfToken() {
       var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
@@ -462,18 +472,23 @@
 
     function remainingSecs() {
       if (initialLeft == null) return null;
-      return Math.max(0, Math.ceil(initialLeft - (Date.now() - loadedAt) / 1000));
+      var left = initialLeft - (Date.now() - loadedAt) / 1000;
+      return left <= 0 ? 0 : left;
     }
 
     function formatTimer(total) {
-      total = Math.max(0, Math.floor(total));
+      total = Math.max(0, Math.ceil(total));
       var h = Math.floor(total / 3600);
       var m = Math.floor((total % 3600) / 60);
       var s = total % 60;
-      if (h > 0) {
-        return h + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
-      }
+      if (h > 0) return h + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
       return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    }
+
+    function setUrgency(secs) {
+      if (!banner) return;
+      banner.classList.toggle('is-urgent', secs <= URGENT_SECS && secs > CRITICAL_SECS);
+      banner.classList.toggle('is-critical', secs <= CRITICAL_SECS);
     }
 
     function tickBanner(secs) {
@@ -481,12 +496,13 @@
       if (typeof secs !== 'number' || secs < 0) return;
       if (secs > WARN_SECS) {
         banner.hidden = true;
+        banner.classList.remove('is-urgent', 'is-critical');
         return;
       }
       banner.hidden = false;
+      setUrgency(secs);
       var timerEl = banner.querySelector('.shift-warn-timer');
       if (timerEl) timerEl.textContent = formatTimer(secs);
-      // Update ONLY the numeric minute count / word — leave OT sentence, until, link alone.
       var mins = secs > 0 ? Math.ceil(secs / 60) : 0;
       var numEl = banner.querySelector('.shift-mins-num');
       var wordEl = banner.querySelector('.shift-mins-word');
@@ -497,13 +513,18 @@
     function showEnd() {
       if (ended) return;
       ended = true;
+      if (pingTimer) { clearInterval(pingTimer); pingTimer = null; }
       if (banner) banner.hidden = true;
       if (nameEl) nameEl.textContent = endName || 'colleague';
-      if (overlay) overlay.hidden = false;
+      if (overlay) {
+        if (overlay.parentNode !== document.body) document.body.appendChild(overlay);
+        overlay.hidden = false;
+      }
+      try { document.body.classList.add('shift-ended-lock'); } catch (e) {}
       var left = GOODBYE_SECS;
       if (hintNum) hintNum.textContent = String(left);
       try {
-        fetch("{% url 'accounts:logout' %}", {
+        fetch(logoutUrl, {
           method: 'POST',
           headers: {
             'X-CSRFToken': csrfToken(),
@@ -523,6 +544,51 @@
       }, 1000);
     }
 
+    function syncFromServer(data) {
+      if (!data) return;
+      if (data.allowed === false || data.shift_ended) {
+        if (data.name) endName = data.name;
+        showEnd();
+        return;
+      }
+      if (typeof data.seconds_left === 'number' && data.seconds_left >= 0) {
+        if (data.seconds_left === 0) { showEnd(); return; }
+        loadedAt = Date.now();
+        initialLeft = data.seconds_left;
+        tickBanner(initialLeft);
+        schedulePing();
+      }
+    }
+
+    function doPing() {
+      if (ended || !pingUrl) return;
+      fetch(pingUrl, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrfToken(),
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        },
+        credentials: 'same-origin'
+      }).then(function (r) {
+        return r.json().then(function (data) { return data; });
+      }).then(syncFromServer).catch(function () {});
+    }
+
+    function pingIntervalMs() {
+      var left = remainingSecs();
+      if (left == null) return 5000;
+      if (left <= 120) return 2000;
+      if (left <= WARN_SECS) return 5000;
+      return 10000;
+    }
+
+    function schedulePing() {
+      if (!pingUrl || ended) return;
+      if (pingTimer) clearInterval(pingTimer);
+      pingTimer = setInterval(doPing, pingIntervalMs());
+    }
+
     if (initialLeft != null) {
       setInterval(function () {
         if (ended) return;
@@ -530,37 +596,18 @@
         if (left == null) return;
         if (left <= 0) { showEnd(); return; }
         tickBanner(left);
-      }, 250);
+      }, 200);
       tickBanner(initialLeft);
       if (initialLeft === 0) showEnd();
     }
 
     if (pingUrl) {
-      setInterval(function () {
-        if (ended) return;
-        fetch(pingUrl, {
-          method: 'POST',
-          headers: {
-            'X-CSRFToken': csrfToken(),
-            'X-Requested-With': 'XMLHttpRequest'
-          },
-          credentials: 'same-origin'
-        }).then(function (r) { return r.json(); }).then(function (data) {
-          if (!data) return;
-          if (data.allowed === false || data.shift_ended) {
-            if (data.name) endName = data.name;
-            showEnd();
-            return;
-          }
-          // Resync from authoritative server seconds — never minutes*60.
-          if (typeof data.seconds_left === 'number' && data.seconds_left >= 0) {
-            if (data.seconds_left === 0) { showEnd(); return; }
-            loadedAt = Date.now();
-            initialLeft = data.seconds_left;
-            tickBanner(initialLeft);
-          }
-        }).catch(function () {});
-      }, 15000);
+      doPing();
+      schedulePing();
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) doPing();
+      });
+      window.addEventListener('focus', doPing);
     }
   })();
 </script>
