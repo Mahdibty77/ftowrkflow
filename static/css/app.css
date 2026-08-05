@@ -75,19 +75,17 @@ code,.mono{font-family:var(--mono);font-variant-numeric:lining-nums;font-feature
 .shift-warn-timer-wrap{
   display:flex;flex-direction:column;align-items:flex-start;gap:0;min-width:4.4rem;
 }
-/* Accent family ≠ warn/amber — keeps digits clear on the warning strip.
-   Scale pulse uses transform only (composited; no layout thrash / Law 1). */
+/* Accent ≠ warn/amber. Pulse animates ONLY transform (composited; Law 1).
+   Color/neon glow stay static — animating text-shadow/color every frame is costly. */
 .shift-warn-timer{
   display:inline-block;
   font-variant-numeric:tabular-nums;
   font-size:clamp(1.25rem,2vw,1.55rem);font-weight:800;letter-spacing:.35px;
   line-height:1.05;color:var(--accent-strong);
+  transform:translateZ(0);
   transform-origin:left center;
+  backface-visibility:hidden;
   animation:shift-timer-pulse 1s ease-in-out infinite;
-  /* Light "reverse neon": deep accent + soft bloom on the pale warn strip */
-  text-shadow:
-    0 0 4px color-mix(in srgb,var(--accent) 35%,transparent),
-    0 0 10px color-mix(in srgb,var(--accent) 22%,transparent);
 }
 .shift-warn-timer-label{
   font-size:.62rem;font-weight:650;letter-spacing:.1em;text-transform:uppercase;
@@ -123,89 +121,30 @@ code,.mono{font-family:var(--mono);font-variant-numeric:lining-nums;font-feature
 .shift-warn-banner.is-critical .shift-warn-icon,
 .shift-warn-banner.is-critical .shift-until{color:var(--rej);}
 .shift-warn-banner.is-critical .shift-warn-timer{
-  animation-name:shift-timer-pulse-critical;
   color:var(--rej);
 }
-/* Light reverse-neon pulse: deep inked accent + bloom (opposite of night neon) */
+/* Light: scale only (pre-reverse-neon look) */
 @keyframes shift-timer-pulse{
-  0%,100%{
-    transform:scale(1);
-    color:var(--accent-strong);
-    text-shadow:
-      0 0 3px color-mix(in srgb,var(--accent) 30%,transparent),
-      0 0 8px color-mix(in srgb,var(--accent) 18%,transparent);
-  }
-  50%{
-    transform:scale(1.16);
-    color:var(--accent);
-    text-shadow:
-      0 0 6px color-mix(in srgb,var(--accent) 55%,transparent),
-      0 0 14px color-mix(in srgb,var(--accent-strong) 35%,transparent),
-      0 1px 0 color-mix(in srgb,var(--paper) 80%,transparent);
-  }
-}
-@keyframes shift-timer-pulse-critical{
-  0%,100%{
-    transform:scale(1);
-    color:var(--rej);
-    text-shadow:
-      0 0 3px color-mix(in srgb,var(--rej) 35%,transparent),
-      0 0 8px color-mix(in srgb,var(--rej) 20%,transparent);
-  }
-  50%{
-    transform:scale(1.16);
-    color:color-mix(in srgb,var(--rej) 70%,var(--accent-strong));
-    text-shadow:
-      0 0 6px color-mix(in srgb,var(--rej) 50%,transparent),
-      0 0 14px color-mix(in srgb,var(--rej) 30%,transparent);
-  }
+  0%,100%{transform:translateZ(0) scale(1);}
+  50%{transform:translateZ(0) scale(1.14);}
 }
 body.shift-ended-lock{overflow:hidden;}
 html[data-mode="dark"] .main-sticky-head,
 html[data-theme="dark"] .main-sticky-head{
   background:var(--mist);
 }
-/* Dark: neon glow on accent (skin-aware) + same scale pulse */
+/* Dark: static neon glow + same cheap scale pulse */
 html[data-mode="dark"] .shift-warn-timer,
 html[data-theme="dark"] .shift-warn-timer{
   color:var(--accent-strong);
-  animation-name:shift-timer-pulse-neon;
   text-shadow:
-    0 0 6px color-mix(in srgb,var(--accent) 75%,transparent),
-    0 0 16px color-mix(in srgb,var(--accent) 45%,transparent);
-}
-@keyframes shift-timer-pulse-neon{
-  0%,100%{
-    transform:scale(1);
-    color:var(--accent-strong);
-    text-shadow:
-      0 0 5px color-mix(in srgb,var(--accent) 65%,transparent),
-      0 0 12px color-mix(in srgb,var(--accent) 35%,transparent);
-  }
-  50%{
-    transform:scale(1.16);
-    color:#fff;
-    text-shadow:
-      0 0 8px color-mix(in srgb,var(--accent-strong) 90%,transparent),
-      0 0 20px color-mix(in srgb,var(--accent) 55%,transparent),
-      0 0 28px color-mix(in srgb,var(--accent) 30%,transparent);
-  }
+    0 0 6px color-mix(in srgb,var(--accent) 70%,transparent),
+    0 0 14px color-mix(in srgb,var(--accent) 40%,transparent);
 }
 html[data-mode="dark"] .shift-warn-banner.is-critical .shift-warn-timer,
 html[data-theme="dark"] .shift-warn-banner.is-critical .shift-warn-timer{
-  animation-name:shift-timer-pulse-neon-critical;
-}
-@keyframes shift-timer-pulse-neon-critical{
-  0%,100%{
-    transform:scale(1);
-    color:#fda4af;
-    text-shadow:0 0 6px rgba(251,113,133,.55),0 0 14px rgba(244,63,94,.35);
-  }
-  50%{
-    transform:scale(1.16);
-    color:#fff;
-    text-shadow:0 0 8px rgba(251,113,133,.85),0 0 20px rgba(244,63,94,.5);
-  }
+  color:#fda4af;
+  text-shadow:0 0 6px rgba(251,113,133,.55),0 0 14px rgba(244,63,94,.35);
 }
 /* Dark primary buttons use dark text on accent — match OT chip */
 html[data-mode="dark"] .shift-ot-link,
