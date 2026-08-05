@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Foolad Tabar Workflow{% endblock %}</title>
   {% include "includes/favicon.html" %}
-  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=shift-end-6">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=shift-end-7">
   <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-17">
   <link rel="stylesheet" href="{% static 'css/icons-offline.css' %}?v=shift-icons-4">
   <script>
@@ -278,7 +278,7 @@
               <span class="shift-mins-num">{{ shift_minutes_left }}</span><span class="shift-mins-word"> {{ shift_mins_word }}</span>{% if shift_end_label %}<span class="shift-until"> · until {{ shift_end_label }}</span>{% endif %}
             </div>
             <div class="shift-warn-text">
-              Finish your work or request overtime before the shift ends.{% if shift_overtime_link %}<span class="shift-ot-sentence"> You can submit an Overtime request now.</span>{% endif %}
+              Finish work before close{% if shift_overtime_link %}<span class="shift-ot-sentence">, or request overtime</span>{% endif %}.
             </div>
           </div>
           {% if shift_overtime_link %}
@@ -590,13 +590,14 @@
     }
 
     if (initialLeft != null) {
+      // 1s is enough for a second-precision display (Law 1: avoid 200ms DOM churn).
       setInterval(function () {
         if (ended) return;
         var left = remainingSecs();
         if (left == null) return;
         if (left <= 0) { showEnd(); return; }
         tickBanner(left);
-      }, 200);
+      }, 1000);
       tickBanner(initialLeft);
       if (initialLeft === 0) showEnd();
     }
