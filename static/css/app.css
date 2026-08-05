@@ -84,6 +84,10 @@ code,.mono{font-family:var(--mono);font-variant-numeric:lining-nums;font-feature
   line-height:1.05;color:var(--accent-strong);
   transform-origin:left center;
   animation:shift-timer-pulse 1s ease-in-out infinite;
+  /* Light "reverse neon": deep accent + soft bloom on the pale warn strip */
+  text-shadow:
+    0 0 4px color-mix(in srgb,var(--accent) 35%,transparent),
+    0 0 10px color-mix(in srgb,var(--accent) 22%,transparent);
 }
 .shift-warn-timer-label{
   font-size:.62rem;font-weight:650;letter-spacing:.1em;text-transform:uppercase;
@@ -122,14 +126,39 @@ code,.mono{font-family:var(--mono);font-variant-numeric:lining-nums;font-feature
   animation-name:shift-timer-pulse-critical;
   color:var(--rej);
 }
-/* Light: accent pulse + gentle scale (not amber) */
+/* Light reverse-neon pulse: deep inked accent + bloom (opposite of night neon) */
 @keyframes shift-timer-pulse{
-  0%,100%{transform:scale(1);color:var(--accent-strong);}
-  50%{transform:scale(1.16);color:var(--accent);}
+  0%,100%{
+    transform:scale(1);
+    color:var(--accent-strong);
+    text-shadow:
+      0 0 3px color-mix(in srgb,var(--accent) 30%,transparent),
+      0 0 8px color-mix(in srgb,var(--accent) 18%,transparent);
+  }
+  50%{
+    transform:scale(1.16);
+    color:var(--accent);
+    text-shadow:
+      0 0 6px color-mix(in srgb,var(--accent) 55%,transparent),
+      0 0 14px color-mix(in srgb,var(--accent-strong) 35%,transparent),
+      0 1px 0 color-mix(in srgb,var(--paper) 80%,transparent);
+  }
 }
 @keyframes shift-timer-pulse-critical{
-  0%,100%{transform:scale(1);color:var(--rej);}
-  50%{transform:scale(1.16);color:var(--accent-strong);}
+  0%,100%{
+    transform:scale(1);
+    color:var(--rej);
+    text-shadow:
+      0 0 3px color-mix(in srgb,var(--rej) 35%,transparent),
+      0 0 8px color-mix(in srgb,var(--rej) 20%,transparent);
+  }
+  50%{
+    transform:scale(1.16);
+    color:color-mix(in srgb,var(--rej) 70%,var(--accent-strong));
+    text-shadow:
+      0 0 6px color-mix(in srgb,var(--rej) 50%,transparent),
+      0 0 14px color-mix(in srgb,var(--rej) 30%,transparent);
+  }
 }
 body.shift-ended-lock{overflow:hidden;}
 html[data-mode="dark"] .main-sticky-head,
