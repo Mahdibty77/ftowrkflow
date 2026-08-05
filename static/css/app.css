@@ -53,18 +53,24 @@ code,.mono{font-family:var(--mono);font-variant-numeric:lining-nums;font-feature
   box-shadow:0 1px 0 var(--line);
 }
 
-/* Work-shift countdown — cool slate band; timer stays warn/neon for contrast */
+/* Work-shift countdown — fixed amber/yellow band (not theme accent).
+   Timer blinks between two deep oranges that both stay readable on that band. */
 .shift-warn-banner{
+  --sw-bg-a:#ffedd5;
+  --sw-bg-b:#fde68a;
+  --sw-bg-c:#fdba74;
+  --sw-line:#f59e0b;
+  --sw-ink:#7c2d12;
+  --sw-muted:#9a3412;
+  --sw-timer-on:#9a3412;
+  --sw-timer-off:#c2410c;
+  --sw-timer-glow:rgba(154,52,18,.28);
   position:relative;z-index:1;
   margin:0;padding:.5rem 1.1rem;
-  background:
-    linear-gradient(90deg,
-      color-mix(in srgb,#334155 14%,var(--cloud)) 0%,
-      color-mix(in srgb,var(--accent) 10%,var(--mist)) 55%,
-      color-mix(in srgb,#475569 10%,var(--paper)) 100%);
-  border-bottom:2px solid color-mix(in srgb,#475569 28%,var(--line));
-  box-shadow:none;
-  color:var(--ink);
+  background:linear-gradient(90deg,var(--sw-bg-a) 0%,var(--sw-bg-b) 48%,var(--sw-bg-c) 100%);
+  border-bottom:2px solid var(--sw-line);
+  box-shadow:0 3px 10px rgba(245,158,11,.18);
+  color:var(--sw-ink);
 }
 .shift-warn-banner[hidden]{display:none !important;}
 .shift-warn-inner{
@@ -73,7 +79,7 @@ code,.mono{font-family:var(--mono);font-variant-numeric:lining-nums;font-feature
 }
 .shift-warn-icon{
   flex:0 0 auto;display:grid;place-items:center;
-  font-size:.95rem;line-height:1;color:#475569;
+  font-size:.95rem;line-height:1;color:var(--sw-timer-on);
   background:transparent;border:0;box-shadow:none;animation:none;
 }
 .shift-warn-timer-wrap{
@@ -82,94 +88,115 @@ code,.mono{font-family:var(--mono);font-variant-numeric:lining-nums;font-feature
 .shift-warn-timer{
   font-variant-numeric:tabular-nums;
   font-size:clamp(1.15rem,1.8vw,1.35rem);font-weight:800;letter-spacing:.35px;
-  line-height:1.05;color:var(--warn);
+  line-height:1.05;color:var(--sw-timer-on);
+  text-shadow:0 1px 0 rgba(255,255,255,.45);
   animation:shift-timer-blink 1s steps(1,end) infinite;
 }
 .shift-warn-timer-label{
   font-size:.62rem;font-weight:650;letter-spacing:.1em;text-transform:uppercase;
-  color:var(--muted);
+  color:var(--sw-muted);
 }
 .shift-warn-copy{
   flex:1 1 220px;min-width:0;text-align:center;
 }
 .shift-warn-title{
-  font-size:.92rem;font-weight:700;color:var(--ink);line-height:1.25;
+  font-size:.92rem;font-weight:700;color:var(--sw-ink);line-height:1.25;
 }
-.shift-until{color:var(--warn);font-weight:750;}
+.shift-until{color:var(--sw-timer-on);font-weight:750;}
 .shift-warn-text{
-  margin-top:.12rem;font-size:.78rem;font-weight:550;color:var(--muted);line-height:1.35;
+  margin-top:.12rem;font-size:.78rem;font-weight:550;color:var(--sw-muted);line-height:1.35;
 }
 .shift-ot-link{
   display:inline-flex;align-items:center;gap:.35rem;flex:0 0 auto;
   margin-left:auto;padding:.4rem .75rem;border-radius:8px;
-  background:var(--accent);color:var(--on-accent,#fff);
+  background:#c2410c;color:#fff7ed;
   font-size:.78rem;font-weight:700;text-decoration:none;white-space:nowrap;
 }
 .shift-ot-link:hover{
-  background:var(--accent-strong);color:var(--on-accent,#fff);text-decoration:none;
+  background:#9a3412;color:#fff7ed;text-decoration:none;
 }
 .shift-warn-banner.is-urgent{
-  background:
-    linear-gradient(90deg,
-      color-mix(in srgb,#334155 18%,var(--cloud)) 0%,
-      color-mix(in srgb,var(--accent) 12%,var(--mist)) 100%);
-  border-bottom-color:color-mix(in srgb,var(--warn) 45%,#64748b);
+  --sw-bg-a:#fed7aa;
+  --sw-bg-b:#fbbf24;
+  --sw-bg-c:#fb923c;
+  --sw-line:#ea580c;
+  --sw-timer-on:#7c2d12;
+  --sw-timer-off:#ea580c;
 }
 .shift-warn-banner.is-critical{
-  background:
-    linear-gradient(90deg,
-      color-mix(in srgb,#1e293b 16%,var(--cloud)) 0%,
-      color-mix(in srgb,#334155 12%,var(--mist)) 100%);
-  border-bottom-color:color-mix(in srgb,var(--rej) 40%,#64748b);
+  --sw-bg-a:#ffedd5;
+  --sw-bg-b:#fdba74;
+  --sw-bg-c:#f87171;
+  --sw-line:#dc2626;
+  --sw-ink:#7f1d1d;
+  --sw-muted:#991b1b;
+  --sw-timer-on:#7f1d1d;
+  --sw-timer-off:#dc2626;
+  --sw-timer-glow:rgba(127,29,29,.3);
 }
-.shift-warn-banner.is-critical .shift-warn-timer,
-.shift-warn-banner.is-critical .shift-until{color:var(--rej);}
-.shift-warn-banner.is-critical .shift-warn-icon{color:color-mix(in srgb,var(--rej) 55%,#64748b);}
+/* Blink by hue (not fade-out) so both phases stay clear on amber/yellow */
 @keyframes shift-timer-blink{
-  0%,49%{opacity:1;}
-  50%,100%{opacity:.35;}
+  0%,49%{
+    color:var(--sw-timer-on);
+    opacity:1;
+    text-shadow:0 1px 0 rgba(255,255,255,.5),0 0 10px var(--sw-timer-glow);
+  }
+  50%,100%{
+    color:var(--sw-timer-off);
+    opacity:1;
+    text-shadow:0 1px 0 rgba(255,255,255,.35),0 0 6px var(--sw-timer-glow);
+  }
 }
 body.shift-ended-lock{overflow:hidden;}
-/* Dark: deep slate band — timer stays neon so it never blends into the banner */
+/* Dark mode: still amber/yellow (not theme neon) — slightly deeper band, same timer family */
 html[data-mode="dark"] .main-sticky-head,
 html[data-theme="dark"] .main-sticky-head{
   background:var(--mist);
 }
 html[data-mode="dark"] .shift-warn-banner,
 html[data-theme="dark"] .shift-warn-banner{
-  background:
-    linear-gradient(90deg,
-      #1e293b 0%,
-      color-mix(in srgb,#0f172a 70%,var(--paper)) 55%,
-      #162033 100%);
-  border-bottom-color:#334155;
-  box-shadow:0 4px 14px rgba(0,0,0,.28);
+  --sw-bg-a:#78350f;
+  --sw-bg-b:#a16207;
+  --sw-bg-c:#c2410c;
+  --sw-line:#fbbf24;
+  --sw-ink:#fffbeb;
+  --sw-muted:#fde68a;
+  --sw-timer-on:#fef3c7;
+  --sw-timer-off:#fbbf24;
+  --sw-timer-glow:rgba(251,191,36,.45);
+  box-shadow:0 4px 14px rgba(0,0,0,.35);
 }
 html[data-mode="dark"] .shift-warn-timer,
 html[data-theme="dark"] .shift-warn-timer{
-  color:#5eead4;
-  text-shadow:0 0 8px rgba(94,234,212,.55),0 0 18px rgba(45,212,191,.35);
+  text-shadow:0 0 8px var(--sw-timer-glow),0 1px 0 rgba(0,0,0,.35);
 }
-html[data-mode="dark"] .shift-warn-banner.is-critical .shift-warn-timer,
-html[data-theme="dark"] .shift-warn-banner.is-critical .shift-warn-timer{
-  color:#fb7185;
-  text-shadow:0 0 8px rgba(251,113,133,.55),0 0 18px rgba(244,63,94,.3);
+html[data-mode="dark"] .shift-warn-banner.is-urgent,
+html[data-theme="dark"] .shift-warn-banner.is-urgent{
+  --sw-bg-a:#92400e;
+  --sw-bg-b:#b45309;
+  --sw-bg-c:#ea580c;
+  --sw-timer-on:#fffbeb;
+  --sw-timer-off:#fcd34d;
 }
-html[data-mode="dark"] .shift-until,
-html[data-theme="dark"] .shift-until{color:#5eead4;}
-html[data-mode="dark"] .shift-warn-banner.is-critical .shift-until,
-html[data-theme="dark"] .shift-warn-banner.is-critical .shift-until{color:#fb7185;}
-html[data-mode="dark"] .shift-warn-icon,
-html[data-theme="dark"] .shift-warn-icon{color:#94a3b8;}
-html[data-skin="blue"][data-mode="dark"] .shift-warn-timer,
-html[data-skin="blue"][data-mode="dark"] .shift-until{
-  color:#7dd3fc;
-  text-shadow:0 0 8px rgba(125,211,252,.55),0 0 18px rgba(56,189,248,.3);
+html[data-mode="dark"] .shift-warn-banner.is-critical,
+html[data-theme="dark"] .shift-warn-banner.is-critical{
+  --sw-bg-a:#7f1d1d;
+  --sw-bg-b:#9a3412;
+  --sw-bg-c:#dc2626;
+  --sw-line:#fca5a5;
+  --sw-ink:#fef2f2;
+  --sw-muted:#fecaca;
+  --sw-timer-on:#fee2e2;
+  --sw-timer-off:#f87171;
+  --sw-timer-glow:rgba(248,113,113,.4);
 }
-html[data-skin="rose"][data-mode="dark"] .shift-warn-timer,
-html[data-skin="rose"][data-mode="dark"] .shift-until{
-  color:#f9a8d4;
-  text-shadow:0 0 8px rgba(249,168,212,.55),0 0 18px rgba(244,114,182,.3);
+html[data-mode="dark"] .shift-ot-link,
+html[data-theme="dark"] .shift-ot-link{
+  background:#fbbf24;color:#78350f;
+}
+html[data-mode="dark"] .shift-ot-link:hover,
+html[data-theme="dark"] .shift-ot-link:hover{
+  background:#fde68a;color:#78350f;
 }
 @media (max-width:720px){
   .shift-warn-banner{padding:.45rem .85rem;}
