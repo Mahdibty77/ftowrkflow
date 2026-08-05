@@ -57,6 +57,15 @@ def pending_request_count() -> int:
     ).count()
 
 
+def unread_pending_count() -> int:
+    """GM badge: submitted requests the reviewer has not opened yet."""
+    return StaffRequest.objects.filter(
+        status=StaffRequest.STATUS_SUBMITTED,
+        request_type__code=RequestType.CODE_OVERTIME,
+        reviewer_seen_at__isnull=True,
+    ).count()
+
+
 def person_has_access(person: Person | None, type_code: str) -> bool:
     if person is None:
         return False
@@ -226,6 +235,9 @@ def submit_overtime(
         created_by=user,
         submitted_at=when,
         payload={"case_ids": ids},
+        # Requester just filed it; reviewer must see the unread alarm.
+        requester_seen_at=when,
+        reviewer_seen_at=None,
     )
     return req
 
@@ -248,6 +260,9 @@ def decide_overtime(
     req.decided_by = user
     req.decided_at = when
     req.decision_note = (note or "").strip()
+    # Reviewer just acted; requester must see the unread alarm until they open it.
+    req.reviewer_seen_at = when
+    req.requester_seen_at = None
     if approve:
         mins = int(approved_minutes if approved_minutes is not None else req.requested_minutes)
         mins = max(0, mins)
@@ -324,9 +339,6 @@ def decided_count_for_person(person: Person, type_code: str | None = None) -> in
     return qs.count()
 
 
-SEEN_IDS_PREFIX = "staff_req_seen_ids_"
-
-
 def decided_qs_for_type(person: Person, type_code: str):
     return StaffRequest.objects.filter(
         person=person,
@@ -335,42 +347,108 @@ def decided_qs_for_type(person: Person, type_code: str):
     )
 
 
-def unread_decided_count(
-    person: Person,
-    type_code: str,
-    *,
-    seen_ids=None,
-) -> int:
-    """Count decided requests the person has not opened yet (by stored pk set)."""
-    qs = decided_qs_for_type(person, type_code)
-    if seen_ids is not None:
-        qs = qs.exclude(pk__in=list(seen_ids))
+def unread_decided_count(person: Person, type_code: str | None = None) -> int:
+    """Decided requests the person has not opened since the decision."""
+    qs = StaffRequest.objects.filter(
+        person=person,
+        status__in=[StaffRequest.STATUS_APPROVED, StaffRequest.STATUS_REJECTED],
+        requester_seen_at__isnull=True,
+    )
+    if type_code:
+        qs = qs.filter(request_type__code=type_code)
     return qs.count()
 
 
-def mark_request_type_seen(session, person: Person, type_code: str) -> None:
-    """Snapshot all currently decided request ids for this type as seen."""
-    current = set(
-        decided_qs_for_type(person, type_code).values_list("pk", flat=True)
+def mark_request_seen_for_requester(req: StaffRequest) -> None:
+    """Requester opened detail → clear unread and allow History move when decided."""
+    if req.requester_seen_at is not None:
+        return
+    req.requester_seen_at = timezone.now()
+    req.save(update_fields=["requester_seen_at", "updated_at"])
+
+
+def mark_request_seen_for_reviewer(req: StaffRequest) -> None:
+    """GM opened detail → clear reviewer unread badge for this row."""
+    if req.reviewer_seen_at is not None:
+        return
+    req.reviewer_seen_at = timezone.now()
+    req.save(update_fields=["reviewer_seen_at", "updated_at"])
+
+
+def active_for_person(person: Person, type_code: str | None = None):
+    """Submitted, or decided but not yet opened by the requester."""
+    from django.db.models import Q
+
+    qs = (
+        StaffRequest.objects.filter(person=person)
+        .exclude(status=StaffRequest.STATUS_DRAFT)
+        .filter(
+            Q(status=StaffRequest.STATUS_SUBMITTED)
+            | Q(
+                status__in=[StaffRequest.STATUS_APPROVED, StaffRequest.STATUS_REJECTED],
+                requester_seen_at__isnull=True,
+            )
+        )
+        .select_related("request_type", "decided_by", "created_by")
+        .order_by("-submitted_at", "-pk")
     )
-    prev_raw = session.get(f"{SEEN_IDS_PREFIX}{type_code}") or []
-    try:
-        prev = {int(x) for x in prev_raw}
-    except (TypeError, ValueError):
-        prev = set()
-    session[f"{SEEN_IDS_PREFIX}{type_code}"] = sorted(prev | current)
-    session.modified = True
+    if type_code:
+        qs = qs.filter(request_type__code=type_code)
+    return qs
 
 
-def seen_ids_from_session(session, type_code: str):
-    """Return seen pk list, or None if this type was never opened."""
-    if f"{SEEN_IDS_PREFIX}{type_code}" not in session:
-        return None
-    raw = session.get(f"{SEEN_IDS_PREFIX}{type_code}") or []
-    try:
-        return [int(x) for x in raw]
-    except (TypeError, ValueError):
-        return []
+def history_for_person(person: Person, type_code: str | None = None):
+    """Decided requests the requester has already opened (seen)."""
+    qs = (
+        StaffRequest.objects.filter(
+            person=person,
+            status__in=[StaffRequest.STATUS_APPROVED, StaffRequest.STATUS_REJECTED],
+            requester_seen_at__isnull=False,
+        )
+        .select_related("request_type", "decided_by", "created_by")
+        .order_by("-decided_at", "-pk")
+    )
+    if type_code:
+        qs = qs.filter(request_type__code=type_code)
+    return qs
+
+
+def history_for_gm():
+    return (
+        StaffRequest.objects.exclude(status=StaffRequest.STATUS_DRAFT)
+        .exclude(status=StaffRequest.STATUS_SUBMITTED)
+        .select_related("person", "request_type", "decided_by", "created_by")
+        .order_by("-decided_at", "-pk")
+    )
+
+
+def history_rows_enriched(qs, *, unread_for: str | None = None):
+    """Build table rows. unread_for: 'requester' | 'reviewer' | None."""
+    rows = []
+    for r in qs:
+        decider = ""
+        if r.decided_by_id:
+            decider = (
+                r.decided_by.get_full_name() or r.decided_by.username or ""
+            ).strip()
+        is_unread = False
+        if unread_for == "requester":
+            is_unread = (
+                r.status in (StaffRequest.STATUS_APPROVED, StaffRequest.STATUS_REJECTED)
+                and r.requester_seen_at is None
+            )
+        elif unread_for == "reviewer":
+            is_unread = (
+                r.status == StaffRequest.STATUS_SUBMITTED
+                and r.reviewer_seen_at is None
+            )
+        rows.append({
+            "req": r,
+            "cases": linked_cases_display(r.case_ids or []),
+            "decider": decider or "—",
+            "is_unread": is_unread,
+        })
+    return rows
 
 
 def approved_overtime_request_for_day(person: Person, day: date):
@@ -385,39 +463,6 @@ def approved_overtime_request_for_day(person: Person, day: date):
         .order_by("-decided_at", "-pk")
         .first()
     )
-
-
-def history_for_person(person: Person):
-    return (
-        StaffRequest.objects.filter(person=person)
-        .select_related("request_type", "decided_by", "created_by")
-        .order_by("created_at", "pk")
-    )
-
-
-def history_for_gm():
-    return (
-        StaffRequest.objects.exclude(status=StaffRequest.STATUS_DRAFT)
-        .exclude(status=StaffRequest.STATUS_SUBMITTED)
-        .select_related("person", "request_type", "decided_by", "created_by")
-        .order_by("created_at", "pk")
-    )
-
-
-def history_rows_enriched(qs):
-    rows = []
-    for r in qs:
-        decider = ""
-        if r.decided_by_id:
-            decider = (
-                r.decided_by.get_full_name() or r.decided_by.username or ""
-            ).strip()
-        rows.append({
-            "req": r,
-            "cases": linked_cases_display(r.case_ids or []),
-            "decider": decider or "—",
-        })
-    return rows
 
 
 def filter_options_from_rows(rows: list[dict], *, show_person: bool = False) -> dict:

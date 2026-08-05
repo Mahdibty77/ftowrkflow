@@ -34,8 +34,8 @@ def _person_or_redirect(request):
     return person
 
 
-def _history_rows(qs):
-    return sr.history_rows_enriched(qs)
+def _history_rows(qs, *, unread_for=None):
+    return sr.history_rows_enriched(qs, unread_for=unread_for)
 
 
 # ---------------------------------------------------------------------------
@@ -126,8 +126,7 @@ def my_requests(request):
     type_cards = []
     answered_total = 0
     for t in types:
-        seen_ids = sr.seen_ids_from_session(request.session, t.code)
-        unread = sr.unread_decided_count(person, t.code, seen_ids=seen_ids)
+        unread = sr.unread_decided_count(person, t.code)
         answered_total += unread
         type_cards.append({
             "type": t,
@@ -212,12 +211,10 @@ def overtime_form(request):
         + "?select=1&return="
         + reverse("people:overtime_form")
     )
-    recent = list(sr.history_for_person(person).filter(
-        request_type__code=RequestType.CODE_OVERTIME,
-    )[:300])
-    recent_rows = _history_rows(recent)
-    # Entering Overtime marks current decided answers as seen (badge → 0).
-    sr.mark_request_type_seen(request.session, person, RequestType.CODE_OVERTIME)
+    active = list(sr.active_for_person(person, RequestType.CODE_OVERTIME)[:300])
+    history = list(sr.history_for_person(person, RequestType.CODE_OVERTIME)[:300])
+    active_rows = _history_rows(active, unread_for="requester")
+    history_rows = _history_rows(history, unread_for="requester")
     return render(request, "people/overtime_form.html", {
         "person": person,
         "cases": cases,
@@ -227,8 +224,10 @@ def overtime_form(request):
         "ot_m": "30",
         "archive_select_url": archive_select_url,
         "comment": "",
-        "recent_rows": recent_rows,
-        **sr.filter_options_from_rows(recent_rows, show_person=False),
+        "active_rows": active_rows,
+        "history_rows": history_rows,
+        "active_filters": sr.filter_options_from_rows(active_rows, show_person=False),
+        "history_filters": sr.filter_options_from_rows(history_rows, show_person=False),
     })
 
 
@@ -252,6 +251,11 @@ def request_detail(request, pk):
         and req.status == StaffRequest.STATUS_SUBMITTED
         and req.request_type.code == RequestType.CODE_OVERTIME
     )
+    # Opening detail clears the unread alarm for that party (badge --, move to History when decided).
+    if is_gm:
+        sr.mark_request_seen_for_reviewer(req)
+    if person is not None and req.person_id == person.pk:
+        sr.mark_request_seen_for_requester(req)
     if is_gm:
         back_url = reverse("people:gm_overtime_inbox")
     elif req.request_type.code == RequestType.CODE_OVERTIME:
@@ -277,11 +281,12 @@ def request_detail(request, pk):
 @login_required
 @gm_required
 def gm_overtime_inbox(request):
-    """GM Requests: pending card + decided history with type tabs/filters."""
+    """GM Requests: pending (Active) + decided History; unread marks on new submits."""
     pending = list(sr.gm_pending_overtime())
-    pending_rows = _history_rows(pending)
+    pending_rows = _history_rows(pending, unread_for="reviewer")
     history = list(sr.history_for_gm()[:400])
     history_rows = _history_rows(history)
+    unread_pending = sum(1 for row in pending_rows if row.get("is_unread"))
     type_counts = {}
     for r in history:
         title = r.request_type.title
@@ -300,6 +305,7 @@ def gm_overtime_inbox(request):
         })
     return render(request, "people/gm_overtime_inbox.html", {
         "pending_count": len(pending),
+        "unread_pending": unread_pending,
         "pending_rows": pending_rows,
         "recent_rows": history_rows,
         "type_tabs": type_tabs,

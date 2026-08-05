@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Foolad Tabar Workflow{% endblock %}</title>
   {% include "includes/favicon.html" %}
-  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=shift-end-8">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=shift-end-9">
   <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-17">
   <link rel="stylesheet" href="{% static 'css/icons-offline.css' %}?v=shift-icons-4">
   <script>
@@ -197,6 +197,7 @@
   </aside>
 
   <div class="main">
+    <div class="main-sticky-head">
     <header class="topbar">
       <h1 class="page-title">{% block topbar %}{% endblock %}</h1>
       <div class="who" id="whoWidget">
@@ -286,6 +287,7 @@
         </div>
       </div>
     {% endif %}
+    </div>{# /.main-sticky-head — keeps topbar + shift banner fixed while content scrolls #}
 
     {% if messages %}
       <div class="messages">

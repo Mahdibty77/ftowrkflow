@@ -785,6 +785,15 @@ class StaffRequest(models.Model):
     )
     decided_at = models.DateTimeField(null=True, blank=True)
     decision_note = models.TextField(blank=True, default="")
+    # Unread alarms: cleared on status change; set when that party opens detail.
+    requester_seen_at = models.DateTimeField(
+        null=True, blank=True, db_index=True,
+        help_text="When the requester last opened this request after a status change.",
+    )
+    reviewer_seen_at = models.DateTimeField(
+        null=True, blank=True, db_index=True,
+        help_text="When a reviewer (GM) last opened this request after it was submitted.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     submitted_at = models.DateTimeField(null=True, blank=True)

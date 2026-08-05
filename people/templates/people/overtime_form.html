@@ -86,7 +86,18 @@
   </div>
 </form>
 
-{% include "people/_request_recent.html" with rows=recent_rows table_id="otRecentTable" show_person=False f_codes=f_codes f_types=f_types f_statuses=f_statuses f_people=f_people %}
+{% include "people/_request_recent.html" with rows=active_rows table_id="otActiveTable" show_person=False section_title="Active" section_icon="fa-inbox" f_codes=active_filters.f_codes f_types=active_filters.f_types f_statuses=active_filters.f_statuses f_people=active_filters.f_people %}
+
+{% include "people/_request_recent.html" with rows=history_rows table_id="otHistoryTable" show_person=False section_title="History" section_icon="fa-clock-rotate-left" f_codes=history_filters.f_codes f_types=history_filters.f_types f_statuses=history_filters.f_statuses f_people=history_filters.f_people %}
 
 <script src="{% static 'people/js/people.js' %}?v=ppl-20"></script>
+<style>
+  tr.is-unread td{font-weight:650;}
+  .req-unread-dot{
+    display:inline-block;width:.55rem;height:.55rem;border-radius:50%;
+    background:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 22%,transparent);
+    vertical-align:middle;
+  }
+  .req-unread-cell{width:1.4rem;text-align:center;}
+</style>
 {% endblock %}

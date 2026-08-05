@@ -71,19 +71,16 @@ def theme(request):
                 if person is not None:
                     total = 0
                     for t in sr.access_types_for_person(person):
-                        seen_ids = sr.seen_ids_from_session(request.session, t.code)
-                        total += sr.unread_decided_count(
-                            person, t.code, seen_ids=seen_ids,
-                        )
+                        total += sr.unread_decided_count(person, t.code)
                     person_request_answers = total
         except Exception:
             show_person_requests = False
             person_request_answers = 0
-        # GM pending staff-request badge.
+        # GM unread staff-request badge (new submits not yet opened).
         try:
             if is_gm_nav or (profile is not None and profile.is_admin):
-                from people.staff_requests import pending_request_count
-                staff_request_count = int(pending_request_count() or 0)
+                from people.staff_requests import unread_pending_count
+                staff_request_count = int(unread_pending_count() or 0)
         except Exception:
             staff_request_count = 0
     return {

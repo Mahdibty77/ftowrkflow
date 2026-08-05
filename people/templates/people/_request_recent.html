@@ -77,11 +77,17 @@
 </div>
 
 <div class="card">
-  <div class="card-head"><h3><i class="fa-solid fa-clock-rotate-left"></i> Recent requests</h3></div>
+  <div class="card-head">
+    <h3>
+      {% if section_icon %}<i class="fa-solid {{ section_icon }}"></i>{% else %}<i class="fa-solid fa-clock-rotate-left"></i>{% endif %}
+      {{ section_title|default:"Recent requests" }}
+    </h3>
+  </div>
   <div class="vscroll vscroll-list">
     <table class="data" id="{{ table_id }}" data-filter-table>
       <thead>
         <tr>
+          <th style="width:1.6rem;"></th>
           <th>Code</th>
           {% if show_person %}<th>Requester</th>{% endif %}
           <th>Type</th>
@@ -94,7 +100,14 @@
       </thead>
       <tbody>
         {% for row in rows %}
-        <tr class="row-link" onclick="window.location='{% url 'people:request_detail' row.req.pk %}'" style="cursor:pointer;">
+        <tr class="row-link{% if row.is_unread %} is-unread{% endif %}"
+            onclick="window.location='{% url 'people:request_detail' row.req.pk %}'"
+            style="cursor:pointer;">
+          <td class="req-unread-cell">
+            {% if row.is_unread %}
+            <span class="req-unread-dot" title="Unread" aria-label="Unread"></span>
+            {% endif %}
+          </td>
           <td class="mono">{{ row.req.request_code|default:row.req.pk }}</td>
           {% if show_person %}<td>{{ row.req.person.display_name }}</td>{% endif %}
           <td>{{ row.req.request_type.title }}</td>
@@ -110,7 +123,7 @@
           <td class="muted">{{ row.decider }}</td>
         </tr>
         {% empty %}
-        <tr><td colspan="{% if show_person %}8{% else %}7{% endif %}" class="empty">No requests yet.</td></tr>
+        <tr><td colspan="{% if show_person %}9{% else %}8{% endif %}" class="empty">No requests yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>
