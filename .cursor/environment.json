@@ -1,0 +1,11 @@
+{
+  "name": "Foolad Tabar Workflow (ftworkflow)",
+  "install": "bash scripts/cloud_agent_install.sh",
+  "terminals": [
+    {
+      "name": "django-dev-server",
+      "command": "source .venv/bin/activate && export DJANGO_DEBUG=1 LICENSE_PUBLIC_KEY_FILE=\"$(pwd)/.dev-license/public_key.pem\" LICENSE_STATE_DIR=\"$(pwd)/.dev-license/state\" && python manage.py runserver 0.0.0.0:8000"
+    }
+  ],
+  "ports": [8000]
+}

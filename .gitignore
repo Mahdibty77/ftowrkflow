@@ -25,6 +25,9 @@ _clean_*.py
 /.license/
 /backups/
 
+# Local development license (dev-only keypair + sealed state; never commit)
+/.dev-license/
+
 # Tooling
 .DS_Store
 .venv/
