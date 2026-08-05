@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Foolad Tabar Workflow{% endblock %}</title>
   {% include "includes/favicon.html" %}
-  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=shift-end-11">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=shift-end-12">
   <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-17">
   <link rel="stylesheet" href="{% static 'css/icons-offline.css' %}?v=shift-icons-4">
   <script>
@@ -442,7 +442,9 @@
       }
     });
   })();
-  // Auto end-of-shift (no refresh) + prominent last-30-minute banner.
+  // Auto end-of-shift (no refresh) + last-30-minute banner.
+  // Display countdown is local & monotonic; server ping only ends the shift
+  // or re-anchors when drift is large (avoids second-jumps every ping).
   (function () {
     var secondsLeft = {{ shift_seconds_left|default_if_none:'null' }};
     var pingUrl = "{{ shift_ping_url|default:'' }}";
@@ -457,10 +459,16 @@
     var URGENT_SECS = 10 * 60;
     var CRITICAL_SECS = 5 * 60;
     var GOODBYE_SECS = 40;
+    var DRIFT_SECS = 2.5;
     var ended = false;
-    var loadedAt = Date.now();
-    var initialLeft = (typeof secondsLeft === 'number' && secondsLeft >= 0) ? secondsLeft : null;
+    var endAtMs = null;
     var pingTimer = null;
+    var tickTimer = null;
+    var lastShownSec = null;
+
+    if (typeof secondsLeft === 'number' && secondsLeft >= 0) {
+      endAtMs = Date.now() + secondsLeft * 1000;
+    }
 
     if (overlay && overlay.parentNode !== document.body) document.body.appendChild(overlay);
     var confirmOverlay = document.getElementById('signOutConfirm');
@@ -472,13 +480,14 @@
     }
 
     function remainingSecs() {
-      if (initialLeft == null) return null;
-      var left = initialLeft - (Date.now() - loadedAt) / 1000;
+      if (endAtMs == null) return null;
+      var left = (endAtMs - Date.now()) / 1000;
       return left <= 0 ? 0 : left;
     }
 
     function formatTimer(total) {
-      total = Math.max(0, Math.ceil(total));
+      // Floor keeps a steady MM:SS rhythm (ceil caused early second flips).
+      total = Math.max(0, Math.floor(total));
       var h = Math.floor(total / 3600);
       var m = Math.floor((total % 3600) / 60);
       var s = total % 60;
@@ -498,10 +507,15 @@
       if (secs > WARN_SECS) {
         banner.hidden = true;
         banner.classList.remove('is-urgent', 'is-critical');
+        lastShownSec = null;
         return;
       }
       banner.hidden = false;
       setUrgency(secs);
+      var whole = Math.floor(secs);
+      // Only rewrite DOM when the displayed second changes (steady rhythm).
+      if (lastShownSec === whole) return;
+      lastShownSec = whole;
       var timerEl = banner.querySelector('.shift-warn-timer');
       if (timerEl) timerEl.textContent = formatTimer(secs);
     }
@@ -510,6 +524,7 @@
       if (ended) return;
       ended = true;
       if (pingTimer) { clearInterval(pingTimer); pingTimer = null; }
+      if (tickTimer) { clearTimeout(tickTimer); tickTimer = null; }
       if (banner) banner.hidden = true;
       if (nameEl) nameEl.textContent = endName || 'colleague';
       if (overlay) {
@@ -549,9 +564,15 @@
       }
       if (typeof data.seconds_left === 'number' && data.seconds_left >= 0) {
         if (data.seconds_left === 0) { showEnd(); return; }
-        loadedAt = Date.now();
-        initialLeft = data.seconds_left;
-        tickBanner(initialLeft);
+        var local = remainingSecs();
+        var server = data.seconds_left;
+        // Re-anchor only on real drift (sleep / clock skew). Small diffs are
+        // normal int rounding and must not make the timer jump.
+        if (local == null || Math.abs(local - server) >= DRIFT_SECS) {
+          endAtMs = Date.now() + server * 1000;
+          lastShownSec = null;
+        }
+        tickBanner(remainingSecs());
         schedulePing();
       }
     }
@@ -585,21 +606,32 @@
       pingTimer = setInterval(doPing, pingIntervalMs());
     }
 
-    if (initialLeft != null) {
-      // 1s is enough for a second-precision display (Law 1: avoid 200ms DOM churn).
-      setInterval(function () {
+    function scheduleTick() {
+      if (ended || endAtMs == null) return;
+      if (tickTimer) clearTimeout(tickTimer);
+      // Align to wall-clock second boundary for an even 1 Hz beat.
+      var delay = Math.max(40, 1000 - (Date.now() % 1000));
+      tickTimer = setTimeout(function () {
         if (ended) return;
         var left = remainingSecs();
         if (left == null) return;
         if (left <= 0) { showEnd(); return; }
         tickBanner(left);
-      }, 1000);
-      tickBanner(initialLeft);
-      if (initialLeft === 0) showEnd();
+        scheduleTick();
+      }, delay);
+    }
+
+    if (endAtMs != null) {
+      tickBanner(remainingSecs());
+      if (remainingSecs() === 0) showEnd();
+      else scheduleTick();
     }
 
     if (pingUrl) {
-      doPing();
+      // First ping after one local second — avoids an immediate resync jump.
+      setTimeout(function () {
+        if (!ended) doPing();
+      }, 1200);
       schedulePing();
       document.addEventListener('visibilitychange', function () {
         if (!document.hidden) doPing();

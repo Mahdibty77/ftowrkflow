@@ -53,13 +53,13 @@ code,.mono{font-family:var(--mono);font-variant-numeric:lining-nums;font-feature
   box-shadow:0 1px 0 var(--line);
 }
 
-/* Work-shift countdown — plain amber strip; timer blinks but stays readable */
+/* Work-shift countdown — theme warn strip; timer uses accent (different hue). */
 .shift-warn-banner{
   position:relative;z-index:1;
-  margin:0;padding:.5rem 1.1rem;
-  background:#fef3c7;
-  border-bottom:2px solid #f59e0b;
-  color:#78350f;
+  margin:0;padding:.55rem 1.1rem;
+  background:color-mix(in srgb,var(--warn) 20%,var(--paper));
+  border-bottom:3px solid var(--warn);
+  color:var(--ink);
   box-shadow:none;
 }
 .shift-warn-banner[hidden]{display:none !important;}
@@ -69,128 +69,82 @@ code,.mono{font-family:var(--mono);font-variant-numeric:lining-nums;font-feature
 }
 .shift-warn-icon{
   flex:0 0 auto;display:grid;place-items:center;
-  font-size:.95rem;line-height:1;color:#92400e;
+  font-size:.95rem;line-height:1;color:var(--warn);
   background:transparent;border:0;box-shadow:none;animation:none;
 }
 .shift-warn-timer-wrap{
   display:flex;flex-direction:column;align-items:flex-start;gap:0;min-width:4.4rem;
 }
+/* Accent family ≠ warn/amber — keeps digits clear on the warning strip */
 .shift-warn-timer{
   font-variant-numeric:tabular-nums;
-  font-size:clamp(1.15rem,1.8vw,1.35rem);font-weight:800;letter-spacing:.35px;
-  line-height:1.05;color:#92400e;
+  font-size:clamp(1.2rem,1.9vw,1.45rem);font-weight:800;letter-spacing:.35px;
+  line-height:1.05;color:var(--accent-strong);
   animation:shift-timer-blink 1s steps(1,end) infinite;
 }
 .shift-warn-timer-label{
   font-size:.62rem;font-weight:650;letter-spacing:.1em;text-transform:uppercase;
-  color:#a16207;
+  color:var(--muted);
 }
 .shift-warn-copy{
   flex:1 1 220px;min-width:0;text-align:center;
 }
 .shift-warn-title{
-  font-size:.92rem;font-weight:700;color:#78350f;line-height:1.25;
+  font-size:.92rem;font-weight:700;color:var(--ink);line-height:1.25;
 }
-.shift-until{color:#92400e;font-weight:750;}
+.shift-until{color:var(--warn);font-weight:750;}
 .shift-warn-text{
-  margin-top:.12rem;font-size:.78rem;font-weight:550;color:#a16207;line-height:1.35;
+  margin-top:.12rem;font-size:.78rem;font-weight:550;color:var(--muted);line-height:1.35;
 }
 .shift-ot-link{
   display:inline-flex;align-items:center;gap:.35rem;flex:0 0 auto;
   margin-left:auto;padding:.4rem .75rem;border-radius:8px;
-  background:#c2410c;color:#fffbeb;
+  background:var(--accent);color:var(--on-accent,#fff);
   font-size:.78rem;font-weight:700;text-decoration:none;white-space:nowrap;
 }
 .shift-ot-link:hover{
-  background:#9a3412;color:#fffbeb;text-decoration:none;
+  background:var(--accent-strong);color:var(--on-accent,#fff);text-decoration:none;
 }
 .shift-warn-banner.is-urgent{
-  background:#fde68a;
-  border-bottom-color:#ea580c;
+  background:color-mix(in srgb,var(--warn) 22%,var(--warnbg));
+  border-bottom-color:var(--warn);
 }
 .shift-warn-banner.is-critical{
-  background:#ffedd5;
-  border-bottom-color:#dc2626;
-  color:#7f1d1d;
+  background:color-mix(in srgb,var(--rej) 14%,var(--warnbg));
+  border-bottom-color:var(--rej);
 }
-.shift-warn-banner.is-critical .shift-warn-timer,
-.shift-warn-banner.is-critical .shift-until,
-.shift-warn-banner.is-critical .shift-warn-icon{color:#991b1b;}
-.shift-warn-banner.is-critical .shift-warn-title{color:#7f1d1d;}
-.shift-warn-banner.is-critical .shift-warn-text,
-.shift-warn-banner.is-critical .shift-warn-timer-label{color:#b91c1c;}
-/* Blink: two dark oranges at full opacity — never fades into the yellow strip */
-@keyframes shift-timer-blink{
-  0%,49%{color:#92400e;}
-  50%,100%{color:#c2410c;}
-}
+.shift-warn-banner.is-critical .shift-warn-icon,
+.shift-warn-banner.is-critical .shift-until{color:var(--rej);}
 .shift-warn-banner.is-critical .shift-warn-timer{
   animation-name:shift-timer-blink-critical;
 }
+/* Blink accent ↔ accent-strong (never amber/warn, never opacity fade) */
+@keyframes shift-timer-blink{
+  0%,49%{color:var(--accent-strong);}
+  50%,100%{color:var(--accent);}
+}
 @keyframes shift-timer-blink-critical{
-  0%,49%{color:#991b1b;}
-  50%,100%{color:#dc2626;}
+  0%,49%{color:var(--rej);}
+  50%,100%{color:var(--accent-strong);}
 }
 body.shift-ended-lock{overflow:hidden;}
 html[data-mode="dark"] .main-sticky-head,
 html[data-theme="dark"] .main-sticky-head{
   background:var(--mist);
 }
-/* Dark: same idea — flat amber, light timer text */
-html[data-mode="dark"] .shift-warn-banner,
-html[data-theme="dark"] .shift-warn-banner{
-  background:#92400e;
-  border-bottom-color:#fbbf24;
-  color:#fffbeb;
-}
-html[data-mode="dark"] .shift-warn-icon,
-html[data-theme="dark"] .shift-warn-icon,
-html[data-mode="dark"] .shift-warn-title,
-html[data-theme="dark"] .shift-warn-title{color:#fffbeb;}
-html[data-mode="dark"] .shift-warn-text,
-html[data-theme="dark"] .shift-warn-text,
-html[data-mode="dark"] .shift-warn-timer-label,
-html[data-theme="dark"] .shift-warn-timer-label{color:#fde68a;}
-html[data-mode="dark"] .shift-warn-timer,
-html[data-theme="dark"] .shift-warn-timer{
-  animation:shift-timer-blink-dark 1s steps(1,end) infinite;
-}
-html[data-mode="dark"] .shift-until,
-html[data-theme="dark"] .shift-until{color:#fef3c7;}
-@keyframes shift-timer-blink-dark{
-  0%,49%{color:#fef3c7;}
-  50%,100%{color:#fbbf24;}
-}
-html[data-mode="dark"] .shift-warn-banner.is-urgent,
-html[data-theme="dark"] .shift-warn-banner.is-urgent{
-  background:#b45309;
-  border-bottom-color:#fcd34d;
-}
-html[data-mode="dark"] .shift-warn-banner.is-critical,
-html[data-theme="dark"] .shift-warn-banner.is-critical{
-  background:#9a3412;
-  border-bottom-color:#fca5a5;
-}
-html[data-mode="dark"] .shift-warn-banner.is-critical .shift-warn-timer,
-html[data-theme="dark"] .shift-warn-banner.is-critical .shift-warn-timer{
-  animation-name:shift-timer-blink-critical-dark;
-}
-@keyframes shift-timer-blink-critical-dark{
-  0%,49%{color:#fee2e2;}
-  50%,100%{color:#f87171;}
-}
+/* Dark primary buttons use dark text on accent — match OT chip */
 html[data-mode="dark"] .shift-ot-link,
 html[data-theme="dark"] .shift-ot-link{
-  background:#fbbf24;color:#78350f;
+  color:#0f172a;
 }
 html[data-mode="dark"] .shift-ot-link:hover,
 html[data-theme="dark"] .shift-ot-link:hover{
-  background:#fde68a;color:#78350f;
+  color:#0f172a;
 }
 @media (max-width:720px){
   .shift-warn-banner{padding:.45rem .85rem;}
   .shift-ot-link{margin-left:0;width:100%;justify-content:center;}
-  .shift-warn-timer{font-size:1.15rem;}
+  .shift-warn-timer{font-size:1.2rem;}
   .shift-warn-copy{text-align:center;flex-basis:100%;order:3;}
 }
 
