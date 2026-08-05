@@ -121,9 +121,9 @@ def shift_status(user, *, when: datetime | None = None) -> dict:
 
     person = person_for_user(user)
     start, end = shift_window(person)
-    in_base = _in_window(now_t, start, end)
 
     # Effective end = shift end (+ overnight) + approved OT for the day.
+    # Compare full datetimes (not HH:MM alone) so the last minute is not lost.
     end_dt = datetime.combine(when.date(), end, tzinfo=when.tzinfo)
     if start > end and now_t >= start:
         end_dt += timedelta(days=1)
@@ -141,7 +141,9 @@ def shift_status(user, *, when: datetime | None = None) -> dict:
     if start > end and now_t < end:
         start_dt -= timedelta(days=1)
 
-    allowed = in_base or (ot_minutes > 0 and start_dt <= when < end_dt)
+    # Open for the whole last minute: e.g. end 13:05 stays open until 13:05:00.
+    allowed = start_dt <= when < end_dt
+    in_base = _in_window(now_t, start, end)
     # After normal end but still in OT extension.
     in_ot_extension = bool(ot_minutes and allowed and not in_base)
 
@@ -149,8 +151,8 @@ def shift_status(user, *, when: datetime | None = None) -> dict:
     minutes_left = None
     warn = False
     if allowed:
+        # Floor of remaining seconds (never minutes*60 — that closed ~1 min early).
         seconds_left = max(0, int((end_dt - when).total_seconds()))
-        # Ceil-minutes so "30:00" still counts as the 30-minute warning window.
         minutes_left = (seconds_left + 59) // 60 if seconds_left else 0
         warn = seconds_left <= 30 * 60
 
@@ -166,6 +168,7 @@ def shift_status(user, *, when: datetime | None = None) -> dict:
         "name": display_first_name(user, person),
         "overtime_extension": in_ot_extension,
         "effective_end": end_dt.time().replace(microsecond=0) if allowed else end,
+        "effective_end_dt": end_dt if allowed else None,
         "overtime_minutes_today": ot_minutes,
     }
 

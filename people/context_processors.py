@@ -13,7 +13,6 @@ def work_shift_banner(request):
         from django.urls import reverse
 
         from .work_shift import (
-            countdown_message,
             display_first_name,
             shift_ended_message,
             shift_status,
@@ -35,15 +34,15 @@ def work_shift_banner(request):
             "shift_end_label": "",
             "shift_minutes_left": None,
             "shift_timer_label": "",
+            "shift_mins_word": "minutes",
         }
         if st.get("exempt"):
             return ctx
         if not st.get("allowed"):
             return ctx
 
+        # Authoritative remaining time: always raw seconds from shift_status.
         seconds_left = st.get("seconds_left")
-        if seconds_left is None and st.get("minutes_left") is not None:
-            seconds_left = max(0, int(st["minutes_left"]) * 60)
         if seconds_left is not None:
             seconds_left = max(0, int(seconds_left))
 
@@ -59,8 +58,6 @@ def work_shift_banner(request):
                 ot_link = reverse("people:overtime_form")
         except Exception:
             ot_link = ""
-        # Keep the OT URL available for the whole shift so the client can show
-        # the link as soon as the last-30-minute window opens (no reload needed).
         ctx["shift_overtime_link"] = ot_link
         ctx["shift_overtime_hint"] = bool(ot_link)
 
@@ -70,16 +67,18 @@ def work_shift_banner(request):
 
         if seconds_left is not None:
             minutes_disp = (seconds_left + 59) // 60 if seconds_left else 0
-            msg = countdown_message(minutes_disp)
-            if ot_link:
-                msg = (
-                    f"{msg}. If you need more time, you can submit an Overtime request."
-                )
-            ctx["shift_warn_message"] = msg
             ctx["shift_minutes_left"] = minutes_disp
+            ctx["shift_mins_word"] = "minute" if minutes_disp == 1 else "minutes"
             ctx["shift_timer_label"] = _format_timer(seconds_left)
-            # Banner stays in the DOM; visible for the entire last 30 minutes.
             ctx["shift_warn"] = seconds_left <= _WARN_SECONDS
+            # Plain countdown only — OT sentence/link live in separate DOM nodes
+            # so client JS can never wipe them while refreshing the timer.
+            if minutes_disp == 1:
+                ctx["shift_warn_message"] = "1 minute left until your cartable closes"
+            else:
+                ctx["shift_warn_message"] = (
+                    f"{minutes_disp} minutes left until your cartable closes"
+                )
         return ctx
     except Exception:
         return {}

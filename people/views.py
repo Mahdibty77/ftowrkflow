@@ -402,12 +402,15 @@ def shift_ended(request):
 
 
 def _seconds_left(st: dict) -> int | None:
+    """Remaining seconds until shift end. Never derive from minutes*60."""
     if not st.get("allowed") or st.get("exempt"):
         return None
     if st.get("seconds_left") is not None:
         return max(0, int(st["seconds_left"]))
-    if st.get("minutes_left") is not None:
-        return max(0, int(st["minutes_left"]) * 60)
+    end_dt = st.get("effective_end_dt")
+    if end_dt is not None:
+        from .work_shift import now_local
+        return max(0, int((end_dt - now_local()).total_seconds()))
     end = st.get("effective_end") or st.get("end")
     if end is None:
         return None

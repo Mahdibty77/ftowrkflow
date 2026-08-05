@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Foolad Tabar Workflow{% endblock %}</title>
   {% include "includes/favicon.html" %}
-  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=shift-end-4">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=shift-end-5">
   <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-17">
   <link rel="stylesheet" href="{% static 'css/icons-offline.css' %}?v=shift-icons-4">
   <script>
@@ -261,14 +261,18 @@
     </header>
 
     {% if shift_seconds_left is not None %}
+      {# OT sentence + link are separate nodes; JS must only touch timer / minute number. #}
       <div class="shift-warn-banner" role="status"
            data-shift-seconds="{{ shift_seconds_left }}"
-           data-shift-end-label="{{ shift_end_label|default:'' }}"
-           data-ot-href="{{ shift_overtime_link|default:'' }}"
+           data-has-ot="{% if shift_overtime_link %}1{% else %}0{% endif %}"
            {% if not shift_warn %}hidden{% endif %}>
         <i class="fa-solid fa-hourglass-half"></i>
         <strong class="shift-warn-timer">{{ shift_timer_label }}</strong>
-        <span class="shift-warn-text">{{ shift_warn_message }}{% if shift_end_label %} (until {{ shift_end_label }}){% endif %}</span>
+        <span class="shift-warn-text">
+          <span class="shift-mins-num">{{ shift_minutes_left }}</span>
+          <span class="shift-mins-word"> {{ shift_mins_word }}</span>
+          left until your cartable closes{% if shift_overtime_link %}<span class="shift-ot-sentence">. If you need more time, you can submit an Overtime request.</span>{% endif %}{% if shift_end_label %}<span class="shift-until"> (until {{ shift_end_label }})</span>{% endif %}
+        </span>
         {% if shift_overtime_link %}
           <a class="shift-ot-link" href="{{ shift_overtime_link }}">Request overtime</a>
         {% endif %}
@@ -433,7 +437,8 @@
       }
     });
   })();
-  // Work-shift: live 30-min banner (timer + OT link) and 40s end overlay.
+  // Work-shift: live 30-min banner + 40s end overlay.
+  // Important: never rewrite .shift-warn-text / OT nodes — only timer + minute number.
   (function () {
     var secondsLeft = {{ shift_seconds_left|default_if_none:'null' }};
     var pingUrl = "{{ shift_ping_url|default:'' }}";
@@ -446,12 +451,18 @@
     var WARN_SECS = 30 * 60;
     var GOODBYE_SECS = 40;
     var ended = false;
-    var deadline = (typeof secondsLeft === 'number' && secondsLeft >= 0)
-      ? (Date.now() + secondsLeft * 1000) : null;
+    // Anchor to page-load monotonic countdown from server seconds (not wall-clock sync).
+    var loadedAt = Date.now();
+    var initialLeft = (typeof secondsLeft === 'number' && secondsLeft >= 0) ? secondsLeft : null;
 
     function csrfToken() {
       var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
       return m ? decodeURIComponent(m[1]) : '';
+    }
+
+    function remainingSecs() {
+      if (initialLeft == null) return null;
+      return Math.max(0, Math.ceil(initialLeft - (Date.now() - loadedAt) / 1000));
     }
 
     function formatTimer(total) {
@@ -465,23 +476,6 @@
       return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
     }
 
-    function ensureOtLink() {
-      if (!banner) return;
-      var otHref = banner.getAttribute('data-ot-href') || '';
-      if (!otHref) return;
-      var ot = banner.querySelector('.shift-ot-link');
-      if (ot) {
-        ot.hidden = false;
-        ot.href = otHref;
-        return;
-      }
-      var a = document.createElement('a');
-      a.className = 'shift-ot-link';
-      a.href = otHref;
-      a.textContent = 'Request overtime';
-      banner.appendChild(a);
-    }
-
     function tickBanner(secs) {
       if (!banner) return;
       if (typeof secs !== 'number' || secs < 0) return;
@@ -492,23 +486,12 @@
       banner.hidden = false;
       var timerEl = banner.querySelector('.shift-warn-timer');
       if (timerEl) timerEl.textContent = formatTimer(secs);
-      var textEl = banner.querySelector('.shift-warn-text');
-      if (textEl) {
-        var mins = Math.max(1, Math.ceil(secs / 60));
-        if (secs === 0) mins = 0;
-        var endLabel = banner.getAttribute('data-shift-end-label') || '';
-        var otHref = banner.getAttribute('data-ot-href') || '';
-        var msg = (mins === 1)
-          ? '1 minute left until your cartable closes'
-          : (mins + ' minutes left until your cartable closes');
-        if (otHref) {
-          msg += '. If you need more time, you can submit an Overtime request.';
-        }
-        if (endLabel) msg += ' (until ' + endLabel + ')';
-        textEl.textContent = msg;
-      }
-      // OT link is a sibling node — never rewrite it via parent textContent.
-      ensureOtLink();
+      // Update ONLY the numeric minute count / word — leave OT sentence, until, link alone.
+      var mins = secs > 0 ? Math.ceil(secs / 60) : 0;
+      var numEl = banner.querySelector('.shift-mins-num');
+      var wordEl = banner.querySelector('.shift-mins-word');
+      if (numEl) numEl.textContent = String(mins);
+      if (wordEl) wordEl.textContent = (mins === 1) ? ' minute' : ' minutes';
     }
 
     function showEnd() {
@@ -540,15 +523,16 @@
       }, 1000);
     }
 
-    if (deadline != null) {
+    if (initialLeft != null) {
       setInterval(function () {
         if (ended) return;
-        var left = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
+        var left = remainingSecs();
+        if (left == null) return;
         if (left <= 0) { showEnd(); return; }
         tickBanner(left);
-      }, 1000);
-      tickBanner(secondsLeft);
-      if (secondsLeft === 0) showEnd();
+      }, 250);
+      tickBanner(initialLeft);
+      if (initialLeft === 0) showEnd();
     }
 
     if (pingUrl) {
@@ -563,14 +547,17 @@
           credentials: 'same-origin'
         }).then(function (r) { return r.json(); }).then(function (data) {
           if (!data) return;
-          if (data.allowed === false || data.shift_ended || data.seconds_left === 0) {
+          if (data.allowed === false || data.shift_ended) {
             if (data.name) endName = data.name;
             showEnd();
             return;
           }
+          // Resync from authoritative server seconds — never minutes*60.
           if (typeof data.seconds_left === 'number' && data.seconds_left >= 0) {
-            deadline = Date.now() + data.seconds_left * 1000;
-            tickBanner(data.seconds_left);
+            if (data.seconds_left === 0) { showEnd(); return; }
+            loadedAt = Date.now();
+            initialLeft = data.seconds_left;
+            tickBanner(initialLeft);
           }
         }).catch(function () {});
       }, 15000);
