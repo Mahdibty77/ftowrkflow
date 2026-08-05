@@ -14,6 +14,7 @@ urlpatterns = [
     path("<int:pk>/shift/", views.person_shift, name="person_shift"),
     path("<int:pk>/shift/<int:year>/<int:month>/", views.person_shift_month, name="person_shift_month"),
     path("shift/ping/", views.shift_presence_ping, name="shift_ping"),
+    path("shift/ended/", views.shift_ended, name="shift_ended"),
     path("<int:pk>/status/", views.person_toggle_status, name="person_toggle_status"),
     path("roles/<int:role_id>/activate/", views.activate_role, name="activate_role"),
     path("<int:pk>/accounts/", views.person_seats, name="person_seats"),

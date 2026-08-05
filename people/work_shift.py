@@ -150,8 +150,9 @@ def shift_status(user, *, when: datetime | None = None) -> dict:
     warn = False
     if allowed:
         seconds_left = max(0, int((end_dt - when).total_seconds()))
-        minutes_left = seconds_left // 60
-        warn = minutes_left <= 30
+        # Ceil-minutes so "30:00" still counts as the 30-minute warning window.
+        minutes_left = (seconds_left + 59) // 60 if seconds_left else 0
+        warn = seconds_left <= 30 * 60
 
     return {
         "allowed": allowed,

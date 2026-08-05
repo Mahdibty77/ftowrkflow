@@ -367,14 +367,37 @@ def shift_presence_ping(request):
     person = person_for_user(request.user)
     if person is None:
         return JsonResponse({"ok": False, "reason": "no_person"}, status=400)
-    minutes = record_presence_ping(person)
     st = shift_status(request.user)
+    if not st.get("allowed"):
+        return JsonResponse({
+            "ok": True,
+            "day_minutes": 0,
+            "allowed": False,
+            "minutes_left": 0,
+            "seconds_left": 0,
+            "shift_ended": True,
+            "name": st.get("name") or "",
+        })
+    minutes = record_presence_ping(person)
     return JsonResponse({
         "ok": True,
         "day_minutes": minutes,
-        "allowed": st["allowed"],
+        "allowed": True,
         "minutes_left": st.get("minutes_left"),
         "seconds_left": _seconds_left(st),
+    })
+
+
+def shift_ended(request):
+    """Standalone goodbye screen shown for 40s after the work shift ends."""
+    from django.shortcuts import render
+
+    name = (request.GET.get("n") or "").strip() or "colleague"
+    # Keep it short — avoid dumping arbitrary query text into the page.
+    if len(name) > 80:
+        name = name[:80]
+    return render(request, "people/shift_ended.html", {
+        "shift_end_name": name,
     })
 
 

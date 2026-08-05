@@ -48,12 +48,19 @@ code,.mono{font-family:var(--mono);font-variant-numeric:lining-nums;font-feature
 
 /* Work-shift countdown (last 30 minutes) */
 .shift-warn-banner{
-  display:flex;align-items:center;gap:.55rem;padding:.55rem 1.5rem;
+  display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;padding:.55rem 1.5rem;
   background:color-mix(in srgb,var(--warn) 14%,var(--paper));
   border-bottom:1px solid var(--warnline);color:var(--warn);
   font-size:.84rem;font-weight:650;
 }
 .shift-warn-banner i{opacity:.9}
+.shift-warn-timer{
+  font-variant-numeric:tabular-nums;font-weight:800;letter-spacing:.4px;
+  min-width:4.2rem;padding:.12rem .45rem;border-radius:6px;
+  background:color-mix(in srgb,var(--warn) 18%,transparent);
+  border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);
+}
+.shift-ot-link{margin-left:.15rem;font-weight:700;color:inherit;text-decoration:underline;white-space:nowrap}
 
 .shift-end-overlay{
   position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;

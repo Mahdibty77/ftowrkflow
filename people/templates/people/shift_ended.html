@@ -1,0 +1,38 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shift ended — Foolad Tabar Workflow</title>
+  {% include "includes/favicon.html" %}
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=shift-end-4">
+  <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-17">
+  <link rel="stylesheet" href="{% static 'css/icons-offline.css' %}?v=shift-icons-4">
+</head>
+<body>
+  <div id="shiftEndOverlay" class="shift-end-overlay">
+    <div class="shift-end-welcome">
+      <span class="se-hi">Dear <span class="se-nm" id="shiftEndName">{{ shift_end_name|default:"colleague" }}</span>,</span>
+      <span class="se-msg">your work shift has ended.</span>
+      <span class="se-sub">Hope you had a good day — see you next shift.</span>
+      <span class="se-hint" id="shiftEndHint">Returning to sign-in in <span id="shiftEndSecs">40</span>s…</span>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var loginUrl = "/accounts/login/";
+      var left = 40;
+      var hintNum = document.getElementById('shiftEndSecs');
+      var timer = setInterval(function () {
+        left -= 1;
+        if (hintNum) hintNum.textContent = String(Math.max(0, left));
+        if (left <= 0) {
+          clearInterval(timer);
+          window.location.href = loginUrl;
+        }
+      }, 1000);
+    })();
+  </script>
+</body>
+</html>
