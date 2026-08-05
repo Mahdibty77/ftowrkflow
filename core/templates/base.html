@@ -260,7 +260,7 @@
       </div>
     </header>
 
-    {% if shift_seconds_left != None %}
+    {% if shift_seconds_left is not None %}
       <div class="shift-warn-banner" role="status"
            data-shift-seconds="{{ shift_seconds_left }}"
            data-shift-end-label="{{ shift_end_label|default:'' }}"
