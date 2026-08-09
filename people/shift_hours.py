@@ -357,7 +357,8 @@ def _credit_gap_minutes(
 ) -> int:
     """Minutes to *add* for a reconnect/presence gap (within grace only).
 
-    Beyond-grace deduction is handled by ``_apply_reconnect_gap``.
+    Beyond-grace gaps are handled by ``_apply_reconnect_gap``: they add nothing
+    and are only written to the audit column.
     """
     if force_skip or getattr(log, "explicit_logout", False):
         return 0
@@ -382,19 +383,147 @@ def _credit_gap_minutes(
     return min(room, mins)
 
 
+def _is_working_day(g: date) -> bool:
+    """True when the shift is actually expected to be worked on ``g``."""
+    if g.weekday() in WEEKEND_WEEKDAYS:
+        return False
+    jy, jm, jd = gregorian_to_jalali(g.year, g.month, g.day)
+    return not is_official_holiday(jy, jm, jd)
+
+
+# An absence can never be booked for more than one day's planned length (see
+# ``_record_away``), so anything older than this cannot change the answer. The
+# bound stops a stale ``last_ping`` — a person back after a month's leave — from
+# turning the day-by-day scan below into a walk over the whole calendar.
+_AWAY_SCAN_DAYS = 32
+
+
+def _in_shift_seconds(start: time, end: time, lo: datetime, hi: datetime) -> int:
+    """Seconds of the interval ``[lo, hi)`` that fall inside the working window.
+
+    The audit column answers "how much of the shift did this person miss", so
+    only the part of an absence that lands inside the shift may count. Without
+    this clipping the gap between a 16:59 ping and the 20:00 login that the
+    shift middleware then blocks booked three evening hours nobody was expected
+    to be present for — ``note_shift_login`` fires on *every* successful
+    authentication, so that was ordinary operation, not an edge case.
+
+    Each occurrence of the shift is anchored on the date it *starts* and allowed
+    to run past midnight, so an overnight 22:00–06:00 shift is one interval
+    rather than two halves and a gap straddling midnight is a plain
+    intersection like any other. Days the person does not work (weekend,
+    official holiday) contribute nothing.
+    """
+    if start == end:
+        return 0  # Zero-length shift — shift_minutes() already calls this 0.
+    if lo.tzinfo is not None and hi.tzinfo is not None:
+        # ``last_ping`` comes back from the database in UTC while ``when`` is
+        # local; the window times are wall-clock, so both ends are read in the
+        # same local zone the rest of this module anchors on.
+        lo = lo.astimezone(hi.tzinfo)
+    if hi <= lo:
+        return 0
+    floor_lo = hi - timedelta(days=_AWAY_SCAN_DAYS)
+    if lo < floor_lo:
+        lo = floor_lo
+
+    total = 0
+    # Start one day early: an overnight window opened yesterday can still be
+    # running when the gap begins.
+    day = lo.date() - timedelta(days=1)
+    last = hi.date()
+    while day <= last:
+        if _is_working_day(day):
+            begin = _aware_combine(day, start, hi.tzinfo)
+            finish = _aware_combine(day, end, hi.tzinfo)
+            if end < start:
+                finish += timedelta(days=1)
+            lo_i = max(lo, begin)
+            hi_i = min(hi, finish)
+            if hi_i > lo_i:
+                total += int((hi_i - lo_i).total_seconds())
+        day += timedelta(days=1)
+    return total
+
+
+def _record_away(
+    log,
+    prev: datetime | None,
+    when: datetime,
+    *,
+    start: time,
+    end: time,
+    per_day: int,
+) -> None:
+    """Write a beyond-grace absence onto the day row (audit only, never a cost).
+
+    An absence is already paid for by the minutes it did not earn: no ping
+    arrives while the person is gone, so nothing is credited for that window.
+    Booking it a second time — which is what the old
+    ``log.minutes -= secs // 60`` did — charged a 17-minute absence 34 minutes.
+    The owner asked for exactly its own duration, once, so the deduction is gone
+    and only the record remains.
+
+    What this column does and does not mean — read this before building a
+    report on it:
+
+        away_minutes == the in-window shift credit lost to absences that both
+        BEGAN and ENDED while the person was being observed, and
+        0 <= away_minutes <= the day's planned length.
+
+    Two things follow from the first half. Only the in-window part of a gap
+    counts — time outside the shift was never going to be credited, so nothing
+    was lost there. And the running total is capped at the day's planned length,
+    because a day cannot lose more credit than it could ever have earned.
+
+    The important limit is in the words "began and ended". An absence is only
+    ever booked when a later ping or sign-in closes it, so the two commonest
+    shapes of a short day record NOTHING here: someone who signs in at 10:00 on
+    an 08:00 shift, and someone who works to 15:00 and goes home. Both lose
+    around two hours of credit and both leave away_minutes at 0, because no gap
+    was ever closed. So (minutes + away_minutes) reconciles against a full day
+    only when every absence was bracketed by presence; for a late start or an
+    early finish the shortfall shows up in ``minutes`` alone.
+
+    Read it as "time away between two observed presences", not as "credit lost".
+    Closing that gap would mean booking the head and tail of the shift as well,
+    which is a different feature — attendance rather than reconnect accounting —
+    and it is not what this column was added for.
+
+    Absences accumulate across the day because a day can hold several, and the
+    question being answered later is "how much of this day was the person
+    away", not "how long was the worst gap". Whole minutes are rounded down, to
+    match the credit that was actually lost — the earlier floor of one minute
+    per absence rounded *up* instead, which is precisely the over-report the
+    column is being fixed for, and it broke the reconciliation above.
+    """
+    if prev is None:
+        return
+    away = _in_shift_seconds(start, end, prev, when) // 60
+    if away <= 0:
+        return
+    ceiling = max(0, int(per_day))
+    log.away_minutes = min(
+        ceiling, int(getattr(log, "away_minutes", 0) or 0) + away,
+    )
+
+
 def _apply_reconnect_gap(
     log,
     when: datetime,
     *,
+    start: time,
+    end: time,
     per_day: int,
     grace_seconds: int,
     force_skip: bool = False,
 ) -> int:
-    """Apply reconnect rules; return minutes to *add* (0 if deducted/skipped).
+    """Apply reconnect rules; return minutes to *add* (0 if away/skipped).
 
     - Within grace: credit the away gap as worked time.
-    - Beyond grace: subtract the full away duration from worked minutes.
-    - Explicit Sign out: no gap credit/deduct (caller starts a fresh +1).
+    - Beyond grace: credit nothing, and record the away time for the audit.
+      Worked minutes already earned are left alone — see ``_record_away``.
+    - Explicit Sign out: no gap credit (caller starts a fresh +1).
     Each disconnect resets the grace window via the next ``last_ping`` stamp.
     """
     if force_skip or getattr(log, "explicit_logout", False):
@@ -409,9 +538,10 @@ def _apply_reconnect_gap(
         return _credit_gap_minutes(
             log, when, per_day=per_day, grace_seconds=grace, force_skip=False,
         )
-    # Beyond grace → remove the full away window from already-earned minutes.
-    away_mins = max(1, secs // 60)
-    log.minutes = max(0, int(log.minutes or 0) - away_mins)
+    # Beyond grace → the window earns nothing, which is the whole of its cost;
+    # note down the part of it that fell inside the shift and leave the minutes
+    # earned before the absence untouched.
+    _record_away(log, log.last_ping, when, start=start, end=end, per_day=per_day)
     return 0
 
 
@@ -465,16 +595,32 @@ def note_shift_login(person, *, when: datetime | None = None) -> None:
     skip_gap = bool(log.explicit_logout)
     grace = reconnect_grace_seconds_for(person)
     gap = _apply_reconnect_gap(
-        log, when, per_day=per_day, grace_seconds=grace, force_skip=skip_gap,
+        log, when, start=start, end=end, per_day=per_day, grace_seconds=grace,
+        force_skip=skip_gap,
     )
     if log.explicit_logout:
         log.explicit_logout = False
 
     if when < start_dt:
         # Before shift start — wait for in-window presence; do not start the clock.
-        # carry_seconds goes with it: the gap helper may already have banked the
-        # sub-minute remainder of this reconnect onto the row.
-        log.save(update_fields=["minutes", "explicit_logout", "carry_seconds"])
+        # carry_seconds and away_minutes go with it: the gap helper may already
+        # have banked the sub-minute remainder of this reconnect, or booked the
+        # absence, onto the row.
+        #
+        # last_ping is advanced here for the same reason it is advanced on the
+        # normal path: a gap that has been measured must not be measurable a
+        # second time. This branch used to return without touching it, so every
+        # later sign-in re-measured the same interval from the same stale stamp
+        # and booked the same absence again — on an overnight shift, six routine
+        # sign-ins turned half an hour away into a reported six hours, climbing
+        # until it hit the per-day clamp. Advancing the stamp credits nothing
+        # (the clock still has not started); it only stops the same absence
+        # being counted more than once.
+        log.last_ping = when
+        log.save(update_fields=[
+            "minutes", "last_ping", "explicit_logout", "carry_seconds",
+            "away_minutes",
+        ])
         return
 
     if log.first_login is None:
@@ -500,11 +646,13 @@ def note_shift_login(person, *, when: datetime | None = None) -> None:
         log.minutes = min(per_day, int(log.minutes or 0) + 1)
     elif gap:
         log.minutes = min(per_day, int(log.minutes or 0) + gap)
-    # Beyond-grace deduction already applied inside _apply_reconnect_gap.
+    # A beyond-grace gap adds nothing here; _apply_reconnect_gap has already
+    # recorded it on the row and deliberately left the earned minutes alone.
 
     log.last_ping = when
     log.save(update_fields=[
-        "minutes", "last_ping", "first_login", "explicit_logout", "carry_seconds",
+        "minutes", "last_ping", "first_login", "explicit_logout",
+        "carry_seconds", "away_minutes",
     ])
     freeze_past_months(person)
     refresh_worked(person)
@@ -965,15 +1113,20 @@ def record_presence_ping(person, *, when: datetime | None = None) -> int:
                     log, when, per_day=per_day, grace_seconds=grace, force_skip=False,
                 )
             else:
-                # Beyond grace → subtract full away duration; do not credit gap.
-                away_mins = max(1, secs // 60)
-                log.minutes = max(0, int(log.minutes or 0) - away_mins)
+                # Beyond grace → the gap is not credited, and nothing already
+                # earned is taken back either; the lost credit is the cost. Same
+                # rule as ``_apply_reconnect_gap`` on the login path.
+                _record_away(
+                    log, log.last_ping, when,
+                    start=start, end=end, per_day=per_day,
+                )
                 add = 0
 
     log.minutes = min(per_day, max(0, int(log.minutes or 0)) + add)
     log.last_ping = when
     log.save(update_fields=[
-        "minutes", "last_ping", "first_login", "explicit_logout", "carry_seconds",
+        "minutes", "last_ping", "first_login", "explicit_logout",
+        "carry_seconds", "away_minutes",
     ])
     freeze_past_months(person)
     refresh_worked(person)

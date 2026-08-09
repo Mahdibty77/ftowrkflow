@@ -676,6 +676,12 @@ class ShiftDayLog(models.Model):
     carry_seconds = models.PositiveSmallIntegerField(default=0)
     # Approved overtime credited separately from presence minutes.
     overtime_minutes = models.PositiveIntegerField(default=0)
+    # Total time, in whole minutes, that the person was away past the reconnect
+    # grace on this day (summed over every such absence). An absence costs the
+    # credit it never earned and nothing more, so this column changes no total;
+    # it exists purely so a queried month can be explained — "the 40 missing
+    # minutes on the 12th were four absences", not an unexplained shortfall.
+    away_minutes = models.PositiveIntegerField(default=0)
     first_login = models.DateTimeField(null=True, blank=True)
     last_logout = models.DateTimeField(null=True, blank=True)
     last_ping = models.DateTimeField(null=True, blank=True)

@@ -39,7 +39,12 @@ def activate(request):
         status = service.current_status(force=True)
 
     context = {
-        "machine_id": status.machine_id,
+        # Not simply ``status.machine_id``: the bound ID can belong to the *old*
+        # server (after a hardware move) or come from a ``.machine_fp`` cache with
+        # no activated state behind it, and activation accepts neither.  The whole
+        # point of this screen is to hand the vendor an ID they can issue for, so
+        # the service decides which one that is.
+        "machine_id": service.display_machine_id(status),
         "status": status,
         "message": message,
         "error": error,

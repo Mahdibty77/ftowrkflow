@@ -59,6 +59,30 @@ _MIN_ROW_H = 5.2
 _LINE_H_MM = 3.15         # ~10px font × 1.15 line-height
 _ROW_PAD_MM = 2.8         # top+bottom cell padding (~5px each side)
 
+# What document.html *actually* renders a wrapped cell with, at 96dpi: 10px
+# text on a 1.2 line-height (12px) inside 5px of padding on every side. The two
+# rounded figures above stay exactly as they are — every page break in every
+# document that fits today is derived from them — but the row splitter cannot
+# use them. It is the one caller that packs a cell right up to the top of the
+# budget, so where an ordinary row absorbs the rounding in its slack, a split
+# part has none left and a tenth of a millimetre per line becomes a clipped line
+# of text at the bottom of the sheet.
+_CSS_LINE_H_MM = 12 * 25.4 / 96      # 3.1750
+_CSS_CELL_PAD_MM = 10 * 25.4 / 96    # 2.6458 (5px each side, both axes)
+
+# The widest a single character can be in a cell. ``_estimate_lines`` divides by
+# an *average* glyph width, which is the right answer for a height estimate and
+# the wrong one for a guarantee: measured against Chrome, a run of "W", "@", an
+# em dash or CJK wraps to as much as 2.5× the estimate, and a part sized to the
+# estimate then hangs past the sheet and is clipped away by ``.table-zone``'s
+# overflow — text on no sheet at all, which is the one outcome this splitter
+# exists to prevent. A full em (10px ≈ 2.65mm) is the widest advance any of
+# those glyphs takes; 2.8 carries the measurement's rounding on top. Parts are
+# therefore capped at the number of characters that fits *even if every one of
+# them is the widest character in the font*, which costs paper on a row that
+# already spans sheets and never costs a character.
+_MAX_GLYPH_W_MM = 2.8
+
 # Column width fractions of the table (must sum ≈ 1.0)
 _PI_WIDTHS = {
     "client_no": 0.04, "item": 0.035, "code": 0.07, "desc_client": 0.11,
@@ -105,42 +129,57 @@ _SERVICE_WIDTHS = {
 _BANNER_H = 16.0
 
 _TABLE_WIDTH_MM = 265.0  # page width minus side margins
-_TAG_RE = re.compile(r"<[^>]+>")
-_BR_RE = re.compile(r"<br\s*/?>", re.IGNORECASE)
 _WS_RE = re.compile(r"\s+")
 
 
 def _plain_cell_text(text) -> str:
-    """Strip HTML / collapse whitespace for wrap estimation."""
-    raw = str(text or "")
-    raw = _BR_RE.sub("\n", raw)
-    raw = _TAG_RE.sub("", raw)
-    raw = (
-        raw.replace("&nbsp;", " ")
-        .replace("&amp;", "&")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", '"')
-        .replace("&#39;", "'")
-    )
-    return raw
+    """The characters the reader actually sees in that cell.
+
+    document.html prints the cell through ``{{ cell.text }}``, so Django's
+    autoescaping puts the operator's string on paper *verbatim*: a pasted
+    ``<br>`` shows as the four characters "<br>", ``&nbsp;`` as the six
+    characters "&nbsp;". This used to strip tags and decode entities before
+    measuring, which measured a document nobody prints — a cell holding a run of
+    ``<br>`` was measured as empty and its 800 printed characters overflowed the
+    sheet and were clipped. Measuring the raw string is both what the renderer
+    does and the safe direction to err in: an over-estimate costs white space at
+    the bottom of a sheet, an under-estimate costs text.
+    """
+    return str(text or "")
+
+
+def _chars_per_line(width_mm: float, font_pt: float = 10.0) -> int:
+    """How many characters of body text fit on one line of a cell that wide.
+
+    Split out of ``_estimate_lines`` unchanged so the row splitter below can ask
+    the same question the height estimator asks — the two must agree exactly or
+    a "part" sized by one would not fit the budget checked by the other.
+    """
+    # Average glyph width for Segoe UI / Helvetica at ~10pt.
+    char_w = font_pt * 0.3528 * 0.46
+    return max(4, int(width_mm / char_w))
 
 
 def _estimate_lines(text: str, width_mm: float, font_pt: float = 10.0) -> int:
-    plain = _plain_cell_text(text)
-    if not plain.strip():
+    """How many lines this cell text wraps to in the export table.
+
+    The export ``<td>`` keeps the CSS default ``white-space: normal``, so the
+    browser collapses **every** run of whitespace — spaces, tabs and newlines
+    alike — into a single space and breaks lines on width only. A newline in the
+    operator's text therefore produces no line of its own on paper, and this
+    estimator has to model that or it reports a height the renderer never
+    produces. It used to count each "\\n" as a hard break, which over-counted a
+    multi-line Excel cell (and, once over-tall rows began to be split, turned
+    that over-count into extra physical sheets carrying nothing).
+
+    A blank / whitespace-only cell still occupies one line: the row exists and
+    the padding is drawn even with nothing in it.
+    """
+    plain = _WS_RE.sub(" ", _plain_cell_text(text)).strip()
+    if not plain:
         return 1
-    # Average glyph width for Segoe UI / Helvetica at ~10pt.
-    char_w = font_pt * 0.3528 * 0.46
-    per_line = max(4, int(width_mm / char_w))
-    lines = 0
-    for para in plain.split("\n"):
-        chunk = _WS_RE.sub(" ", para).strip()
-        if not chunk:
-            lines += 1
-            continue
-        lines += max(1, math.ceil(len(chunk) / per_line))
-    return max(1, lines)
+    per_line = _chars_per_line(width_mm, font_pt)
+    return max(1, math.ceil(len(plain) / per_line))
 
 
 def _row_needed_height(row: dict, columns: list[tuple[str, str]], widths: dict) -> float:
@@ -153,6 +192,237 @@ def _row_needed_height(row: dict, columns: list[tuple[str, str]], widths: dict) 
             cell_text = f"{cell_text} [{row.get('_flag_label')}]"
         lines = max(lines, _estimate_lines(cell_text, _TABLE_WIDTH_MM * frac))
     return max(_MIN_ROW_H, _ROW_PAD_MM + lines * _LINE_H_MM)
+
+
+# Whitespace runs and non-whitespace runs, in order. ``"".join(findall(...))``
+# reproduces the subject string character for character, which is what lets the
+# splitter below cut a cell up without ever rewriting a single byte of it.
+_TOKEN_RE = re.compile(r"\s+|\S+")
+
+
+def _split_max_lines(avail_mm: float) -> int:
+    """Wrapped lines a split part may use inside a body ``avail_mm`` tall."""
+    return max(1, int((avail_mm - _CSS_CELL_PAD_MM) / _CSS_LINE_H_MM))
+
+
+def _safe_chars_per_line(width_mm: float) -> int:
+    """Characters that fit on one line of that cell *whatever* they are."""
+    return max(1, int((width_mm - _CSS_CELL_PAD_MM) / _MAX_GLYPH_W_MM))
+
+
+def _part_fits(text: str, width_mm: float, max_lines: int, suffix: str = "") -> bool:
+    """Will this piece still be inside the sheet after the browser wraps it?
+
+    Two questions, and a piece has to answer both. ``_estimate_lines`` asks the
+    likely one — how tall does this normally wrap — and is what keeps a split
+    from being needlessly aggressive on ordinary prose. The character count asks
+    the guaranteed one, and is what makes "no part is ever clipped" a property
+    of the code rather than a property of the sample data.
+    """
+    if _estimate_lines(text + suffix, width_mm) > max_lines:
+        return False
+    # Whitespace is measured the way the browser renders it: any run of it
+    # collapses to one space, so a piece cannot be pushed over by line breaks
+    # the reader never sees.
+    plain = _WS_RE.sub(" ", text + suffix).strip()
+    return len(plain) <= max_lines * _safe_chars_per_line(width_mm)
+
+
+def _split_cell_text(text: str, width_mm: float, max_lines: int,
+                     suffix: str = "") -> list[str]:
+    """Cut one cell's text into pieces that each fit ``max_lines`` lines.
+
+    "Fit" is ``_part_fits`` — the wrap estimate *and* the worst-case-glyph
+    character cap — because a piece that only fits on average is a piece that
+    the sheet clips on the day the text is a part number in capitals.
+
+    The pieces are *slices of the original string*: joining the returned list
+    back together gives the input back exactly, whitespace included. Nothing is
+    normalised, re-ordered or re-flowed — the document must show the operator's
+    text verbatim, only broken over more than one sheet.
+
+    ``suffix`` is text the template glues onto the cell without it being part of
+    the cell value (today: the ``[ISSUE]``-style flag badge). Room for it is
+    reserved in *every* piece: the badge is printed on the last one, where it
+    trails the finished description exactly as it does on a row that never had
+    to be split, and reserving it everywhere is what keeps that last piece from
+    running a line over the budget.
+    """
+    # …but only while the reservation leaves room for text at all. If the badge
+    # alone fills the budget, reserving it makes every fit test below fail,
+    # ``_fitting_take`` is forced down to its one-character floor, and the cell
+    # comes out one character per sheet with every one of those sheets still
+    # over the budget — the exact failure this splitter exists to prevent,
+    # reached by trying too hard to avoid it. In that geometry no split can put
+    # the badge on paper inside the sheet, so it stops being charged to the
+    # text: the description still lands whole and inside the sheet, which is the
+    # part a reader cannot do without. Testing one character *plus* the badge is
+    # what makes that one-character floor provably safe rather than merely
+    # likely — "x" stands for any single character, since both halves of
+    # ``_part_fits`` count characters and not glyphs.
+    if suffix.strip() and not _part_fits("x", width_mm, max_lines, suffix):
+        suffix = ""
+
+    if _part_fits(text, width_mm, max_lines, suffix):
+        # Fits as it stands — the overwhelmingly common case, and the reason a
+        # short cell on a split row simply prints once and leaves the
+        # continuation blank.
+        return [text]
+
+    chunks: list[str] = []
+    cur = ""
+    for token in _TOKEN_RE.findall(text):
+        if not token.strip():
+            # A whitespace run — however long — collapses to a single space in
+            # the browser, so it can never push a piece over the budget and must
+            # never be measured as if it could. It simply rides along with
+            # whatever piece is open. Measuring it as content is what used to
+            # break this loop: a whitespace run was accepted into an empty
+            # ``cur`` (a whitespace-only string "fits" by definition), the next
+            # word then found the piece full, ``cur.strip()`` was falsy so
+            # control fell into the mid-word branch below, and the piece was
+            # emitted with the entire run inside it — a run of 200 newlines came
+            # out several times the height of the sheet it had to fit on, and
+            # everything past the bottom of the sheet was clipped away.
+            cur += token
+            continue
+        while token:
+            if _part_fits(cur + token, width_mm, max_lines, suffix):
+                cur += token
+                token = ""
+            elif cur.strip():
+                # Full: close this piece and retry the whole word at the start
+                # of the next one, so words are never broken needlessly.
+                chunks.append(cur)
+                cur = ""
+            else:
+                # A single "word" longer than a whole part (a pasted spec with
+                # no spaces, say). The cell already wraps with
+                # ``overflow-wrap: anywhere`` in the browser, so cutting inside
+                # the word is exactly what the reader would have seen anyway.
+                take = _fitting_take(cur, token, width_mm, max_lines, suffix)
+                chunks.append(cur + token[:take])
+                cur = ""
+                token = token[take:]
+    if cur:
+        chunks.append(cur)
+    # Belt and braces. Everything above is *meant* to keep each piece inside the
+    # budget, but a piece that is over it must never reach the template: the
+    # sheet is a fixed 210mm box with ``overflow: hidden``, so an over-tall part
+    # is not a cosmetic slip, it is a character of the description printed on no
+    # sheet at all. Whatever the loop produced is therefore re-checked here and
+    # cut by character count if it is still too tall — a hard cut can cost a
+    # line break, which is acceptable; losing text is not.
+    safe: list[str] = []
+    for chunk in chunks:
+        safe.extend(_hard_wrap(chunk, width_mm, max_lines, suffix))
+    return safe or [""]
+
+
+def _fitting_take(cur: str, token: str, width_mm: float, max_lines: int,
+                  suffix: str) -> int:
+    """Largest prefix of ``token`` that keeps ``cur + prefix + suffix`` in budget.
+
+    At least one character is always taken so the caller's loop always advances
+    and no character of the cell can be dropped. That floor is safe rather than
+    merely necessary: callers only ask for a prefix with ``cur`` empty or pure
+    whitespace (which collapses to nothing in the browser), and
+    ``_split_cell_text`` has already dropped any ``suffix`` that one character
+    could not be printed beside — so the floor is always inside the budget.
+    """
+    # Start from the widest prefix that could possibly fit — the character cap,
+    # which is always the tighter of the two halves of ``_part_fits`` — and walk
+    # down from there rather than from the whole token.
+    take = min(len(token), max(1, _safe_chars_per_line(width_mm) * max_lines))
+    while take > 1 and not _part_fits(cur + token[:take], width_mm, max_lines, suffix):
+        take -= 1
+    return take
+
+
+def _hard_wrap(text: str, width_mm: float, max_lines: int, suffix: str) -> list[str]:
+    """Cut ``text`` by character count until every piece fits the budget.
+
+    Joined back together the pieces are ``text`` again, character for character;
+    the only thing a cut here can cost is the whitespace-driven line break that
+    the browser would have chosen for us, never a character.
+    """
+    if _part_fits(text, width_mm, max_lines, suffix):
+        return [text]
+    pieces: list[str] = []
+    rest = text
+    while rest and not _part_fits(rest, width_mm, max_lines, suffix):
+        take = _fitting_take("", rest, width_mm, max_lines, suffix)
+        pieces.append(rest[:take])
+        rest = rest[take:]
+    if rest:
+        pieces.append(rest)
+    return pieces
+
+
+def _split_row(row: dict, columns: list[tuple[str, str]], widths: dict,
+               max_lines: int) -> list[dict]:
+    """Break one over-tall row into consecutive parts, each ≤ ``max_lines`` tall.
+
+    Every cell is cut independently against its own column width, and part *n*
+    of the row carries piece *n* of every cell. A short cell has exactly one
+    piece, so it prints on the first part and is **blank** on the continuations.
+
+    That is a deliberate decision, not an accident of the algorithm: repeating
+    the item number, quantity and prices on a continuation would read as a
+    second, separate line item and would invite double counting by anyone
+    totalling the sheet by hand. The continuation instead carries only the rest
+    of the prose, is tinted like the row it came from, and is marked with a
+    "(cont.)" cue in its first column (see ``exp-row-cont`` in document.html) so
+    a reader can see at a glance that it belongs to the item above.
+    """
+    label = str(row.get("_flag_label") or "").strip()
+    pieces_by_key: dict[str, list[str]] = {}
+    part_count = 1
+    for _title, key in columns:
+        width_mm = _TABLE_WIDTH_MM * widths.get(key, 0.08)
+        # The flag badge is glued to desc_ftco by the template, exactly as
+        # _row_needed_height accounts for it.
+        suffix = f" [{label}]" if (key == "desc_ftco" and label) else ""
+        pieces = _split_cell_text(
+            str(row.get(key, "") or ""), width_mm, max_lines, suffix)
+        pieces_by_key[key] = pieces
+        part_count = max(part_count, len(pieces))
+
+    # The badge trails the *finished* description — the last part that actually
+    # carries desc_ftco text, which is where a reader of an unsplit row sees it.
+    # Leaving it on the first part would strand an "[ISSUE]" mid-sentence at a
+    # page break, and repeating it on every part would look like several
+    # flagged items.
+    #
+    # It has to be the last *non-empty* desc_ftco piece, and it has to be
+    # derived from that column alone. ``part_count`` is the maximum over every
+    # column, so a row whose desc_client (TO) or reason / comment (the extra
+    # sheets) splits into more parts than desc_ftco would otherwise put the
+    # badge on a part number that column never reaches. And a piece can be pure
+    # whitespace — a trailing run cut loose at a page break — on which the badge
+    # would sit alone in an otherwise blank cell.
+    ftco_pieces = pieces_by_key.get("desc_ftco")
+    if ftco_pieces is None:
+        # No desc_ftco column on this sheet, so no badge is rendered anywhere
+        # (see _build_page_rows, which only emits flag_label for that key).
+        # Blanking _flag_label on some parts would be picking a winner in a race
+        # that is not being run.
+        badge_idx = None
+    else:
+        filled = [i for i, piece in enumerate(ftco_pieces) if piece.strip()]
+        badge_idx = filled[-1] if filled else 0
+
+    parts: list[dict] = []
+    for idx in range(part_count):
+        part = dict(row)  # keeps _issue / _unsuppliable / _service_comment
+        for key, pieces in pieces_by_key.items():
+            part[key] = pieces[idx] if idx < len(pieces) else ""
+        if badge_idx is not None and idx != badge_idx:
+            part["_flag_label"] = ""
+        if idx:
+            part["_continued"] = "1"
+        parts.append(part)
+    return parts
 
 
 def _available_body_mm(*, last_page: bool, show_totals: bool, extra_mm: float = 0.0) -> float:
@@ -176,11 +446,19 @@ def _build_page_rows(
 ) -> list[dict]:
     cell_rows = []
     for row, height_mm in zip(chunk, heights):
+        # Set on the 2nd..nth part of a row that _split_row had to break over
+        # several sheets. Blank (falsy) on every ordinary row, so the markup of
+        # a document that needs no splitting is byte for byte what it was.
+        continued = str(row.get("_continued", "") or "") == "1"
         cells = []
-        for _title, key in columns:
+        for pos, (_title, key) in enumerate(columns):
             text = str(row.get(key, "") or "")
             cells.append({
                 "text": text,
+                # The "(cont.)" cue rides in the row's first column, which on a
+                # continuation is blank anyway (identifiers print once, on the
+                # first part).
+                "cont_mark": continued and pos == 0,
                 # "reason" / "comment" belong to the Technical Problems and
                 # Services sheets; they are free prose and have always been
                 # left-aligned there. Neither key exists in the main item
@@ -199,6 +477,7 @@ def _build_page_rows(
         cell_rows.append({
             "cells": cells,
             "height_mm": round(height_mm, 2),
+            "continued": continued,
             "issue": str(row.get("_issue", "") or "") == "1",
             "unsuppliable": str(row.get("_unsuppliable", "") or "") == "1",
             "service": bool(str(row.get("_service_comment", "") or "").strip())
@@ -225,9 +504,12 @@ def paginate_rows(rows: list[dict], columns: list[tuple[str, str]], *, is_pi: bo
        that page so the table card has no empty band at the bottom.
     5. **Partial last page**: rows keep natural heights; empty space under the
        last row is fine.
-    6. A single row taller than the body still gets its own page (never dropped)
-       and is flagged ``oversize`` so the template can let that one page grow
-       instead of clipping the text off the bottom of the cell.
+    6. A single row whose own text is taller than one sheet is **split**: its
+       cells are cut into page-sized pieces (``_split_row``) and each piece gets
+       its own page, so no text is lost and no page grows past 210mm. Every page
+       this function returns therefore fits exactly one physical sheet, which is
+       what lets the caller's ``len(pages)`` be the true sheet count behind
+       "Page N of M".
 
     ``widths`` / ``extra_mm`` let the two extra sheets (Technical Problems,
     Services) reuse this exact algorithm with their own column widths and their
@@ -240,7 +522,6 @@ def paginate_rows(rows: list[dict], columns: list[tuple[str, str]], *, is_pi: bo
             "fill": False,
             "is_last_items": True,
             "show_totals": is_pi,
-            "oversize": False,
         }]
 
     needed = [_row_needed_height(r, columns, widths) for r in rows]
@@ -273,10 +554,47 @@ def paginate_rows(rows: list[dict], columns: list[tuple[str, str]], *, is_pi: bo
             extra_mm=extra_mm,
         )
         natural_sum = sum(chunk_h)
+
         # Packing never puts two rows on a page unless they fit together, so the
-        # only way to exceed the body here is a lone row that is taller than one
-        # sheet on its own.
-        oversize = natural_sum > avail + 0.05
+        # only way to exceed the body here is a lone row (k == 1) that is taller
+        # than one sheet on its own. Such a row is cut into page-sized parts
+        # instead of being clipped (text lost) or allowed to spill onto a second
+        # physical sheet (page count lied). Everything below this branch is the
+        # untouched path every fitting document takes.
+        if k == 1 and natural_sum > avail + 0.05:
+            # How many wrapped lines a part may use. ``avail`` is already the
+            # budget for this row's page — the smaller totals-bearing budget
+            # when this is the last row of a PI — so sizing parts by it means
+            # every part fits wherever it lands. Because the row needs more
+            # lines than this, the split always yields at least two parts and
+            # the loop below always advances. Counted with the stylesheet's real
+            # line height rather than the paginator's rounded one: a part is
+            # packed to the very top of the budget, so the 0.025mm per line the
+            # rounding gives away is a clipped line of text by the thirtieth.
+            max_lines = _split_max_lines(avail)
+            parts = _split_row(rows[i], columns, widths, max_lines)
+            for p_idx, part in enumerate(parts):
+                part_last = is_last and p_idx == len(parts) - 1
+                part_avail = _available_body_mm(
+                    last_page=part_last,
+                    show_totals=bool(is_pi and part_last),
+                    extra_mm=extra_mm,
+                )
+                part_h = _row_needed_height(part, columns, widths)
+                # Same rule as any other page: while item rows still follow, the
+                # row is grown so the table card has no empty band at the
+                # bottom; the final part keeps its natural height.
+                part_fill = not part_last
+                if part_fill and part_h < part_avail - 0.05:
+                    part_h = part_avail
+                pages.append({
+                    "rows": _build_page_rows([part], columns, [part_h]),
+                    "fill": part_fill,
+                    "is_last_items": part_last,
+                    "show_totals": bool(is_pi and part_last),
+                })
+            i += 1
+            continue
 
         # Full continuation pages: grow rows evenly into leftover body space
         # so the table frame is filled (no empty strip under the last row).
@@ -285,21 +603,22 @@ def paginate_rows(rows: list[dict], columns: list[tuple[str, str]], *, is_pi: bo
         if fill and natural_sum < avail - 0.05:
             extra = (avail - natural_sum) / len(chunk_h)
             chunk_h = [h + extra for h in chunk_h]
-        # There used to be a second branch here that clamped a lone row taller
-        # than the body back down to the body height. The clamp did not make the
-        # row fit — it only guaranteed that the tail of a long material/standard
-        # specification was cut off by the cell's own ``overflow: hidden`` and
-        # vanished from a signed client document while Excel still showed it in
-        # full. The row now keeps its natural height and the page is flagged
-        # ``oversize``; document.html lets that one page grow past the sheet so
-        # nothing is dropped.
+        # This spot has held two failed answers to the same over-tall row. The
+        # first clamped it back to the body height, which only meant the cell's
+        # own ``overflow: hidden`` swallowed the tail of a long material or
+        # standard specification — gone from a signed client document while
+        # Excel still showed it whole. The second let its page grow past the
+        # sheet, which kept the text but printed one logical page as two
+        # physical ones, so "Page 2 of 4" could appear on a five-sheet PDF and
+        # the signature strip landed on the spilled sheet. Both are gone: such a
+        # row is split into page-sized parts in the branch above, and no page
+        # produced here can exceed one sheet.
 
         pages.append({
             "rows": _build_page_rows(chunk, columns, chunk_h),
             "fill": fill,
             "is_last_items": is_last,
             "show_totals": bool(is_pi and is_last),
-            "oversize": oversize,
         })
         i += k
     return pages
@@ -698,6 +1017,10 @@ def build_document_context(case, form, terms: dict | None = None, *, pdf_lite: b
         service_rows, _SERVICE_COLUMNS, is_pi=False,
         widths=_SERVICE_WIDTHS, extra_mm=_BANNER_H,
     ) if service_rows else []
+    # Counted *after* pagination, so a row that had to be split across sheets is
+    # already reflected in ``len(pages)``. Every page the paginator returns is
+    # exactly one physical sheet, so this total is the sheet count of the
+    # printed PDF and "Page N of M" cannot disagree with it.
     total_pages = len(pages) + len(issues_pages) + len(services_pages) + 1  # + issues? + services? + terms
 
     for idx, page in enumerate(pages, start=1):
