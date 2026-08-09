@@ -13,15 +13,35 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # two_stage + CaseExportLog already exist in the live DB (added outside
-        # this migration history). Keep them in migration *state* only.
+        # ``CaseForm.two_stage`` and ``CaseExportLog`` were both created directly
+        # on the live database, outside this migration history, so this migration
+        # originally adopted BOTH into migration *state* only
+        # (``database_operations=[]``).
+        #
+        # That was right for CaseExportLog and wrong for two_stage. State-only
+        # adoption tells Django "the database already has this", which is true of
+        # the one server that was patched by hand and false of every database
+        # built from scratch. Migration 0009 then reads CaseForm through the
+        # frozen state — which includes two_stage — and aborts with
+        # "no such column: cases_caseform.two_stage", so no fresh install could
+        # ever be provisioned from the migration history at all.
+        #
+        # The AddField below is therefore issued against the database as well.
+        # Editing an already-applied migration is safe here and is the reason
+        # this is the correct place for the fix: Django records applied
+        # migrations by name and never re-runs them, so every existing database
+        # (which has 0003 applied and the column present) is untouched, while a
+        # new database now gets the column it was always missing.
+        #
+        # CaseExportLog stays state-only on purpose — migration 0008 creates that
+        # table when it is absent, which covers the fresh-install case for it.
+        migrations.AddField(
+            model_name='caseform',
+            name='two_stage',
+            field=models.BooleanField(default=False),
+        ),
         migrations.SeparateDatabaseAndState(
             state_operations=[
-                migrations.AddField(
-                    model_name='caseform',
-                    name='two_stage',
-                    field=models.BooleanField(default=False),
-                ),
                 migrations.CreateModel(
                     name='CaseExportLog',
                     fields=[

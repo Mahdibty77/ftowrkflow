@@ -237,7 +237,23 @@
         if (!last) return;
         var copy = last.cloneNode(true);
         each(copy.querySelectorAll("input,select"), function (i) { i.value = ""; });
+        // cloneNode copies the themed-dropdown markup but none of its event
+        // listeners, so the added row would carry a dead button sitting on top of
+        // a hidden, untabbable <select> — and the copied data-dd-wired marker
+        // would stop it ever being wired again. Unwind the clone back to the
+        // plain <select> the template produced, then let wireThemedSelects()
+        // build a live dropdown for it once the row is in the document.
+        each(copy.querySelectorAll(".ppl-dd"), function (dd) {
+          var inner = dd.querySelector("select");
+          if (!inner) { if (dd.parentNode) dd.parentNode.removeChild(dd); return; }
+          inner.removeAttribute("data-dd-wired");
+          inner.hidden = false;
+          inner.removeAttribute("tabindex");
+          inner.classList.remove("ppl-native-fallback");
+          if (dd.parentNode) dd.parentNode.replaceChild(inner, dd);
+        });
         wrap.appendChild(copy);
+        wireThemedSelects();
         var first = copy.querySelector("input,select");
         if (first) first.focus();
       }

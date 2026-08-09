@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
@@ -36,6 +37,64 @@ def _person_or_redirect(request):
 
 def _history_rows(qs, *, unread_for=None):
     return sr.history_rows_enriched(qs, unread_for=unread_for)
+
+
+def _selectable_case_ids(request, ids: list[int]) -> list[int]:
+    """Drop case ids this user could not have picked from their own archive.
+
+    The ids arrive in the query string because the archive's Select mode hands
+    them back that way, and the form then prints each case's document number and
+    client. Typed by hand, that read out those two fields for any case in the
+    database — including units this user cannot open anywhere else in the app.
+
+    Only the *narrow* archive scopes are re-checked here. Whoever already sees
+    the whole archive (administrator, General Manager, Commercial manager) or a
+    whole unit (a supervisor) is left alone, so nobody loses a case they are
+    entitled to attach; the check exists to stop the everyday employee scopes
+    from reaching outside their own work.
+    """
+    if not ids:
+        return []
+    from accounts.constants import Role, Unit
+    from cases import services
+    from cases.models import Case
+
+    from .role_nav import work_context
+
+    profile = getattr(request.user, "profile", None)
+    if profile is None:
+        return []
+    ctx = work_context(request)
+    seat_user = ctx.seat_user
+    unit = (getattr(ctx.role, "unit", "") or "") or (profile.unit or "")
+    role = (getattr(ctx.role, "role", "") or "") or (profile.role or "")
+    if (
+        profile.is_admin
+        or profile.is_general_manager
+        or (unit == Unit.COMMERCIAL and role == Role.MANAGER)
+        or role == Role.SUPERVISOR
+    ):
+        return ids
+
+    allowed = set(
+        Case.objects.filter(pk__in=ids)
+        .filter(
+            Q(created_by=seat_user)
+            | Q(assigned_to=seat_user)
+            | Q(forms__created_by=seat_user)
+            | Q(events__actor=seat_user)
+        )
+        .values_list("pk", flat=True)
+    )
+    try:
+        inbox = services.inbox_cases_for_request(request)
+        if inbox is not None:
+            allowed |= set(inbox.filter(pk__in=ids).values_list("pk", flat=True))
+    except Exception:
+        # Same tolerance as the archive itself: a failed inbox union narrows the
+        # list, it never widens it.
+        pass
+    return [pk for pk in ids if pk in allowed]
 
 
 # ---------------------------------------------------------------------------
@@ -158,6 +217,7 @@ def overtime_form(request):
             part = part.strip()
             if part.isdigit():
                 ids.append(int(part))
+        ids = _selectable_case_ids(request, ids)
         request.session[session_key] = ids
         selected = ids
         return redirect("people:overtime_form")

@@ -160,15 +160,19 @@ def user_list(request):
     """Seats catalogue — grouped by Unit & role."""
     from people.constants import PersonStatus
     from people.models import Person
-    from people.seats import is_blank_org_seat, purge_unassigned_seats
+    from people.seats import is_blank_org_seat
 
     actor_profile = getattr(request.user, "profile", None)
     can_manage_users = bool(actor_profile and actor_profile.is_admin)
-    if can_manage_users:
-        try:
-            purge_unassigned_seats()
-        except Exception:
-            logger.exception("purge_unassigned_seats failed")
+    # Simply opening this page used to call purge_unassigned_seats(), which
+    # permanently deletes every account that has no unit and no role — a second
+    # bootstrap superuser, or a profile-only login that People creates by itself
+    # when someone views a person's Seats tab. Those deletions are irreversible
+    # and, because the history fields point at the user with SET_NULL
+    # (CaseForm.signed_by, CaseEvent.actor, ImpersonationLog), they quietly
+    # unsign approved documents. Reading a list must never destroy rows, and
+    # nothing here needed it to: the is_blank_org_seat filter below already
+    # keeps those accounts out of the catalogue.
 
     users = list(
         User.objects.select_related(
@@ -626,10 +630,33 @@ def user_create(request):
             code = getattr(form, "seat_code", None) or user.profile.seat_code
             person = form.cleaned_data.get("person") or locked_person
             if person is not None and hasattr(user, "person_link"):
-                messages.success(
-                    request,
-                    f"Seat “{code}” created and linked to {person.display_name}.",
-                )
+                # Linking the seat can move the login secret elsewhere: people.seats
+                # transfers the password of an existing profile-only login onto this
+                # seat, and a person who already holds a seat gets this one as a
+                # secondary seat with a deliberately unusable password. So the
+                # password this form generated is only worth revealing while it is
+                # still the one that signs in — handing it over blindly would give
+                # the administrator a password that does not work. Either way the
+                # admin must be told which of the two happened; before this, the
+                # page reported success for an account whose password nobody had
+                # ever seen and gave no hint that a separate step was needed.
+                user.refresh_from_db()
+                if user.has_usable_password() and user.check_password(form.generated_password):
+                    request.session["_reveal_credential"] = {
+                        "username": user.username,
+                        "password": form.generated_password,
+                        "label": f"Seat created: {code}",
+                    }
+                    messages.success(
+                        request,
+                        f"Seat “{code}” created and linked to {person.display_name}.",
+                    )
+                else:
+                    messages.success(
+                        request,
+                        f"Seat “{code}” created and linked to {person.display_name}. "
+                        "Use “Reset password” to hand them a sign-in password.",
+                    )
                 return redirect("people:person_seats", pk=person.pk)
             request.session["_reveal_credential"] = {
                 "username": user.username,
@@ -845,6 +872,21 @@ def impersonate_start(request, pk):
         # Manager accounts too, since they can initiate impersonation.
         messages.error(request, "Administrator and General Manager accounts cannot be impersonated.")
         return redirect("accounts:user_list")
+    if target_profile is not None and target_profile.must_change_password:
+        # An account that is still on its admin-issued temporary password is one
+        # step away from having a permanent one chosen for it: every request it
+        # makes is sent to force_password_change by MustChangePasswordMiddleware,
+        # and that form asks only for a new password, never the current one.
+        # Entering that state by impersonation would let the impersonator set the
+        # employee's real password, keep working credentials after the
+        # impersonation session ends, and silently invalidate the temporary
+        # password the administrator handed out — none of which the
+        # ImpersonationLog would show. Wait until the holder has signed in and
+        # chosen their own password.
+        messages.error(
+            request,
+            "This account has not set its own password yet and cannot be impersonated.")
+        return redirect("accounts:user_list")
 
     original_admin_id = request.user.pk
     original_admin_username = request.user.username
@@ -874,6 +916,7 @@ def impersonate_start(request, pk):
 
 
 @login_required
+@require_POST
 def impersonate_stop(request):
     """Return to the real admin account.
 
@@ -881,6 +924,16 @@ def impersonate_stop(request):
     user could normally access (no @admin_required here) — it depends only
     on the session marker impersonate_start set, never on the permissions of
     whoever request.user currently resolves to.
+
+    POST only, like impersonate_start. This view swaps who request.user is
+    for the rest of the session, so it must not be triggerable by anything
+    that merely fetches a URL: a GET could be fired by a prefetching browser,
+    a link-scanner, an <img src> on any page the impersonated user visits, or
+    a bare cross-site link — silently dropping the administrator out of the
+    account they are supporting, and closing the ImpersonationLog entry that
+    is supposed to bracket the real session. Requiring POST means Django's
+    CsrfViewMiddleware checks a token, so only the banner rendered inside our
+    own pages (core/templates/base.html) can end an impersonation.
     """
     admin_id = request.session.get("impersonator_id")
     if not admin_id:
@@ -1178,11 +1231,39 @@ LOGIN_MAX_IP_ATTEMPTS = 40       # per IP window (username spraying)
 LOGIN_WINDOW_SECONDS = 15 * 60
 
 
+def _trusted_proxy_ips() -> set:
+    """Addresses whose ``X-Forwarded-For`` header is worth believing.
+
+    Empty unless an operator names one, and that default is deliberate: the
+    stock deployment publishes gunicorn straight to the network (docker-compose
+    maps the web port itself), so nothing rewrites the header and the value is
+    whatever the caller typed. Set TRUSTED_PROXY_IPS in settings, or the
+    DJANGO_TRUSTED_PROXY_IPS environment variable, only once a reverse proxy at
+    that address is the sole way in — otherwise the throttle below is keyed on
+    something the person being throttled controls.
+    """
+    from django.conf import settings
+
+    raw = getattr(settings, "TRUSTED_PROXY_IPS", None)
+    if raw is None:
+        raw = os.environ.get("DJANGO_TRUSTED_PROXY_IPS", "")
+    if isinstance(raw, str):
+        raw = raw.split(",")
+    return {str(item).strip() for item in raw if str(item).strip()}
+
+
 def _client_ip(request) -> str:
-    fwd = request.META.get("HTTP_X_FORWARDED_FOR", "")
-    if fwd:
-        return fwd.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR", "") or "unknown"
+    # REMOTE_ADDR is the peer the socket is actually connected to, so it cannot
+    # be forged; X-Forwarded-For can, and a spoofed one handed every request a
+    # brand-new counter (unlimited guessing) as well as a way to run a
+    # colleague's IP up to the lockout threshold. Only read it when the peer is
+    # a proxy the operator has vouched for.
+    remote = (request.META.get("REMOTE_ADDR", "") or "").strip()
+    if remote and remote in _trusted_proxy_ips():
+        fwd = request.META.get("HTTP_X_FORWARDED_FOR", "")
+        if fwd:
+            return fwd.split(",")[0].strip() or remote
+    return remote or "unknown"
 
 
 def _login_keys(request):
@@ -1410,10 +1491,17 @@ def user_toggle_active(request, pk):
 # Permanent deletion was removed in the 2026-07 security pass. CaseForm.signed_by
 # and similar fields use SET_NULL, so hard-deleting a user silently unsigns
 # every document they ever approved — indistinguishable, on the document,
-# from it never having been signed at all. "Cut off" (user_toggle_active,
-# above) is the supported way to end someone's access today: it blocks sign-in
-# immediately, ends any open session immediately, and is fully reversible,
-# without touching a single historical record. A fuller offboarding flow
+# from it never having been signed at all. Cutting access off instead blocks
+# sign-in immediately, ends any open session immediately, and is fully
+# reversible, without touching a single historical record.
+#
+# Where that rule actually lives: the cut-off the product offers is
+# people:person_toggle_status (people/views.py), which is what the People
+# screens post to — it works on the Person and every login behind them.
+# user_toggle_active above predates it, still works on one User row and is
+# still routed (accounts/urls.py), but no template links to it any more, so
+# changing the semantics here alone changes nothing anyone can reach: change
+# people:person_toggle_status too, or instead. A fuller offboarding flow
 # (reassigning their open work to a successor, marking them departed) belongs
 # with the Personnel module and is intentionally not built here — see the
 # changes summary document for why.

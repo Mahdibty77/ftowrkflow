@@ -242,6 +242,14 @@ def submit_overtime(
     return req
 
 
+# The approve form offers 00–12 hours and minutes in fives, so nothing a
+# reviewer can legitimately choose passes 12h55. A number beyond that is a
+# slipped keystroke, and it used to be accepted whole: the approved minutes are
+# added to that person's shift end, so "200 hours" kept their session open for
+# days and no screen in the app can lower an already-decided request.
+MAX_APPROVED_OVERTIME_MINUTES = 13 * 60
+
+
 @transaction.atomic
 def decide_overtime(
     req: StaffRequest,
@@ -268,6 +276,11 @@ def decide_overtime(
         mins = max(0, mins)
         if mins <= 0:
             raise ValueError("Approved duration must be greater than zero.")
+        if mins > MAX_APPROVED_OVERTIME_MINUTES:
+            raise ValueError(
+                "Approved overtime cannot exceed "
+                f"{MAX_APPROVED_OVERTIME_MINUTES // 60} hours."
+            )
         req.approved_minutes = mins
         req.status = StaffRequest.STATUS_APPROVED
         req.save()
@@ -292,17 +305,27 @@ def _credit_overtime_day(person: Person, day: date, minutes: int) -> None:
     sh.refresh_worked(person)
 
 
-def linked_cases_display(case_ids: list[int]) -> list[dict[str, Any]]:
+def _cases_by_id(case_ids: list[int]):
+    """Case rows for these ids, or None when the cases app cannot be read."""
     if not case_ids:
-        return []
+        return {}
     try:
         from cases.models import Case
     except Exception:
-        return [{"pk": pk, "label": f"#{pk}"} for pk in case_ids]
-    by_id = {
+        return None
+    return {
         c.pk: c
         for c in Case.objects.filter(pk__in=case_ids).select_related("client")
     }
+
+
+def linked_cases_display(case_ids: list[int], *, by_id=None) -> list[dict[str, Any]]:
+    if not case_ids:
+        return []
+    if by_id is None:
+        by_id = _cases_by_id(case_ids)
+        if by_id is None:
+            return [{"pk": pk, "label": f"#{pk}"} for pk in case_ids]
     out = []
     for pk in case_ids:
         c = by_id.get(pk)
@@ -425,7 +448,18 @@ def history_for_gm():
 def history_rows_enriched(qs, *, unread_for: str | None = None):
     """Build table rows. unread_for: 'requester' | 'reviewer' | None."""
     rows = []
-    for r in qs:
+    # The linked cases of every row are fetched in one go. Asking per row cost a
+    # Case query each, and these tables run to hundreds of rows in the GM inbox.
+    requests = list(qs)
+    wanted: list[int] = []
+    seen: set[int] = set()
+    for r in requests:
+        for pk in (r.case_ids or []):
+            if pk not in seen:
+                seen.add(pk)
+                wanted.append(pk)
+    by_id = _cases_by_id(wanted)
+    for r in requests:
         decider = ""
         if r.decided_by_id:
             decider = (
@@ -444,7 +478,7 @@ def history_rows_enriched(qs, *, unread_for: str | None = None):
             )
         rows.append({
             "req": r,
-            "cases": linked_cases_display(r.case_ids or []),
+            "cases": linked_cases_display(r.case_ids or [], by_id=by_id),
             "decider": decider or "—",
             "is_unread": is_unread,
         })
@@ -463,6 +497,27 @@ def approved_overtime_request_for_day(person: Person, day: date):
         .order_by("-decided_at", "-pk")
         .first()
     )
+
+
+def approved_overtime_requests_by_day(person: Person, first: date, last: date) -> dict:
+    """The same answer as ``approved_overtime_request_for_day`` for a range.
+
+    A month page asked that question once per calendar day and paid a query for
+    each. One ordered scan of the range keeping the first row seen per day picks
+    exactly the same request, because ordering a set the same way and then
+    splitting it by day cannot reorder the rows within a day.
+    """
+    out: dict[date, StaffRequest] = {}
+    rows = StaffRequest.objects.filter(
+        person=person,
+        request_type__code=RequestType.CODE_OVERTIME,
+        status=StaffRequest.STATUS_APPROVED,
+        work_day__gte=first,
+        work_day__lte=last,
+    ).order_by("-decided_at", "-pk")
+    for req in rows:
+        out.setdefault(req.work_day, req)
+    return out
 
 
 def filter_options_from_rows(rows: list[dict], *, show_person: bool = False) -> dict:

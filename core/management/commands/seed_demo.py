@@ -34,6 +34,10 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--skip-codes", action="store_true",
                             help="Do not import the bundled sample pipe code table.")
+        parser.add_argument("--replace-codes", action="store_true",
+                            help="Allow the demo pipe table to overwrite an existing "
+                                 "'pipe' code table. Without this the import is "
+                                 "skipped whenever a pipe table is already loaded.")
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -46,7 +50,7 @@ class Command(BaseCommand):
         self._ensure_case(users, clients)
 
         if not options["skip_codes"]:
-            self._import_codes()
+            self._import_codes(replace_existing=options["replace_codes"])
         else:
             self.stdout.write("  Skipping code-table import (--skip-codes).")
 
@@ -96,14 +100,22 @@ class Command(BaseCommand):
             if created:
                 user.set_password(USER_PASSWORD)
                 user.save()
-            p = user.profile
-            p.is_admin = False
-            p.unit = unit
-            p.role = role
-            p.supply_kind = supply_kind
-            p.internal_code = code
-            p.org_title = f"{first} {last}"
-            p.save()
+                # Only ever shape a profile this command has just created. A
+                # username in the demo plan may already belong to a real employee,
+                # and rewriting their unit/role/supply kind/internal code would
+                # silently re-route their inbox and change their document numbers
+                # with nothing in the audit trail to explain it.
+                p = user.profile
+                p.is_admin = False
+                p.unit = unit
+                p.role = role
+                p.supply_kind = supply_kind
+                p.internal_code = code
+                p.org_title = f"{first} {last}"
+                p.save()
+            else:
+                self.stdout.write(self.style.WARNING(
+                    f"  '{username}' already exists; leaving its profile as it is."))
             out[username] = user
         # A general manager: sees everything, manages nobody.
         gm, created = User.objects.get_or_create(
@@ -113,14 +125,20 @@ class Command(BaseCommand):
         if created:
             gm.set_password(USER_PASSWORD)
             gm.save()
-        gp = gm.profile
-        gp.is_admin = False
-        gp.is_general_manager = True
-        gp.unit = ""
-        gp.role = ""
-        gp.internal_code = "001"
-        gp.org_title = "General Manager"
-        gp.save()
+            # Same reasoning as above, and one step worse: is_general_manager is a
+            # privilege grant, so it must never land on an account this command did
+            # not create itself.
+            gp = gm.profile
+            gp.is_admin = False
+            gp.is_general_manager = True
+            gp.unit = ""
+            gp.role = ""
+            gp.internal_code = "001"
+            gp.org_title = "General Manager"
+            gp.save()
+        else:
+            self.stdout.write(self.style.WARNING(
+                "  'gen_manager' already exists; leaving its profile as it is."))
         out["gen_manager"] = gm
         self.stdout.write(f"  Users ready: {len(out)} unit/role accounts")
         return out
@@ -206,9 +224,22 @@ class Command(BaseCommand):
         self.stdout.write(f"  Demo split case created: {case2.doc_no}")
 
     # ------------------------------------------------------------------ codes
-    def _import_codes(self) -> None:
+    def _import_codes(self, *, replace_existing: bool = False) -> None:
         from itemcoder.importer import import_code_table
+        from itemcoder.models import CodeTable
         from itemcoder.resource_paths import csv_path
+
+        # import_code_table() only supports a full replace: it rebuilds pipe.sqlite3
+        # from scratch and deletes every CodeTableRow for the group. That is fine on
+        # a fresh development database but it would wipe a real, curated pipe table
+        # if this dev-seeding command were ever run against a live host, so an
+        # already-populated group is left alone unless the operator asks explicitly.
+        if CodeTable.objects.filter(group="pipe").exists() and not replace_existing:
+            self.stdout.write(self.style.WARNING(
+                "  A 'pipe' code table already exists; leaving it untouched.\n"
+                "    Re-run with --replace-codes to overwrite it with the demo table, "
+                "or --skip-codes to silence this."))
+            return
 
         path = csv_path("code_table", "pipe_coding_data.csv")
         self.stdout.write("  Importing sample pipe code table into SQLite (this can take a few seconds)…")

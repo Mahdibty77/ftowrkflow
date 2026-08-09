@@ -146,7 +146,13 @@ def _sig_mac() -> str:
     # uuid.getnode() returns the primary interface MAC (or a random value with
     # the multicast bit set when it cannot be determined -- which we drop).
     node = uuid.getnode()
-    if (node >> 40) & 0x01:  # locally-administered / random -> unreliable
+    # 0x01 in the first octet is the multicast/group bit, which is exactly what
+    # getnode() sets on its random fallback -- that is the value being rejected
+    # here. It is deliberately NOT the locally-administered bit (0x02): a
+    # locally-administered MAC such as Docker's 02:42:* is still accepted and
+    # folded into the fingerprint, which is why a container that comes up on a
+    # different IP can hash differently once the .machine_fp cache is gone.
+    if (node >> 40) & 0x01:
         return ""
     return f"{node:012x}"
 

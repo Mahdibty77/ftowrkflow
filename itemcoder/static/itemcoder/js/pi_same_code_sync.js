@@ -274,21 +274,39 @@
     });
   }
 
+  /* Both callers below ask "is this row a duplicate?" once per row — the filter
+     predicate and the counter card — and each answer used to rescan the whole
+     table, i.e. n^2 code lookups on every keystroke. The group index is built
+     once and dropped again as soon as the current synchronous run ends, so it
+     can never be read stale: the DOM only changes between tasks, never inside
+     one, and the very next task rebuilds it. The grouping itself is unchanged —
+     it is the same buildGroups() the badges already use. */
+  var codeCountCache = null;
+  function codeCounts() {
+    if (codeCountCache) return codeCountCache;
+    var byCode = buildGroups();
+    var counts = {};
+    Object.keys(byCode).forEach(function (c) { counts[c] = byCode[c].length; });
+    codeCountCache = counts;
+    Promise.resolve().then(function () { codeCountCache = null; });
+    return counts;
+  }
+
   function isSimilarRow(tr) {
     if (!rowOk(tr)) return false;
     var c = syncCodeOf(tr);
     if (!c) return false;
-    var n = 0;
-    allRows().forEach(function (r) {
-      if (!rowOk(r)) return;
-      if (syncCodeOf(r) === c) n++;
-    });
-    return n >= 2;
+    var counts = codeCounts();
+    if (!Object.prototype.hasOwnProperty.call(counts, c)) return false;
+    return counts[c] >= 2;
   }
 
   function countSimilarRows() {
+    var counts = codeCounts();
     var n = 0;
-    allRows().forEach(function (tr) { if (isSimilarRow(tr)) n++; });
+    Object.keys(counts).forEach(function (code) {
+      if (counts[code] >= 2) n += counts[code];
+    });
     return n;
   }
 

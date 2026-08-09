@@ -265,6 +265,49 @@ if _redis_url:
         }
 
 # ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+# Without an explicit LOGGING dict Django installs its own default, in which the
+# console handler is filtered by require_debug_true and the only other handler
+# mails ADMINS. Production always runs DEBUG=False (docker-compose pins
+# DJANGO_DEBUG=0) and ADMINS is empty and there is no mail server, so every
+# unhandled 500 traceback was routed to two handlers that both discarded it —
+# and because handlers *were* found, logging's last-resort fallback never fired
+# either. All the operator saw was gunicorn's access line with a 500 on it.
+#
+# This sends records to the stream gunicorn already forwards, so tracebacks show
+# up in `docker compose logs web` with no mail server and no extra package. No
+# ADMINS/email backend is configured on purpose: there is no SMTP relay on these
+# installs, and a half-configured one would fail silently in the same way.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[{asctime}] {levelname} {name}: {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "root": {"handlers": ["console"], "level": "WARNING"},
+    "loggers": {
+        # Same level Django's own default uses, minus the DEBUG-only filter.
+        "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        # This is the logger that carries the traceback of an unhandled 500.
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+    },
+}
+
+# ---------------------------------------------------------------------------
 # Transport / cookie hardening
 # ---------------------------------------------------------------------------
 # These headers are always safe to send.

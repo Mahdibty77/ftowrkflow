@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import F
 
 from .constants import DocKind, FormKind
 from .jalali import jalali_year_month
@@ -87,13 +88,21 @@ def next_case_serial() -> int:
     """Return the next global, system-wide case serial.
 
     A dedicated row keeps the counter monotonic even with several users
-    creating cases at the same time (the row is locked for update).
+    creating cases at the same time.
+
+    The increment is issued as a single ``UPDATE … value = value + 1`` and the
+    result read back, rather than being computed in Python between a read and a
+    write. ``select_for_update`` alone is not enough: it only takes a row lock on
+    backends that support one, and SQLite — the default engine for this project —
+    silently drops the clause instead of raising, so two simultaneous case
+    creations could read the same value and hand out the same serial. That serial
+    goes straight into ``Case.doc_no``, which is unique, so the second creator
+    got a 500 rather than the next number.
     """
     from .models import SerialCounter
 
     counter, _ = SerialCounter.objects.select_for_update().get_or_create(
         key="case_serial", defaults={"value": 1802},
     )
-    counter.value += 1
-    counter.save(update_fields=["value"])
-    return counter.value
+    SerialCounter.objects.filter(pk=counter.pk).update(value=F("value") + 1)
+    return SerialCounter.objects.values_list("value", flat=True).get(pk=counter.pk)

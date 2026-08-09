@@ -27,8 +27,12 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
+from contextlib import contextmanager
 from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
+
+from django.db import connection, transaction
 
 from .models import GroupCodeConfig, GroupFeature, FeatureValue
 from .resource_paths import RESOURCE_DIR
@@ -52,7 +56,7 @@ _SCHEMA_VALUE_INDEX_CACHE: Dict[str, tuple] = {}  # path -> (mtime, (feat_of, po
 _GROUP_RULES_CACHE: Dict[str, tuple] = {}         # path -> (mtime, group_rule_dict)
 _ALL_RULES_CACHE: dict = {"sig": None, "data": None, "checked_at": 0.0}
 _ALL_RULES_KEYS_CACHE: dict = {"data_id": None, "keys": None}  # normalized keys per group
-_SIZE_NORMS_CACHE: Dict[str, set] = {}  # group -> set of normalized size spellings
+_SIZE_NORMS_CACHE: Dict[str, tuple] = {}  # group -> (mtime, set of normalized sizes)
 _ALL_RULES_CHECK_INTERVAL_SEC = 1.0
 
 
@@ -265,6 +269,11 @@ def value_code_map(group: str, feature: str) -> Dict[str, str]:
 
 
 def next_value_code(group: str, feature: str, width: int = 2) -> str:
+    # Highest code in use for this feature, plus one. This is a plain read and
+    # NOT a reservation — the screens that merely SHOW the code a new value would
+    # get (the Feature Values form, the Engineering Assistant's preview) call it
+    # too, so nothing may be consumed here. Whoever actually stores the code must
+    # do so under _value_code_allocation_lock; see add_value_with_relations.
     mx, w = 0, width
     for fv in FeatureValue.objects.filter(group=group, feature=feature):
         c = str(fv.code).strip()
@@ -307,8 +316,18 @@ def _is_empty_variant(v) -> bool:
     return False
 
 
-def build_codes(group: str, selected: Dict[str, str]) -> Tuple[str, str, str]:
-    """Build (technical_code, item_code, small_prefix) from chosen MAIN values."""
+def build_codes(group: str, selected: Dict[str, str],
+                pending_value_codes: Optional[Dict[str, str]] = None
+                ) -> Tuple[str, str, str]:
+    """Build (technical_code, item_code, small_prefix) from chosen MAIN values.
+
+    ``pending_value_codes`` ({feature name: code}) covers the one case where a
+    caller must build a code for a value that does not have a FeatureValue row
+    yet: the Engineering Assistant previews the codes of a size it is about to
+    register, and without this the size's segment would silently come out empty.
+    It is a fallback only — a value that already has a code always wins — so
+    every other caller keeps the exact same output by passing nothing.
+    """
     group = str(group).strip().lower()
     cfg = GroupCodeConfig.objects.filter(group=group).first()
     tech_start = cfg.tech_start if cfg else ""
@@ -324,16 +343,24 @@ def build_codes(group: str, selected: Dict[str, str]) -> Tuple[str, str, str]:
         return {_norm_val(v): c for v, c in value_code_map(group, feature).items()}
     code_maps = {f.name: _ci_map(f.name) for f in feats}
 
+    pending = pending_value_codes or {}
+
+    def _code_for(f, val: str) -> str:
+        code = code_maps.get(f.name, {}).get(_norm_val(val), "")
+        if not code and val and pending:
+            code = str(pending.get(f.name, "") or "")
+        return code
+
     tech = [tech_start, tech_group]
     for f in feats:
         val = (selected.get(f.name) or "").strip()
-        tech.append(code_maps.get(f.name, {}).get(_norm_val(val), ""))
+        tech.append(_code_for(f, val))
     technical_code = "".join(tech)
 
     small = [item_start, item_group]
     for f in small_code_features(group):
         val = (selected.get(f.name) or "").strip()
-        small.append(code_maps.get(f.name, {}).get(_norm_val(val), ""))
+        small.append(_code_for(f, val))
     prefix = "".join(small)
 
     from . import code_db
@@ -1090,9 +1117,16 @@ def _collect_rules_size_norms(group: str) -> set:
     g = str(group or "").strip().lower()
     if not g:
         return set()
+    # Keyed by the rules file's mtime like every other cache in this module: the
+    # set is derived from rules_<group>.json, so a plain disk edit of that file
+    # must invalidate it. Keying by group alone made this the one cache that
+    # survived an edit until a rules save or a restart, and a stale set paints
+    # perfectly valid sizes red.
+    src_path = _rules_path(g) if os.path.exists(_rules_path(g)) else _legacy_rules_path()
+    mtime = _mtime_or_none(src_path)
     cached = _SIZE_NORMS_CACHE.get(g)
-    if cached is not None:
-        return cached
+    if cached is not None and cached[0] == mtime:
+        return cached[1]
     rules = _group_rules(g)
     out = set()
     if rules:
@@ -1111,7 +1145,7 @@ def _collect_rules_size_norms(group: str) -> set:
                     n = _norm_val(x)
                     if n:
                         out.add(n)
-    _SIZE_NORMS_CACHE[g] = out
+    _SIZE_NORMS_CACHE[g] = (mtime, out)
     return out
 
 
@@ -1285,6 +1319,51 @@ def main_feature_order(group: str) -> List[str]:
     return [f.name for f in main_features(group)]
 
 
+# Fallback mutex for backends without row locking (SQLite, i.e. development and
+# the test suite). Such a backend is a single-file database that the project only
+# ever runs against from one process, so one process-wide lock is exactly as
+# strong a guarantee there as the row lock is on PostgreSQL.
+_VALUE_CODE_LOCK = threading.Lock()
+
+
+@contextmanager
+def _value_code_allocation_lock(group: str, feature: str):
+    """Serialise "read the highest feature-value code, then write the next one".
+
+    Handing out a code is a read followed by a separate INSERT, and the two used
+    to be unprotected: two admins adding a value to the same feature at the same
+    moment both read the same maximum (say 06) and both stored 07, so two
+    different values ended up sharing one code — and, because the code goes
+    straight into the technical code, two different items ended up with the same
+    technical code. Wrapping the pair in a transaction is not enough on its own:
+    both transactions still read the same maximum.
+
+    So the second caller is made to WAIT until the first has committed. The lock
+    is taken on the feature's own GroupFeature row rather than on the existing
+    FeatureValue rows, because a feature whose first value is being added has no
+    FeatureValue rows to lock and both callers would then allocate the same first
+    code. That row always exists here — add_value_with_relations has already
+    refused anything that is not a main feature, and main features are read from
+    GroupFeature.
+
+    Nothing about the code that comes out changes: the waiting caller reads the
+    table again once it holds the lock, sees the row the winner just wrote, and
+    takes the next number. Only the number of callers inside the section at once
+    is different.
+    """
+    if connection.features.has_select_for_update:
+        with transaction.atomic():
+            # Evaluated immediately (list(...)) so the row lock is really taken
+            # here; it is released when this atomic block commits, i.e. only
+            # after the new FeatureValue has been written.
+            list(GroupFeature.objects.select_for_update()
+                 .filter(group=group, name=feature))
+            yield
+        return
+    with _VALUE_CODE_LOCK:
+        yield
+
+
 def add_value_with_relations(group: str, feature: str, value: str,
                              relations: Dict[str, List[str]]) -> str:
     """Create a feature value (auto code) and wire it into rules.json.
@@ -1348,6 +1427,9 @@ def add_value_with_relations(group: str, feature: str, value: str,
 
     _save_rules(data, group)
 
-    code = next_value_code(group, feature)
-    FeatureValue.objects.create(group=group, feature=feature, value=value, code=code)
+    # Read the next code and store it as one indivisible step — see
+    # _value_code_allocation_lock for what used to go wrong here.
+    with _value_code_allocation_lock(group, feature):
+        code = next_value_code(group, feature)
+        FeatureValue.objects.create(group=group, feature=feature, value=value, code=code)
     return code

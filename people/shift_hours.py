@@ -41,8 +41,16 @@ def jalali_month_length(jy: int, jm: int) -> int:
         return 31
     if jm <= 11:
         return 30
-    g1 = date(*jalali_to_gregorian(jy, 12, 1))
-    g_next = date(*jalali_to_gregorian(jy + 1, 1, 1))
+    # Esfand is 29 or 30 days, decided by where the next new year falls. A year
+    # far outside the calendar's range (a hand-typed /shift/<year>/ URL) has no
+    # Gregorian date to compare against, so answer the ordinary 29 rather than
+    # letting the page die on a ValueError; every day of such a month is then
+    # dropped by _safe_gdate anyway.
+    try:
+        g1 = date(*jalali_to_gregorian(jy, 12, 1))
+        g_next = date(*jalali_to_gregorian(jy + 1, 1, 1))
+    except (ValueError, OverflowError):
+        return 29
     return (g_next - g1).days
 
 
@@ -324,6 +332,21 @@ def _aware_combine(day: date, t: time, tz) -> datetime:
     return datetime.combine(day, t, tzinfo=tz)
 
 
+def _shift_start_dt(start: time, end: time, when: datetime) -> datetime:
+    """When the shift that ``when`` falls in actually started.
+
+    An overnight shift (22:00–06:00) is still yesterday's shift once the clock
+    passes midnight. Anchoring on ``when.date()`` alone put its start ~20 hours
+    in the future, which made every post-midnight arrival look early: the login
+    was never opened and the stamped In time was tonight's start, not the
+    person's real arrival. Mirrors the same correction in work_shift.
+    """
+    start_dt = _aware_combine(when.date(), start, when.tzinfo)
+    if start > end and when.time() < end:
+        start_dt -= timedelta(days=1)
+    return start_dt
+
+
 def _credit_gap_minutes(
     log,
     when: datetime,
@@ -345,7 +368,14 @@ def _credit_gap_minutes(
         return 0
     if secs > max(0, int(grace_seconds)):
         return 0
-    mins = max(1, secs // 60) if secs >= 30 else 0
+    # The open tab pings every few seconds, so one gap is almost never a whole
+    # minute. Judging each gap on its own threw those seconds away and credited
+    # a person nothing for a whole day at the desk; the seconds are banked on
+    # the day row instead and spent the moment they make up a minute, so what is
+    # credited follows the time actually spent present.
+    banked = int(getattr(log, "carry_seconds", 0) or 0) + secs
+    mins = banked // 60
+    log.carry_seconds = banked % 60
     if mins <= 0:
         return 0
     room = max(0, per_day - int(log.minutes or 0))
@@ -426,7 +456,7 @@ def note_shift_login(person, *, when: datetime | None = None) -> None:
 
     start, end = shift_window(person)
     per_day = shift_minutes(start, end)
-    start_dt = _aware_combine(gday, start, when.tzinfo)
+    start_dt = _shift_start_dt(start, end, when)
 
     log, _ = ShiftDayLog.objects.get_or_create(
         person=person, day=gday, defaults={"minutes": 0},
@@ -442,7 +472,9 @@ def note_shift_login(person, *, when: datetime | None = None) -> None:
 
     if when < start_dt:
         # Before shift start — wait for in-window presence; do not start the clock.
-        log.save(update_fields=["minutes", "explicit_logout"])
+        # carry_seconds goes with it: the gap helper may already have banked the
+        # sub-minute remainder of this reconnect onto the row.
+        log.save(update_fields=["minutes", "explicit_logout", "carry_seconds"])
         return
 
     if log.first_login is None:
@@ -471,7 +503,9 @@ def note_shift_login(person, *, when: datetime | None = None) -> None:
     # Beyond-grace deduction already applied inside _apply_reconnect_gap.
 
     log.last_ping = when
-    log.save(update_fields=["minutes", "last_ping", "first_login", "explicit_logout"])
+    log.save(update_fields=[
+        "minutes", "last_ping", "first_login", "explicit_logout", "carry_seconds",
+    ])
     freeze_past_months(person)
     refresh_worked(person)
 
@@ -527,7 +561,7 @@ def month_day_details(person, jy: int, jm: int) -> list[dict[str, Any]]:
     from django.urls import reverse
 
     from .models import ShiftDayLog
-    from .staff_requests import approved_overtime_request_for_day
+    from .staff_requests import approved_overtime_requests_by_day
 
     start, end = shift_window(person)
     per = shift_minutes(start, end)
@@ -538,9 +572,13 @@ def month_day_details(person, jy: int, jm: int) -> list[dict[str, Any]]:
     g0 = _safe_gdate(jy, jm, 1)
     g1 = _safe_gdate(jy, jm, length)
     logs = {}
+    ot_by_day = {}
     if g0 and g1:
         for row in ShiftDayLog.objects.filter(person=person, day__gte=g0, day__lte=g1):
             logs[row.day.isoformat()] = row
+        # Day rows are already batched; the overtime request was the one lookup
+        # left running once per calendar day.
+        ot_by_day = approved_overtime_requests_by_day(person, g0, g1)
 
     out = []
     for d in plan["days"]:
@@ -594,7 +632,7 @@ def month_day_details(person, jy: int, jm: int) -> list[dict[str, Any]]:
         plan_h = round(planned / 60, 1) if planned else 0
         done_h = _hours1(total)
         excess_h = _excess_hours(done_h, plan_h)
-        ot_req = approved_overtime_request_for_day(person, g)
+        ot_req = ot_by_day.get(g)
         ot_url = reverse("people:request_detail", args=[ot_req.pk]) if ot_req else ""
 
         out.append({
@@ -832,10 +870,11 @@ def _credit_ot_presence(person, when: datetime) -> int:
     else:
         secs = max(0, int((when - log.last_ping).total_seconds()))
         if secs <= max(0, int(grace)):
-            if secs >= 30:
-                add = max(1, secs // 60)
-            elif secs >= 20:
-                add = 1
+            # Same banked-seconds rule as the base shift: a few seconds per ping
+            # never reaches a minute on its own, so it is carried until it does.
+            banked = int(getattr(log, "carry_seconds", 0) or 0) + secs
+            add = banked // 60
+            log.carry_seconds = banked % 60
         # Beyond grace during OT: do not credit the away gap as overtime.
 
     room = max(0, cap - int(log.overtime_minutes or 0))
@@ -843,7 +882,7 @@ def _credit_ot_presence(person, when: datetime) -> int:
     if add:
         log.overtime_minutes = int(log.overtime_minutes or 0) + add
     log.last_ping = when
-    log.save(update_fields=["overtime_minutes", "last_ping"])
+    log.save(update_fields=["overtime_minutes", "last_ping", "carry_seconds"])
     freeze_past_months(person)
     refresh_worked(person)
     return int(log.minutes or 0)
@@ -882,7 +921,7 @@ def record_presence_ping(person, *, when: datetime | None = None) -> int:
         return 0
 
     per_day = shift_minutes(start, end)
-    start_dt = _aware_combine(gday, start, when.tzinfo)
+    start_dt = _shift_start_dt(start, end, when)
     log, _ = ShiftDayLog.objects.get_or_create(
         person=person, day=gday, defaults={"minutes": 0},
     )
@@ -925,8 +964,6 @@ def record_presence_ping(person, *, when: datetime | None = None) -> int:
                 add = _credit_gap_minutes(
                     log, when, per_day=per_day, grace_seconds=grace, force_skip=False,
                 )
-                if add <= 0 and 20 <= secs < 30:
-                    add = 1
             else:
                 # Beyond grace → subtract full away duration; do not credit gap.
                 away_mins = max(1, secs // 60)
@@ -935,7 +972,9 @@ def record_presence_ping(person, *, when: datetime | None = None) -> int:
 
     log.minutes = min(per_day, max(0, int(log.minutes or 0)) + add)
     log.last_ping = when
-    log.save(update_fields=["minutes", "last_ping", "first_login", "explicit_logout"])
+    log.save(update_fields=[
+        "minutes", "last_ping", "first_login", "explicit_logout", "carry_seconds",
+    ])
     freeze_past_months(person)
     refresh_worked(person)
     return log.minutes

@@ -190,6 +190,12 @@ def resolve_find_size_path(group=None) -> str | None:
     Looks for ``find_size_<group>.csv`` then ``find-size_<group>.csv`` under
     ``resources/csv/size/``. No global fallback — missing group file means
     no size equivalent mapping.
+
+    The path is derived from the group name ONLY — there is deliberately no
+    JSON indirection. An older ``confind_size.json`` looked like the config for
+    this, but no lookup ever read it, so it has been deleted; do not reintroduce
+    it expecting a group to be repointed. The CSV has to be named after the
+    group.
     """
     slug = _group_slug(group)
     if not slug:

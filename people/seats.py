@@ -42,8 +42,9 @@ def is_blank_org_seat(profile) -> bool:
 def purge_unassigned_seats() -> int:
     """Delete catalogue seats with no Unit & role (the old «Unassigned» group).
 
-    Skips the dedicated ``admin`` login. Seats that cannot be deleted because of
-    FK history are left alone but should still be filtered out of UI lists.
+    Skips the dedicated ``admin`` login and anything still linked to a person.
+    Seats that cannot be deleted because of FK history are left alone but should
+    still be filtered out of UI lists.
     """
     removed = 0
     qs = (
@@ -55,10 +56,14 @@ def purge_unassigned_seats() -> int:
         profile = getattr(user, "profile", None)
         if not is_blank_org_seat(profile):
             continue
+        link = getattr(user, "person_link", None)
+        if link is not None:
+            # Held by a real person: this is the profile-only login handed out
+            # before their first organisational seat exists, not a leftover
+            # catalogue seat. Deleting it destroyed a credential that had just
+            # been given to that employee.
+            continue
         try:
-            link = getattr(user, "person_link", None)
-            if link is not None:
-                link.delete()
             PersonRole.objects.filter(source_user=user).delete()
             user.delete()
             removed += 1
@@ -539,8 +544,13 @@ def _free_seat_user(user, person=None, *, actor=None) -> str | None:
         freed = reset_seat_identity(user)
     except SeatError:
         freed = user.username
+    # A vacant seat must not keep the password of the person who just left it:
+    # the seat is handed on under a new name, and the old holder's credential
+    # would otherwise still open it for whoever learns the new username. The
+    # next holder gets a password from "Reset password" like any other login.
+    user.set_unusable_password()
     user.is_active = False
-    user.save(update_fields=["is_active"])
+    user.save(update_fields=["is_active", "password"])
     _bump_seat_stats(user, vacated=True)
     profile = getattr(user, "profile", None)
     if profile is not None:
@@ -726,12 +736,26 @@ def release_seat(link, *, actor=None) -> str:
 
     # Drop roles that came from this seat.
     person.roles.filter(source_user=user).delete()
+    # Freeing the seat scrubs its password, but a person who still holds another
+    # seat keeps signing in with the one they already have — so take a copy of
+    # the hash first and hand that to the re-home below. Which seat becomes the
+    # new login can only be answered after the link is gone, hence the order.
+    carried_secret = user.password
     freed = _free_seat_user(user, person, actor=actor) or user.username
+
+    # A released seat is empty, so its tenure has to end here the way Close and
+    # Translate end theirs. Left open, "who holds this seat" kept answering with
+    # the person who just gave it back — and the seat's own History jumped from
+    # the previous event straight to the next assignment with nothing in between.
+    from .models import SeatTenure
+    _end_open_tenures(user, reason=SeatTenure.REASON_RELEASE)
+    _log_seat_event(user, "VACANT", actor=actor, from_person=person)
 
     if was_primary:
         # Re-home login onto another linked seat if any remain.
         other = primary_login(person)
         if other is not None:
+            user.password = carried_secret
             _transfer_login_secret(user, other)
             apply_person_identity(other, person)
             other.is_active = bool(person.is_active)

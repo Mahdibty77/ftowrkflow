@@ -1,0 +1,32 @@
+{
+  "env": {
+    "DJANGO_SECRET_KEY": "claude-code-local-only-key-not-a-production-secret-0000000000"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(python -m compileall *)",
+      "Bash(python -m tests.snapshot *)",
+      "Bash(python -m pyflakes *)",
+      "Bash(python -m py_compile *)",
+      "Bash(python manage.py check*)",
+      "Bash(python manage.py makemigrations *)",
+      "Bash(python manage.py showmigrations*)",
+      "Bash(python manage.py diffsettings*)",
+      "Bash(DJANGO_DEBUG=1 python -m compileall *)",
+      "Bash(DJANGO_DEBUG=1 python -m tests.snapshot *)",
+      "Bash(DJANGO_DEBUG=1 python -m pyflakes *)",
+      "Bash(DJANGO_DEBUG=1 python manage.py check*)",
+      "Bash(DJANGO_DEBUG=1 python manage.py makemigrations *)",
+      "Bash(DJANGO_DEBUG=1 python manage.py showmigrations*)",
+      "Bash(time DJANGO_DEBUG=1 python -m tests.snapshot *)",
+      "Bash(node --check *)",
+      "Bash(sh -n *)",
+      "Bash(bash -n *)",
+      "Bash(git --no-pager *)",
+      "Bash(git worktree *)",
+      "Read(//c/Users/Asus/AppData/Local/Temp/claude/**)",
+      "Write(//c/Users/Asus/AppData/Local/Temp/claude/**)",
+      "Edit(//c/Users/Asus/AppData/Local/Temp/claude/**)"
+    ]
+  }
+}

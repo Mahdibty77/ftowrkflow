@@ -9,6 +9,7 @@ from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from . import spec
@@ -489,7 +490,16 @@ def activate_role(request, role_id):
     safe_activate_role(request.user, role)
     request.session["active_role_id"] = role.pk
     nxt = (request.POST.get("next") or request.GET.get("next") or "").strip()
-    if nxt.startswith("/") and not nxt.startswith("//"):
+    # "One slash but not two" reads as a safe relative path and is not: browsers
+    # treat "/\host" as "//host" and leave the site, which turns this link into a
+    # way of landing a signed-in colleague on somebody else's login page. Django's
+    # helper re-tests the URL with the backslashes swapped, and the accounts app
+    # already relies on it for exactly this reason.
+    if nxt and url_has_allowed_host_and_scheme(
+        nxt,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
         return redirect(nxt)
     return redirect("cases:inbox")
 

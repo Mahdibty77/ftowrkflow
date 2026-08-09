@@ -107,7 +107,12 @@ def prepare_table_cell(col, val, row=None, data_json=None):
 
     # Size/display column: keep initial red parentheses without JS doing it after paint.
     if col_s == "size":
-        return highlight_parentheses(val_s)
+        # The size text is DATA (typed in the grid or read from the client's
+        # workbook); only the parenthesis highlight is markup we add. Escape
+        # first and wrap second — the other order would escape our own <span>
+        # into visible text. Every JS reader of this cell uses textContent,
+        # which decodes the entities back, so nothing downstream sees a change.
+        return highlight_parentheses(escape(val_s))
 
     if col_s == "Final Arranged Text":
         # Manual FTCO edits must never paint colour markup (or escaped markup
@@ -121,4 +126,19 @@ def prepare_table_cell(col, val, row=None, data_json=None):
             return val_s
         return escape(val_s) if val_s else val_s
 
-    return val_s
+    if col_s == "Filled_Features":
+        # This diagnostic column is markup the server itself built
+        # (final_arrange_builder joins coloured <span>s with <br>), and the tool
+        # saves the cell back with innerHTML — escaping it here would store the
+        # escaped form and escape it again on every reload. Its *values* are
+        # neutralised at the source, in final_feature_display.colored_display.
+        return val_s
+
+    # Everything else — CLIENT DISCRIPTION, qty, unit, the FTCO code and any
+    # extra/calculation column — is plain data that ends up inside a <td> which
+    # the templates render with |safe and the virtual scroller re-parses into
+    # live nodes. A description arrives from a customer-supplied workbook, so it
+    # has to leave here already escaped or an <img onerror=…> in it becomes a
+    # real element. The JS reads these cells with textContent, which decodes the
+    # entities, so the saved values and the coder's input are unchanged.
+    return escape(val_s)

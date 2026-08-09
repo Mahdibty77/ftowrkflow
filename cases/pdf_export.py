@@ -72,6 +72,38 @@ _TO_WIDTHS = {
     "brand": 0.10, "time": 0.12,
 }
 
+# The Technical Problems (TO) and Services (PI) sheets carry their own tables
+# with their own fixed column widths — the percentages below are the ones
+# declared as ``<th style="width: …">`` in document.html. They are needed here
+# because pagination has to estimate how tall each row wraps, exactly the way it
+# does for the main item table; without them these sheets were emitted as one
+# single page and every row past the bottom of the sheet was clipped away by the
+# fixed-height ``.document`` box.
+_ISSUE_COLUMNS: list[tuple[str, str]] = [
+    ("Client No.", "client_no"),
+    ("Item No.", "item"),
+    ("DESCRIPTION CLIENT", "desc_client"),
+    ("Technical Problem Detail", "reason"),
+]
+_ISSUE_WIDTHS = {"client_no": 0.12, "item": 0.12, "desc_client": 0.36, "reason": 0.40}
+_SERVICE_COLUMNS: list[tuple[str, str]] = [
+    ("CLIENT ITEM", "client_no"),
+    ("FTCO ITEM", "item"),
+    ("DESCRIPTION CLIENT", "desc_client"),
+    ("SERVICE COMMENT", "comment"),
+    ("QTY", "qty"),
+    ("UNIT PRICE SERVICE", "unit_svc_price"),
+    ("TOTAL PRICE SERVICE", "total_svc_price"),
+]
+_SERVICE_WIDTHS = {
+    "client_no": 0.09, "item": 0.09, "desc_client": 0.24, "comment": 0.20,
+    "qty": 0.07, "unit_svc_price": 0.15, "total_svc_price": 0.16,
+}
+# Those two sheets also print a coloured banner between the info cards and the
+# table (~60px ≈ 16mm at 96dpi) which eats into the body height available to
+# rows.
+_BANNER_H = 16.0
+
 _TABLE_WIDTH_MM = 265.0  # page width minus side margins
 _TAG_RE = re.compile(r"<[^>]+>")
 _BR_RE = re.compile(r"<br\s*/?>", re.IGNORECASE)
@@ -123,13 +155,17 @@ def _row_needed_height(row: dict, columns: list[tuple[str, str]], widths: dict) 
     return max(_MIN_ROW_H, _ROW_PAD_MM + lines * _LINE_H_MM)
 
 
-def _available_body_mm(*, last_page: bool, show_totals: bool) -> float:
+def _available_body_mm(*, last_page: bool, show_totals: bool, extra_mm: float = 0.0) -> float:
     used = (
         _HEADER_H + _INFO_H + _SIGN_H + _FOOTER_H + _TABLE_PAD + _THEAD_H
         + _SAFETY_MM + _PAGE_INSET_V_MM
     )
     if last_page and show_totals:
         used += _TOTALS_H
+    # ``extra_mm`` is chrome that only some sheets carry (today: the banner on
+    # the Technical Problems / Services sheets). Callers that do not pass it get
+    # the identical budget they always had.
+    used += extra_mm
     return max(18.0, _PAGE_H - used)
 
 
@@ -145,7 +181,11 @@ def _build_page_rows(
             text = str(row.get(key, "") or "")
             cells.append({
                 "text": text,
-                "left": key in {"desc_client", "desc_ftco", "remark"},
+                # "reason" / "comment" belong to the Technical Problems and
+                # Services sheets; they are free prose and have always been
+                # left-aligned there. Neither key exists in the main item
+                # table's columns, so listing them here cannot affect it.
+                "left": key in {"desc_client", "desc_ftco", "remark", "reason", "comment"},
                 "key": key,
                 "flag_label": (str(row.get("_flag_label") or "") if key == "desc_ftco" else ""),
                 "flag_kind": (
@@ -168,7 +208,8 @@ def _build_page_rows(
     return cell_rows
 
 
-def paginate_rows(rows: list[dict], columns: list[tuple[str, str]], *, is_pi: bool):
+def paginate_rows(rows: list[dict], columns: list[tuple[str, str]], *, is_pi: bool,
+                  widths: dict | None = None, extra_mm: float = 0.0):
     """Pack item rows into pages by each row's own content height.
 
     Algorithm:
@@ -184,15 +225,22 @@ def paginate_rows(rows: list[dict], columns: list[tuple[str, str]], *, is_pi: bo
        that page so the table card has no empty band at the bottom.
     5. **Partial last page**: rows keep natural heights; empty space under the
        last row is fine.
-    6. A single row taller than the body still gets its own page (never dropped).
+    6. A single row taller than the body still gets its own page (never dropped)
+       and is flagged ``oversize`` so the template can let that one page grow
+       instead of clipping the text off the bottom of the cell.
+
+    ``widths`` / ``extra_mm`` let the two extra sheets (Technical Problems,
+    Services) reuse this exact algorithm with their own column widths and their
+    banner subtracted from the body budget. Omitted, the behaviour is unchanged.
     """
-    widths = _PI_WIDTHS if is_pi else _TO_WIDTHS
+    widths = widths or (_PI_WIDTHS if is_pi else _TO_WIDTHS)
     if not rows:
         return [{
             "rows": [],
             "fill": False,
             "is_last_items": True,
             "show_totals": is_pi,
+            "oversize": False,
         }]
 
     needed = [_row_needed_height(r, columns, widths) for r in rows]
@@ -208,6 +256,7 @@ def paginate_rows(rows: list[dict], columns: list[tuple[str, str]], *, is_pi: bo
             avail = _available_body_mm(
                 last_page=is_last_trial,
                 show_totals=bool(is_pi and is_last_trial),
+                extra_mm=extra_mm,
             )
             trial_sum = sum(needed[i:i + trial])
             if trial_sum <= avail + 0.05:
@@ -221,8 +270,13 @@ def paginate_rows(rows: list[dict], columns: list[tuple[str, str]], *, is_pi: bo
         avail = _available_body_mm(
             last_page=is_last,
             show_totals=bool(is_pi and is_last),
+            extra_mm=extra_mm,
         )
         natural_sum = sum(chunk_h)
+        # Packing never puts two rows on a page unless they fit together, so the
+        # only way to exceed the body here is a lone row that is taller than one
+        # sheet on its own.
+        oversize = natural_sum > avail + 0.05
 
         # Full continuation pages: grow rows evenly into leftover body space
         # so the table frame is filled (no empty strip under the last row).
@@ -231,15 +285,21 @@ def paginate_rows(rows: list[dict], columns: list[tuple[str, str]], *, is_pi: bo
         if fill and natural_sum < avail - 0.05:
             extra = (avail - natural_sum) / len(chunk_h)
             chunk_h = [h + extra for h in chunk_h]
-        elif (not is_last) and natural_sum > avail + 0.05 and len(chunk_h) == 1:
-            # Lone oversize row: clamp to body so it still fits the frame.
-            chunk_h = [avail]
+        # There used to be a second branch here that clamped a lone row taller
+        # than the body back down to the body height. The clamp did not make the
+        # row fit — it only guaranteed that the tail of a long material/standard
+        # specification was cut off by the cell's own ``overflow: hidden`` and
+        # vanished from a signed client document while Excel still showed it in
+        # full. The row now keeps its natural height and the page is flagged
+        # ``oversize``; document.html lets that one page grow past the sheet so
+        # nothing is dropped.
 
         pages.append({
             "rows": _build_page_rows(chunk, columns, chunk_h),
             "fill": fill,
             "is_last_items": is_last,
             "show_totals": bool(is_pi and is_last),
+            "oversize": oversize,
         })
         i += k
     return pages
@@ -623,32 +683,36 @@ def build_document_context(case, form, terms: dict | None = None, *, pdf_lite: b
     rows = build_export_rows(case, form)
     pages = paginate_rows(rows, columns, is_pi=is_pi)
     issue_rows = technical_problem_export_rows(form) if kind == FormKind.TO else []
-    has_issues_page = bool(issue_rows)
     service_rows = service_price_export_rows(form, case) if is_pi else []
-    has_services_page = bool(service_rows)
-    total_pages = len(pages) + (1 if has_issues_page else 0) + (1 if has_services_page else 0) + 1  # + issues? + services? + terms
+    # The two extra sheets are paginated with the very same packer as the main
+    # item table. They used to be dropped into a single page each, which meant
+    # every row past the bottom of that one sheet was silently clipped by the
+    # fixed-height ``.document`` box — the Excel export of the same form wrote
+    # them all, so the two artefacts of one document disagreed. The content is
+    # unchanged; only where a page break falls is new.
+    issues_pages = paginate_rows(
+        issue_rows, _ISSUE_COLUMNS, is_pi=False,
+        widths=_ISSUE_WIDTHS, extra_mm=_BANNER_H,
+    ) if issue_rows else []
+    services_pages = paginate_rows(
+        service_rows, _SERVICE_COLUMNS, is_pi=False,
+        widths=_SERVICE_WIDTHS, extra_mm=_BANNER_H,
+    ) if service_rows else []
+    total_pages = len(pages) + len(issues_pages) + len(services_pages) + 1  # + issues? + services? + terms
 
     for idx, page in enumerate(pages, start=1):
         page["page_no"] = idx
         page["page_label"] = f"{idx} of {total_pages}"
 
-    issues_page = None
     next_no = len(pages) + 1
-    if has_issues_page:
-        issues_page = {
-            "page_no": next_no,
-            "page_label": f"{next_no} of {total_pages}",
-            "rows": issue_rows,
-        }
+    for page in issues_pages:
+        page["page_no"] = next_no
+        page["page_label"] = f"{next_no} of {total_pages}"
         next_no += 1
 
-    services_page = None
-    if has_services_page:
-        services_page = {
-            "page_no": next_no,
-            "page_label": f"{next_no} of {total_pages}",
-            "rows": service_rows,
-        }
+    for page in services_pages:
+        page["page_no"] = next_no
+        page["page_label"] = f"{next_no} of {total_pages}"
         next_no += 1
 
     terms_page = {
@@ -686,8 +750,8 @@ def build_document_context(case, form, terms: dict | None = None, *, pdf_lite: b
             for t, k in columns
         ],
         "pages": pages,
-        "issues_page": issues_page,
-        "services_page": services_page,
+        "issues_pages": issues_pages,
+        "services_pages": services_pages,
         "terms_page": terms_page,
         "totals": totals,
         "currency_suffix": (totals or {}).get("currency_suffix", " IRR"),

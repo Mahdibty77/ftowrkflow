@@ -645,8 +645,12 @@ html[data-theme="dark"] .pi-status-bar.warn { background: rgba(234,179,8,.12); b
 }
 
 /* ?? 2. No-wrap columns: FT code, size, qty, unit, prices ?? */
-#virtual-scroll-table td[data-col-name="??"],
-#virtual-scroll-table th[data-col-name="??"] {
+/* "کد" is the FTCO code column's literal header (CODE_COL in
+   pi_same_code_sync.js). It must stay the Persian word byte for byte — a save
+   through a non-UTF-8 codepage once turned it into "?" and this rule matched
+   nothing. Keep this file UTF-8. */
+#virtual-scroll-table td[data-col-name="کد"],
+#virtual-scroll-table th[data-col-name="کد"] {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 #virtual-scroll-table td[data-col-name="size"],
@@ -1626,15 +1630,24 @@ tr.row-unsuppliable td[data-col-name="Item Code"] .ic-flag-ico { color: #c0392b 
 #virtual-scroll-table td[data-calc-variable="unit_price"][data-locked="1"]::before,
 #virtual-scroll-table td[data-col-name="BRAND"][data-locked="1"]::before,
 #virtual-scroll-table td[data-col-name="TIME"][data-locked="1"]::before {
-  content: "\f023";  /* fa-lock */
-  font-family: "Font Awesome 6 Free";
-  font-weight: 900;
+  /* The padlock is drawn with the same inline-SVG mask the rest of the app
+     uses (see .fa-lock in tool-icons.css). The project ships no webfont at
+     all — there is no @font-face anywhere and no CDN link — so the previous
+     content:"\f023" + "Font Awesome 6 Free" resolved to a Private-Use
+     codepoint no installed font has, and every locked cell painted a notdef
+     box instead of a lock. A pseudo-element cannot take an icon class, hence
+     the mask is spelled out here. */
+  content: "";
+  --fa-lock: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23fff'%20stroke-width='2.4'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Crect%20x='3'%20y='11'%20width='18'%20height='11'%20rx='2'/%3E%3Cpath%20d='M7%2011V7a5%205%200%200%201%2010%200v4'/%3E%3C/svg%3E");
   position: absolute;
   top: 50%;
   right: 6px;
   transform: translateY(-50%);
-  font-size: .62rem;
-  color: #c0c7d2;
+  width: .62rem;
+  height: .62rem;
+  background-color: #c0c7d2;
+  -webkit-mask: var(--fa-lock) center/contain no-repeat;
+  mask: var(--fa-lock) center/contain no-repeat;
   pointer-events: none;
   z-index: 4;
 }
@@ -1931,10 +1944,16 @@ tr.row-unsuppliable td[data-col-name="Item Code"] .ic-flag-ico { color: #c0392b 
   cursor: not-allowed !important;
 }
 #virtual-scroll-table td[data-price-locked="1"]::after {
-  content: "\f023";   /* fa-lock */
-  font-family: "Font Awesome 6 Free"; font-weight: 900;
+  /* Same inline-SVG mask as the locked BRAND/TIME/UNIT PRICE cells above —
+     there is no Font Awesome webfont in this project, so a content:"\f023"
+     glyph never renders. */
+  content: "";
+  --fa-lock: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23fff'%20stroke-width='2.4'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Crect%20x='3'%20y='11'%20width='18'%20height='11'%20rx='2'/%3E%3Cpath%20d='M7%2011V7a5%205%200%200%201%2010%200v4'/%3E%3C/svg%3E");
   position: absolute; top: 50%; right: 5px; transform: translateY(-50%);
-  font-size: .6rem; color: #c0c7d2; pointer-events: none;
+  width: .6rem; height: .6rem; background-color: #c0c7d2;
+  -webkit-mask: var(--fa-lock) center/contain no-repeat;
+  mask: var(--fa-lock) center/contain no-repeat;
+  pointer-events: none;
 }
 
 /* ============================================================
@@ -2134,7 +2153,7 @@ body[data-tool-kind="PI"] #virtual-scroll-table th[data-col-name="Item Code"] {
 
 /* ============================================================
    ROUND 20b ? PI: BRAND / TIME / UNIT PRICE look like the plain
-   ?????? column. No resting box outline, no green hover ring ?
+   ریمارک column. No resting box outline, no green hover ring ?
    just a clean cell with its always-on input inside.
    ============================================================ */
 body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="UNIT PRICE"]:not([data-editing="1"]),

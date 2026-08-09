@@ -6,12 +6,41 @@ Person uses that person's daily start/end times (defaults 08:00–17:00).
 from __future__ import annotations
 
 from datetime import datetime, time, timedelta
+from time import monotonic
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
 
 _DEFAULT_START = time(8, 0)
 _DEFAULT_END = time(17, 0)
+
+# Per-request memo for ``shift_status`` (see the wrapper below).
+#
+# A normal page asks for the shift status twice: ``WorkShiftMiddleware`` checks
+# it before the view runs, and the work-shift banner context processor asks
+# again while the template renders. Each ask hits the database (person link,
+# platform defaults, approved overtime), so the second one is pure waste.
+#
+# The answer is parked on the ``User`` object, because that instance is the only
+# handle the two call sites share — the middleware has a request, the context
+# processor is handed one too, but the helper itself is only ever given a user.
+# Three separate things stop that memo from ever answering for the wrong request
+# or the wrong person:
+#
+#   * it lives on the ``User`` instance that ``AuthenticationMiddleware`` builds
+#     fresh out of the session on every request — never in a module global, a
+#     thread local or a ContextVar, so there is no shared container another
+#     request or another user could reach into;
+#   * it stores the primary key it was computed for and is rejected on any
+#     mismatch, so a user object swapped mid-request (impersonation) recomputes;
+#   * it stores a monotonic timestamp and is rejected once older than the TTL
+#     below, so even a ``User`` object that somehow outlived its request cannot
+#     keep an ended shift looking open.
+#
+# A rejected memo simply recomputes, which is exactly what this module did
+# before, so every fallback path is the old behaviour.
+_MEMO_ATTR = "_ft_shift_status_memo"
+_MEMO_TTL_SECONDS = 5.0
 
 
 def _tz():
@@ -95,6 +124,39 @@ def _in_window(now_t: time, start: time, end: time) -> bool:
 
 def shift_status(user, *, when: datetime | None = None) -> dict:
     """Return access status for ``user`` at ``when`` (local now by default).
+
+    Memoising front door for :func:`_shift_status_uncached`; see ``_MEMO_ATTR``
+    above for what the memo is keyed on and why it cannot outlive one request.
+    An explicit ``when`` always recomputes, since the memo only ever holds the
+    answer for "now" and callers that pass a moment want that exact moment.
+    """
+    if when is not None:
+        return _shift_status_uncached(user, when=when)
+    pk = getattr(user, "pk", None)
+    if pk is None:
+        # Anonymous or user-less callers have nothing stable to key on.
+        return _shift_status_uncached(user)
+    now = monotonic()
+    memo = getattr(user, _MEMO_ATTR, None)
+    if (
+        isinstance(memo, tuple)
+        and len(memo) == 3
+        and memo[0] == pk
+        and 0 <= (now - memo[1]) < _MEMO_TTL_SECONDS
+    ):
+        return memo[2]
+    status = _shift_status_uncached(user)
+    try:
+        setattr(user, _MEMO_ATTR, (pk, now, status))
+    except Exception:
+        # Some user-like objects refuse attribute writes. The memo is only ever
+        # an optimisation, so losing it just means computing twice as before.
+        pass
+    return status
+
+
+def _shift_status_uncached(user, *, when: datetime | None = None) -> dict:
+    """Compute access status for ``user`` at ``when`` (local now by default).
 
     When the person has approved overtime for the day, the window stays open
     until shift end + total approved overtime minutes.

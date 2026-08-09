@@ -46,6 +46,20 @@ class LicenseGateMiddleware:
     # -- entry point -------------------------------------------------------
     def __call__(self, request):
         if self._is_allowlisted(request.path):
+            # The activation page carries no authentication of its own, because a
+            # locked application must stay unlockable. Once the licence is valid
+            # that justification is gone, and leaving it open would hand any
+            # passer-by the machine fingerprint and the exact expiry date, so on a
+            # licensed system it is only shown to someone who has signed in.
+            # Renewal still works: an expired licence re-locks the app, and the
+            # branch below reopens the page to everyone again.
+            if (
+                request.path.startswith(self._activation_path())
+                and service.current_status().ok
+            ):
+                user = getattr(request, "user", None)
+                if user is not None and not user.is_authenticated:
+                    return redirect(settings.LOGIN_URL)
             return self.get_response(request)
 
         if service.current_status().ok:

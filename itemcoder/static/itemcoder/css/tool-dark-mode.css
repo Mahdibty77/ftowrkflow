@@ -12,7 +12,11 @@
    unreadable in dark mode. Map them all onto the active theme surfaces. The
    originals used !important, so these do too.
    ============================================================================ */
-html[data-theme="dark"] td[data-col-name="???????"] textarea,
+/* "اصلاحیه" is the literal REVISION column key the grid puts in data-col-name
+   (canonical names live in itemcoder/bridge.py). An earlier save through a
+   non-UTF-8 codepage flattened it to "?", so this selector never matched and the
+   Revision textarea kept its light fill in dark mode. Keep this file UTF-8. */
+html[data-theme="dark"] td[data-col-name="اصلاحیه"] textarea,
 html[data-theme="dark"] .cell-input,
 html[data-theme="dark"] #virtual-scroll-table input,
 html[data-theme="dark"] #virtual-scroll-table textarea,
@@ -45,8 +49,9 @@ html[data-theme="dark"] .to-chip-clear { background: var(--surface) !important; 
 
 /* Remark columns in dark: the ?????? editor (white) + the read-only proforma
    remark reference column (cream) were left light. */
-html[data-theme="dark"] td[data-col-name="??????"] textarea,
-html[data-theme="dark"] td[data-col-name="???????"] textarea,
+/* Same encoding repair: "ریمارک" = REMARK, "اصلاحیه" = REVISION. */
+html[data-theme="dark"] td[data-col-name="ریمارک"] textarea,
+html[data-theme="dark"] td[data-col-name="اصلاحیه"] textarea,
 html[data-theme="dark"] .remark-revision-textarea {
   background: var(--surface) !important; color: var(--text) !important; border-color: var(--border) !important;
 }
@@ -179,10 +184,14 @@ html[data-theme="dark"] #virtual-scroll-table td.pf-remark-cell.pf-copied { back
 /* ============================================================
    Same-FTCO sync badge (PI): link icon top-right on FTCO CODE only.
    ============================================================ */
-#virtual-scroll-table td[data-col-name="??"],
+/* "کد" is the FTCO CODE column key (display title "FTCO CODE" maps back to it
+   in itemcoder/bridge.py) and "ریمارک" is REMARK. Both were flattened to "?" by
+   a non-UTF-8 save, so the cells never got position:relative and the sync badge
+   was clipped instead of hanging over the corner. Keep this file UTF-8. */
+#virtual-scroll-table td[data-col-name="کد"],
 #virtual-scroll-table td[data-col-name="BRAND"],
 #virtual-scroll-table td[data-col-name="TIME"],
-#virtual-scroll-table td[data-col-name="??????"],
+#virtual-scroll-table td[data-col-name="ریمارک"],
 #virtual-scroll-table td[data-col-name="UNIT PRICE"],
 #virtual-scroll-table td[data-calc-variable="unit_price"] {
   position: relative;

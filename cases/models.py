@@ -443,10 +443,6 @@ class CaseEvent(models.Model):
     form_version = models.IntegerField(null=True, blank=True)
     # Internal / External sub-stream this event belongs to (blank = case-level).
     side = models.CharField(max_length=10, blank=True, db_index=True)
-
-    @property
-    def side_label(self) -> str:
-        return Side.LABELS.get(self.side, "")
     # Set on the new-inquiry-version event that upgraded a TO case to two-stage.
     two_stage = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -471,6 +467,9 @@ class CaseEvent(models.Model):
     def action_label(self) -> str:
         return EventAction.LABELS.get(self.action, self.action)
 
+    # The single definition of this property. An identical copy used to sit up
+    # among the field declarations, between ``side`` and ``two_stage``; Python
+    # binds the later one, so any edit made to that copy silently did nothing.
     @property
     def side_label(self) -> str:
         return Side.LABELS.get(self.side, "")

@@ -110,15 +110,28 @@ def _person(user):
     }
 
 
-def _inbox_count_in_range(user, from_dt, to_dt):
-    """Count cases currently in this user's real inbox, optionally by created_at."""
-    from cases.services import inbox_cases
+def _inbox_counts_in_range(users, from_dt, to_dt):
+    """Inbox size per user id, optionally narrowed by created_at.
+
+    One query for the whole section. This used to be a per-user helper called
+    once per expert card, so a unit with fifteen experts ran fifteen inbox
+    queries to draw one page. ``inbox_counts_for_users`` folds them into a single
+    aggregate using the very same rule ``inbox_cases`` applies, which is why the
+    routing conditions are not restated here — a second copy in this file would
+    drift away from the Inbox tab the numbers are supposed to match.
+    """
+    from cases.services import inbox_counts_for_users
 
     try:
-        qs = inbox_cases(user)
+        return inbox_counts_for_users(
+            users, narrow=lambda qs: _apply_range(qs, from_dt, to_dt))
     except Exception:
-        return 0
-    return _apply_range(qs, from_dt, to_dt).count()
+        # Same defensive stance as the per-user version it replaces: a dashboard
+        # is a read-only summary and must still render, so an unanswerable count
+        # falls back to zero rather than 500ing the page. A single unresolvable
+        # person is already handled inside inbox_counts_for_users; only a failure
+        # of the aggregate itself gets this far.
+        return {}
 
 
 # --------------------------------------------------------------------------- #
@@ -198,12 +211,13 @@ def _technical_cards(users, from_dt, to_dt):
         from_dt, to_dt,
     ))
 
+    in_inbox = _inbox_counts_in_range(users, from_dt, to_dt)
     cards = []
     for user in users:
         card = _person(user)
         card.update({
             "assigned": len(assigned.get(user.id, ())),
-            "in_inbox": _inbox_count_in_range(user, from_dt, to_dt),
+            "in_inbox": in_inbox.get(user.id, 0),
             "filter_key": "assignee",
         })
         cards.append(card)
@@ -235,24 +249,34 @@ def _supply_cards(users, from_dt, to_dt):
             | Q(supply_assignee_id__in=ids)),
         from_dt, to_dt))
 
-    unsup_qs = Case.objects.filter(
-        events__actor_id__in=ids, events__action=EventAction.CANNOT_SUPPLY)
+    # All four conditions have to describe one and the same CaseEvent row. On a
+    # multi-valued relation like ``events`` every separate .filter() call gets its
+    # own join, so chaining the date bounds would let *any* later event on the case
+    # satisfy the range while a different, much older event supplied the
+    # CANNOT_SUPPLY action -- inflating the figure whenever a range is applied.
+    # Collecting them into a single filter() call keeps them on one joined row.
+    unsup_lookups = {
+        "events__actor_id__in": ids,
+        "events__action": EventAction.CANNOT_SUPPLY,
+    }
     if from_dt:
-        unsup_qs = unsup_qs.filter(events__created_at__gte=from_dt)
+        unsup_lookups["events__created_at__gte"] = from_dt
     if to_dt:
-        end = to_dt.replace(second=59, microsecond=999999)
-        unsup_qs = unsup_qs.filter(events__created_at__lte=end)
+        unsup_lookups["events__created_at__lte"] = to_dt.replace(
+            second=59, microsecond=999999)
+    unsup_qs = Case.objects.filter(**unsup_lookups)
     unsup_map = defaultdict(set)
     for cid, actor in unsup_qs.values_list("id", "events__actor"):
         if actor in id_set:
             unsup_map[actor].add(cid)
 
+    in_inbox = _inbox_counts_in_range(users, from_dt, to_dt)
     cards = []
     for user in users:
         card = _person(user)
         card.update({
             "assigned": len(assigned.get(user.id, ())),
-            "in_inbox": _inbox_count_in_range(user, from_dt, to_dt),
+            "in_inbox": in_inbox.get(user.id, 0),
             "unsuppliable": len(unsup_map.get(user.id, ())),
             "filter_key": "assignee",
         })
@@ -301,10 +325,22 @@ def _platform_overview(from_dt, to_dt):
         "sent_to_client": qs.filter(status=CaseStatus.CLOSED).count(),
         "final_approved": qs.filter(status=CaseStatus.FINAL_APPROVED).count(),
         "cancelled": qs.filter(status=CaseStatus.CANCELLED).count(),
+        # UNSUPPLIABLE / UNSUPPLIABLE_CLOSED are the live statuses; the two
+        # PENDING ones belonged to a manager-approval chain that has since been
+        # removed as unreachable, so nothing can produce them any more. They are
+        # kept in this bucket on purpose: it counts what is *stored*, and a case
+        # parked in one of them by an older release would otherwise vanish from
+        # the totals instead of being reported as what it is.
         "unsuppliable": qs.filter(status__in=[
             CaseStatus.UNSUPPLIABLE, CaseStatus.UNSUPPLIABLE_CLOSED,
             CaseStatus.UNSUPPLIABLE_PENDING_SUPPLY,
             CaseStatus.UNSUPPLIABLE_PENDING_COMMERCIAL]).count(),
+        # This block is a distribution of the *current* status, so the bars below
+        # are only readable against the "Total cases" figure if every status has a
+        # bucket. FINAL_CLOSED and BURNED are terminal states a case leaves the
+        # other buckets for, and without them the bars silently fail to add up.
+        "final_closed": qs.filter(status=CaseStatus.FINAL_CLOSED).count(),
+        "burned": qs.filter(status=CaseStatus.BURNED).count(),
     }
     by_unit = [
         {"label": Unit.LABELS[Unit.COMMERCIAL], "code": "commercial",

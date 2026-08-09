@@ -350,9 +350,19 @@
       redirect: "follow"
     }).then(function (res) {
       if (res.redirected) { window.location = res.url; return; }
+      // Permission failures redirect (handled above), but a server error or a
+      // stale CSRF token comes back as a plain 500/403 with res.redirected
+      // false. Navigating away on those would show the PREVIOUS version with no
+      // error while the only copy of the priced grid — it lives solely in the
+      // page's memory, see collect() — is discarded. Fail into .catch instead.
+      if (!res.ok) throw new Error("save failed: HTTP " + res.status);
       return res.text().then(function () { window.location = CFG.saveUrl.replace(/\/tool\/case\/(\d+)\/.*$/, "/cases/$1/"); });
     }).catch(function () {
       btn.dataset.saving = "";
+      // syncSaveBtn() only re-enables the button in edit mode, so in build /
+      // newversion a failed attempt used to leave Save permanently dead and the
+      // only way forward was a reload that threw the session's work away.
+      btn.disabled = false;
       btn.textContent = label;
       refreshDirty();
       alert("Could not save. Please try again.");

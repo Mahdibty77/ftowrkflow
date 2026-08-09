@@ -14,6 +14,12 @@ logger = logging.getLogger(__name__)
 # worked, not only the login User.
 _bound_seat_user: ContextVar = ContextVar("ft_bound_seat_user", default=None)
 
+# Attribute name under which ``resolve_active_role`` parks its answer on the
+# request. Deliberately request-scoped rather than module-level state: a request
+# object belongs to exactly one visitor and is discarded when the response is
+# sent, so no seat can ever leak from one person's page render into another's.
+_ACTIVE_ROLE_MEMO_ATTR = "_ft_active_role_memo"
+
 
 def bind_work_seat(seat_user) -> None:
     """Remember the active seat for timeline actor snapshots in this request."""
@@ -90,7 +96,32 @@ def resolve_active_role(request, user):
 
     General Manager roles never become the accordion active role — they are
     shown via the dedicated General Management sidebar block instead.
+
+    Rendering one page asks this question three times — the sidebar accordion,
+    the work context, and the view itself — and each ask used to re-read the
+    person's whole seat list. The answer is memoised on the ``request`` object,
+    which Django creates and throws away per request, so nothing can survive
+    into the next one. It is additionally keyed on the user's primary key: a
+    call made for a different user than the one already resolved (impersonation
+    swapping ``request.user`` mid-request) misses the memo and recomputes rather
+    than being answered with somebody else's seat.
     """
+    key = getattr(user, "pk", None)
+    memo = getattr(request, _ACTIVE_ROLE_MEMO_ATTR, None)
+    if isinstance(memo, tuple) and len(memo) == 2 and memo[0] == key:
+        return memo[1]
+    active = _resolve_active_role_uncached(request, user)
+    try:
+        setattr(request, _ACTIVE_ROLE_MEMO_ATTR, (key, active))
+    except Exception:
+        # The memo is an optimisation only; if the request object refuses the
+        # attribute we simply resolve again, exactly as before.
+        pass
+    return active
+
+
+def _resolve_active_role_uncached(request, user):
+    """Do the real resolution work for :func:`resolve_active_role`."""
     profile = getattr(user, "profile", None)
     if profile is None or profile.is_admin:
         return None
@@ -113,7 +144,15 @@ def resolve_active_role(request, user):
         active = next((r for r in roles if profile_matches_role(profile, r)), None)
     if active is None:
         active = roles[0]
-    request.session["active_role_id"] = active.pk
+    # Only write when the session does not already hold this exact value. The
+    # unconditional write marked the session dirty on every single render, which
+    # forced a session row to be re-saved for nothing. Types are compared too, so
+    # a leftover string pk left by an older release is still normalised to the
+    # int the unconditional write used to store — the session ends up holding
+    # exactly what it held before, just written far less often.
+    stored = request.session.get("active_role_id")
+    if type(stored) is not type(active.pk) or stored != active.pk:
+        request.session["active_role_id"] = active.pk
     return active
 
 

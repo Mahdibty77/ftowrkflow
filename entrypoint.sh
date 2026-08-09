@@ -49,21 +49,43 @@ python manage.py collectstatic --noinput
 
 # Optionally create the very first administrator from environment variables.
 # Only runs when both a username and password are provided, and never overwrites
-# an existing user. The first superuser automatically becomes a platform admin.
+# an existing user.
+#
+# The name is not free-form. Platform-administrator rights come from the
+# reserved login "admin" and from nothing else (accounts/signals.py explains
+# why: Profile.is_admin also decides who is EXCLUDED from being a document
+# signatory, so it cannot simply be handed to every Django superuser). An
+# account created here under any other name is a Django superuser who can reach
+# /admin/ but none of the product's own screens — a half-working administrator,
+# which is worse than a clear failure. So say so and skip, rather than produce
+# one.
+if [ -n "$DJANGO_SUPERUSER_USERNAME" ] && [ "$DJANGO_SUPERUSER_USERNAME" != "admin" ]; then
+  echo "==> !! DJANGO_SUPERUSER_USERNAME is '$DJANGO_SUPERUSER_USERNAME', but the platform"
+  echo "       administrator must be named exactly 'admin'. No account was created."
+  echo "       Set DJANGO_SUPERUSER_USERNAME=admin in .env and start again."
+  DJANGO_SUPERUSER_USERNAME=""
+fi
 if [ -n "$DJANGO_SUPERUSER_USERNAME" ] && [ -n "$DJANGO_SUPERUSER_PASSWORD" ]; then
   echo "==> Ensuring admin user '$DJANGO_SUPERUSER_USERNAME'..."
+  # The credentials are read from the environment INSIDE Python, never pasted
+  # into the Python source. Pasting them meant the shell expanded them first, so
+  # a password containing $ was silently truncated (the admin was created with a
+  # different password than the operator configured, and the log still said
+  # "admin created"), a ' ended the string literal, and $( ) / backticks would
+  # have run as shell commands before Python ever saw them.
   python manage.py shell -c "
+import os
 from django.contrib.auth import get_user_model
 U = get_user_model()
-u = '$DJANGO_SUPERUSER_USERNAME'
-p = '$DJANGO_SUPERUSER_PASSWORD'
-e = '${DJANGO_SUPERUSER_EMAIL:-}'
+u = os.environ['DJANGO_SUPERUSER_USERNAME']
+p = os.environ['DJANGO_SUPERUSER_PASSWORD']
+e = os.environ.get('DJANGO_SUPERUSER_EMAIL', '')
 if U.objects.filter(username=u).exists():
     print('    admin already exists, leaving it unchanged')
 else:
     U.objects.create_superuser(username=u, email=e, password=p)
     print('    admin created')
-" || echo "    (admin step skipped)"
+" || echo "    !! ADMIN NOT CREATED - the step above failed. Create one with: docker compose exec web python manage.py createsuperuser"
 fi
 
 echo "==> Starting gunicorn on 0.0.0.0:8000..."

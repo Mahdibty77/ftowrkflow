@@ -219,6 +219,8 @@ class UserCreateForm(forms.Form):
         return cleaned
 
     def save(self) -> User:
+        from django.db import transaction
+
         from people.seats import SeatError, assign_seat
         from people.usernames import next_seat_index, vacant_login_username
 
@@ -232,40 +234,51 @@ class UserCreateForm(forms.Form):
             is_general_manager=is_gm,
         )
         generated = generate_temp_password()
-        # Create user first so vacant username can use _seat<pk>.
-        user = User.objects.create_user(
-            username=f"_tmp{secrets.token_hex(4)}",
-            password=generated,
-            first_name="",
-            last_name="",
-            email="",
-        )
-        user.username = vacant_login_username(seat_code, user_pk=user.pk)
-        user.is_active = False
-        user.save(update_fields=["username", "is_active"])
+        # One transaction for the whole seat. The index came from a read-then-use
+        # scan, so two admins creating a seat in the same Unit+Role pool at the
+        # same moment both compute the same code and the second one trips the
+        # accounts_profile_seat_index_pool constraint — in autocommit that left
+        # its half-built User row (blank unit and role, random password) behind
+        # for good. Rolling the whole thing back means a clash costs the second
+        # admin a retry and nothing else.
+        with transaction.atomic():
+            # Create user first so vacant username can use _seat<pk>.
+            user = User.objects.create_user(
+                username=f"_tmp{secrets.token_hex(4)}",
+                password=generated,
+                first_name="",
+                last_name="",
+                email="",
+            )
+            user.username = vacant_login_username(seat_code, user_pk=user.pk)
+            user.is_active = False
+            user.save(update_fields=["username", "is_active"])
 
-        profile = user.profile
-        profile.must_change_password = True
-        profile.is_admin = False
-        profile.is_general_manager = is_gm
-        profile.unit = unit
-        profile.role = role
-        profile.supply_kind = supply
-        profile.internal_code = ""
-        profile.org_title = ""
-        profile.org_number = ""
-        profile.gender = ""
-        profile.seat_code = seat_code
-        profile.seat_ready = True
-        profile.save()
+            profile = user.profile
+            profile.must_change_password = True
+            profile.is_admin = False
+            profile.is_general_manager = is_gm
+            profile.unit = unit
+            profile.role = role
+            profile.supply_kind = supply
+            profile.internal_code = ""
+            profile.org_title = ""
+            profile.org_number = ""
+            profile.gender = ""
+            profile.seat_code = seat_code
+            profile.seat_ready = True
+            profile.save()
 
-        person = data.get("person")
-        if person is not None:
-            try:
-                assign_seat(person, user, actor=None)
-            except SeatError:
-                # Seat stays in catalogue; admin can assign from People.
-                pass
+            person = data.get("person")
+            if person is not None:
+                try:
+                    assign_seat(person, user, actor=None)
+                except SeatError:
+                    # Seat stays in catalogue; admin can assign from People.
+                    # assign_seat opens its own atomic block, so its own writes
+                    # are already rolled back to the savepoint by the time this
+                    # runs — the seat above survives, exactly as before.
+                    pass
 
         self.generated_password = generated
         self.seat_code = seat_code
@@ -452,7 +465,14 @@ class UserEditForm(forms.Form):
             user.last_name = ""
             user.is_active = False
 
-        user.email = data.get("email", "") or ""
+        # The seat template renders no e-mail input (identity belongs to the
+        # Person record), so an ordinary "Edit seat" POST carries no `email`
+        # key at all and the cleaned value is the empty string. Writing that
+        # back wiped the address people.seats copies from the Person when it
+        # mints a login, just because an admin saved the index. Only take the
+        # field when the submitted form actually carried it.
+        if self.add_prefix("email") in self.data:
+            user.email = data.get("email", "") or ""
         user.save()
 
         if not self.role_locked:

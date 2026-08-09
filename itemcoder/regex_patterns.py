@@ -38,6 +38,11 @@ def is_empty_variant(value):
 
 
 def load_feature_values(val):
+    # ``val`` is the path exactly as data.json spells it, and every feature CSV
+    # it names lives under ``itemcoder/resources/csv/features/<group>/``. The
+    # near-identical ``itemcoder/resources/json/csv/`` tree is an old copy that
+    # no config references — resolve_resource_path would happily read from it,
+    # but nothing ever asks it to, so edits made there are silently ignored.
     if isinstance(val, str) and val.endswith(".csv"):
         csv_path = resolve_resource_path(val)
 

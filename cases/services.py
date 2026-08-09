@@ -1472,13 +1472,22 @@ def inbox_status_rows(case: Case, user):
     return [_row_for_side(case, sc) for sc in sides]
 
 
-def inbox_cases(user, *, role=None, work_user=None):
-    """Cases currently in this user's inbox.
+def inbox_filter_q(user, *, role=None, work_user=None):
+    """The membership rule behind :func:`inbox_cases`, as a bare ``Q``.
 
-    Non-split cases use the whole-case status/holder. Split (Internal &
-    External) cases are tracked per side from creation, so membership is decided
-    purely by which side is held by this unit (and, for experts, assigned to
-    them). The two sets are combined.
+    This is the single definition of "is this case in that person's inbox".
+    ``inbox_cases`` wraps it into a queryset; ``inbox_counts_for_users`` folds
+    several of these into one aggregate so a dashboard drawing a card per expert
+    does not pay for a separate inbox query per card. Returning ``None`` means
+    "this person has no inbox at all" (admins, general managers, anyone without
+    a resolvable profile) — the caller turns that into an empty result rather
+    than a filter, exactly as before.
+
+    Every branch below only ever touches columns on ``Case`` itself, never a
+    reverse or many-to-many relation. That is what lets the same Q be reused as
+    a ``Count(filter=...)``: with no joins there are no duplicate rows, so the
+    ``.distinct()`` in ``inbox_cases`` and the ``distinct=True`` in the batched
+    count are both no-ops and the two routes cannot disagree.
 
     ``role`` — when set (active PersonRole), unit/role come from the role rather
     than the login profile (needed for secondary seats that must not rewrite the
@@ -1500,7 +1509,7 @@ def inbox_cases(user, *, role=None, work_user=None):
             supply_kind=role.supply_kind or "",
         )
     if profile is None or profile.is_admin or profile.is_general_manager:
-        return Case.objects.none()
+        return None
     # Supervisors use the same ownership inbox rules as experts for their unit
     # (needed so Delegated tasks land in their Inbox, e.g. a DRAFT they now own).
     unit = profile.unit
@@ -1511,7 +1520,6 @@ def inbox_cases(user, *, role=None, work_user=None):
         status = "internal_status" if sc == Side.INTERNAL else "external_status"
         return Q(**{holder: u}) & ~Q(**{f"{status}__in": TERM})
 
-    qs = Case.objects.all()
     split = Q(split_active=True)
     nonsplit = Q(split_active=False)
 
@@ -1523,23 +1531,26 @@ def inbox_cases(user, *, role=None, work_user=None):
         ns = nonsplit & ~Q(status__in=inbox_hide) & Q(holder_unit=Unit.COMMERCIAL)
         sp = split & (side_active_at(Unit.COMMERCIAL, Side.INTERNAL)
                       | side_active_at(Unit.COMMERCIAL, Side.EXTERNAL))
-        base = qs.filter(ns | sp)
+        base = ns | sp
         pending_ns = nonsplit & Q(status=CaseStatus.PENDING_CANCEL)
         pending_sp = split & (
             Q(internal_status=CaseStatus.PENDING_CANCEL)
             | Q(external_status=CaseStatus.PENDING_CANCEL)
         )
-        pending = qs.filter(pending_ns | pending_sp)
+        pending = pending_ns | pending_sp
         if profile.role == Role.MANAGER:
             # Manager: own live cases + every cancel/burn awaiting their approval.
-            return (base.filter(created_by=work) | pending).distinct()
+            return (base & Q(created_by=work)) | pending
         # Experts / supervisors: only their own cases, and once they request
         # cancel/burn the file leaves their inbox until the manager rejects it.
-        return (base.filter(created_by=work)
-                .exclude(status=CaseStatus.PENDING_CANCEL)
-                .exclude(internal_status=CaseStatus.PENDING_CANCEL)
-                .exclude(external_status=CaseStatus.PENDING_CANCEL)
-                .distinct())
+        # ``exclude()`` on a plain column is precisely ``filter(~Q(...))`` — the
+        # difference between the two only shows up across a multi-valued join,
+        # and there is none here — so the negations below are the same three
+        # exclusions this rule has always applied.
+        return (base & Q(created_by=work)
+                & ~Q(status=CaseStatus.PENDING_CANCEL)
+                & ~Q(internal_status=CaseStatus.PENDING_CANCEL)
+                & ~Q(external_status=CaseStatus.PENDING_CANCEL))
 
     if unit == Unit.TECHNICAL:
         ns = nonsplit & Q(status__in=[CaseStatus.WITH_TECHNICAL, CaseStatus.RETURNED_TO_TECHNICAL])
@@ -1549,10 +1560,20 @@ def inbox_cases(user, *, role=None, work_user=None):
                           | side_active_at(Unit.TECHNICAL, Side.EXTERNAL))
         else:
             ns = ns & (Q(assigned_to=work) | Q(technical_assignee=work))
+            # ``technical_assignee`` has to be matched here as well: Technical
+            # delegates a split case as a whole (one expert for both sides), so
+            # assign() writes that field and can_act_on_side reads it, while the
+            # per-side columns are only ever filled by the side-specific assign
+            # path. Matching just the per-side columns hid every case the expert
+            # actually owns — including one assigned before a two-stage upgrade
+            # split it — from the inbox that is supposed to hand it to them.
+            mine = Q(technical_assignee=work)
             sp = split & (
-                (side_active_at(Unit.TECHNICAL, Side.INTERNAL) & Q(technical_internal_assignee=work))
-                | (side_active_at(Unit.TECHNICAL, Side.EXTERNAL) & Q(technical_external_assignee=work)))
-        return qs.filter(ns | sp).distinct()
+                (side_active_at(Unit.TECHNICAL, Side.INTERNAL)
+                 & (Q(technical_internal_assignee=work) | mine))
+                | (side_active_at(Unit.TECHNICAL, Side.EXTERNAL)
+                   & (Q(technical_external_assignee=work) | mine)))
+        return ns | sp
 
     if unit == Unit.SUPPLY:
         ns = nonsplit & Q(status=CaseStatus.WITH_SUPPLY)
@@ -1572,9 +1593,71 @@ def inbox_cases(user, *, role=None, work_user=None):
             sp = split & (
                 (side_active_at(Unit.SUPPLY, Side.INTERNAL) & Q(supply_internal_assignee=work))
                 | (side_active_at(Unit.SUPPLY, Side.EXTERNAL) & Q(supply_external_assignee=work)))
-        return qs.filter(ns | sp).distinct()
+        return ns | sp
 
-    return Case.objects.none()
+    return None
+
+
+def inbox_cases(user, *, role=None, work_user=None):
+    """Cases currently in this user's inbox.
+
+    Non-split cases use the whole-case status/holder. Split (Internal &
+    External) cases are tracked per side from creation, so membership is decided
+    purely by which side is held by this unit (and, for experts, assigned to
+    them). The two sets are combined.
+
+    The rule itself lives in :func:`inbox_filter_q`; this wrapper only turns it
+    into the queryset callers order, filter and paginate.
+    """
+    q = inbox_filter_q(user, role=role, work_user=work_user)
+    if q is None:
+        return Case.objects.none()
+    return Case.objects.filter(q).distinct()
+
+
+def inbox_counts_for_users(users, *, narrow=None) -> dict:
+    """Inbox size for many people in ONE query instead of one query each.
+
+    A manager's dashboard draws a card per expert, and asking
+    ``inbox_cases(expert).count()`` per card meant a round trip per card. Every
+    person's rule is the same ``Q`` :func:`inbox_cases` would have used, folded
+    here into one aggregate of conditional counts, so the numbers are the ones
+    the Inbox tab itself shows — this must never grow a second, hand-written
+    copy of the routing rules.
+
+    ``narrow`` is an optional callable applied to the base queryset before
+    counting (the dashboard uses it for its created-at range filter), keeping
+    that filter's definition with the caller that owns it.
+    """
+    from django.db.models import Count
+
+    counts = {}
+    conds = {}
+    for u in users:
+        uid = getattr(u, "id", None) or getattr(u, "pk", None)
+        if uid is None:
+            continue
+        counts[uid] = 0
+        # Per person, so one unresolvable profile cannot zero everybody's card —
+        # the per-user helper this replaces failed the same way, one card at a time.
+        try:
+            q = inbox_filter_q(u)
+        except Exception:
+            q = None
+        if q is not None:
+            conds[uid] = q
+    if not conds:
+        return counts
+    base = Case.objects.all()
+    if narrow is not None:
+        base = narrow(base)
+    agg = base.aggregate(**{
+        f"inbox_{uid}": Count("id", filter=q, distinct=True)
+        for uid, q in conds.items()
+    })
+    for uid in conds:
+        counts[uid] = agg.get(f"inbox_{uid}") or 0
+    return counts
 
 
 def inbox_count(user, *, role=None, work_user=None) -> int:
@@ -1584,10 +1667,44 @@ def inbox_count(user, *, role=None, work_user=None) -> int:
         return 0
 
 
+def _request_work_context(request):
+    """``work_context`` resolved once per request instead of per caller.
+
+    A single page render asks for it several times (the sidebar context
+    processor, the inbox count, then the case page's own permission check), and
+    each call re-ran the substitute-tenure lookup. The answer cannot change
+    inside one request — it is derived from the session's active role, which only
+    changes on a separate role-switch POST — so it is memoised on the request
+    object, which belongs to exactly one visitor and dies with the response.
+
+    Keyed on the login user's pk for the same reason the role memo is: if
+    anything swaps ``request.user`` mid-request we recompute rather than answer
+    with somebody else's seat. The seat re-bind is repeated on every call, memo
+    hit or not, because that thread-local is what timeline logging reads and it
+    must stay bound exactly as often as before.
+    """
+    from people.role_nav import bind_work_seat, work_context
+
+    user = getattr(request, "user", None)
+    key = getattr(user, "pk", None)
+    memo = getattr(request, "_ft_services_work_context", None)
+    if isinstance(memo, tuple) and len(memo) == 2 and memo[0] == key:
+        ctx = memo[1]
+        bind_work_seat(ctx.seat_user)
+        return ctx
+    ctx = work_context(request)
+    try:
+        request._ft_services_work_context = (key, ctx)
+    except Exception:
+        # The memo is an optimisation only; if the request object refuses the
+        # attribute we simply resolve again, exactly as before.
+        pass
+    return ctx
+
+
 def inbox_cases_for_request(request):
     """Inbox queryset using the active role's seat user (fixes multi-seat 500)."""
-    from people.role_nav import work_context
-    ctx = work_context(request)
+    ctx = _request_work_context(request)
     return inbox_cases(ctx.login_user, role=ctx.role, work_user=ctx.seat_user)
 
 
@@ -1634,6 +1751,24 @@ def can_do_side_action(case: Case, user, action: str, side: str, *,
                   "close", "request_cancel", "send_to_client",
                   "new_inquiry_version", "edit_inquiry", "return_to_supply"):
         if holder != Unit.COMMERCIAL or not owns:
+            return False
+        # Every terminal writer (cancel/burn/final-close/cannot-supply) parks the
+        # side's holder back on Commercial, so "the side is with Commercial" on
+        # its own does not mean the side is still live. Without this test a
+        # replayed or hand-made POST from the creator would route a finished side
+        # onwards again — a cancelled side back into Technical's inbox, a
+        # final-closed side back to merely CLOSED. This is the server-side half of
+        # the rule the case page already applies when it decides which per-side
+        # buttons to draw.
+        side_st = case.side_status(side)
+        if side_st in CaseStatus.TERMINAL:
+            return False
+        # A side already sent to the client (CLOSED) or marked final is likewise
+        # no longer "at Commercial" for routing or editing. "New version" is the
+        # deliberate exception: branching a fresh inquiry off a sent side is
+        # exactly how such a side gets revised (see can_new_inquiry_version).
+        if (side_st in (CaseStatus.CLOSED, CaseStatus.FINAL_APPROVED)
+                and action != "new_inquiry_version"):
             return False
         if action == "submit_to_technical":
             # Currency-conversion-only reopen stays with Commercial.
@@ -2249,6 +2384,19 @@ def allowed_actions(case: Case, user, *, role=None, work_user=None) -> set[str]:
                         actions.add(forward_action)
                 if is_manager and case.awaiting_approval:
                     actions.add("approve_send")
+        # A split (Internal & External) case moves per side, and nothing ever
+        # writes the whole-case ``status`` again until every side is terminal —
+        # so the status gate above never opens for one and delegation would be
+        # impossible. Technical still delegates the whole case (one expert works
+        # both sides, which is why assign() writes ``technical_assignee``), so it
+        # is offered here under exactly the conditions the case page already uses
+        # to draw its single "Assign to expert (both sides)" control.
+        if (case.is_split and is_manager
+                and (case.side_holder(Side.INTERNAL) == Unit.TECHNICAL
+                     or case.side_holder(Side.EXTERNAL) == Unit.TECHNICAL)
+                and not case.technical_assignee_id
+                and not case.forms.filter(kind=FormKind.TO).exists()):
+            actions.add("assign")
         actions.add("view")
 
     # --- Supply --------------------------------------------------------
@@ -2287,8 +2435,7 @@ def allowed_actions(case: Case, user, *, role=None, work_user=None) -> set[str]:
 
 def allowed_actions_for_request(case: Case, request) -> set[str]:
     """``allowed_actions`` using the active role's seat (inbox-consistent)."""
-    from people.role_nav import work_context
-    ctx = work_context(request)
+    ctx = _request_work_context(request)
     return allowed_actions(
         case, ctx.login_user, role=ctx.role, work_user=ctx.seat_user,
     )
@@ -2329,7 +2476,16 @@ def user_can_view_case(case: Case, user, *, case_forms=None, case_events=None,
         return False
     if profile.is_admin or profile.is_general_manager:
         return True
-    if allowed_actions(case, user, role=role, work_user=work):
+    # "view" and "export" are handed out by allowed_actions unconditionally —
+    # every unit member may download a document once one exists, and "view" is
+    # added outside the status gate in each branch — so their presence says
+    # nothing about whether this person has anything to do with *this* case.
+    # Testing the raw set therefore made every Technical/Supply user pass here
+    # and left the participation rules below unreachable, which is how any case
+    # (and its Technical Offer) could be pulled by walking the id. Only an
+    # action-bearing set proves involvement; everything else falls through to the
+    # participation / manager / supervisor test, which is the real rule.
+    if allowed_actions(case, user, role=role, work_user=work) - {"view", "export"}:
         return True
 
     if case_forms is None:
@@ -2341,6 +2497,11 @@ def user_can_view_case(case: Case, user, *, case_forms=None, case_events=None,
         case.created_by_id == work_id
         or case.assigned_to_id == work_id
         or case.technical_assignee_id == work_id
+        # Per-side technical assignees count too: assign() writes them for a side
+        # whose holder is Technical, and the assignment event is logged under the
+        # manager who made it, so the expert has no other trace on the case.
+        or case.technical_internal_assignee_id == work_id
+        or case.technical_external_assignee_id == work_id
         or case.supply_assignee_id == work_id
         or case.supply_internal_assignee_id == work_id
         or case.supply_external_assignee_id == work_id
@@ -2390,7 +2551,15 @@ def submit_to_technical(case: Case, actor, comment: str = "", side: str = ""):
     if case.is_split and side in (Side.INTERNAL, Side.EXTERNAL):
         # Publish current forms (Inquiry, …) to Technical so only they can see
         # them until a later handoff reaches Supply/Commercial.
-        _publish_current_forms_to(case, Unit.TECHNICAL, leaving_unit=Unit.COMMERCIAL)
+        #
+        # ``side=`` is what keeps this to the stream actually being handed over.
+        # Without it the helper falls back to every side of the case and stamps
+        # the *other* side's current Inquiry as sent — which locks that untouched
+        # draft out of editing for good (a sent inquiry may only be revised by
+        # branching a new version, and a side still in DRAFT does not qualify for
+        # one) and hands Technical a stream nobody gave them.
+        _publish_current_forms_to(case, Unit.TECHNICAL, side=side,
+                                  leaving_unit=Unit.COMMERCIAL)
         case.set_side_state(side, CaseStatus.WITH_TECHNICAL, Unit.TECHNICAL)
         case.save(update_fields=["internal_status", "external_status",
                                  "internal_holder", "external_holder", "updated_at"])
@@ -2503,6 +2672,26 @@ def close_side(case: Case, actor, side: str, comment: str = ""):
     _finalize_split_if_all_terminal(case)
 
 
+def _other_side_awaiting_cancel(case: Case, side: str) -> str:
+    """The *other* side's code when it is already waiting on cancel/burn approval.
+
+    A pending request lives in the single case-level ``proposed_action`` string
+    (``cs:I:PRIOR`` / ``bs:E:PRIOR`` / ``csu:I``), so the case can only carry one
+    at a time. Whatever a second request does to the other side's record — an
+    expert's request overwrites it, a manager's immediate cancel clears it — the
+    first side is left at PENDING_CANCEL with nothing for the manager to resolve,
+    and the approve button that stays on offer then falls through to the
+    whole-case branch of ``approve_cancel`` and cancels the entire file. Callers
+    refuse the second request instead of letting it overwrite the first.
+    """
+    if not case.is_split:
+        return ""
+    for sc in case.sides:
+        if sc != side and case.side_status(sc) == CaseStatus.PENDING_CANCEL:
+            return sc
+    return ""
+
+
 def cancel_side(case: Case, actor, side: str, comment: str = ""):
     """Commercial cancels one side.
 
@@ -2510,6 +2699,13 @@ def cancel_side(case: Case, actor, side: str, comment: str = ""):
     immediately. If that side had been marked *cannot supply*, the terminal
     outcome stays UNSUPPLIABLE_CLOSED rather than CANCELLED.
     """
+    blocked_by = _other_side_awaiting_cancel(case, side)
+    if blocked_by:
+        raise PermissionError(
+            f"The {Side.LABELS.get(blocked_by, blocked_by)} side already has a "
+            "cancel/burn request waiting for the commercial manager — it has to "
+            "be approved or rejected before another side can be cancelled."
+        )
     prior = case.side_status(side)
     resolving_unsuppliable = prior == CaseStatus.UNSUPPLIABLE
     if _commercial_needs_cancel_approval(actor):
@@ -2744,6 +2940,14 @@ def burn_side(case: Case, actor, side: str, comment: str = ""):
     Experts need manager approval (side → PENDING_CANCEL); managers burn
     immediately.
     """
+    # Same single-slot limitation as cancel_side: one pending request per case.
+    blocked_by = _other_side_awaiting_cancel(case, side)
+    if blocked_by:
+        raise PermissionError(
+            f"The {Side.LABELS.get(blocked_by, blocked_by)} side already has a "
+            "cancel/burn request waiting for the commercial manager — it has to "
+            "be approved or rejected before another side can be burned."
+        )
     prior = case.side_status(side)
     if _commercial_needs_cancel_approval(actor):
         case.set_side_state(side, CaseStatus.PENDING_CANCEL, Unit.COMMERCIAL)
@@ -3198,18 +3402,6 @@ def return_to_supply(case: Case, actor, comment: str = "", side: str = ""):
         from_unit=leaving_unit, to_unit=Unit.SUPPLY)
 
 
-def _commercial_manager():
-    from django.contrib.auth.models import User
-    return (User.objects.filter(profile__unit=Unit.COMMERCIAL,
-                                profile__role=Role.MANAGER, is_active=True).first())
-
-
-def _supply_manager():
-    from django.contrib.auth.models import User
-    return (User.objects.filter(profile__unit=Unit.SUPPLY,
-                                profile__role=Role.MANAGER, is_active=True).first())
-
-
 @transaction.atomic
 def mark_cannot_supply(case: Case, actor, comment: str = "", side: str = ""):
     """Supply marks the case (or one side) as not suppliable.
@@ -3240,42 +3432,15 @@ def mark_cannot_supply(case: Case, actor, comment: str = "", side: str = ""):
         from_unit=Unit.SUPPLY, to_unit=Unit.COMMERCIAL)
 
 
-@transaction.atomic
-def approve_unsuppliable(case: Case, actor, comment: str = ""):
-    """Approve a cannot-supply request at whichever stage it is in."""
-    if case.status == CaseStatus.UNSUPPLIABLE_PENDING_SUPPLY:
-        # Supply manager approved -> escalate to the commercial manager.
-        case.status = CaseStatus.UNSUPPLIABLE_PENDING_COMMERCIAL
-        case.holder_unit = Unit.COMMERCIAL
-        case.assigned_to = _commercial_manager()
-        case.awaiting_approval = True
-    else:
-        # Commercial manager approved -> case is resolved as cannot-supply.
-        case.status = CaseStatus.UNSUPPLIABLE
-        case.holder_unit = Unit.COMMERCIAL
-        case.assigned_to = case.created_by
-        case.awaiting_approval = False
-        case.proposed_action = ""
-    case.save()
-    log(case, actor, EventAction.APPROVE_UNSUPPLIABLE, comment=comment, from_unit=_unit_of(actor))
-
-
-@transaction.atomic
-def reject_unsuppliable(case: Case, actor, comment: str = ""):
-    """Reject a cannot-supply request (with a comment)."""
-    if case.status == CaseStatus.UNSUPPLIABLE_PENDING_SUPPLY:
-        # Back to Supply to keep working on it.
-        case.status = CaseStatus.WITH_SUPPLY
-        case.holder_unit = Unit.SUPPLY
-    else:
-        # Commercial manager rejected -> the related expert can re-work / route it.
-        case.status = CaseStatus.RETURNED_TO_COMMERCIAL
-        case.holder_unit = Unit.COMMERCIAL
-        case.assigned_to = case.created_by
-    case.awaiting_approval = False
-    case.proposed_action = ""
-    case.save()
-    log(case, actor, EventAction.REJECT_UNSUPPLIABLE, comment=comment, from_unit=_unit_of(actor))
+# A two-manager approval chain for "cannot supply" used to live here
+# (approve_unsuppliable / reject_unsuppliable, plus the _commercial_manager and
+# _supply_manager lookups that routed it). It was dead: ``mark_cannot_supply``
+# above settles the decision immediately as UNSUPPLIABLE, nothing ever set the
+# two PENDING statuses that the approval functions keyed off, and neither
+# ``allowed_actions`` nor ``can_do_side_action`` ever granted the approve/reject
+# actions — so the transition view rejected those POSTs before reaching them.
+# Removed together with the buttons on the case page. The UNSUPPLIABLE_PENDING_*
+# constants stay in cases.constants for the benefit of any historical row.
 
 
 def _commercial_needs_cancel_approval(actor) -> bool:

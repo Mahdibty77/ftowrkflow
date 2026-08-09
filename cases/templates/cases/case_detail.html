@@ -290,18 +290,11 @@
       </form>
     {% endif %}
 
-    {% if 'approve_unsuppliable' in actions %}
-      <hr class="sep">
-      <div class="flash flash-warning" style="margin-bottom:.5rem;"><i class="fa-solid fa-triangle-exclamation"></i><span>A “cannot supply” request needs your approval.</span></div>
-      <form method="post" action="{% url 'cases:transition' case.pk %}" class="field">
-        {% csrf_token %}
-        <textarea name="comment" rows="2" placeholder="Approval / rejection note…"></textarea>
-        <div class="btn-row" style="margin-top:.4rem;">
-          <button class="btn btn-sm btn-danger" name="action" value="approve_unsuppliable">Approve — cannot supply</button>
-          <button class="btn btn-sm" name="action" value="reject_unsuppliable">Reject</button>
-        </div>
-      </form>
-    {% endif %}
+    {# An "approve / reject cannot-supply" panel used to sit here. Marking a case #}
+    {# cannot-supply needs no approval: it takes effect at once and goes straight #}
+    {# back to the commercial expert, so 'approve_unsuppliable' was never in the #}
+    {# actions set and the panel could never draw. Removed together with the two #}
+    {# service functions and the transition branches behind it. #}
 
     {% if 'finalize' in actions and not is_split %}
       <hr class="sep">

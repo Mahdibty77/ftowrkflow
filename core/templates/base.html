@@ -304,8 +304,24 @@
         <i class="fa-solid fa-user-shield"></i>
         <span>You're viewing the platform as <strong>{{ user.get_full_name|default:user.username }}</strong>
           — signed in as {{ impersonator_username }}.</span>
-        <a href="{% url 'accounts:impersonate_stop' %}" style="margin-left:auto;background:#3730a3;color:#fff;
-          text-decoration:none;padding:7px 14px;border-radius:8px;font-size:13px;">Return to admin account</a>
+        {% comment %}
+          Ending an impersonation changes who you are signed in as, so it goes through a
+          CSRF-protected POST instead of a plain link — see accounts.views.impersonate_stop.
+          This is a form dressed up as the button-shaped link it replaces: the form itself
+          carries the margin-left:auto that used to push the control to the end of the flex
+          row, and the button repeats the font properties a button element does not inherit
+          from the banner (family and the 600 weight) so nothing about it looks different.
+
+          Note {% templatetag openbrace %}# … #{% templatetag closebrace %} cannot be used
+          here: that form of comment is single-line only, so a multi-line one is emitted into
+          the page as visible text.
+        {% endcomment %}
+        <form method="post" action="{% url 'accounts:impersonate_stop' %}" style="margin:0 0 0 auto;">
+          {% csrf_token %}
+          <button type="submit" style="background:#3730a3;color:#fff;border:0;appearance:none;
+            -webkit-appearance:none;padding:7px 14px;border-radius:8px;font-family:inherit;
+            font-size:13px;font-weight:600;cursor:pointer;">Return to admin account</button>
+        </form>
       </div>
     {% endif %}
 

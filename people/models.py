@@ -668,6 +668,12 @@ class ShiftDayLog(models.Model):
     )
     day = models.DateField(db_index=True)
     minutes = models.PositiveIntegerField(default=0)
+    # Presence is reported by a browser ping every few seconds, so most gaps are
+    # a fraction of a minute. Whole minutes land in ``minutes``; what is left
+    # over waits here until the next pings make it up to a minute. Without this
+    # the remainder was discarded on every ping and a full day at the desk was
+    # credited as almost nothing.
+    carry_seconds = models.PositiveSmallIntegerField(default=0)
     # Approved overtime credited separately from presence minutes.
     overtime_minutes = models.PositiveIntegerField(default=0)
     first_login = models.DateTimeField(null=True, blank=True)
@@ -804,6 +810,12 @@ class StaffRequest(models.Model):
             models.UniqueConstraint(
                 fields=["request_code"],
                 name="people_staffrequest_request_code_uniq",
+                # The field's empty default is a value like any other to a unique
+                # index, so without this only one code-less request could ever
+                # exist — the second one would fail on a constraint that is meant
+                # to police real request numbers. Same shape as the seat-code
+                # index on accounts.Profile.
+                condition=~models.Q(request_code=""),
             ),
         ]
 

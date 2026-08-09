@@ -141,7 +141,15 @@ def current_status(*, force: bool = False) -> Status:
     """Return the (cached) current license status."""
     global _cache
     now = timezone.now().timestamp()
-    if not force and _cache is not None and (now - _cache[0]) < _CACHE_TTL:
+    # Only a *valid* status is served from the cache. The cache is a module global,
+    # so under gunicorn each worker process has its own: activation happens in one
+    # worker and the others would otherwise keep bouncing the customer back to the
+    # activation screen until their own TTL lapsed. A negative result is therefore
+    # always re-read from disk, which is what makes the other workers notice the
+    # freshly written state file at once. This costs nothing on a licensed system
+    # (the fast path is unchanged) and, while locked, _evaluate_now only reads --
+    # it writes the state file solely when the licence verifies.
+    if not force and _cache is not None and _cache[1].ok and (now - _cache[0]) < _CACHE_TTL:
         return _cache[1]
     with _lock:
         status = _evaluate_now()

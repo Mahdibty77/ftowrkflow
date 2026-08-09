@@ -10,6 +10,7 @@ Nothing here changes the coding or calculation behaviour.
 """
 import json
 import logging
+import re
 from html.parser import HTMLParser
 
 import pandas as pd
@@ -22,6 +23,20 @@ from .calculation_customizer import get_calculation_ui_config
 
 
 PRICE_COLUMNS = {"UNIT PRICE", "SERVICE PRICE", "TOTAL PRICE"}
+
+# The renderer does not keep the supplier's raw figures in the price cells only:
+# views.dataframe_to_html_with_ids also stamps them on the <tr> itself, because
+# the pricing JS restores a row's editable base from there. Blanking just the
+# <td>s would therefore still ship those numbers to a Technical viewer in the
+# page source — the exact "visible in dev tools" leak the masking exists to
+# close — so the row attributes are removed with them. Every one of these is
+# written with a Django-escaped value inside double quotes, so a plain
+# attribute match is enough and can never swallow the rest of the tag.
+_ROW_PRICE_ATTR_RE = re.compile(
+    r'\s(?:data-row-price-source|data-row-unit-raw'
+    r'|data-service-price-raw|data-row-service-raw)="[^"]*"',
+    re.I,
+)
 
 
 def mask_price_columns(html: str, columns=PRICE_COLUMNS) -> str:
@@ -40,6 +55,10 @@ def mask_price_columns(html: str, columns=PRICE_COLUMNS) -> str:
     Technical — see tool_for_case. Every other caller of the rendering
     pipeline is completely unaffected; this is a post-processing step applied
     to the final HTML string, not a change to the rendering pipeline itself.
+
+    The same reasoning covers the price data-* attributes on each <tr> (see
+    ``_ROW_PRICE_ATTR_RE``): a figure that only the page source reveals is
+    still a figure the viewer was not meant to receive.
     """
     class _Masker(HTMLParser):
         def __init__(self):
@@ -58,6 +77,9 @@ def mask_price_columns(html: str, columns=PRICE_COLUMNS) -> str:
                 self.out.append('<td data-col-name="%s"></td>' % attrs_d.get("data-col-name"))
                 self.skip_depth = 0
                 self.td_depth = 0
+                return
+            if tag == "tr":
+                self.out.append(_ROW_PRICE_ATTR_RE.sub("", self.get_starttag_text()))
                 return
             self.out.append(self.get_starttag_text())
 
@@ -1694,6 +1716,15 @@ def tool_prices(request):
     """
     if request.method != "POST":
         return JsonResponse({"error": "POST only"}, status=405)
+    # Same rule as the Proforma's price masking in tool_for_case: a Technical
+    # user must never receive a financial figure. Masking the PI page alone left
+    # this endpoint as the way around it — Technical reads the FTCO codes off its
+    # own Technical Offer and asks here for the supplier price behind each one.
+    # Privileged accounts (Admin / General Manager) carry a blank unit by
+    # construction, so this can never catch them.
+    _profile = getattr(request.user, "profile", None)
+    if _profile is not None and _profile.unit == "TECHNICAL":
+        return JsonResponse({"error": "Not allowed"}, status=403)
     from .models import PriceList, CodePrice
     # Accept either items=[{code,qty}] (preferred) or a bare codes=[...] list.
     qty_by_code = {}
@@ -1796,6 +1827,21 @@ def tool_for_case(request, case_id, kind):
     except Exception:
         pass
     case = get_object_or_404(Case, pk=case_id)
+    # The grid this view renders IS the case: client descriptions, FTCO codes,
+    # brands and — on a Proforma — the supplier prices. Opening it must therefore
+    # require at least what opening /cases/<id>/ requires, and that rule lives in
+    # one place (services.user_can_view_case, shared with the export routes).
+    # Without this check a user of an uninvolved unit who is turned away from the
+    # case page could still walk case ids through /tool/case/<id>/PI/ and read
+    # every row. The active role's seat is used so a substitute keeps the access
+    # the seat they are covering has — the same context save_from_tool authorises
+    # against, so nobody who may build a form can be refused here.
+    from people.role_nav import work_context
+    _ctx = work_context(request)
+    if not services.user_can_view_case(case, request.user,
+                                       role=_ctx.role, work_user=_ctx.seat_user):
+        messages.error(request, "You do not have access to this case.")
+        return redirect("cases:inbox")
     kind = kind.upper()
     mode = request.GET.get("mode", "build")
     side = request.GET.get("side", "")

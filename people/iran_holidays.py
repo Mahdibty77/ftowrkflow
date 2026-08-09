@@ -100,6 +100,18 @@ YEARLY_HOLIDAYS: dict[int, frozenset[tuple[int, int]]] = {
 
     }),
 
+    # PARTIAL, and deliberately marked as such: 1406 carries only these four
+
+    # confirmed dates and there is no entry at all from 1407 onward. That is
+
+    # not a year with four holidays -- the remaining lunar dates simply have
+
+    # not been entered yet, and every one that is missing is planned as an
+
+    # ordinary working day, so an employee is measured against hours nobody
+
+    # could have worked. Extend this map as each official calendar is issued.
+
     1406: frozenset({
 
         (5, 2), (5, 10), (5, 17), (5, 19),

@@ -629,7 +629,11 @@ table.coding-table td.num input{text-align:right}
 .jdp-ok{border:0;background:var(--accent);color:#fff;border-radius:6px;padding:.25rem .6rem;cursor:pointer;font:inherit;font-size:.74rem;font-weight:650}
 
 /* New-case top action bar (kept reachable without scrolling the grid) */
-.form-actions-top{position:sticky;top:0;z-index:20;background:var(--bg);padding:.6rem 0;margin-bottom:.4rem;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:.5rem}
+/* --mist is the page background (see body): the bar is sticky, so it needs an
+   opaque fill or the grid scrolls through it. It used to name --bg, which no
+   stylesheet loaded by base.html defines — an unresolvable var() makes the
+   whole declaration invalid, so the bar rendered transparent. */
+.form-actions-top{position:sticky;top:0;z-index:20;background:var(--mist);padding:.6rem 0;margin-bottom:.4rem;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:.5rem}
 
 /* Two-stage offer chip + copy button */
 .stage-chip{display:inline-block;margin-left:.4rem;padding:.05rem .5rem;border:1px solid var(--accent);color:var(--accent);border-radius:999px;font-size:.66rem;font-weight:700;letter-spacing:.02em;vertical-align:middle;background:var(--accent-soft)}

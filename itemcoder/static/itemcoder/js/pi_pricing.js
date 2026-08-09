@@ -29,6 +29,19 @@
   var state = { lists: [], activeListId: null, prices: {}, currency: 'rial',
                 group: '', featFilters: {} };
 
+  // Price-list names and feature values are free text typed by users elsewhere
+  // in the app, and several pricing panels build their markup as strings. Any
+  // such value must go through this before it is concatenated into innerHTML —
+  // otherwise a name like `Aria<img onerror=...>` executes in the session of
+  // every user who merely opens the PI builder.
+  function escHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
   // group -> [main feature names] (the fields shown in the filter for a group).
   var GROUP_FEATS = {};
   var GROUP_FEAT_ALIASES = {};
@@ -312,6 +325,10 @@
 
   function applyList(listId) {
     if (pricingLocked()) return;   // TO-only offer: no pricing allowed
+    // Remembered so a failed lookup can put the picker back where it was: the
+    // selected list and the prices on screen must never disagree.
+    var prevListId = state.activeListId;
+    var prevCurrency = state.currency;
     state.activeListId = listId;
     var list = state.lists.filter(function (l) { return String(l.id) === String(listId); })[0];
     state.currency = (list && list.currency) || defaultCurrency();
@@ -333,6 +350,14 @@
       refreshCalc();
       recomputeGrand();
       renderComparison(data.comparison || [], data.suggestion || null);
+    }, function () {
+      // Rejection handler rather than .catch, so only a failed LOOKUP lands here
+      // and not an error thrown while applying a result we did receive. Leave
+      // every price exactly as it was and roll the selection back, rather than
+      // repricing the grid from a response that never arrived (see fetchPrices).
+      state.activeListId = prevListId;
+      state.currency = prevCurrency;
+      alert("Could not load that price list. Prices were left unchanged.");
     });
   }
 
@@ -381,7 +406,15 @@
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': cfg().csrfToken || getCookie('csrftoken') || '' },
       body: body.toString()
-    }).then(function (r) { return r.json(); }).catch(function () { return {}; });
+    }).then(function (r) {
+      // Callers clear UNIT PRICE on every row they find no price for, so a
+      // failed request must NOT come back as an empty result — a 500, a 403 or
+      // an HTML login page would otherwise be indistinguishable from "this list
+      // prices nothing" and would blank a whole priced grid. Reject instead and
+      // let the caller decide.
+      if (!r.ok) throw new Error('prices failed: HTTP ' + r.status);
+      return r.json();
+    });
   }
 
   // Fill in per-row feature values (data-vars) for rows that don't already have
@@ -491,7 +524,7 @@
       q = (q || '').toLowerCase();
       var items = getItems().filter(function (it) { return it.label.toLowerCase().indexOf(q) >= 0; });
       menu.innerHTML = items.length
-        ? items.map(function (it) { return '<div data-val="' + encodeURIComponent(it.value) + '">' + it.label + (it.hint ? ' <em>' + it.hint + '</em>' : '') + '</div>'; }).join('')
+        ? items.map(function (it) { return '<div data-val="' + encodeURIComponent(it.value) + '">' + escHtml(it.label) + (it.hint ? ' <em>' + escHtml(it.hint) + '</em>' : '') + '</div>'; }).join('')
         : '<div class="pi-empty">No matches</div>';
     }
     input.addEventListener('focus', function () { render(input.value); menu.hidden = false; });
@@ -1186,11 +1219,21 @@
       // NOT SUPPLIABLE toggle must immediately drop/restore row prices in totals.
       recomputeGrand();
     });
+    // refreshCards() makes several whole-table passes (missing brand / time /
+    // unit, remark, duplicate-code index, badge repaint). Running that inline on
+    // every keystroke in REMARK / BRAND / TIME made typing lag on large
+    // proformas. The cards are informational, so coalescing them to the end of a
+    // typing burst is free — the numbers land on exactly the same values.
+    var cardsTimer = null;
+    function scheduleRefreshCards() {
+      if (cardsTimer) clearTimeout(cardsTimer);
+      cardsTimer = setTimeout(function () { cardsTimer = null; refreshCards(); }, 150);
+    }
     document.addEventListener('input', function (e) {
       var td = e.target.closest ? e.target.closest('td') : null;
       if (!td) return;
       var cn = td.getAttribute('data-col-name');
-      if (cn === REMARK_COL || cn === BRAND_COL || cn === TIME_COL) refreshCards();
+      if (cn === REMARK_COL || cn === BRAND_COL || cn === TIME_COL) scheduleRefreshCards();
     });
     setTimeout(refreshCards, 120);
 
@@ -1287,8 +1330,8 @@
         ? '<table class="pi-cmp"><thead><tr><th>List</th><th>Priced items</th><th>Total of common items</th></tr></thead><tbody>' +
           comp.map(function (c) {
             var ct = (c.common_total != null ? c.common_total : c.total);
-            return '<tr><td>' + c.name + '</td><td>' + c.covered + '</td><td>' +
-              ct.toLocaleString('en-US') + ' ' + (c.currency || '').toUpperCase() + '</td></tr>';
+            return '<tr><td>' + escHtml(c.name) + '</td><td>' + c.covered + '</td><td>' +
+              ct.toLocaleString('en-US') + ' ' + escHtml((c.currency || '').toUpperCase()) + '</td></tr>';
           }).join('') + '</tbody></table>'
         : '';
     }
@@ -1297,9 +1340,9 @@
       if (suggestion) {
         sg.hidden = false;
         sg.innerHTML = 'Cheapest for the <b>' + suggestion.count + '</b> items priced by every list: ' +
-          '<b>' + suggestion.name + '</b> &mdash; total <b>' + suggestion.common_total.toLocaleString('en-US') + ' ' +
-          (suggestion.currency || '').toUpperCase() + '</b> ' +
-          '<button type="button" id="pi-apply-suggestion" data-id="' + suggestion.id + '">Use this list</button>';
+          '<b>' + escHtml(suggestion.name) + '</b> &mdash; total <b>' + suggestion.common_total.toLocaleString('en-US') + ' ' +
+          escHtml((suggestion.currency || '').toUpperCase()) + '</b> ' +
+          '<button type="button" id="pi-apply-suggestion" data-id="' + escHtml(suggestion.id) + '">Use this list</button>';
         var btn = document.getElementById('pi-apply-suggestion');
         if (btn) btn.addEventListener('click', function () {
           var name = (state.lists.filter(function (l) { return String(l.id) === String(suggestion.id); })[0] || {}).name || '';
@@ -1816,6 +1859,10 @@
     fetchPrices(null).then(function (data) {
       state.lists = data.lists || [];
       renderComparison(data.comparison || [], data.suggestion || null);
+    }, function () {
+      // Boot-time population only. fetchPrices now rejects on an HTTP error, so
+      // swallow it here to keep the previous outcome — an empty picker — rather
+      // than an unhandled rejection; nothing on the grid is touched.
     });
     var container = document.getElementById('excel-table-container');
     if (container) {

@@ -3,7 +3,12 @@
 {% block title %}Archive · Foolad Tabar Workflow{% endblock %}
 {% block topbar %}Case Archive{% endblock %}
 {% block content %}
-{% with unit=user.profile.unit is_admin=user.profile.is_admin %}
+{# `unit` and `is_admin` below come from the view (cases/views.py), which #}
+{# deliberately widens BOTH for a General Manager as well as the platform admin: #}
+{# is_admin becomes true and unit is blanked. A with-block re-deriving them from #}
+{# user.profile used to shadow that here, and a GM (is_general_manager, but #}
+{# is_admin false and unit blank) therefore lost the Commercial-expert filter and #}
+{# column altogether. Do not reintroduce it — read these two from the context. #}
 {% if drill_person %}
 <div class="flash flash-info" style="margin-bottom:1rem;">
   <i class="fa-solid fa-user"></i>
@@ -184,7 +189,6 @@
     </tbody>
   </table>
 </div>
-{% endwith %}
 {% endblock %}
 {% block scripts %}
 <script>

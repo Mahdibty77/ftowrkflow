@@ -32,6 +32,25 @@ fi
 TMP="/backups/.restore_work"
 rm -rf "$TMP"; mkdir -p "$TMP"
 
+# Every restore below has to empty the destination volume before it can unpack
+# into it, so the archive must be proven readable BEFORE the wipe and a failed
+# unpack must stop the script. backup_service.sh judges a restore purely by our
+# exit status, so an ignored tar error was reported to the admin as "Restore
+# completed" while the volume it had just emptied stayed empty.
+restore_into() {  # $1 = .tar.gz to unpack  $2 = destination directory
+  if ! tar -tzf "$1" >/dev/null 2>&1; then
+    echo "ERR archive unreadable, nothing was changed: $(basename "$1")"
+    rm -rf "$TMP"
+    exit 1
+  fi
+  rm -rf "$2"/* 2>/dev/null || :
+  if ! tar -xzf "$1" -C "$2"; then
+    echo "ERR failed to unpack $(basename "$1") into $2 (disk space? permissions?) - $2 is now empty, restore again once the cause is fixed"
+    rm -rf "$TMP"
+    exit 1
+  fi
+}
+
 base=$(basename "$SRC")
 
 if [ "$base" = "ftcode_db.tar.gz" ]; then
@@ -39,11 +58,10 @@ if [ "$base" = "ftcode_db.tar.gz" ]; then
     echo "ERR failed to extract code_db archive"; rm -rf "$TMP"; exit 1
   fi
   if [ -f "$TMP/code_db.tar.gz" ]; then
-    rm -rf /data/code_db/* 2>/dev/null || :
-    tar -xzf "$TMP/code_db.tar.gz" -C /data/code_db 2>/dev/null || :
+    restore_into "$TMP/code_db.tar.gz" /data/code_db
   else
-    rm -rf /data/code_db/* 2>/dev/null || :
-    tar -xzf "$SRC" -C /data/code_db 2>/dev/null || :
+    # Legacy archives are the code_db tarball itself, without the wrapper.
+    restore_into "$SRC" /data/code_db
   fi
   rm -rf "$TMP"
   echo "OK restored code_db"
@@ -57,8 +75,7 @@ if ! tar -xzf "$SRC" -C "$TMP"; then
 fi
 
 if [ ! -f "$TMP/database.sql" ] && [ -f "$TMP/media.tar.gz" ]; then
-  rm -rf /data/media/* 2>/dev/null || :
-  tar -xzf "$TMP/media.tar.gz" -C /data/media 2>/dev/null || :
+  restore_into "$TMP/media.tar.gz" /data/media
   rm -rf "$TMP"
   echo "OK restored media"
   exit 0
@@ -74,20 +91,24 @@ psql -v ON_ERROR_STOP=0 -c \
   "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid();" \
   >/dev/null 2>&1 || :
 
-if ! psql -v ON_ERROR_STOP=1 -q -f "$TMP/database.sql"; then
+# --single-transaction is what makes a failed restore survivable: the dump is
+# produced by pg_dump --clean --if-exists (do_backup.sh), so it opens by
+# DROPping every table. Statement-by-statement autocommit meant those DROPs were
+# already permanent by the time ON_ERROR_STOP aborted on a later bad statement,
+# leaving the live database empty with nothing to roll back to. Wrapped in one
+# transaction the whole restore either lands or leaves the database untouched.
+if ! psql --single-transaction -v ON_ERROR_STOP=1 -q -f "$TMP/database.sql"; then
   echo "ERR database restore failed (SQL error)"
   rm -rf "$TMP"
   exit 1
 fi
 
 if [ -f "$TMP/media.tar.gz" ]; then
-  rm -rf /data/media/* 2>/dev/null || :
-  tar -xzf "$TMP/media.tar.gz" -C /data/media 2>/dev/null || :
+  restore_into "$TMP/media.tar.gz" /data/media
 fi
 
 if [ -f "$TMP/code_db.tar.gz" ]; then
-  rm -rf /data/code_db/* 2>/dev/null || :
-  tar -xzf "$TMP/code_db.tar.gz" -C /data/code_db 2>/dev/null || :
+  restore_into "$TMP/code_db.tar.gz" /data/code_db
 fi
 
 rm -rf "$TMP"

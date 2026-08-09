@@ -153,6 +153,15 @@ class Profile(models.Model):
             self.role = ""
             self.supply_kind = ""
         elif username:
+            # Deliberately NOT relaxed for Django superusers. Platform-admin is
+            # the reserved ``admin`` login and nothing else, because is_admin is
+            # not only a permission — cases.export_data.unit_manager() selects
+            # the document signatory with ``is_admin=False``, so granting the
+            # flag to a superuser who also holds a manager seat would drop them
+            # out of the signatory pool and issue TO/PI documents with no name
+            # and no signature. A bootstrap account that cannot reach the admin
+            # console is a deployment problem and is solved in entrypoint.sh,
+            # not by widening what is_admin means.
             self.is_admin = False
         update_fields = kwargs.get("update_fields")
         if update_fields is not None:

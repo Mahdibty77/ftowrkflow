@@ -319,11 +319,17 @@ td[data-calc-variable] {
     overflow-wrap: anywhere;
 }
 /* Text-heavy columns read better left-aligned (like the inquiry table). */
+/* "ریمارک" (REMARK) and "اصلاحیه" (REVISION) are the literal column keys the
+   grid writes into data-col-name — see the canonical names in
+   itemcoder/bridge.py and the querySelector calls in brand_split.js. They must
+   be those Persian words byte for byte or the selector matches nothing at all.
+   A save through a non-UTF-8 codepage had flattened them to "?" here, so these
+   two columns silently lost their left alignment. Keep this file UTF-8. */
 #virtual-scroll-table td[data-col-name="description"],
 #virtual-scroll-table td[data-col-name="Final Arranged Text"],
-#virtual-scroll-table td[data-col-name="??????"],
+#virtual-scroll-table td[data-col-name="ریمارک"],
 #virtual-scroll-table td[data-col-name="__proforma_remark__"],
-#virtual-scroll-table td[data-col-name="???????"] { text-align: left; }
+#virtual-scroll-table td[data-col-name="اصلاحیه"] { text-align: left; }
 
 #virtual-scroll-table th:last-child, 
 #virtual-scroll-table td:last-child {
@@ -363,8 +369,10 @@ td[data-calc-variable] {
 th[data-col-name="description"], td[data-col-name="description"] { text-align: left !important; }
 th[data-col-name="Final Arranged Text"], td[data-col-name="Final Arranged Text"] { text-align: left !important; }
 
-td[data-col-name="??????"] textarea,
-td[data-col-name="???????"] textarea,
+/* Same corrupted-encoding repair as above: without the real Persian keys the
+   Remark/Revision textareas fell back to the browser default box. */
+td[data-col-name="ریمارک"] textarea,
+td[data-col-name="اصلاحیه"] textarea,
 .remark-revision-textarea {
     display: block;
     width: 100%;
@@ -384,8 +392,9 @@ td[data-col-name="???????"] textarea,
     overflow: hidden;
 }
 
-td[data-col-name="??????"] textarea:focus,
-td[data-col-name="???????"] textarea:focus,
+/* Focus ring for the same two columns — restored Persian keys, see above. */
+td[data-col-name="ریمارک"] textarea:focus,
+td[data-col-name="اصلاحیه"] textarea:focus,
 .remark-revision-textarea:focus {
     outline: none;
     border-color: var(--primary);
@@ -407,10 +416,12 @@ td[data-col-name="???????"] textarea:focus,
 }
 
 /* Remark / Revision (TO) and Remark (PI): readable, non-bold body text */
-#virtual-scroll-table td[data-col-name="??????"] textarea,
-#virtual-scroll-table td[data-col-name="???????"] textarea,
+/* Persian keys restored here too; the PI-only line is Remark ("ریمارک") because
+   a Proforma grid never shows the Revision column. */
+#virtual-scroll-table td[data-col-name="ریمارک"] textarea,
+#virtual-scroll-table td[data-col-name="اصلاحیه"] textarea,
 #virtual-scroll-table .remark-revision-textarea,
-body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="??????"] textarea {
+body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="ریمارک"] textarea {
     font-family: "Segoe UI", "Tahoma", "Noto Sans", system-ui, sans-serif !important;
     font-size: 13px !important;
     font-weight: 400 !important;

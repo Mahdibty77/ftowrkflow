@@ -38,6 +38,22 @@
       break-after: page;
     }
     .document:last-child { page-break-after: auto; break-after: auto; }
+    /* One row whose own text is taller than the body of a sheet. The fixed
+       210mm box plus the `overflow: hidden` on .table-zone and on every cell
+       used to swallow the tail of such a cell — a full material/standard
+       specification would simply stop mid-sentence on a signed client document
+       while the Excel export still showed it whole. Only a page the paginator
+       marked as oversize opts into this: it is allowed to grow past the sheet
+       (spilling onto a further physical sheet) so the text is printed in full.
+       Pages that fit today never carry the class and keep the exact fixed
+       layout they always had — same page size, fonts and column widths. */
+    .document.oversize-row {
+      height: auto;
+      min-height: 210mm;
+      overflow: visible;
+    }
+    .document.oversize-row .table-zone { overflow: visible; }
+    .document.oversize-row td { overflow: visible; }
     .document::before {
       content: "";
       position: absolute;
@@ -372,6 +388,17 @@
         overflow: hidden !important;
       }
       .document:last-child { page-break-after: auto; break-after: auto; }
+      /* The print rules above force height/overflow with !important, so the
+         oversize page has to restate its exemption here or the over-long cell
+         would be clipped again in the PDF — which is the only artefact that
+         actually reaches the client. */
+      .document.oversize-row {
+        height: auto !important;
+        min-height: 210mm !important;
+        overflow: visible !important;
+      }
+      .document.oversize-row .table-zone { overflow: visible !important; }
+      .document.oversize-row td { overflow: visible !important; }
       .footer { flex-shrink: 0 !important; }
       .doc-tail { flex-shrink: 0 !important; overflow: visible !important; }
     }
@@ -415,8 +442,8 @@
   <b>Foolad Tabar · {{ form.get_kind_display }} Professional Layout Engine</b>
   <div class="acts">
     <a href="#items">Scope Items</a>
-    {% if issues_page %}<a href="#issues">Technical Problems</a>{% endif %}
-    {% if services_page %}<a href="#services">Services</a>{% endif %}
+    {% if issues_pages %}<a href="#issues">Technical Problems</a>{% endif %}
+    {% if services_pages %}<a href="#services">Services</a>{% endif %}
     <a href="#terms">Terms Sheets</a>
     <a class="print" href="javascript:void(0)" id="ft-print-btn">Print / Export PDF</a>
     <a href="#" id="ft-dl-html">Download HTML</a>
@@ -426,7 +453,7 @@
 {% endif %}
 
 {% for page in pages %}
-<section class="document items-page"{% if forloop.first %} id="items"{% endif %}>
+<section class="document items-page{% if page.oversize %} oversize-row{% endif %}"{% if forloop.first %} id="items"{% endif %}>
   <header class="doc-head">
     <div class="logo-block">
       <svg class="logo-svg" viewBox="0 0 740 150" xmlns="http://www.w3.org/2000/svg" aria-label="Foolad Tabar Logo">
@@ -524,8 +551,8 @@
 </section>
 {% endfor %}
 
-{% if issues_page %}
-<section class="document issues-page" id="issues">
+{% for page in issues_pages %}
+<section class="document issues-page{% if page.oversize %} oversize-row{% endif %}"{% if forloop.first %} id="issues"{% endif %}>
   <header class="doc-head">
     <div class="logo-block">
       <svg class="logo-svg" viewBox="0 0 740 150" xmlns="http://www.w3.org/2000/svg" aria-label="Foolad Tabar Logo">
@@ -536,14 +563,18 @@
         <path d="M18 116H520" stroke="#8a9bb0" stroke-width="4" stroke-linecap="round"/>
         {% else %}
         <defs>
-          <linearGradient id="silverLogoIssues" x1="0" y1="0" x2="0" y2="1">
+          {% comment %}
+            Gradient ids carry the page number: this sheet can now span several
+            pages, and two defs with the same id in one document is invalid.
+          {% endcomment %}
+          <linearGradient id="silverLogoIssues{{ page.page_no }}" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stop-color="#ffffff"/><stop offset=".32" stop-color="#c8d1dc"/>
             <stop offset=".62" stop-color="#e4e9f0"/><stop offset="1" stop-color="#8a9bb0"/>
           </linearGradient>
         </defs>
-        <rect x="425" y="28" width="312" height="27" fill="url(#silverLogoIssues)" rx="1"/>
-        <path d="M588 82 H737 V109 H615 V163 H588 Z" fill="url(#silverLogoIssues)"/>
-        <text x="18" y="101" font-family="Constantia, serif" font-size="55" font-weight="800" letter-spacing="-2" fill="url(#silverLogoIssues)">FOOLAD TABAR</text>
+        <rect x="425" y="28" width="312" height="27" fill="url(#silverLogoIssues{{ page.page_no }})" rx="1"/>
+        <path d="M588 82 H737 V109 H615 V163 H588 Z" fill="url(#silverLogoIssues{{ page.page_no }})"/>
+        <text x="18" y="101" font-family="Constantia, serif" font-size="55" font-weight="800" letter-spacing="-2" fill="url(#silverLogoIssues{{ page.page_no }})">FOOLAD TABAR</text>
         <path d="M18 116H520" stroke="#8a9bb0" stroke-width="4" stroke-linecap="round"/>
         {% endif %}
       </svg>
@@ -556,7 +587,7 @@
     <div class="doc-meta">
       <div class="meta-line"><span>Code No.:</span><b>{{ code_no }}</b></div>
       <div class="meta-line"><span>Date</span><b>{{ form_date }}</b></div>
-      <div class="meta-line"><span>Page</span><b>{{ issues_page.page_label }}</b></div>
+      <div class="meta-line"><span>Page</span><b>{{ page.page_label }}</b></div>
     </div>
   </header>
   <div class="content-wrapper">
@@ -577,7 +608,7 @@
       <div class="issues-sheet-banner-sub">Rows flagged as technical problem in this Technical Offer.</div>
     </div>
     <div class="table-zone" style="--row-h: 8mm;">
-      <table>
+      <table{% if page.fill %} class="fill"{% endif %}>
         <thead>
           <tr>
             <th style="width:12%;">Client No.</th>
@@ -587,12 +618,17 @@
           </tr>
         </thead>
         <tbody>
-          {% for r in issues_page.rows %}
-          <tr class="exp-row-issue">
-            <td>{{ r.client_no }}</td>
-            <td>{{ r.item }}</td>
-            <td class="left">{{ r.desc_client }}</td>
-            <td class="left">{{ r.reason }}</td>
+          {% comment %}
+            Cells come from the shared paginator now (same order and the same
+            left-alignment as the four columns above), so a long list of
+            declared deviations continues onto further sheets instead of being
+            cut off at the bottom of this one.
+          {% endcomment %}
+          {% for row in page.rows %}
+          <tr class="exp-row-issue"{% if row.height_mm %} style="height: {{ row.height_mm }}mm; min-height: {{ row.height_mm }}mm;"{% endif %}>
+            {% for cell in row.cells %}
+              <td{% if cell.left %} class="left"{% endif %}>{{ cell.text }}</td>
+            {% endfor %}
           </tr>
           {% endfor %}
         </tbody>
@@ -601,10 +637,10 @@
   </div>
   {% include "cases/export/_sign_and_footer.html" %}
 </section>
-{% endif %}
+{% endfor %}
 
-{% if services_page %}
-<section class="document issues-page" id="services">
+{% for page in services_pages %}
+<section class="document issues-page{% if page.oversize %} oversize-row{% endif %}"{% if forloop.first %} id="services"{% endif %}>
   <header class="doc-head">
     <div class="logo-block">
       <svg class="logo-svg" viewBox="0 0 740 150" xmlns="http://www.w3.org/2000/svg" aria-label="Foolad Tabar Logo">
@@ -615,14 +651,18 @@
         <path d="M18 116H520" stroke="#8a9bb0" stroke-width="4" stroke-linecap="round"/>
         {% else %}
         <defs>
-          <linearGradient id="silverLogoServices" x1="0" y1="0" x2="0" y2="1">
+          {% comment %}
+            Page-numbered id, for the same reason as the Technical Problems
+            sheet: this section may now repeat.
+          {% endcomment %}
+          <linearGradient id="silverLogoServices{{ page.page_no }}" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stop-color="#ffffff"/><stop offset=".32" stop-color="#c8d1dc"/>
             <stop offset=".62" stop-color="#e4e9f0"/><stop offset="1" stop-color="#8a9bb0"/>
           </linearGradient>
         </defs>
-        <rect x="425" y="28" width="312" height="27" fill="url(#silverLogoServices)" rx="1"/>
-        <path d="M588 82 H737 V109 H615 V163 H588 Z" fill="url(#silverLogoServices)"/>
-        <text x="18" y="101" font-family="Constantia, serif" font-size="55" font-weight="800" letter-spacing="-2" fill="url(#silverLogoServices)">FOOLAD TABAR</text>
+        <rect x="425" y="28" width="312" height="27" fill="url(#silverLogoServices{{ page.page_no }})" rx="1"/>
+        <path d="M588 82 H737 V109 H615 V163 H588 Z" fill="url(#silverLogoServices{{ page.page_no }})"/>
+        <text x="18" y="101" font-family="Constantia, serif" font-size="55" font-weight="800" letter-spacing="-2" fill="url(#silverLogoServices{{ page.page_no }})">FOOLAD TABAR</text>
         <path d="M18 116H520" stroke="#8a9bb0" stroke-width="4" stroke-linecap="round"/>
         {% endif %}
       </svg>
@@ -635,7 +675,7 @@
     <div class="doc-meta">
       <div class="meta-line"><span>Code No.:</span><b>{{ code_no }}</b></div>
       <div class="meta-line"><span>Date</span><b>{{ form_date }}</b></div>
-      <div class="meta-line"><span>Page</span><b>{{ services_page.page_label }}</b></div>
+      <div class="meta-line"><span>Page</span><b>{{ page.page_label }}</b></div>
     </div>
   </header>
   <div class="content-wrapper">
@@ -656,7 +696,7 @@
       <div class="services-sheet-banner-sub">Rows that have services with their prices</div>
     </div>
     <div class="table-zone" style="--row-h: 8mm;">
-      <table>
+      <table{% if page.fill %} class="fill"{% endif %}>
         <thead>
           <tr>
             <th style="width:9%;">CLIENT ITEM</th>
@@ -669,15 +709,16 @@
           </tr>
         </thead>
         <tbody>
-          {% for r in services_page.rows %}
-          <tr class="exp-row-service">
-            <td>{{ r.client_no }}</td>
-            <td>{{ r.item }}</td>
-            <td class="left">{{ r.desc_client }}</td>
-            <td class="left">{{ r.comment }}</td>
-            <td>{{ r.qty }}</td>
-            <td>{{ r.unit_svc_price }}</td>
-            <td>{{ r.total_svc_price }}</td>
+          {% comment %}
+            Same seven cells in the same order, produced by the shared
+            paginator so that billed service lines beyond the bottom of this
+            sheet continue on the next one instead of disappearing.
+          {% endcomment %}
+          {% for row in page.rows %}
+          <tr class="exp-row-service"{% if row.height_mm %} style="height: {{ row.height_mm }}mm; min-height: {{ row.height_mm }}mm;"{% endif %}>
+            {% for cell in row.cells %}
+              <td{% if cell.left %} class="left"{% endif %}>{{ cell.text }}</td>
+            {% endfor %}
           </tr>
           {% endfor %}
         </tbody>
@@ -686,7 +727,7 @@
   </div>
   {% include "cases/export/_sign_and_footer.html" %}
 </section>
-{% endif %}
+{% endfor %}
 
 <section class="document terms-page" id="terms">
   <header class="doc-head">

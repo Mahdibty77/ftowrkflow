@@ -36,7 +36,15 @@ def _iter_csv_refs(obj: Any) -> Iterable[str]:
 def _warm_json_files() -> dict:
     loaded = {}
     for name in (
-        'data.json', 'asign_code.json', 'table_layout.json', 'confind_size.json',
+        # ``confind_size.json`` used to be listed here and has been removed
+        # along with the file itself. Nothing in the engine ever read it:
+        # find_size.resolve_find_size_path builds the per-group table path
+        # (find_size_<group>.csv) from the group name alone, so the JSON was
+        # never consulted for any lookup. Warming only fills mtime-checked
+        # caches, and the CSVs this file happened to name are read through
+        # find_size's own cache rather than the two warmed here — so dropping
+        # the entry changes when things are parsed, never what they resolve to.
+        'data.json', 'asign_code.json', 'table_layout.json',
         'final_arrange.json', 'common_rulse.json', 'offer.json',
         'data_translation.json',
     ):

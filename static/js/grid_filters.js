@@ -198,7 +198,17 @@ window.buildGridFilters = function (opts) {
       if (e.key === "Delete") { e.preventDefault(); clear(c); }
     });
     c.input.addEventListener("blur", function () {
-      setTimeout(function () { c.list.classList.remove("open"); c.input.value = c.value || ""; }, 160);
+      // Restore the same humanised label commit() writes ("NO COATING"), not the
+      // raw stored value ("(no)coating"). Writing the raw form back both undid
+      // displayVal() in front of the user and made the focus handler above
+      // (which compares against displayVal(c.value)) treat the field as a typed
+      // query, so reopening the menu showed a one-item list instead of all the
+      // options. Only the visible text changes here — c.value, and therefore
+      // getFilters(), is untouched.
+      setTimeout(function () {
+        c.list.classList.remove("open");
+        c.input.value = c.value ? (window.displayVal ? window.displayVal(c.value) : c.value) : "";
+      }, 160);
     });
   });
 

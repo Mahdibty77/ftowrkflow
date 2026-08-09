@@ -49,6 +49,12 @@ _CONN_META: Dict[str, Tuple[float, int]] = {}
 # column_names() is hit on every code lookup during Build TO; cache by mtime.
 _COLUMNS_CACHE: Dict[str, Tuple[float, List[str]]] = {}
 
+# How long a "<group>.sqlite3.building" file must sit untouched before another
+# import may assume its builder died and take the name over. A live build writes
+# rows and indexes continuously, so its file is never this stale; only a process
+# killed mid-import leaves one behind.
+STALE_BUILD_SECONDS = 30 * 60
+
 
 # Bounded memo for the regex path only. Code tables have highly repetitive
 # feature values (materials, methods, standards …); memoizing them turns tens of
@@ -332,8 +338,30 @@ def build_db_from_rows(group: str, columns: List[str], rows: Iterable[List[str]]
     reset_connection(g)
     path = group_db_path(g)
     tmp = path + ".building"
-    if os.path.exists(tmp):
-        os.remove(tmp)
+    # The temp name depends only on the group, so two imports of the same group
+    # (a double-clicked Confirm) used to share it: the second one's os.remove
+    # unlinked the file the first was still writing, and the first then published
+    # its half-populated result over the live database. Claim the name atomically
+    # instead — the loser fails fast and the live file is never touched. A temp
+    # left behind by a hard-killed build is only reclaimed once it has stopped
+    # growing for STALE_BUILD_SECONDS, so a crash cannot block imports forever.
+    try:
+        os.close(os.open(tmp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+    except FileExistsError:
+        try:
+            age = time.time() - os.path.getmtime(tmp)
+        except OSError:
+            age = STALE_BUILD_SECONDS  # vanished meanwhile — nothing to protect
+        if age < STALE_BUILD_SECONDS:
+            raise RuntimeError(
+                f"Another import for group '{g}' is still building its database "
+                f"({tmp}). Wait for it to finish, then try again."
+            )
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        os.close(os.open(tmp, os.O_CREAT | os.O_WRONLY, 0o600))
 
     def _status(msg: str) -> None:
         if on_status is None:
@@ -343,12 +371,25 @@ def build_db_from_rows(group: str, columns: List[str], rows: Iterable[List[str]]
         except Exception:
             pass
 
-    ncols = len(columns)
-    craw = ", ".join(f"c{i} TEXT" for i in range(ncols))
-    cnorm = ", ".join(f"n{i} TEXT" for i in range(ncols))
+    # Everything from here to the build's own cleanup has to release the claim
+    # too: if connect() fails because DB_DIR is full or read-only there is no
+    # connection to close, but an empty .building file would still be sitting
+    # there locking every import of this group out for STALE_BUILD_SECONDS.
+    try:
+        ncols = len(columns)
+        craw = ", ".join(f"c{i} TEXT" for i in range(ncols))
+        cnorm = ", ".join(f"n{i} TEXT" for i in range(ncols))
 
-    _status("Writing rows into temporary database…")
-    con = sqlite3.connect(tmp)
+        _status("Writing rows into temporary database…")
+        con = sqlite3.connect(tmp)
+    except Exception:
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except Exception:
+            pass
+        raise
+
     try:
         con.execute("PRAGMA journal_mode=OFF")
         con.execute("PRAGMA synchronous=OFF")
@@ -449,18 +490,38 @@ def build_db_from_rows(group: str, columns: List[str], rows: Iterable[List[str]]
     else:
         con.close()
 
-    _status("Replacing database file on disk…")
-    _replace_db_file(tmp, path, g)
-    reset_connection(g)
-    # Tell every gunicorn worker immediately: the on-disk DB changed.
+    # The publish step needs the same claim-releasing guard as the build above,
+    # and for a reason that is not hypothetical: _replace_db_file raises when
+    # os.replace has failed ten times and the delete-and-rename fallback failed
+    # too, which is the ordinary Windows outcome when another gunicorn worker
+    # still holds a read-only handle on the live .sqlite3. Before the claim
+    # existed that leftover was harmless — the next import simply deleted the
+    # stale temp and carried on. Now the leftover IS the claim, so without this
+    # every retry would be refused for STALE_BUILD_SECONDS, turning a transient,
+    # instantly-retryable failure into a half-hour outage for that group.
+    #
+    # On the success path _replace_db_file has already renamed tmp away, so the
+    # cleanup finds nothing and does nothing.
     try:
-        from . import cache_sync
-        cache_sync.bump_epoch()
-    except Exception:
-        pass
+        _status("Replacing database file on disk…")
+        _replace_db_file(tmp, path, g)
+        reset_connection(g)
+        # Tell every gunicorn worker immediately: the on-disk DB changed.
+        try:
+            from . import cache_sync
+            cache_sync.bump_epoch()
+        except Exception:
+            pass
 
-    _status("Verifying replaced database…")
-    verify_group_db(g, expected_rows=n)
+        _status("Verifying replaced database…")
+        verify_group_db(g, expected_rows=n)
+    except Exception:
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except Exception:
+            pass
+        raise
     return n
 
 def build_db_from_dataframe(group: str, df) -> int:
@@ -573,6 +634,21 @@ def lookup_code(group: str, search_by_pos: Dict[int, str],
     sql = "SELECT c1 FROM items WHERE " + " AND ".join(where) + " ORDER BY row_no LIMIT 1"
     try:
         row = con.execute(sql, params).fetchone()
+    except sqlite3.ProgrammingError:
+        # The connection is shared between threads and reset_connection closes it
+        # (an import, a single cell edit) — so the handle this call just got from
+        # _open can be dead by the time it is used. That is not "no code for this
+        # row": returning "" here silently ships a row with a blank FTCO code and
+        # no trace. Drop the dead handle and run the identical query once on a
+        # fresh one; a genuinely malformed query fails again and still returns "".
+        reset_connection(group)
+        con = _open(group)
+        if con is None:
+            return None
+        try:
+            row = con.execute(sql, params).fetchone()
+        except Exception:
+            return ""
     except Exception:
         return ""
     if row is None:
@@ -997,11 +1073,30 @@ def wipe_group(group: str) -> bool:
         return False
 
 
+class DuplicateItemCode(Exception):
+    """A row was appended carrying an Item_Code that is already in use.
+
+    Only ``insert_item`` raises this, and only when two creations raced: the
+    sequence each of them was given by ``next_sequence`` was correct when it was
+    read, but the other one committed that same number first. The caller is
+    expected to build its codes again from the now-current table and retry — the
+    second attempt reads the winner's row and therefore gets the next number.
+    """
+
+
 def next_sequence(group: str, prefix: str, *, code_col: int = 1) -> int:
     """Next sequence number for Item_Codes starting with ``prefix``.
 
     Reads the max numeric suffix already stored for that prefix and returns +1,
     so each prefix keeps an independent counter exactly like the generator.
+
+    This is a plain read, NOT a reservation: nothing stops a second caller from
+    reading the same maximum before the first one has written its row (and it
+    must stay a plain read, because the item builder's preview screens call it
+    just to display the code a save *would* produce — reserving here would burn
+    a number every time somebody looked). The number is only made exclusive at
+    the moment it is written: ``insert_item`` re-checks it inside the same write
+    transaction as the INSERT and raises ``DuplicateItemCode`` at the loser.
     """
     con = _open(group)
     if con is None:
@@ -1023,11 +1118,14 @@ def next_sequence(group: str, prefix: str, *, code_col: int = 1) -> int:
     return mx + 1
 
 
-def insert_item(group: str, cells: List[str]) -> int:
+def insert_item(group: str, cells: List[str], *, code_col: int = 1) -> int:
     """Append one row (row_no = max+1). Returns the new row_no.
 
     Opens its own read/write connection (the cached one is read-only) and resets
     the cache afterwards so later reads see the new row.
+
+    Raises ``DuplicateItemCode`` if the Item_Code the row carries is already in
+    the table — see the transaction comment below for why that check lives here.
     """
     g = str(group).strip().lower()
     path = group_db_path(g)
@@ -1044,6 +1142,36 @@ def insert_item(group: str, cells: List[str]) -> int:
     reset_connection(g)
     con = sqlite3.connect(path)
     try:
+        # One explicit write transaction for the whole append. SQLite allows a
+        # single writer at a time, so BEGIN IMMEDIATE claims that writer slot up
+        # front, and everything below — the duplicate check, the row_no read and
+        # the INSERT — happens with no other writer able to slip in between.
+        #
+        # That is what makes the item-code allocation safe. The sequence number
+        # inside the code was worked out earlier (next_sequence, then
+        # item_builder.build_codes), outside any lock, so two creations running
+        # at the same time can genuinely arrive here holding the same number.
+        # Whichever one gets the writer slot first commits its row; the other
+        # then finds its own code already present and is refused instead of
+        # silently creating a second item with an identical code. It is left to
+        # the caller to rebuild its codes and retry, because the caller is the
+        # one that shows the code to the user and records it in the audit log —
+        # renumbering the row here would leave those reporting a code that is
+        # not the one stored.
+        con.execute("BEGIN IMMEDIATE")
+        existing_code = craw[int(code_col)] if 0 <= int(code_col) < len(craw) else ""
+        if existing_code:
+            clash = con.execute(
+                f"SELECT 1 FROM items WHERE c{int(code_col)}=? LIMIT 1",
+                (existing_code,)).fetchone()
+            if clash is not None:
+                # Cannot happen without a concurrent create: next_sequence
+                # returns one more than the highest number already stored under
+                # this prefix, so on a quiet table the code being written is by
+                # construction absent.
+                raise DuplicateItemCode(
+                    f"Item code '{existing_code}' was just taken by another "
+                    f"creation; rebuild the codes and try again.")
         row = con.execute("SELECT COALESCE(MAX(row_no),-1)+1 FROM items").fetchone()
         new_no = int(row[0])
         placeholders = ",".join(["?"] * (1 + 2 * ncols))

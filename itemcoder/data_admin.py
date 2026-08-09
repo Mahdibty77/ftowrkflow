@@ -526,6 +526,25 @@ def dm_code_rows_api(request, group):
     return _json_response({"rows": rows, "next": nxt, "total": total})
 
 
+def _column_is_editable(group: str, col: int) -> bool:
+    """Whether Browse may write column ``col`` of ``group``.
+
+    Deliberately the same expression the grid uses to build ``editable_flags``
+    (columns 0/1 are the technical + item code, anything a GroupFeature marks as
+    ``main`` is part of the lookup key, everything else defaults to ``info``), so
+    the server never refuses a cell the page offers for editing.
+    """
+    try:
+        col = int(col)
+    except (TypeError, ValueError):
+        return False
+    col_kind = {0: "code", 1: "code"}
+    for gf in GroupFeature.objects.filter(group=group):
+        if gf.column_index is not None and gf.column_index >= 0:
+            col_kind[gf.column_index] = gf.kind
+    return col_kind.get(col, "info") in ("sub", "info")
+
+
 @login_required
 @group_data_access_required
 def dm_code_rows(request, group):
@@ -559,8 +578,18 @@ def dm_code_rows(request, group):
         action = request.POST.get("action")
         if action == "edit_cell":
             try:
+                col = int(request.POST["col"])
+                # Which columns may be edited was decided for the template only
+                # (``editable_flags`` below): the two code columns and every MAIN
+                # feature are the coding/pricing key and stay locked. Nothing
+                # re-checked that on the way back in, so a hand-made POST could
+                # rewrite an Item_Code and leave every CodePrice keyed on the old
+                # one orphaned. Same rule, evaluated again here.
+                if not _column_is_editable(group, col):
+                    return _json_response(
+                        {"ok": False, "error": "This column is read-only."}, status=403)
                 ok = code_db.update_cell(group, int(request.POST["row_no"]),
-                                         int(request.POST["col"]), request.POST.get("value", ""))
+                                         col, request.POST.get("value", ""))
                 _clear_caches()
                 return _json_response({"ok": bool(ok)})
             except Exception as exc:
@@ -1183,6 +1212,11 @@ def dm_rules_upload(request, group):
     except Exception:
         messages.error(request, "That file is not valid JSON.")
         return redirect("dm_features", group=group)
+    # item_builder is imported per view in this module (it pulls in the schema
+    # loaders), and this pair of views was missing it: the NameError landed in
+    # the except below and was reported as a bad rules file while the rules were
+    # never replaced.
+    from . import item_builder
     try:
         item_builder.replace_rules_from_obj(group, obj)
         _clear_caches()
@@ -1195,6 +1229,9 @@ def dm_rules_upload(request, group):
 @group_data_access_required
 def dm_rules_download(request, group):
     from django.http import JsonResponse
+    # Function-local like every other item_builder user in this module; without
+    # it the Download button on the rules card raised NameError as a plain 500.
+    from . import item_builder
     group = group.lower()
     obj = item_builder.rules_export_obj(group)
     resp = JsonResponse(obj, json_dumps_params={"ensure_ascii": False, "indent": 1})

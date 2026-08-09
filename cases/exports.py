@@ -1,4 +1,4 @@
-"""Export a stored form (Inquiry / TO / PI) to Excel, HTML or PDF.
+"""Export a stored form (Inquiry / TO / PI) to Excel or PDF.
 
 Output file names follow the business convention, e.g.
 ``FT-TO-IN-503-102-015-1254-00.xlsx``. For Supply, a grouped Excel export splits
@@ -14,7 +14,6 @@ Subtotal SUM row.
 """
 from __future__ import annotations
 
-import html
 import io
 import re
 
@@ -22,7 +21,6 @@ from django.utils import timezone
 
 from .constants import FormKind
 
-PRICE_COLUMN_HINTS = ("unit price", "قیمت فی", "total price", "قیمت کل")
 _COL_WIDTHS = {
     "client_no": 11,
     "item": 8,
@@ -56,11 +54,6 @@ _TEAL = "0F5C4C"
 EXCEL_LOCK_PASSWORD = "admin0812"
 
 
-def _is_price_column(title: str) -> bool:
-    t = str(title or "").strip().lower()
-    return any(h in t for h in PRICE_COLUMN_HINTS)
-
-
 def export_name_for(case, form, group_suffix: str = "") -> str:
     from .export_data import export_name_for as _name
     return _name(case, form, group_suffix=group_suffix)
@@ -91,19 +84,6 @@ def _doc_no(case, form) -> str:
 def _order_no(case, form) -> str:
     from .export_data import order_no
     return order_no(case, form)
-
-
-def _strip_html(value) -> str:
-    s = "" if value is None else str(value)
-    if "<" not in s:
-        return s
-    s = re.sub(r"<br\s*/?>", "\n", s, flags=re.I)
-    s = re.sub(r"<[^>]+>", "", s)
-    return html.unescape(s).strip()
-
-
-def _norm_token(value) -> str:
-    return re.sub(r"[^a-z0-9]+", "", str(value or "").lower())
 
 
 def _alias_clean(value) -> str:
@@ -326,191 +306,6 @@ def _remark_from_aliases(remark_text: str, group: str, type_key: str) -> str:
     return " , ".join(mapped)
 
 
-def _is_export_highlight(style: str, cls: str) -> bool:
-    """True for blue/green spans that carry identified feature values."""
-    s = f"{style} {cls}".lower()
-    return (
-        "#001aff" in s
-        or "rgb(0, 26, 255)" in s
-        or "color:blue" in s
-        or "color: blue" in s
-        or "color:green" in s
-        or "color: green" in s
-        or "highlight-color" in s
-    )
-
-
-def _clean_export_segment(value: str) -> str:
-    text = re.sub(r"\s+", " ", str(value or ""))
-    text = re.sub(r"\s+([,\-/\)])", r" \1", text)
-    text = re.sub(r"([\(/\-])\s+", r"\1 ", text)
-    return text.strip()
-
-
-def _segment_from_tokens(tokens: list[dict], revision_norm: str) -> str:
-    """Mirror calculation_controls.segmentTextFromNodes for one Final-Text piece."""
-    kept = []
-    for tok in tokens:
-        if tok.get("highlight"):
-            text = tok.get("text") or ""
-            text_norm = _norm_token(text)
-            if not text_norm:
-                continue
-            if revision_norm and (revision_norm in text_norm or text_norm in revision_norm):
-                continue
-            kept.append({"highlight": True, "text": text})
-        else:
-            kept.append({"highlight": False, "text": tok.get("text") or ""})
-
-    highlight_indexes = [i for i, t in enumerate(kept) if t["highlight"]]
-    if not highlight_indexes:
-        return ""
-    if len(highlight_indexes) == 1:
-        return _clean_export_segment(kept[highlight_indexes[0]]["text"])
-
-    first, last = highlight_indexes[0], highlight_indexes[-1]
-    parts = []
-    for i in range(first, last + 1):
-        tok = kept[i]
-        if tok["highlight"]:
-            parts.append(tok["text"])
-            continue
-        text = tok["text"] or ""
-        if text and not re.search(r"[A-Za-z0-9\u0600-\u06FF]", text):
-            parts.append(text)
-    return _clean_export_segment("".join(parts))
-
-
-def _remark_from_final_text(final_html: str, revision_text: str = "", fallback: str = "") -> str:
-    """Fallback when Final Arranged Text still has highlight HTML spans."""
-    from html.parser import HTMLParser
-
-    source = str(final_html or "")
-    if "<span" not in source.lower():
-        return str(fallback or "").strip()
-
-    revision_norm = _norm_token(revision_text)
-
-    class _Walker(HTMLParser):
-        def __init__(self):
-            super().__init__(convert_charrefs=True)
-            self.nodes: list[dict] = []
-            self._stack: list[dict] = []
-
-        def handle_starttag(self, tag, attrs):
-            attrs_d = dict(attrs or [])
-            self._stack.append({
-                "tag": tag.lower(),
-                "style": str(attrs_d.get("style") or ""),
-                "class": str(attrs_d.get("class") or ""),
-                "highlight": False,
-                "text_parts": [],
-            })
-            top = self._stack[-1]
-            top["highlight"] = _is_export_highlight(top["style"], top["class"])
-
-        def handle_endtag(self, tag):
-            if not self._stack:
-                return
-            node = self._stack.pop()
-            text = "".join(node["text_parts"])
-            if node["highlight"]:
-                self.nodes.append({"type": "highlight", "text": text})
-
-        def handle_data(self, data):
-            if not data:
-                return
-            if self._stack and self._stack[-1]["highlight"]:
-                self._stack[-1]["text_parts"].append(data)
-            else:
-                self.nodes.append({"type": "text", "text": data})
-
-    walker = _Walker()
-    try:
-        walker.feed(f"<div>{source}</div>")
-        walker.close()
-    except Exception:
-        return str(fallback or "").strip()
-
-    sep_counts: dict[str, int] = {}
-    for node in walker.nodes:
-        if node["type"] != "text":
-            continue
-        value = node["text"]
-        trimmed = value.strip()
-        simple = trimmed and not re.search(r"[A-Za-z0-9\u0600-\u06FF]", trimmed) and not re.search(r"[/()\[\]{}:]", trimmed)
-        blank = (not trimmed) and 0 < len(value) <= 6
-        if simple or blank:
-            sep_counts[value] = sep_counts.get(value, 0) + 1
-    separator = " , "
-    if sep_counts:
-        separator = max(sep_counts.items(), key=lambda kv: kv[1])[0]
-
-    def _is_sep(node) -> bool:
-        if node.get("type") != "text":
-            return False
-        value = node.get("text") or ""
-        if not separator.strip():
-            return value == separator
-        return value.strip() == separator.strip()
-
-    pieces: list[str] = []
-    current: list[dict] = []
-
-    def _flush():
-        nonlocal current
-        tokens = []
-        for n in current:
-            if n["type"] == "highlight":
-                tokens.append({"highlight": True, "text": n["text"]})
-            else:
-                tokens.append({"highlight": False, "text": n["text"]})
-        piece = _segment_from_tokens(tokens, revision_norm)
-        if piece:
-            pieces.append(piece)
-        current = []
-
-    for node in walker.nodes:
-        if _is_sep(node):
-            _flush()
-        else:
-            if (
-                not current
-                and node.get("type") == "text"
-                and separator.strip()
-                and (node.get("text") or "").strip().endswith(separator.strip())
-                and (node.get("text") or "").strip() != separator.strip()
-            ):
-                continue
-            current.append(node)
-    _flush()
-
-    if pieces:
-        joined = separator.join(pieces) if separator.strip() else " , ".join(pieces)
-        return re.sub(r"\s+", " ", joined).strip()
-    return str(fallback or "").strip()
-
-
-def _excel_cell_value(row: dict, key: str) -> str:
-    """Cell value for Excel — Remark uses data.json canonical tokens."""
-    if key == "ریمارک":
-        raw = _strip_html(_cell(row, "ریمارک"))
-        if not raw:
-            return ""
-        group = str(_cell(row, "Group") or "").strip()
-        type_key = str(_cell(row, "Type") or "").strip()
-        mapped = _remark_from_aliases(raw, group, type_key)
-        if mapped:
-            return mapped
-        # Older snapshots may still store highlighted Final Arranged Text HTML.
-        return _remark_from_final_text(
-            _cell(row, "Final Arranged Text"),
-            _cell(row, "اصلاحیه"),
-            raw,
-        )
-    return _strip_html(_cell(row, key))
-
-
 def _sheet_title(form) -> str:
     kind = (form.kind or "").upper()
     if kind == FormKind.TO:
@@ -642,7 +437,9 @@ def _write_professional_sheet(
     ``unlock_unit_price`` — leave Unit Price column editable after protect.
     """
     from openpyxl.utils import get_column_letter
-    from .export_data import parse_money, pi_totals, vat_percent
+    from .export_data import (
+        currency_export_suffix, form_currency, parse_money, pi_totals, vat_percent,
+    )
 
     n_cols = max(len(pairs), 4)
     last_col = n_cols - 1
@@ -790,6 +587,10 @@ def _write_professional_sheet(
                     flag_color = "4456E6"
             value = raw
             number_format = None
+            # Only the Total Price column is ever meant to be a live formula;
+            # everything else is text that came out of a client's inquiry file
+            # and must stay text (see the neutralising guard below).
+            is_formula = False
 
             if key == "qty":
                 n = _parse_qty(raw)
@@ -817,6 +618,7 @@ def _write_professional_sheet(
                     u_letter = get_column_letter(up_col)
                     value = f"={q_letter}{excel_row}*{u_letter}{excel_row}"
                     number_format = "#,##0"
+                    is_formula = True
                 else:
                     value = raw
 
@@ -835,6 +637,16 @@ def _write_professional_sheet(
                     value = (raw + ("  [" + flag_label + "]" if raw else flag_label)).strip()
 
             cell = ws.cell(row=excel_row, column=col_no, value=value)
+            # openpyxl retypes any string starting with "=" as a live formula.
+            # Descriptions, remarks and comments arrive from the client's own
+            # inquiry file, so a pasted "=HYPERLINK(...)" would execute in the
+            # reader's spreadsheet against the price columns next to it. Pinning
+            # the type back to text keeps the cell showing exactly the characters
+            # that were stored — no added quote mark, no changed value. The other
+            # spreadsheet trigger characters are listed too so the intent is
+            # obvious; openpyxl already stores those as text.
+            if not is_formula and isinstance(value, str) and value[:1] in ("=", "+", "-", "@"):
+                cell.data_type = "s"
             cell.font = font_body
             cell.fill = bg
             cell.border = grid
@@ -853,7 +665,16 @@ def _write_professional_sheet(
     cursor = data_end + 1
 
     if pi_totals_block and n_data and tp_col:
-        totals = pi_totals(rows)
+        # The PDF is the issued document; this workbook is its companion and has
+        # to state the same figures. ``pi_totals`` defaults to IRR, which rounded
+        # a USD/EUR proforma to whole units here while the PDF — which does pass
+        # the form's own currency — printed the decimals. Resolve the currency
+        # the same way the PDF does so the two can never disagree again.
+        totals_currency = currency_export_suffix(form_currency(form, case))
+        totals = pi_totals(rows, currency=totals_currency)
+        # Mirror pi_totals' own decimal rule, or the cell format would round the
+        # decimals back off the figures it just produced.
+        totals_number_format = "#,##0.00" if totals_currency in {"USD", "EUR"} else "#,##0"
         label_col = max(1, tp_col - 1)
         value_col = tp_col
         tot_font = _font(size=10, bold=True, color=_NAVY)
@@ -879,7 +700,7 @@ def _write_professional_sheet(
             val.fill = tot_fill
             val.alignment = _align("center", "center")
             val.border = grid
-            val.number_format = "#,##0"
+            val.number_format = totals_number_format
             cursor += 1
 
     elif price_formulas and n_data and tp_col:
@@ -925,8 +746,12 @@ def _write_professional_sheet(
             align=_align("right", "center"),
         )
 
-    ws.freeze_panes = "A9"
-    ws.print_title_rows = "1:8"
+    # The header band does not always land on row 8: dropping the CLIENT box
+    # (grouped supply) pulls it up, a section title pushes it down. Anchoring the
+    # frozen pane and the repeated print rows to the row the header actually
+    # occupies stops the first item lines being frozen and reprinted as titles.
+    ws.freeze_panes = f"A{data_start}"
+    ws.print_title_rows = f"1:{header_row}"
     ws.page_setup.orientation = "landscape"
     ws.page_setup.fitToPage = True
     ws.page_setup.fitToWidth = 1
@@ -1080,82 +905,12 @@ def export_supply_grouped_excel(case, form) -> tuple[bytes, str]:
 
 
 # ---------------------------------------------------------------------------
-# HTML
-# ---------------------------------------------------------------------------
-def export_form_html(case, form) -> tuple[str, str]:
-    from .export_data import build_export_rows
-
-    name = export_name_for(case, form)
-    pairs = _export_columns(form)
-    columns = [t for t, _k in pairs]
-    keys = [_k for _t, _k in pairs]
-    rows = build_export_rows(case, form)
-
-    head = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
-<title>{html.escape(name)}</title>
-<style>
- body{{font-family:'Segoe UI',Calibri,Arial,sans-serif;color:#1B3A4B;margin:24px;}}
- .doc-head{{display:flex;justify-content:space-between;align-items:flex-end;
-   border-bottom:3px solid #1B3A4B;padding-bottom:10px;margin-bottom:14px;}}
- .doc-head h1{{font-size:22px;margin:0;letter-spacing:.04em;}}
- .doc-head .kind{{font-size:12px;color:#5A6A7A;font-weight:700;text-transform:uppercase;}}
- .boxes{{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:8px 0 16px;}}
- .box{{border:1px solid #D0D7DE;border-radius:8px;padding:8px 12px;background:#F4F7FA;}}
- .box b{{display:block;font-size:10px;color:#5A6A7A;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px;}}
- table{{width:100%;border-collapse:collapse;font-size:12px;}}
- th{{background:#1B3A4B;color:#fff;padding:7px 6px;border:1px solid #143040;text-align:center;}}
- td{{padding:5px 6px;border:1px solid #D8DEE6;}}
- tr:nth-child(even) td{{background:#F7F9FC;}}
- .foot{{margin-top:18px;padding-top:10px;border-top:1px solid #D0D7DE;
-   display:flex;justify-content:space-between;font-size:11px;color:#6B7785;}}
-</style></head><body>
-<div class="doc-head"><h1>FOOLAD TABAR</h1>
-<div class="kind">{html.escape(form.get_kind_display())}</div></div>
-<div class="boxes">
- <div class="box"><b>Document No.</b>{html.escape(_doc_no(case, form))}</div>
- <div class="box"><b>Date</b>{html.escape(_form_date_jalali(form))}</div>
- <div class="box"><b>Client</b>{html.escape(_client_name_only(case, form))}</div>
- <div class="box"><b>Project</b>{html.escape(_order_no(case, form) or '—')}</div>
-</div>
-<table><thead><tr>"""
-    head += "".join(f"<th>{html.escape(str(c))}</th>" for c in columns)
-    head += "</tr></thead><tbody>"
-
-    body_rows = []
-    for row in rows:
-        cells = "".join(
-            f"<td>{html.escape(str(row.get(k, '') or ''))}</td>" for k in keys
-        )
-        body_rows.append(f"<tr>{cells}</tr>")
-    body = "".join(body_rows) + "</tbody></table>"
-
-    foot = f"""<div class="foot">
-<span>Foolad Tabar  ·  {html.escape(form.get_kind_display())}  ·  {len(rows)} item(s)</span>
-<span>Exported {html.escape(timezone.localtime().strftime('%Y-%m-%d %H:%M'))}</span>
-</div>"""
-
-    return head + body + foot + "</body></html>", name + ".html"
-
-
-# ---------------------------------------------------------------------------
 # PDF — professional print layout (see pdf_export.py)
 # ---------------------------------------------------------------------------
+# The browser "Print view" is rendered by pdf_export.render_print_view_html from
+# the same template as the PDF, so there is deliberately no second HTML writer
+# here — the one that used to live in this module was never routed to and had
+# already drifted away from the real document.
 def export_form_pdf(case, form, terms: dict | None = None) -> tuple[bytes, str]:
     from .pdf_export import render_form_pdf
     return render_form_pdf(case, form, terms=terms)
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-def _columns_from_table(table) -> list:
-    if table and isinstance(table[0], dict):
-        return list(table[0].keys())
-    return []
-
-
-def _cell(row: dict, title) -> str:
-    value = row.get(title)
-    if value is None:
-        value = row.get(str(title), "")
-    return "" if value is None else str(value)

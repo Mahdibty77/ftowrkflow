@@ -287,8 +287,22 @@ def upload_excel(request):
             excel_file = request.FILES['file']
             data_path = json_path("data.json")
             json_dict = load_json_file(data_path)
-            df_result = process_excel_with_json(excel_file, json_dict)
-            table_html = dataframe_to_html_with_ids(df_result, data_json=json_dict)
+            # UploadFileForm accepts any file, and pandas raises hard on anything
+            # that is not a readable workbook (a .csv, a legacy .xls, a sheet with
+            # fewer than four columns). Picking the wrong file is a user mistake,
+            # not a server fault, so report it on the form instead of letting the
+            # exception escape as a 500 that also loses the upload.
+            try:
+                df_result = process_excel_with_json(excel_file, json_dict)
+            except Exception:
+                logger.exception("upload_excel could not read the uploaded file")
+                form.add_error(
+                    'file',
+                    "This file could not be read. Please upload an .xlsx workbook "
+                    "whose first four columns are the item rows."
+                )
+            else:
+                table_html = dataframe_to_html_with_ids(df_result, data_json=json_dict)
     else:
         form = UploadFileForm()
 

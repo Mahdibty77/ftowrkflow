@@ -17,11 +17,12 @@ from types import SimpleNamespace
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.db import transaction
 from django.db.models import Prefetch, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.utils.http import urlencode
+from django.utils.http import url_has_allowed_host_and_scheme, urlencode
 
 from accounts.constants import Role, Unit
 
@@ -105,10 +106,11 @@ def _parse_rows(form, files) -> list[dict]:
     )]
 
 
-def _rows_from_excel(file_obj) -> list[dict]:
+def _rows_from_excel(file_obj, max_rows: int | None = None) -> list[dict]:
     import openpyxl
 
     rows: list[dict] = []
+    filled = 0
     wb = openpyxl.load_workbook(file_obj, read_only=True, data_only=True)
     ws = wb.active
     for idx, raw in enumerate(ws.iter_rows(values_only=True)):
@@ -120,6 +122,31 @@ def _rows_from_excel(file_obj) -> list[dict]:
             cells = cells[1:]
         # Source columns are Description, Size, Qty, Unit (qty before unit).
         cells = (cells + ["", "", "", ""])[:4]
+        # A row with nothing in any of the four columns is skipped outright.
+        # In read-only mode openpyxl yields one tuple per row of the sheet's
+        # STORED DIMENSION, not per row of data, so a workbook carrying a
+        # handful of items plus formatting applied down a whole column arrives
+        # here as tens of thousands of empty tuples. Building a dict for each of
+        # them filled a worker with megabytes of blanks, and counting them
+        # towards ``max_rows`` refused perfectly ordinary inquiries.
+        #
+        # Dropping them here cannot change any caller's result: both callers
+        # already discard exactly these rows (``_parse_rows`` above and
+        # ``preview_excel``'s ``any(r.values())``), and the values are the same
+        # stripped strings both filters test.
+        if not any(cells):
+            continue
+        # ``max_rows`` is opt-in and only the preview endpoint sets it: a preview
+        # is a convenience for a human-sized inquiry, so an absurd workbook is
+        # refused before it is turned into dicts. Case creation deliberately
+        # passes no cap, so no inquiry that can be created today stops working.
+        filled += 1
+        if max_rows is not None and filled > max_rows:
+            wb.close()
+            raise ValueError(
+                f"the sheet has more than {max_rows:,} rows. "
+                "Split it into smaller files before previewing."
+            )
         rows.append({"description": cells[0], "size": cells[1],
                      "quantity": cells[2], "unit": cells[3]})
     wb.close()
@@ -161,6 +188,12 @@ def _looks_like_header(raw) -> bool:
     return any(k in text for k in ("description", "item", "size", "unit", "qty", "quantity"))
 
 
+# Upper bound for the *preview* parse only (see ``_rows_from_excel``). No real
+# inquiry comes anywhere near this; it exists so an uploaded workbook cannot be
+# expanded into an unbounded list of dicts inside a worker.
+MAX_PREVIEW_ROWS = 5000
+
+
 @login_required
 def preview_excel(request):
     """Parse an uploaded Excel file and return its rows as JSON.
@@ -169,10 +202,24 @@ def preview_excel(request):
     imported rows before creating the case.
     """
     from django.http import JsonResponse
+    from people.role_nav import work_context
     if request.method != "POST" or not request.FILES.get("excel_file"):
         return JsonResponse({"ok": False, "error": "No file uploaded."}, status=400)
+    # Only the two Commercial screens (new case / edit items) embed this URL, and
+    # only Commercial may ever create or edit an inquiry — so parsing an upload
+    # here is Commercial work. Without this, any logged-in account could feed
+    # the parser, which is why the endpoint is gated the same way its callers are.
+    profile = _profile(request.user)
+    ctx = work_context(request)
+    is_comm = bool(
+        (ctx.role and ctx.role.unit == Unit.COMMERCIAL)
+        or (profile and profile.unit == Unit.COMMERCIAL)
+        or (profile and profile.is_admin)
+    )
+    if not is_comm:
+        return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
     try:
-        rows = _rows_from_excel(request.FILES["excel_file"])
+        rows = _rows_from_excel(request.FILES["excel_file"], max_rows=MAX_PREVIEW_ROWS)
     except Exception as exc:  # pragma: no cover - defensive
         return JsonResponse({"ok": False, "error": f"Could not read the file: {exc}"}, status=400)
     rows = [r for r in rows if any(r.values())]
@@ -277,7 +324,16 @@ def archive(request):
 
     select_mode = str(request.GET.get("select") or "").strip() in ("1", "true", "yes")
     select_return = (request.GET.get("return") or "").strip()
-    if select_mode and not select_return.startswith("/"):
+    # "Starts with a slash" is not the same as "stays on this site": a
+    # protocol-relative URL (//evil.example/x, or /\evil.example) passes that
+    # test, and the Cancel link / Confirm-selection script would then carry the
+    # picked case ids off to another host. The leading slash is kept so the
+    # accepted set is still exactly "a path on this site"; Django's own helper is
+    # what recognises the host-bearing forms that sneak through it.
+    if select_mode and not (
+            select_return.startswith("/")
+            and url_has_allowed_host_and_scheme(
+                url=select_return, allowed_hosts={request.get_host()})):
         select_return = ""
 
     qs = Case.objects.select_related("client", "created_by").all()
@@ -1736,42 +1792,48 @@ def edit_items(request, pk):
             messages.success(request, "Case updated.")
             return redirect("cases:case_detail", pk=pk)
 
-        case.line_items.all().delete()
-        items = []
-        flagged_table = []
-        for idx, row in enumerate(rows, start=1):
-            # Fresh draft (before the first action): the client row (#) reflows
-            # 1..N exactly like Item. After the case has moved (a new version),
-            # soft-deleted rows stay in the table with _deleted=1.
-            if is_fresh_draft:
-                cr = idx
-            else:
-                try:
-                    cr = int(str(row.get("client_row", "")).strip() or idx)
-                except (ValueError, TypeError):
+        # The whole inquiry is rewritten by wiping the pool and re-inserting it,
+        # so the delete and the insert have to succeed or fail together. Without
+        # the transaction a single unstorable cell (an over-long Unit, a negative
+        # client row) let the DELETE commit and the INSERT blow up, leaving the
+        # case with no items at all. Rows and numbering are unchanged.
+        with transaction.atomic():
+            case.line_items.all().delete()
+            items = []
+            flagged_table = []
+            for idx, row in enumerate(rows, start=1):
+                # Fresh draft (before the first action): the client row (#) reflows
+                # 1..N exactly like Item. After the case has moved (a new version),
+                # soft-deleted rows stay in the table with _deleted=1.
+                if is_fresh_draft:
                     cr = idx
-            items.append(LineItem(
-                case=case, row_no=idx, client_row=cr,
-                description=str(row.get("description", "")).strip(),
-                size=str(row.get("size", "")).strip(),
-                unit=str(row.get("unit", "")).strip(),
-                quantity=str(row.get("quantity", "")).strip(),
-            ))
-            entry = {
-                "#": cr,
-                "Item": idx,
-                "Description": str(row.get("description", "")).strip(),
-                "Size": str(row.get("size", "")).strip(),
-                "Qty": str(row.get("quantity", "")).strip(),
-                "Unit": str(row.get("unit", "")).strip(),
-            }
-            if not is_fresh_draft and str(row.get("deleted", "") or "") == "1":
-                entry["_deleted"] = "1"
-            if not is_fresh_draft and str(row.get("added", "") or "") == "1":
-                entry["_added"] = "1"
-            flagged_table.append(entry)
-        if items:
-            LineItem.objects.bulk_create(items)
+                else:
+                    try:
+                        cr = int(str(row.get("client_row", "")).strip() or idx)
+                    except (ValueError, TypeError):
+                        cr = idx
+                items.append(LineItem(
+                    case=case, row_no=idx, client_row=cr,
+                    description=str(row.get("description", "")).strip(),
+                    size=str(row.get("size", "")).strip(),
+                    unit=str(row.get("unit", "")).strip(),
+                    quantity=str(row.get("quantity", "")).strip(),
+                ))
+                entry = {
+                    "#": cr,
+                    "Item": idx,
+                    "Description": str(row.get("description", "")).strip(),
+                    "Size": str(row.get("size", "")).strip(),
+                    "Qty": str(row.get("quantity", "")).strip(),
+                    "Unit": str(row.get("unit", "")).strip(),
+                }
+                if not is_fresh_draft and str(row.get("deleted", "") or "") == "1":
+                    entry["_deleted"] = "1"
+                if not is_fresh_draft and str(row.get("added", "") or "") == "1":
+                    entry["_added"] = "1"
+                flagged_table.append(entry)
+            if items:
+                LineItem.objects.bulk_create(items)
 
         if is_fresh_draft:
             # Fresh draft: every field is editable (not logged).
@@ -1907,8 +1969,31 @@ def transition(request, pk):
             messages.error(request, f"Currency conversion failed: {exc}")
             return redirect("cases:case_detail", pk=pk)
 
-    if action not in allowed and not services.can_do_side_action(
-            case, request.user, action, side, role=ctx.role, work_user=ctx.seat_user):
+    # On a split case these actions dispatch to a per-side service below, and only
+    # ``can_do_side_action`` looks at that side's own holder and status. The
+    # whole-case rule reads ``case.status``, which stays behind on a split case
+    # (a two-stage upgrade deliberately never rewrites it), so accepting it here
+    # would let a stale whole-case status finalise or burn a side that never went
+    # to the client — and finalising auto-cancels the sibling side. Whole-case
+    # POSTs (no side) and every other action keep the original rule.
+    # ``assign`` is here for the same reason: the whole-case grant is the sideless
+    # "both sides" delegation Technical does, so honouring it for a POST that
+    # names a side would let a manager assign a side its own unit does not hold —
+    # writing an expert from the wrong pool into that side's assignee, which no
+    # real holder can then act on or clear. A sided assign belongs to that side's
+    # holding unit, which is exactly what ``can_do_side_action`` checks.
+    side_dispatched = (
+        case.is_split and side in (Side.INTERNAL, Side.EXTERNAL)
+        and action in {"close", "send_to_client", "request_cancel",
+                       "finalize", "final_close", "burn", "assign"}
+    )
+    if side_dispatched or action not in allowed:
+        permitted = services.can_do_side_action(
+            case, request.user, action, side,
+            role=ctx.role, work_user=ctx.seat_user)
+    else:
+        permitted = True
+    if not permitted:
         messages.error(request, "That action is not available right now.")
         return redirect("cases:case_detail", pk=pk)
 
@@ -1937,6 +2022,9 @@ def transition(request, pk):
             services.close_side(case, actor, _side, comment)
         elif action == "request_cancel" and case.is_split and _side:
             services.cancel_side(case, actor, _side, comment)
+        # Unreachable today: neither allowed_actions nor can_do_side_action ever
+        # grants "propose_send", so the gate above rejects the POST first. Kept
+        # wired for the day the propose/approve step is switched back on.
         elif action == "propose_send":
             proposed = request.POST.get("proposed_action", "")
             services.propose_send(case, actor, proposed, comment)
@@ -1944,17 +2032,37 @@ def transition(request, pk):
             services.approve_send(case, actor, comment)
         elif action == "assign":
             assignee_id = request.POST.get("assignee")
-            assignee = get_object_or_404(User, pk=assignee_id)
+            # The assignee must come from the same pool the UI offers. services
+            # .assign writes the FK without looking at the target's profile, so a
+            # hand-crafted pk would park the case on someone outside the holding
+            # unit: it then drops out of every inbox and the manager loses the
+            # "assign" action, leaving nobody who can undo it. The holding unit is
+            # resolved exactly the way services.assign picks its target field.
+            if case.is_split and not _side and (
+                    case.side_holder(Side.INTERNAL) == Unit.TECHNICAL
+                    or case.side_holder(Side.EXTERNAL) == Unit.TECHNICAL):
+                assign_unit = Unit.TECHNICAL
+            elif case.is_split and _side in (Side.INTERNAL, Side.EXTERNAL):
+                assign_unit = case.side_holder(_side)
+            else:
+                assign_unit = case.holder_unit
+            assignee = get_object_or_404(
+                User.objects.filter(profile__unit=assign_unit,
+                                    profile__role=Role.EXPERT, is_active=True),
+                pk=assignee_id,
+            )
             services.assign(case, actor, assignee, comment=comment,
                             side=request.POST.get("side", ""))
         elif action == "close":
             services.close_case(case, actor, comment)
         elif action == "cannot_supply":
             services.mark_cannot_supply(case, actor, comment, side=request.POST.get("side", ""))
-        elif action == "approve_unsuppliable":
-            services.approve_unsuppliable(case, actor, comment)
-        elif action == "reject_unsuppliable":
-            services.reject_unsuppliable(case, actor, comment)
+        # There is deliberately no approve/reject step for "cannot supply": the
+        # decision goes live immediately via mark_cannot_supply above (status
+        # UNSUPPLIABLE, no review). The approve_unsuppliable / reject_unsuppliable
+        # branches that used to sit here could never run — nothing granted those
+        # actions, so the permission gate above rejected the POST first — and were
+        # removed along with their services functions and case-page buttons.
         elif action == "return_to_supply":
             services.return_to_supply(case, actor, comment, side=_side)
         elif action == "finalize" and case.is_split and _side:
@@ -2194,6 +2302,12 @@ def log_currency_conversion(request, pk):
     profile = _profile(request.user)
     if profile is None:
         return JsonResponse({"ok": False, "error": "Unauthorized"}, status=403)
+    # This writes an audit row against a specific case, so — exactly like the
+    # export routes — being in the right unit is not enough on its own: the
+    # caller must also be able to see *this* case, or a guessed pk lets anyone
+    # in Supply/Commercial file fabricated entries on files they never touched.
+    if not services.user_can_view_case(case, request.user):
+        return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
     # Supply / Commercial / admin / GM may log conversions they perform.
     if not (profile.is_admin or profile.is_general_manager
             or profile.unit in (Unit.SUPPLY, Unit.COMMERCIAL)):
