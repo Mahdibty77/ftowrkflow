@@ -1,23 +1,40 @@
 """
 Django settings for the Foolad Tabar Workflow platform.
 
-This single project hosts several cooperating apps:
-    core      - shared base templates, theming and dashboards entry point
+This single project hosts several cooperating apps. Start here, then open the
+app you need:
+    core      - shared base templates, theming, the landing router and the
+                authenticated /media/ server
     accounts  - users, profiles, units, roles, signatures, admin user creation
     cases     - the heart: cases (files), clients, expert codes, forms, workflow
     itemcoder - item coding / pricing engine (Tool Data + Build TO/PI)
-    reports   - management dashboards and reporting
+    reports   - management dashboards and reporting (read-only over `cases`)
+    people    - personnel records, work shifts and staff requests
+    licensing - offline RSA licence activation and the request gate
 
-Environment variables (all optional in development):
-    DJANGO_SECRET_KEY   - production secret key
-    DJANGO_DEBUG        - "1"/"0"
-    DJANGO_ALLOWED_HOSTS- comma separated host list
-    DJANGO_DB_ENGINE    - "sqlite" (default) or "postgres"
-    POSTGRES_*          - connection details when DJANGO_DB_ENGINE=postgres
+The URL map that mounts them all is ftworkflow/urls.py; it is the other half of
+this front door and documents why a few paths are aliased at site root.
+
+Environment variables this file reads. All but one have a working default, and
+the exception is the one that catches people out: with nothing set at all,
+DJANGO_DEBUG is False, and a False DEBUG makes DJANGO_SECRET_KEY mandatory — so
+a bare checkout does not start. Export DJANGO_DEBUG=1 for local work, or a real
+DJANGO_SECRET_KEY for anything else. (Nothing here reads a .env file.)
+    DJANGO_SECRET_KEY            - production secret key; required when DEBUG=0
+    DJANGO_DEBUG                 - "1"/"0" (default "0")
+    DJANGO_CSRF_TRUSTED_ORIGINS  - comma separated origins for CSRF
+    DJANGO_DB_ENGINE             - "sqlite" (default) or "postgres"
+    POSTGRES_*                   - connection details when DJANGO_DB_ENGINE=postgres
+    DJANGO_TIME_ZONE             - default "Asia/Tehran"
+    REQUIRE_FTCO_CODE_TO_SUPPLY  - workflow policy switch, see below
+    REDIS_URL                    - opt-in cache backend; falls back to the DB cache
+    DJANGO_SECURE_SSL            - turn on HTTPS-only cookies/redirects/HSTS
+    DJANGO_HSTS_SECONDS          - HSTS max-age when DJANGO_SECURE_SSL is on
+
+DJANGO_ALLOWED_HOSTS is deliberately NOT in that list - see ALLOWED_HOSTS below.
 """
 
 import os
-import re
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -55,10 +72,13 @@ if not SECRET_KEY or SECRET_KEY == _INSECURE_KEY:
             "running with DJANGO_DEBUG=0."
         )
 
-# Intentionally open to any host. DJANGO_ALLOWED_HOSTS is documented for
-# operators and used by Compose, but the app keeps ["*"] so existing
-# deployments are not broken by an incomplete host list.
-
+# Open to any host, permanently, by the owner's decision. This is not an
+# oversight and it is not a TODO: these installs are reached by bare IP on an
+# internal network, and an incomplete host list has broken a deployment before.
+#
+# Consequently DJANGO_ALLOWED_HOSTS is NOT read anywhere in this project. It may
+# still appear in docker-compose.yml / .env for operators, where it is inert.
+# Setting it changes nothing — please do not spend an afternoon wiring it up.
 ALLOWED_HOSTS = ["*"]
 
 CSRF_TRUSTED_ORIGINS = [
@@ -89,6 +109,36 @@ INSTALLED_APPS = [
     "licensing.apps.LicensingConfig",
 ]
 
+# This order is load-bearing; please read it before moving anything.
+#
+# The first eight entries are Django's own stack, in Django's own order, plus
+# WhiteNoise (which serves static files efficiently in production and must sit
+# high enough to answer before anything else looks at the request).
+#
+# The last three are this project's gates. Each one inspects the request and may
+# redirect it somewhere else instead of letting it through, so their relative
+# order decides who wins when more than one of them is unhappy at the same time.
+# Two constraints fix that order:
+#
+#   * all three read ``request.user``, so all three must stay BELOW
+#     AuthenticationMiddleware. That is the only hard requirement any of them
+#     has; none of the three uses the messages framework, so sitting under
+#     MessageMiddleware is simply where the end of Django's own stack puts them,
+#     not a constraint of their own;
+#   * the shift gate goes first, not because it is the widest rule but because
+#     it is the only one that does more than redirect: it logs the session out,
+#     and there is no sense asking a session that is about to end for a licence
+#     or a new password. Widest it is not — ``work_shift.shift_exempt`` lets
+#     superusers, administrators and general managers straight through, and
+#     ``shift_window`` reads each ``Person``'s own work_start / work_end, so it
+#     is a per-person schedule, not an install-wide switch. The remaining two do
+#     go widest first: an unlicensed install is locked for everybody, and only
+#     then is a single account asked to change its password. Put the password
+#     gate first and a locked-out install would hide behind a password prompt.
+#
+# Each gate keeps its own allow-list of paths that stay reachable while it is
+# closed — the activation page, the password-change screen, static files — so a
+# closed gate can still be opened. See the three middleware modules for those.
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     # WhiteNoise serves static files efficiently in production.
@@ -99,17 +149,14 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    # Daily work-shift gate (after auth so request.user is set).
+    # Ends a session when the user's daily work shift is over.
     "people.middleware.WorkShiftMiddleware",
-    # License gate runs last: session, auth and messages are available, and it
-    # redirects every non-allowlisted request to the activation page when the
+    # Sends every non-allowlisted request to the activation page while the
     # software is not validly licensed.
     "licensing.middleware.LicenseGateMiddleware",
-    # Password-change gate runs after the license gate (an invalid license
-    # still takes priority for everyone), and redirects every non-allowlisted
-    # request to the forced password-change screen for an account that has
-    # must_change_password set — a freshly created account or one an admin
-    # just reset. See accounts/middleware.py.
+    # Sends every non-allowlisted request to the forced password-change screen
+    # for an account with must_change_password set — a freshly created account,
+    # or one an admin just reset.
     "accounts.middleware.MustChangePasswordMiddleware",
 ]
 

@@ -1,4 +1,21 @@
-"""Auth hooks for work-shift day login/logout stamps."""
+"""Auth hooks for work-shift day login/logout stamps.
+
+Connected from ``PeopleConfig.ready``. Every successful sign-in stamps the
+person's ``ShiftDayLog`` via ``shift_hours.note_shift_login`` and every sign-out
+closes it via ``note_shift_logout``; those two functions hold all the accrual
+rules, and ``people.shift_hours`` explains the model they implement.
+
+The one judgement made here is when NOT to stamp. An administrator using "log
+in as user" fires the same auth signals as the real person would, so
+impersonation must not write attendance for someone who is not at their desk —
+``_is_impersonating`` catches both ends of that (starting the impersonation, and
+returning from it). ``_safe_person`` is the other filter: it yields nothing for
+an account that is exempt from the shift gate at all (administrators, the
+General Manager) or that has no linked ``Person`` to stamp against.
+``_explicit_sign_out`` separately distinguishes a person
+clicking Sign out from a session simply ending, because the two mean different
+things to the reconnect grace.
+"""
 from django.contrib.auth.signals import user_logged_in, user_logged_out
 
 

@@ -1,7 +1,35 @@
-"""Single-record and live row processing.
+"""The coding engine for ONE row — the heart of itemcoder.
 
-This module contains the main text-processing workflows used by both the initial
-Excel upload and AJAX row updates. URL/view code remains in views.py.
+``process_text_record_live`` is the single pipeline every row goes through, from
+both directions:
+
+* Build TO / upload — excel_processor calls ``process_text_record`` (a thin
+  wrapper that passes empty remark/revision), once per inquiry row;
+* live typing — views.process_row_ajax calls ``process_text_record_live``
+  directly whenever the user edits Remark or Revision.
+
+Keeping ONE function for both is deliberate: entry and edit must agree on the
+group, the features, the alarms and the FTCO text, or a row would change meaning
+just by being touched.
+
+Stage order inside that function, and who owns each stage:
+
+    normalizers          clean the description down to comparable tokens
+    feature_extractor    find_group / find_type / find_group_features
+    (this module)        _build_features_container gathers the group+type
+                         feature set from data.json; the remark and revision
+                         snippets are extracted SEPARATELY and merged
+    revision_set         apply ``set(var:value)`` overrides from Revision
+    rule_engine          apply_rules → colours + Target_Values_Map
+    alarm_builder        which expected features are still missing
+    (this module)        _scrub_non_vocabulary_features drops free-text
+                         leftovers that are not in data.json
+    final_arrange_builder  render Final_Text / Filled_Features
+    code_assigner        assign_code_from_csv, but only when the row is clean
+                         enough to search (see can_run_assign_code)
+
+Everything returned lives in one dict; views turns it into JSON, excel_processor
+turns it into a DataFrame row.
 """
 
 import re
@@ -14,21 +42,19 @@ from .feature_extractor import (
     find_type,
     refresh_alarm_dependency_metadata,
     apply_type_dependency_metadata,
-    _clean_type_key,
 )
 from .regex_patterns import load_feature_values
 from .final_arrange_builder import build_final_arrange_and_features
 from .normalizers import (
     clean_for_group_and_features,
     preserve_original,
-    remove_first_occurrence,
     parse_feature_pattern_key,
     parse_feature_dependency_markers,
 )
 from .composite_keys import alias_key_matches, get_by_alias
 from .revision_set import apply_set_commands, parse_set_commands, strip_set_commands
 from .rule_engine import apply_rules
-from .runtime_cache import get_row_base_cache, store_row_base_cache
+from .runtime_cache import get_row_base_cache
 
 # Vocabulary scrub maps are identical for a given group/type; build once.
 _VOCAB_CANON_CACHE = {}
@@ -97,18 +123,12 @@ def _strip_group_type_identity_tokens(clean_text, group_dict, group_key, type_ke
     return text
 
 
-def _feature_value_vocabulary(features_container):
-    """Canonical tokens allowed in FTCO DISCRIPTION from data.json features.
-
-    Free-text leftovers from Client Description (e.g. ``sf``, ``gfs``) are never
-    in this set, so they cannot appear after the group prefix.
-    """
-    vocab, _canon = _feature_vocab_and_canonical_map(features_container)
-    return vocab
-
-
 def _feature_vocab_and_canonical_map(features_container, cache_key=None):
     """Build scrub vocabulary and cleaned-token → canonical base_name map.
+
+    The vocabulary is every token data.json allows in FTCO DISCRIPTION for this
+    group/type; free-text leftovers from Client Description (``sf``, ``gfs``) are
+    never in it, so _scrub_non_vocabulary_features can drop them.
 
     Aliases like ``#150`` / ``A105`` must resolve to the JSON key display names
     ``Class 150`` / ``ASTM A105`` (spaces preserved), never the short matched

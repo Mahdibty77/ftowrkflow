@@ -15,6 +15,17 @@ Column-header grammar (examples from the CSV header row)::
 Parentheses around the column name mean: match only with the declared
 prefix/suffix forms. Square brackets mean: also accept the bare cell value
 (after affix forms have been tried).
+
+``resolve_size`` is the entry point. On the request path nothing calls it
+directly: excel_processor (once per upload row) and bridge.py (re-displaying a
+case cell) both go through ``feature_extractor.confind_size``, the wrapper that
+supplies the group and turns any failure into an unmapped size rather than a
+broken row. The one direct importer is ``resources/json/validate.py``, a
+standalone delivery-checking script that exercises ``resolve_size`` and
+``parse_column_header`` against fixed probes — no view reaches it, but the header
+grammar above does have that second reader, so renaming either name breaks it
+silently. ``clear_find_size_cache`` is called by constants.clear_data_caches()
+after an admin edits reference data.
 """
 
 from __future__ import annotations
@@ -23,7 +34,6 @@ import csv
 import os
 import re
 from functools import lru_cache
-from typing import Iterable
 
 from .resource_paths import csv_path, resolve_resource_path
 
@@ -100,8 +110,6 @@ def _values_equal(a: str, b: str) -> bool:
 
 def _affix_candidates(value: str, prefixes: list[str], suffixes: list[str]) -> list[str]:
     """Build match strings with at least one prefix or suffix applied."""
-    prefs = prefixes or [""]
-    sufs = suffixes or [""]
     out: list[str] = []
     seen: set[str] = set()
 
@@ -213,11 +221,6 @@ def resolve_find_size_path(group=None) -> str | None:
         if os.path.isfile(direct):
             return direct
     return None
-
-
-# Back-compat alias used by older call sites / validate helpers.
-def _resolve_find_size_path(group=None) -> str | None:
-    return resolve_find_size_path(group)
 
 
 @lru_cache(maxsize=32)

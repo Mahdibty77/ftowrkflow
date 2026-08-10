@@ -1,4 +1,22 @@
-"""Small, dependency-free template helpers used across the platform."""
+"""Template filters, loaded with ``{% load ft_extras %}``.
+
+Four groups, in the order they appear below:
+
+    dictget / get_item      variable-key lookups, which the dot syntax cannot do
+    jalali, featdisp,       display formatting: Shamsi dates, feature values,
+    phone_fmt               phone numbers
+    visible_form_columns    everything that renders a SAVED Technical Offer or
+    and the filters under   Proforma table so it matches the live itemcoder tool
+    it                      exactly — same columns, same titles, same row
+                            colours. The column map here mirrors
+                            itemcoder.table_layout_manager.COLUMN_TITLES.
+    money_with_currency     thin wrappers over cases.export_data, so a price is
+    and the filters under   formatted identically on screen and in the exported
+    it                      document rather than by two sets of rules
+
+Filters that need `cases` import it inside the function body; nothing in this
+module imports a model at module level.
+"""
 from __future__ import annotations
 
 from django import template
@@ -226,8 +244,7 @@ def hash_display(value):
     s = clean_cell_display(value)
     if not s:
         return ""
-    import re
-    return re.sub(r"[\s−+\-]+$", "", s).strip()
+    return _re.sub(r"[\s−+\-]+$", "", s).strip()
 
 
 @register.filter
@@ -239,7 +256,6 @@ def ftco_desc_display(value):
     text only — colours belong to the tool, not the read-only table — so strip
     every tag and unescape entities. Returned as normal (auto-escaped) text.
     """
-    import re
     import html as _html
 
     s = str(value if value is not None else "")
@@ -250,11 +266,11 @@ def ftco_desc_display(value):
     if "&lt;" in low and any(t in low for t in ("span", "bdi", "br")):
         s = _html.unescape(s)
     # Drop <br> as a space so multi-line arranged text stays readable on one row.
-    s = re.sub(r"<br\s*/?>", " ", s, flags=re.I)
+    s = _re.sub(r"<br\s*/?>", " ", s, flags=_re.I)
     # Remove all remaining tags (colour spans, bdi, …) -> plain text.
-    s = re.sub(r"<[^>]+>", "", s)
+    s = _re.sub(r"<[^>]+>", "", s)
     s = _html.unescape(s)
-    return re.sub(r"\s+", " ", s).strip()
+    return _re.sub(r"\s+", " ", s).strip()
 
 
 @register.filter

@@ -1,7 +1,36 @@
 """Personnel staff requests (Overtime) — Person-scoped.
 
-Keeps CaseForm / seats out of scope. Reuses work_shift + shift_hours for
-overtime window extension and day/month reporting.
+Every rule of the request workflow lives here; ``people.views_requests`` only
+draws the screens. Scoped to the ``Person``, deliberately: a request is raised
+by a human about their own hours, so nothing here touches CaseForm or the seat
+model — a case may be *referenced* by a request, but only as a link.
+
+The functions group into five bands. The bands are a map of what is here, not of
+where it sits: the file has grown by appending, so several functions live outside
+the band they belong to (the unread counters and ``linked_cases_display`` are the
+obvious ones). Go by name, not by position.
+
+* ACCESS — ``ensure_request_types`` seeds the one type that exists today
+  (Overtime) and the ``PersonRequestAccess`` helpers decide who may raise it.
+* THE WINDOW — this is the part that reaches outside the app.
+  ``approved_overtime_minutes_for_day`` is the day's approved total, and it is
+  the piece the login gate actually consults: ``work_shift.shift_status`` imports
+  it directly and pushes the effective shift end that many minutes later, which
+  is what stops ``WorkShiftMiddleware`` signing a person out mid-overtime.
+  ``extended_shift_end`` / ``is_within_extended_window`` express the same window
+  as datetimes for ``shift_hours``, which asks them whether a heartbeat arriving
+  after the normal close is presence it may credit as overtime. Approving a
+  request does NOT hand out minutes: it only raises the ceiling that actual
+  presence may then be credited up to.
+* THE WORKFLOW — ``allocate_request_code`` numbers a request,
+  ``submit_overtime`` raises one, ``decide_overtime`` approves or rejects it and
+  re-rolls the affected month.
+* QUEUES AND BADGES — the split of a person's requests into active vs history,
+  the General Manager's inbox, and the seen/unseen stamps behind the two unread
+  counters (requester and reviewer are tracked separately).
+* PRESENTATION — ``history_rows_enriched`` and ``filter_options_from_rows``
+  shape rows for the tables; ``linked_cases_display`` resolves referenced cases
+  and tolerates the cases app being unreadable.
 """
 from __future__ import annotations
 
@@ -16,7 +45,6 @@ from .models import (
     Person,
     PersonRequestAccess,
     RequestType,
-    ShiftDayLog,
     StaffRequest,
 )
 from .work_shift import now_local, person_for_user, shift_window
@@ -48,13 +76,6 @@ def active_request_types() -> list[RequestType]:
         RequestType.objects.filter(is_active=True, code=RequestType.CODE_OVERTIME)
         .order_by("sort_order", "title")
     )
-
-
-def pending_request_count() -> int:
-    return StaffRequest.objects.filter(
-        status=StaffRequest.STATUS_SUBMITTED,
-        request_type__code=RequestType.CODE_OVERTIME,
-    ).count()
 
 
 def unread_pending_count() -> int:
@@ -296,15 +317,6 @@ def decide_overtime(
     return req
 
 
-def _credit_overtime_day(person: Person, day: date, minutes: int) -> None:
-    """Refresh day OT from actual presence (kept for compatibility callers)."""
-    from . import shift_hours as sh
-
-    # overtime_minutes on the day log is presence-based; only refresh month totals.
-    sh.freeze_past_months(person)
-    sh.refresh_worked(person)
-
-
 def _cases_by_id(case_ids: list[int]):
     """Case rows for these ids, or None when the cases app cannot be read."""
     if not case_ids:
@@ -349,24 +361,6 @@ def gm_pending_overtime():
         )
         .select_related("person", "request_type", "created_by")
         .order_by("submitted_at", "pk")
-    )
-
-
-def decided_count_for_person(person: Person, type_code: str | None = None) -> int:
-    qs = StaffRequest.objects.filter(
-        person=person,
-        status__in=[StaffRequest.STATUS_APPROVED, StaffRequest.STATUS_REJECTED],
-    )
-    if type_code:
-        qs = qs.filter(request_type__code=type_code)
-    return qs.count()
-
-
-def decided_qs_for_type(person: Person, type_code: str):
-    return StaffRequest.objects.filter(
-        person=person,
-        request_type__code=type_code,
-        status__in=[StaffRequest.STATUS_APPROVED, StaffRequest.STATUS_REJECTED],
     )
 
 

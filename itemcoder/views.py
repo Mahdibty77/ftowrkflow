@@ -1,8 +1,35 @@
+"""HTTP entry points for the item-coding tool (the grid at ``itemcoder/table.html``).
+
+Three views — the standalone tool only. They are not the app's whole HTTP
+surface: urls.py routes most of its paths to bridge.py (the same grid entered
+from a case), data_admin.py (the reference-data screens) and
+engineering_assistant.py (the ``ea_*`` endpoints), and that file's docstring is
+the map worth reading first. What lives here is:
+
+* ``upload_excel``    — the Build-TO path. Hands the workbook to
+  ``processor.process_excel_with_json`` (which fans out to excel_reader →
+  excel_processor → text_processor → code_assigner) and renders the resulting
+  DataFrame through ``dataframe_to_html_with_ids``.
+* ``process_row_ajax`` — the live-typing path. Re-runs ONE row through
+  ``processor.process_text_record_live`` (the same engine the upload uses) and
+  returns the recomputed FTCO text, code, alarms and calculated columns as JSON.
+* ``app_json_resource`` — read-only JSON resources for frontend JS.
+
+``dataframe_to_html_with_ids`` deliberately emits ``<tr>`` rows only, no
+``<table>``/``<thead>``: the template owns the frozen header, and re-emitting it
+here would nest a second table inside it. The ``_``-prefixed DataFrame columns
+are per-row flags carried from the case layer (brand/remark splits, soft
+delete/add, price provenance); they do not become visible cells, they are
+re-emitted as ``data-*`` attributes that the tool's JS reads back. Note that
+this is a fixed LIST of column names, not a rule about the prefix: the names it
+skips are spelled out below and match exactly the extras bridge.py attaches, so
+a newly invented ``_foo`` column would be rendered as an ordinary cell until it
+is added there too.
+"""
+
 import json
 import logging
-import os
 
-from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -130,11 +157,6 @@ def dataframe_to_html_with_ids(df, data_json=None):
                 _ack_raw = None
         except Exception:
             pass
-        try:
-            if _ack_raw is not None and pd.isna(_ack_raw):
-                _ack_raw = None
-        except Exception:
-            pass
         if _ack_raw is not None and str(_ack_raw).strip().lower() in ('nan', 'none', '<na>', 'null'):
             _ack_raw = None
         # Only emit ack together with an active brand split (Confirm/Reject round),
@@ -195,11 +217,6 @@ def dataframe_to_html_with_ids(df, data_json=None):
         try:
             import math
             if _bl_raw is not None and isinstance(_bl_raw, float) and math.isnan(_bl_raw):
-                _bl_raw = None
-        except Exception:
-            pass
-        try:
-            if _bl_raw is not None and pd.isna(_bl_raw):
                 _bl_raw = None
         except Exception:
             pass

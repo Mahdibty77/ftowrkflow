@@ -3,6 +3,20 @@
 Each Django ``User`` is extended with one ``Profile`` that stores the unit, the
 role, the organisational identity fields requested by the business, and the
 uploaded signature image used when a form is approved.
+
+The ``Profile`` is also what turns a bare ``User`` row into a *seat* — a unit
+and a role, a job rather than a human — and it always carries the role that
+account is acting under *right now*, which is why every permission check in the
+platform reads it. How a seat relates to the human holding it, to the other
+roles that human may switch into, and to the tenure history of the seat itself
+is explained in full in the ``people.models`` module docstring, under "SEAT,
+PERSON, ROLE". Read that before changing anything here that a seat depends on.
+
+Also here: ``ImpersonationLog`` (the audit trail for "log in as user", written
+by ``accounts.views``) and ``PlatformConfig`` — a single row of site-wide
+settings such as the VAT percentage, the login welcome message, the unit stamps
+and the default work-shift window inherited by people who have none of their
+own.
 """
 from datetime import time
 

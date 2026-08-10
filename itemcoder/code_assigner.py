@@ -1,15 +1,59 @@
-"""Code assignment from CSV tables.
+"""Look the FTCO item code up from a row's extracted feature values.
 
-All caches and helper functions for assigning the final code are kept here.
-The matching algorithm is unchanged; it is only moved out of processor.py.
+This is the last question the pipeline asks about a row: given the group, the
+type and the ``<feature>_<group>_<type>`` variables feature_extractor produced,
+which row of that group's code table describes this item? ``assign_code_from_csv``
+is the entry point, and three places reach it. text_processor calls it at the end
+of a live re-code, but only once the row is clean enough to be worth searching —
+see ``can_run_assign_code`` there. The upload path deliberately suppresses that
+internal call (``process_text_record`` passes ``allow_code_lookup=False``) and
+calls this function itself from excel_processor, behind the SAME
+``can_run_assign_code`` gate, so a batch row and a typed row cannot end up with
+different codes. engineering_assistant calls it ungated in ``diagnose_unmatched``,
+where it is a question rather than a step: if a code does come back there is
+nothing to diagnose. It returns the small Item_Code from column 1 of the matched
+row, or ``""`` when nothing matches.
+
+What decides the match is ``resources/json/asign_code.json``::
+
+    {"pipe": {"pipe": {"material": "col_3",
+                       "material & grade_material": "col_4",
+                       "or1_schedule": "col_6",
+                       "or1_thickness": "col_7"}}}
+
+Read that as: for group ``pipe`` / type ``pipe``, the value of feature
+``material`` must equal column 3 of the code table. Three key shapes exist and
+they behave differently:
+
+* a plain feature is REQUIRED — its normalized value must match its column;
+* ``a & b`` is a COMPOUND — the normalized values are concatenated and matched
+  against one column as a single string;
+* ``or<n>_<feature>`` members form an OR GROUP — the group as a whole must match
+  one of its members, and a member whose value is empty simply drops out (an
+  unused SCH on a flange that is rated by CLASS must not kill the query).
+
+An empty or ``null`` feature matches an EMPTY cell rather than failing, which is
+how a legitimately absent feature (no coating) still finds its row.
+
+Two paths, one algorithm
+------------------------
+``_assign_code_via_sqlite`` is the fast path: when the group has a SQLite file
+(see code_db) the candidate matching is done by indexed SQL. ``load_code_resources``
+plus the pandas block at the bottom is the fallback for groups that only have a
+CSV (or DB-managed rows). Both compute their search values through the SAME
+``_resolve_feature_value`` and ``_normalize_for_code``, and both select the
+matched row with the SMALLEST original row order, so they cannot disagree.
+
+Everything is cached in constants.py (table, mapping, per-column normalization,
+inverted index, parsed plan, final result) and invalidated by
+constants.clear_data_caches(); asign_code.json is additionally re-read whenever
+its mtime changes, so an edit applies without a restart.
 """
 
-import json
 import os
 import re
 
 import pandas as pd
-from django.conf import settings
 
 from .resource_paths import json_path, csv_path
 from .composite_keys import get_by_alias
@@ -327,8 +371,12 @@ def build_search_plan(group, type, group_l, type_l, feature_vars):
     Returns ``(search_by_pos, feat_name_by_pos)`` — the same
     ``{col_pos: normalized_value}`` map the real lookup uses, plus a
     ``{col_pos: feature_name}`` map for reporting — or ``None`` when the
-    SQLite path is not available. Used only by the Engineering Assistant's
-    "why no code" diagnostic; never called from the coding hot path.
+    SQLite path is not available. Written for the Engineering Assistant's
+    "why no code" diagnostic, to be paired with ``code_db.count_matches``.
+
+    NOTE: nothing calls it today (grep of the whole repo finds only this
+    definition). It is kept because it is a read-only diagnostic that touches
+    no coding result, but it is dead weight until the diagnostic uses it.
     """
     from . import code_db
     if not code_db.has_db(group_l):

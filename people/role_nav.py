@@ -1,4 +1,30 @@
-"""Helpers for multi-role navigation (one login, several PersonRole rows)."""
+"""Helpers for multi-role navigation (one login, several PersonRole rows).
+
+One human signs in once. If they hold more than one seat, each extra seat
+contributes a ``PersonRole`` row and the sidebar offers a switcher between them.
+This module answers the two questions that follow from that, and nothing else:
+
+WHICH ROLE IS ACTIVE? ``resolve_active_role`` takes the row the session last
+switched to (``active_role_id``); failing that, the row whose unit and role
+match the login's ``Profile``, which always carries the *currently active*
+one; failing that, the person's first role. ``work_context`` wraps that into a
+``WorkContext``: the login user, the role, and — the part that matters —
+``seat_user``, the seat whose inbox and archive are actually being worked. On a
+secondary seat or a Translate substitution the login user and the seat user are
+different objects, and using one where the other was meant is how this area
+goes wrong. ``build_nav_roles`` renders the switcher; ``safe_activate_role``
+performs the switch.
+
+WHO IS ACTING? ``bind_work_seat`` parks the active seat in a ``ContextVar`` for
+the duration of the request so ``cases.services.log`` can attribute a timeline
+entry to the seat being worked rather than only to the login. A ``ContextVar``
+rather than a module global because it is per-task; the resolved-role memo next
+to it is parked on the *request* for the same isolation reason, spelled out at
+its definition.
+
+The seat model itself — seat vs person vs role — is explained in the
+``people.models`` module docstring under "SEAT, PERSON, ROLE".
+"""
 from __future__ import annotations
 
 import logging

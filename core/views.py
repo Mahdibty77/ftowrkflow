@@ -1,4 +1,17 @@
-"""Core landing view that routes each user to the right starting screen."""
+"""The two site-wide views that belong to no single app.
+
+    home()            the landing router: decides which app a signed-in user
+                      actually starts in (admin console / dashboard / inbox)
+    protected_media() every file under MEDIA_ROOT, served behind a login and a
+                      per-prefix access rule
+
+They are routed from different places. home() is mounted by core/urls.py, which
+the root URLConf includes at site root in the ordinary way. protected_media() is
+mounted directly by the root URLConf (ftworkflow/urls.py) instead, because its
+path has to be built from settings.MEDIA_URL — see the comment there for the
+Django-served-media behaviour it replaces. The access rules protected_media
+enforces are the table further down.
+"""
 import logging
 import mimetypes
 from pathlib import Path

@@ -1,4 +1,41 @@
-"""Account management views (admin-only, plus a self profile page)."""
+"""Account management views (admin-only, plus a self profile page).
+
+A long file, but it is five separate consoles that happen to share the same
+admin gate. Each is fenced with a banner comment, and the banners appear in the
+order below — individual views do not always: the file has been appended to, so
+a view can sit under a banner it has nothing to do with. ``user_toggle_active``
+is the one that catches people out: it acts on a single user row, which is group
+1's subject, yet it sits below ``login_check`` under the sign-in banner. The long
+comment beneath it explains what supersedes it and why editing it alone changes
+nothing anyone can reach. Trust the banners and the names, not the line numbers.
+
+ 1. USERS AND SEATS — ``admin_console``, ``user_list``, ``user_create``,
+    ``user_edit``, ``user_reset_password`` and the stray ``user_toggle_active``,
+    plus the seat actions (``seat_assign`` / ``seat_translate`` / ``seat_return`` /
+    ``seat_close`` / ``seat_delegate`` / ``seat_history``). A "user" here is a
+    SEAT — a unit and a role, not a human. That distinction and everything it
+    implies is written out once in the ``people.models`` module docstring under
+    "SEAT, PERSON, ROLE"; these views only collect input and hand the work to
+    ``people.seats``.
+ 2. IMPERSONATION — "log in as user", built on Django's own auth primitives and
+    audited into ``ImpersonationLog``.
+ 3. SELF-SERVICE — ``my_profile`` and ``settings_page`` (which is where an
+    administrator sets the platform-wide work shift, floating time and
+    reconnect grace, and pushes them onto every ``Person``).
+    ``force_password_change`` is the screen the middleware pins a user to until
+    a temporary password has been replaced; it sits with the password actions in
+    group 1 rather than here.
+ 4. SIGN-IN — ``login_check`` and the brute-force throttle around it, counted in
+    the shared cache so a lockout holds across every worker.
+ 5. BACKUPS — listing, downloading, uploading and queueing restores. The web app
+    only moves files in the shared ``/backups`` volume and drops a request into
+    a control file; the separate ``backup`` service does the actual work.
+
+Two module-level gates are defined near the top and used throughout:
+``admin_required`` (Platform Administrator) and ``impersonation_access_required``
+(Administrator OR General Manager). They are deliberately different tests — see
+the comments on ``_can_impersonate`` for why widening one would be a mistake.
+"""
 import json
 import logging
 import os
@@ -21,7 +58,6 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_POST
 
-from .constants import Unit
 from .forms import (
     AdminPlatformForm,
     AdminUnitStampsForm,
@@ -87,6 +123,13 @@ def _can_impersonate(user) -> bool:
 impersonation_access_required = user_passes_test(_can_impersonate, login_url="accounts:login")
 
 
+# ---------------------------------------------------------------------------
+# Users and seats — the administrator's console
+# ---------------------------------------------------------------------------
+# A "user" on these screens is a SEAT: a unit and a role, a job rather than a
+# human. Nothing here changes seat state itself — the views validate and
+# redirect, and ``people.seats`` does the work.
+# ---------------------------------------------------------------------------
 @login_required
 @admin_required
 def admin_console(request):
@@ -967,6 +1010,9 @@ def impersonate_stop(request):
     return redirect("accounts:user_list")
 
 
+# ---------------------------------------------------------------------------
+# Self-service — the signed-in user's own profile, and platform settings
+# ---------------------------------------------------------------------------
 @sensitive_post_parameters()
 @login_required
 def my_profile(request):

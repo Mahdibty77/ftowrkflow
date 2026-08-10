@@ -2,6 +2,12 @@
 
 This file is responsible only for reading the first useful columns from the
 uploaded workbook. Processing each row is handled by excel_processor.py.
+
+It parses the sheet XML directly instead of using pandas.read_excel, and the
+reason is in read_excel_first_four_columns_fast's own docstring: real inquiry
+files routinely carry formatting out to Excel's last row, which pandas faithfully
+reads as a million empty rows. excel_processor falls back to pandas when this
+raises, so an unusual-but-valid workbook still opens.
 """
 
 import re

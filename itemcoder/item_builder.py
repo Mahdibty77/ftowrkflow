@@ -294,6 +294,12 @@ def sub_features(group: str) -> List[GroupFeature]:
 
 
 def info_features(group: str) -> List[GroupFeature]:
+    """Price/weight/data columns of a group — never part of any code.
+
+    NOTE: nothing calls it today (repo-wide grep finds only this definition),
+    unlike its ``main_features`` / ``sub_features`` siblings. Kept so the
+    main/sub/info triple stays complete and discoverable.
+    """
     return list(GroupFeature.objects.filter(group=group, kind=GroupFeature.INFO)
                 .order_by("position", "name"))
 
@@ -506,20 +512,6 @@ def _allowed_set_for_feature(entry, feature_name):
                 return {_norm_val(x) for x in vals}
         return None
     return None
-
-
-def _flat_allowed(entry) -> set:
-    """Allowed-value set from a rule entry across ALL features (kept for any
-    legacy callers); per-feature logic should use _allowed_set_for_feature."""
-    if isinstance(entry, dict):
-        s = set()
-        for vals in entry.values():
-            if isinstance(vals, list):
-                s |= {_norm_val(x) for x in vals}
-        return s
-    if isinstance(entry, list):
-        return {_norm_val(x) for x in entry}
-    return set()
 
 
 def _lookup_rule_entry(group: str, rules: dict, value: str):

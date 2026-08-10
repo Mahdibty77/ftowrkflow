@@ -1,4 +1,15 @@
-"""Helpers for JSON keys that may contain multiple aliases separated by ||."""
+"""Reading JSON keys that carry several spellings, separated by ``||``.
+
+data.json and its siblings let one key stand for several names, e.g.
+``"Equal Tee 90°||equaltee90||tee90"``. Every lookup into those files must go
+through ``get_by_alias`` rather than ``dict.get``, or a perfectly valid spelling
+silently misses. feature_extractor, rule_engine, text_processor, constants and
+composite_features all use these helpers for exactly that reason.
+
+``get_by_alias`` also implements the project-wide ``all_in`` wildcard: a block
+keyed ``all_in`` applies to every type. It is checked LAST, after exact and alias
+matches, so a specific mapping always beats the wildcard.
+"""
 
 ALIAS_SEPARATOR = "||"
 
@@ -44,12 +55,3 @@ def iter_alias_items(mapping):
             aliases = [str(key)]
         for alias in aliases:
             yield alias, val
-
-
-def expand_alias_dict(mapping):
-    expanded = {}
-    if not isinstance(mapping, dict):
-        return expanded
-    for alias, val in iter_alias_items(mapping):
-        expanded[alias] = val
-    return expanded

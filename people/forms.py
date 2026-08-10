@@ -1,4 +1,19 @@
-"""Forms for the people directory."""
+"""Forms for the people directory.
+
+``PersonForm`` is not a ``ModelForm`` and could not usefully be one: it builds
+its own fields in ``__init__`` from the card spec in ``people.spec``, via
+``people.formbuild``, so adding a question to the recruitment form is an edit to
+that spec and nothing else. Some answers land in real columns on ``Person``
+(the ones that get searched, sorted or printed) and the rest in JSON — ``save()``
+is where that split is applied, and ``initial_from_person`` is its inverse for
+the edit screen.
+
+``PersonSearchForm`` is the small filter bar above the directory list.
+
+Normalisation and format rules (Persian digits, national ID, IBAN, card number)
+are not here; they live in ``people.validators`` so the same rules apply
+wherever a person is written from.
+"""
 from django import forms
 from django.db import transaction
 

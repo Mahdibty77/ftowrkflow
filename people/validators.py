@@ -1,4 +1,10 @@
-"""Field validation for personnel records."""
+"""Field validation for personnel records.
+
+Kept apart from the forms so the same rules apply wherever a person is written
+from, and so each checksum — the national ID's, the IBAN's mod-97 — is defined
+in exactly one place. Note the order everything here follows: normalise first,
+validate second. ``normalize_digits`` explains why that order is not optional.
+"""
 from django.core.exceptions import ValidationError
 
 

@@ -84,7 +84,7 @@ import re
 from functools import lru_cache
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
-from .code_assigner import load_code_resources, _code_csv_path
+from .code_assigner import _code_csv_path
 
 
 _NUMBER_RE = re.compile(r"[-+]?\d+(?:,\d{3})*(?:\.\d+)?|[-+]?\d*\.\d+")

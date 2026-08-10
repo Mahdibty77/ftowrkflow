@@ -1,4 +1,21 @@
-"""Views for personnel Request types / Requests / Overtime / GM queue."""
+"""Views for personnel Request types / Requests / Overtime / GM queue.
+
+A staff request is a small workflow with exactly three audiences, and the views
+are grouped by which one they serve:
+
+* THE ADMINISTRATOR configures who may raise what — ``request_types`` lists the
+  types, ``request_type_assign`` writes the ``PersonRequestAccess`` rows that
+  gate the form, and ``person_access`` shows the same grants from one person's
+  side (read-only).
+* THE EMPLOYEE raises and follows their own — ``overtime_form`` submits one,
+  ``my_requests`` lists them, ``request_detail`` shows one and marks it seen.
+* THE GENERAL MANAGER decides — ``gm_overtime_inbox`` is the queue and
+  ``gm_overtime_decide`` approves or rejects.
+
+Only the shape of the screens is here. Every rule about what an overtime
+request means — the minutes it is worth, the window it extends, what a decision
+does to the person's shift day — lives in ``people.staff_requests``.
+"""
 from __future__ import annotations
 
 from django.contrib import messages

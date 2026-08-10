@@ -1,9 +1,43 @@
 """Per-group SQLite code database (fast lookup / filter / pagination).
 
-This module stores each product group's coding-data table in its own on-disk
-SQLite file under ``itemcoder/resources/db/<group>.sqlite3``.  Compared with
-holding the whole table as an in-RAM pandas DataFrame, this scales to millions
-of rows with tiny memory use and O(log n) indexed lookups.
+===========================================================================
+THIS MODULE DOES NOT USE THE DJANGO ORM. Read that again before changing it.
+===========================================================================
+Everything below is hand-written SQL over ``sqlite3`` connections this module
+opens, caches and closes itself. There is no model, no migration, no
+``objects.filter``, no connection from ``django.db``, and no transaction that
+Django knows about. ``itemcoder/models.py`` does define CodeTable/CodeTableRow,
+but those are a DIFFERENT, ORM-managed copy used only as a fallback source when
+a group has no SQLite file — changing a model there changes nothing here.
+
+The files
+---------
+Each product group's coding-data table lives in its own file:
+
+    itemcoder/resources/db/<group>.sqlite3        e.g. pipe.sqlite3, flange.sqlite3
+
+They are DATA, not source: they are built from a group's uploaded workbook/CSV by
+``build_db_from_rows``, which two importers call — the admin screen in data_admin,
+and ``importer.import_code_table`` behind ``manage.py import_codes`` / seed_demo.
+Both then delete that group's ORM ``CodeTableRow`` mirror, because once the SQLite
+file exists the fallback copy is only a way for the two to drift apart. A fresh
+checkout has none of these files, so the directory may legitimately be missing or
+empty. Every read path here returns an empty/None result when the file is
+absent, and code_assigner then falls back to the CSV/pandas path — which is why
+the tool still runs on a machine that has never imported anything.
+
+One file holds three tables:
+
+    items         row_no INTEGER PRIMARY KEY, then c0..cN (the raw cell text)
+                  and n0..nN (the same cells normalized for matching)
+    meta          k/v strings: ``columns`` (JSON header list), ``ncols``,
+                  ``row_count``
+    col_distinct  (col, value) pairs precomputed at build time so a browse
+                  dropdown on a multi-million-row group is instant
+
+The doubled c/n columns are the whole trick: the code lookup compares against
+n{i} (indexed, normalized), while everything a human sees comes from c{i}, so
+matching never has to normalize at query time and display never loses spelling.
 
 The matching algorithm is intentionally identical to the previous pandas /
 inverted-index implementation in ``code_assigner.assign_code_from_csv``:
@@ -17,6 +51,46 @@ inverted-index implementation in ``code_assigner.assign_code_from_csv``:
 This was verified row-for-row against the pandas path on the full pipe table
 (37,153 rows, 0 mismatches), so switching a group to SQLite does not change any
 output.  Groups without a SQLite file keep using the original CSV/pandas path.
+
+The build / claim / publish protocol
+------------------------------------
+``build_db_from_rows`` never writes the live file. It writes a temporary
+``<group>.sqlite3.building`` and only swaps it in at the very end. Three
+mechanisms around that are not guessable from the code, so they are spelled out
+here:
+
+1. CLAIM. The temp name depends only on the group, so two imports of the same
+   group would otherwise share it — and the second one's cleanup would unlink
+   the file the first was still writing. The name is therefore claimed
+   atomically with ``O_CREAT | O_EXCL``: the loser fails fast with a clear
+   message and the live file is never touched.
+
+2. STALE CLAIM. A process killed mid-import leaves its ``.building`` behind,
+   and that leftover IS the claim — so it would lock the group out forever.
+   A claim is reclaimable once it has not been touched for
+   ``STALE_BUILD_SECONDS`` (30 min). A live build writes rows and indexes
+   continuously and so is never that stale. Every failure path from the claim
+   onward — including the publish step — deletes the temp file, because the
+   ordinary Windows failure (another worker still holding the live file open)
+   is instantly retryable and must not turn into a half-hour outage.
+
+3. PUBLISH. ``_replace_db_file`` does ``os.replace`` (atomic) with retries,
+   because on Windows another gunicorn worker's open read handle makes the
+   replace fail with PermissionError; after ten tries it falls back to
+   delete-then-rename. ``verify_group_db`` then re-opens the published file and
+   refuses the import unless COUNT(*) and the stored ``row_count`` both match
+   what was written.
+
+Cached connections and why they are re-checked
+----------------------------------------------
+``_open`` keeps one read-only connection per group, but remembers the
+(mtime, size) it was opened against. After an import replaces the file, a stale
+handle would keep reading the old inode (Linux keeps a deleted file alive until
+close), so a changed signature reopens. ``cache_sync.bump_epoch`` additionally
+tells the OTHER gunicorn workers to drop theirs. This is also why
+``lookup_code`` retries once on ``sqlite3.ProgrammingError``: the shared handle
+can be closed by an import between ``_open`` and the query, and silently
+returning "" there would ship a row with a blank FTCO code.
 """
 from __future__ import annotations
 
@@ -525,6 +599,12 @@ def build_db_from_rows(group: str, columns: List[str], rows: Iterable[List[str]]
     return n
 
 def build_db_from_dataframe(group: str, df) -> int:
+    """Pandas convenience wrapper around :func:`build_db_from_rows`.
+
+    NOTE: nothing calls it today (repo-wide grep finds only this definition) —
+    the admin import streams rows straight from the workbook rather than
+    materialising a DataFrame.
+    """
     columns = [str(c) for c in df.columns.tolist()]
 
     def _row_iter():
@@ -742,9 +822,15 @@ def _is_nullable_col(name) -> bool:
 def delete_rows_with_empty_columns(group: str, col_indices) -> int:
     """Delete rows where ANY of the given (required) feature columns is empty.
 
-    Used after an import to drop junk rows — e.g. a pipe row missing its
-    material_type. Coating/schedule are NOT passed here because they may be
-    legitimately empty. Returns the number of rows removed.
+    Written as a post-import cleanup for junk rows — e.g. a pipe row missing its
+    material_type. Coating/schedule must NOT be passed here because they may be
+    legitimately empty (see ``NULLABLE_COLUMN_HINTS``). Returns the number of
+    rows removed.
+
+    NOTE: nothing calls it today (repo-wide grep finds only this definition), so
+    no import currently prunes anything. It is kept rather than deleted because
+    it destroys rows — reintroducing it wrongly is far worse than leaving it
+    unused — but treat it as unproven until a caller exercises it.
     """
     g = str(group).strip().lower()
     cols = [int(i) for i in (col_indices or []) if int(i) >= 0]
@@ -932,7 +1018,13 @@ def distinct_values_filtered(group: str, col_pos: int,
 
 
 def distinct_values(group: str, col_pos: int, limit: int = 500) -> List[str]:
-    """Distinct non-empty raw values of a column (for filter dropdowns)."""
+    """Distinct non-empty raw values of a column, ignoring all other filters.
+
+    NOTE: nothing calls it today (repo-wide grep finds only this definition) —
+    the filter dropdowns go through ``distinct_values_filtered`` directly, via
+    data_admin.dm_code_distinct_api, so each field only offers still-reachable
+    values.
+    """
     return distinct_values_filtered(group, col_pos, filters=None, limit=limit)
 
 

@@ -81,8 +81,13 @@ Fill in at least:
 
 - `DJANGO_SECRET_KEY` — the value from the generate step above.
 - `POSTGRES_PASSWORD` — a strong database password.
-- `DJANGO_ALLOWED_HOSTS` — your server IP and/or domain,
-  e.g. `203.0.113.10` or `workflow.example.com,203.0.113.10`.
+- `DJANGO_ALLOWED_HOSTS` — **this one does nothing.** It is passed through by
+  `docker-compose.yml` and listed in `.env.example`, but `ftworkflow/settings.py`
+  never reads it: `ALLOWED_HOSTS` is deliberately hard-coded to `["*"]` so that
+  an incomplete host list can never lock an existing deployment out. Setting it
+  is harmless and changes nothing — do not spend time on it, and do not record
+  host validation as enforced because you filled it in. See the comment above
+  `ALLOWED_HOSTS` in `ftworkflow/settings.py`.
 - (Optional) `DJANGO_SUPERUSER_USERNAME` + `DJANGO_SUPERUSER_PASSWORD` to create
   the first admin automatically (otherwise create it in step A5).
   **`DJANGO_SUPERUSER_USERNAME` must be exactly `admin`.** Platform-administrator
@@ -171,9 +176,9 @@ notepad .env
 ```
 
 Fill in the same values as Linux: `DJANGO_SECRET_KEY` (from the generate step),
-`POSTGRES_PASSWORD`, `DJANGO_ALLOWED_HOSTS` (your PC/server IP, or `localhost`
-for local testing), and optionally the first-admin username/password. Save in
-Notepad (`Ctrl+S`) and close it.
+`POSTGRES_PASSWORD`, and optionally the first-admin username/password.
+(`DJANGO_ALLOWED_HOSTS` is inert — see the note in step A3.) Save in Notepad
+(`Ctrl+S`) and close it.
 
 ## B4. Build and start
 
@@ -271,10 +276,13 @@ To serve on a domain with automatic HTTPS, put a reverse proxy (e.g. Caddy) in
 front of the app on port 8000, then set in `.env`:
 
 ```
-DJANGO_ALLOWED_HOSTS=workflow.example.com
 DJANGO_CSRF_TRUSTED_ORIGINS=https://workflow.example.com
 DJANGO_SECURE_SSL=1
 ```
+
+`DJANGO_CSRF_TRUSTED_ORIGINS` and `DJANGO_SECURE_SSL` are both read and both
+matter here. `DJANGO_ALLOWED_HOSTS` is not read at all (see step A3), so host
+validation is not part of what this step turns on.
 
 and run `docker compose up -d` to apply.
 

@@ -137,6 +137,28 @@ def _inbox_counts_in_range(users, from_dt, to_dt):
 # --------------------------------------------------------------------------- #
 # Per-unit expert cards
 # --------------------------------------------------------------------------- #
+def _case_ids_by_user(qs, id_set, *fields):
+    """Map ``user id -> {case ids}``, tallying several columns in one pass.
+
+    A case names its people across three or four different assignee columns, so
+    "how many cases is this expert on?" cannot be answered by one column, and
+    answering it per user per column would cost a query per card. Pulling the
+    id-tuples once for the whole unit and collecting them into a *set* per user
+    is what gives the same answer as the per-user ``.distinct()`` counts this
+    replaces: a case that names the same person in two columns still counts once.
+
+    Only ids in ``id_set`` are tallied, so a column pointing at somebody outside
+    this unit is ignored rather than given a card.
+    """
+    out = defaultdict(set)
+    for row in qs.values_list("id", *fields):
+        case_id = row[0]
+        for user_id in row[1:]:
+            if user_id in id_set:
+                out[user_id].add(case_id)
+    return out
+
+
 def _commercial_cards(users, from_dt, to_dt):
     # One grouped query with conditional counts instead of ~6 counts per user.
     from cases.export_data import case_pi_grand_totals_map, format_money_amount
@@ -188,28 +210,22 @@ def _technical_cards(users, from_dt, to_dt):
     ids = [u.id for u in users]
     id_set = set(ids)
 
-    def _tally(qs):
-        out = defaultdict(set)
-        for cid, a, b, c, d in qs.values_list(
-                "id",
-                "technical_assignee",
-                "assigned_to",
-                "technical_internal_assignee",
-                "technical_external_assignee"):
-            for uid in (a, b, c, d):
-                if uid in id_set:
-                    out[uid].add(cid)
-        return out
-
-    assigned = _tally(_apply_range(
-        Case.objects.filter(
-            Q(technical_assignee_id__in=ids)
-            | Q(assigned_to_id__in=ids)
-            | Q(technical_internal_assignee_id__in=ids)
-            | Q(technical_external_assignee_id__in=ids)
+    assigned = _case_ids_by_user(
+        _apply_range(
+            Case.objects.filter(
+                Q(technical_assignee_id__in=ids)
+                | Q(assigned_to_id__in=ids)
+                | Q(technical_internal_assignee_id__in=ids)
+                | Q(technical_external_assignee_id__in=ids)
+            ),
+            from_dt, to_dt,
         ),
-        from_dt, to_dt,
-    ))
+        id_set,
+        "technical_assignee",
+        "assigned_to",
+        "technical_internal_assignee",
+        "technical_external_assignee",
+    )
 
     in_inbox = _inbox_counts_in_range(users, from_dt, to_dt)
     cards = []
@@ -225,29 +241,21 @@ def _technical_cards(users, from_dt, to_dt):
 
 
 def _supply_cards(users, from_dt, to_dt):
-    # A supply case can name a person in any of three assignee fields, so we pull
-    # the id-tuples once per metric and tally distinct cases per user in Python
-    # (matching the old per-user .distinct() semantics). Inbox uses the real
-    # inbox_cases() rules so manager/expert/split sides match the Inbox tab.
+    # Inbox uses the real inbox_cases() rules so manager/expert/split sides match
+    # the Inbox tab; the assignee columns are tallied by _case_ids_by_user.
     users = list(users)
     ids = [u.id for u in users]
     id_set = set(ids)
 
-    def _tally(qs):
-        out = defaultdict(set)
-        for cid, a, b, c in qs.values_list(
-                "id", "supply_internal_assignee",
-                "supply_external_assignee", "supply_assignee"):
-            for uid in (a, b, c):
-                if uid in id_set:
-                    out[uid].add(cid)
-        return out
-
-    assigned = _tally(_apply_range(
-        Case.objects.filter(
-            Q(supply_internal_assignee_id__in=ids) | Q(supply_external_assignee_id__in=ids)
-            | Q(supply_assignee_id__in=ids)),
-        from_dt, to_dt))
+    assigned = _case_ids_by_user(
+        _apply_range(
+            Case.objects.filter(
+                Q(supply_internal_assignee_id__in=ids) | Q(supply_external_assignee_id__in=ids)
+                | Q(supply_assignee_id__in=ids)),
+            from_dt, to_dt),
+        id_set,
+        "supply_internal_assignee", "supply_external_assignee", "supply_assignee",
+    )
 
     # All four conditions have to describe one and the same CaseEvent row. On a
     # multi-valued relation like ``events`` every separate .filter() call gets its
@@ -264,11 +272,8 @@ def _supply_cards(users, from_dt, to_dt):
     if to_dt:
         unsup_lookups["events__created_at__lte"] = to_dt.replace(
             second=59, microsecond=999999)
-    unsup_qs = Case.objects.filter(**unsup_lookups)
-    unsup_map = defaultdict(set)
-    for cid, actor in unsup_qs.values_list("id", "events__actor"):
-        if actor in id_set:
-            unsup_map[actor].add(cid)
+    unsup_map = _case_ids_by_user(
+        Case.objects.filter(**unsup_lookups), id_set, "events__actor")
 
     in_inbox = _inbox_counts_in_range(users, from_dt, to_dt)
     cards = []
@@ -308,40 +313,57 @@ def _unit_section(unit, from_dt, to_dt, include_manager):
             "kind": kind, "cards": cards}
 
 
+# The status distribution drawn on the Admin / General Manager overview, in the
+# order the bars appear. Each bucket is a condition over Case.status only — no
+# joins — which is what lets them all be counted in a single query below.
+#
+# UNSUPPLIABLE / UNSUPPLIABLE_CLOSED are the live statuses; the two PENDING ones
+# belonged to a manager-approval chain that has since been removed as
+# unreachable, so nothing can produce them any more. They are kept in the bucket
+# on purpose: this counts what is *stored*, and a case parked in one of them by
+# an older release would otherwise vanish from the totals instead of being
+# reported as what it is.
+#
+# For the same reason every status needs a bucket at all: the bars are only
+# readable against the "Total cases" figure if they can add up to it. FINAL_CLOSED
+# and BURNED are terminal states a case leaves the other buckets for, and without
+# them the bars silently fail to reconcile.
+_STATUS_BUCKETS = {
+    "draft": Q(status=CaseStatus.DRAFT),
+    "with_commercial": Q(status__in=[
+        CaseStatus.WITH_COMMERCIAL, CaseStatus.RETURNED_TO_COMMERCIAL,
+        CaseStatus.PENDING_CANCEL]),
+    "with_technical": Q(status__in=[
+        CaseStatus.WITH_TECHNICAL, CaseStatus.RETURNED_TO_TECHNICAL]),
+    "with_supply": Q(status=CaseStatus.WITH_SUPPLY),
+    "sent_to_client": Q(status=CaseStatus.CLOSED),
+    "final_approved": Q(status=CaseStatus.FINAL_APPROVED),
+    "cancelled": Q(status=CaseStatus.CANCELLED),
+    "unsuppliable": Q(status__in=[
+        CaseStatus.UNSUPPLIABLE, CaseStatus.UNSUPPLIABLE_CLOSED,
+        CaseStatus.UNSUPPLIABLE_PENDING_SUPPLY,
+        CaseStatus.UNSUPPLIABLE_PENDING_COMMERCIAL]),
+    "final_closed": Q(status=CaseStatus.FINAL_CLOSED),
+    "burned": Q(status=CaseStatus.BURNED),
+}
+
+
 def _platform_overview(from_dt, to_dt):
     """Overall case counts + simple chart series for Admin / General Manager."""
     from cases.export_data import case_pi_grand_totals_map, format_money_amount
 
     qs = _apply_range(Case.objects.all(), from_dt, to_dt)
-    total = qs.count()
-    by_status = {
-        "draft": qs.filter(status=CaseStatus.DRAFT).count(),
-        "with_commercial": qs.filter(status__in=[
-            CaseStatus.WITH_COMMERCIAL, CaseStatus.RETURNED_TO_COMMERCIAL,
-            CaseStatus.PENDING_CANCEL]).count(),
-        "with_technical": qs.filter(status__in=[
-            CaseStatus.WITH_TECHNICAL, CaseStatus.RETURNED_TO_TECHNICAL]).count(),
-        "with_supply": qs.filter(status=CaseStatus.WITH_SUPPLY).count(),
-        "sent_to_client": qs.filter(status=CaseStatus.CLOSED).count(),
-        "final_approved": qs.filter(status=CaseStatus.FINAL_APPROVED).count(),
-        "cancelled": qs.filter(status=CaseStatus.CANCELLED).count(),
-        # UNSUPPLIABLE / UNSUPPLIABLE_CLOSED are the live statuses; the two
-        # PENDING ones belonged to a manager-approval chain that has since been
-        # removed as unreachable, so nothing can produce them any more. They are
-        # kept in this bucket on purpose: it counts what is *stored*, and a case
-        # parked in one of them by an older release would otherwise vanish from
-        # the totals instead of being reported as what it is.
-        "unsuppliable": qs.filter(status__in=[
-            CaseStatus.UNSUPPLIABLE, CaseStatus.UNSUPPLIABLE_CLOSED,
-            CaseStatus.UNSUPPLIABLE_PENDING_SUPPLY,
-            CaseStatus.UNSUPPLIABLE_PENDING_COMMERCIAL]).count(),
-        # This block is a distribution of the *current* status, so the bars below
-        # are only readable against the "Total cases" figure if every status has a
-        # bucket. FINAL_CLOSED and BURNED are terminal states a case leaves the
-        # other buckets for, and without them the bars silently fail to add up.
-        "final_closed": qs.filter(status=CaseStatus.FINAL_CLOSED).count(),
-        "burned": qs.filter(status=CaseStatus.BURNED).count(),
-    }
+    # One round-trip for the total and all ten buckets, where there were eleven
+    # separate COUNT queries over the same rows. Each conditional count sees
+    # exactly the rows the equivalent .filter().count() saw — the buckets touch
+    # no related table, so no join can duplicate a row — and every figure is
+    # therefore unchanged.
+    counts = qs.aggregate(
+        total=Count("id"),
+        **{name: Count("id", filter=cond) for name, cond in _STATUS_BUCKETS.items()},
+    )
+    total = counts["total"]
+    by_status = {name: counts[name] for name in _STATUS_BUCKETS}
     by_unit = [
         {"label": Unit.LABELS[Unit.COMMERCIAL], "code": "commercial",
          "count": qs.filter(created_by__profile__unit=Unit.COMMERCIAL).count()},

@@ -1,4 +1,74 @@
-"""Planned / worked hours from a person's daily work shift + Iran calendar."""
+"""Planned / worked hours from a person's daily work shift + Iran calendar.
+
+THE SHIFT ACCOUNTING MODEL
+Nothing in this module measures attendance directly. It measures *evidence of
+presence* and turns that into minutes, and the difference is the source of
+every surprise the numbers have ever produced. Read this before trusting, or
+reporting on, any column it writes.
+
+A PING is a POST from the signed-in person's open browser tab to
+``people:shift_ping`` (``people.views.shift_presence_ping``), repeated every few
+seconds for as long as that tab is open. It is the only continuous evidence
+there is. Alongside it, the auth signals in ``people.signals`` call
+``note_shift_login`` on every successful sign-in and ``note_shift_logout`` on
+sign-out. All three paths write the same row: one ``ShiftDayLog`` per person per
+calendar day.
+
+FLOAT GRACE (``Person.float_seconds``, default ``DEFAULT_FLOAT_SECONDS`` below)
+forgives lateness at the *start* of the day. Arrive within it and the day is
+stamped as having begun at the shift start, and the minutes between that start
+and the actual arrival are credited as though they had been worked. Arrive one
+minute later and none of that applies: the day begins at the real arrival
+minute and the missed minutes are simply never earned. It is a grace on the
+opening of the day, not a rolling allowance.
+
+RECONNECT GRACE (``Person.reconnect_grace_seconds``, default
+``RECONNECT_GRACE_SECONDS`` below) forgives a break in the *middle*. A closed
+tab, a page reload, a dropped connection all stop the pings; a gap no longer
+than this counts as continuous presence and the whole gap is credited. A longer
+gap credits nothing — and takes nothing back either. The absence has already
+paid for itself in minutes that were never earned, and charging it a second
+time was a real bug once (see ``_record_away``).
+
+Both values live on the ``Person``. The platform-wide defaults on
+``accounts.PlatformConfig`` are *copied* onto every person when an
+administrator saves them (``accounts.views._apply_global_daily_hours``), so a
+person row is always the value that applies; the module constants below are
+only the last-resort fallback for a row that has none.
+
+MINUTES ACCRUE into ``ShiftDayLog.minutes`` as whole minutes, and every single
+credit is clamped to the day's planned length — a day can never earn more than
+it was planned for. CARRY_SECONDS is what makes that honest at the resolution
+the pings actually arrive at: a tab pinging every few seconds almost never
+produces a gap of a whole minute, and judging each gap on its own threw those
+seconds on the floor, so a person at their desk all day could be credited
+nothing. The sub-minute remainder is instead BANKED on the day row
+(``carry_seconds``, always 0–59) and spent the instant the bank makes up a
+whole minute.
+
+AWAY_MINUTES is an audit column and never a deduction. It means, precisely:
+time away *between two observed presences* — a gap that both began and ended
+while pings were arriving, clipped to the part that fell inside the shift, and
+capped at the day's planned length. What it therefore does NOT capture is the
+two commonest short days of all: someone who signs in at 10:00 on an 08:00
+shift, and someone who leaves at 15:00 and never comes back. Neither closes a
+gap, so both leave ``away_minutes`` at zero while losing two hours of credit.
+``minutes + away_minutes`` does not reconcile to a clean day and was never
+meant to; the shortfall from a late start or an early finish lives in
+``minutes`` alone. ``_record_away`` argues this out at length.
+
+OVERTIME is a separate ledger on the same row. Outside the base window an
+approved overtime request keeps the session alive, and presence there credits
+``overtime_minutes`` capped at the minutes actually approved for that day (see
+``_credit_ot_presence`` and ``people.staff_requests``).
+
+ROLLUP: day rows are summed into one ``ShiftMonthSnapshot`` per Jalali month.
+Past months are frozen (``freeze_past_months``) so a later change to a person's
+shift definition cannot rewrite history; the current month stays open and is
+recomputed by ``refresh_worked`` after every credit. ``plan_month`` is the
+other half — what the month was *supposed* to be, with Thursday/Friday weekends
+and Iranian official holidays removed (``people.iran_holidays``).
+"""
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
@@ -19,6 +89,9 @@ JMONTHS_EN = (
 )
 
 
+# ---------------------------------------------------------------------------
+# Calendar arithmetic — Jalali months, shift length, where tracking begins
+# ---------------------------------------------------------------------------
 def month_name_en(jm: int) -> str:
     if 1 <= jm <= 12:
         return JMONTHS_EN[jm - 1]
@@ -77,6 +150,9 @@ def get_tracking_start() -> date:
     return row.started_on
 
 
+# ---------------------------------------------------------------------------
+# The plan — what a month was supposed to be, before anybody worked it
+# ---------------------------------------------------------------------------
 def plan_month(
     jy: int,
     jm: int,
@@ -156,6 +232,9 @@ def plan_month(
     }
 
 
+# ---------------------------------------------------------------------------
+# Month snapshots — the rollup of day rows, and the freezing of the past
+# ---------------------------------------------------------------------------
 def ensure_month_snapshot(person, *, jy: int | None = None, jm: int | None = None):
     from .models import ShiftMonthSnapshot
 
@@ -302,6 +381,9 @@ def apply_shift_change(
     return refresh_worked(person, snap)
 
 
+# ---------------------------------------------------------------------------
+# Accrual — the two graces, and how a gap between pings becomes minutes
+# ---------------------------------------------------------------------------
 def float_seconds_for(person) -> int:
     raw = getattr(person, "float_seconds", None)
     if raw is None:
@@ -572,6 +654,9 @@ def prune_empty_past_snapshots(person) -> int:
     return n
 
 
+# ---------------------------------------------------------------------------
+# Entry points from the auth signals — sign-in and sign-out stamps
+# ---------------------------------------------------------------------------
 def note_shift_login(person, *, when: datetime | None = None) -> None:
     """Stamp first login, apply floating-time credit, reconnect grace."""
     from .models import ShiftDayLog
@@ -676,6 +761,9 @@ def note_shift_logout(person, *, when: datetime | None = None, explicit: bool = 
     log.save(update_fields=fields)
 
 
+# ---------------------------------------------------------------------------
+# Presentation — the day rows, month cards and year tiles the shift page draws
+# ---------------------------------------------------------------------------
 def _fmt_hm(dt: datetime | None) -> str:
     if dt is None:
         return "—"
@@ -712,7 +800,6 @@ def month_day_details(person, jy: int, jm: int) -> list[dict[str, Any]]:
     from .staff_requests import approved_overtime_requests_by_day
 
     start, end = shift_window(person)
-    per = shift_minutes(start, end)
     track = get_tracking_start()
     today = now_local().date()
     plan = plan_month(jy, jm, start=start, end=end, from_date=track)
@@ -959,10 +1046,6 @@ def summarize_year_cards(cards: list[dict[str, Any]], jy: int) -> dict[str, Any]
     }
 
 
-def year_summary(person, jy: int) -> dict[str, Any]:
-    return summarize_year_cards(year_month_cards(person, jy), jy)
-
-
 def year_cards_for_person(person, current_jy: int, *, current_summary=None) -> list[dict[str, Any]]:
     """Year tiles for the shift page (6-per-row grid). Current year first, then past."""
     from .models import ShiftMonthSnapshot
@@ -993,11 +1076,9 @@ def year_cards_for_person(person, current_jy: int, *, current_summary=None) -> l
     return cards
 
 
-def archived_years(person, current_jy: int) -> list[dict[str, Any]]:
-    """Past years only (compat helper)."""
-    return [y for y in year_cards_for_person(person, current_jy) if not y.get("is_current")]
-
-
+# ---------------------------------------------------------------------------
+# Entry point from the open browser tab — the heartbeat, and overtime presence
+# ---------------------------------------------------------------------------
 def _credit_ot_presence(person, when: datetime) -> int:
     """Accrue actual minutes spent inside the approved overtime extension."""
     from .models import ShiftDayLog
@@ -1054,10 +1135,7 @@ def record_presence_ping(person, *, when: datetime | None = None) -> int:
         # Approved overtime keeps the session alive; credit actual presence
         # into overtime_minutes (capped at approved OT for the day).
         try:
-            from .staff_requests import (
-                approved_overtime_minutes_for_day,
-                is_within_extended_window,
-            )
+            from .staff_requests import is_within_extended_window
             if is_within_extended_window(person, when):
                 return _credit_ot_presence(person, when)
         except Exception:

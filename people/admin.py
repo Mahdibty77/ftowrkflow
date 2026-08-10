@@ -1,3 +1,11 @@
+"""Django-admin registrations for the people directory.
+
+A back-office view, not the working tool — people are added and edited on the
+directory screens in ``people.views``, and seats are given and taken back on a
+person's own seats page. What is registered here is deliberately read-only
+wherever writing it would produce a state the seat rules forbid; the inlines
+below say which, and why.
+"""
 from django.contrib import admin
 
 from .models import Person, PersonAccount, PersonCounter

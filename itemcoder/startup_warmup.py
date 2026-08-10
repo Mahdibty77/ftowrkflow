@@ -3,16 +3,24 @@
 The project still accepts CSV/JSON resources as the source of truth.  This module
 only loads and indexes them in RAM once, so upload/live-edit requests do not pay
 that cost later.
+
+Two callers: apps.ItemcoderConfig.ready() (guarded by ``should_warm_on_ready`` so
+the autoreload parent process does not warm twice), and excel_processor at the
+top of a Build TO, where a ~4k-row inquiry would otherwise pay every first-hit
+parse cost inside the row loop.
+
+Warming touches only caches that are keyed by mtime or by group name — it changes
+WHEN reference data is parsed, never what any lookup resolves to. Every stage is
+wrapped in its own try/except for the same reason apps.ready() is: a missing
+optional CSV must never stop the server from starting.
 """
 from __future__ import annotations
 
-import json
 import os
-import re
 import sys
 from typing import Any, Iterable, Set
 
-from .resource_paths import JSON_DIR, CSV_DIR, json_path, resolve_resource_path
+from .resource_paths import CSV_DIR, json_path
 from .regex_patterns import load_json_file, load_feature_values, parse_csv_for_field
 from .table_layout_manager import load_table_layout_config, _get_group_lookup_plan
 from .calculation_engine import _code_row_index_for_group

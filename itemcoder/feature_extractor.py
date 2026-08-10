@@ -1,36 +1,71 @@
-"""Feature extraction logic.
+"""Turn one cleaned description into a group, a type and feature variables.
 
-This module finds the item group/type and extracts all feature variables from the
-original text. The code is separated from views and Excel handling so it can be
-maintained and tested independently.
+This is the stage that decides WHAT a row is. text_processor drives it and owns
+everything around it (remark/revision merging, colours, alarms); nothing here
+reads a request, a DataFrame or the database.
+
+Entry points, in the order text_processor calls them:
+
+    find_group(clean_text, json_dict)          → which product family (data.json)
+    find_type(clean_text, group_dict)          → which type inside that family
+    confind_size(group, type, row_size)        → delegate to find_size.resolve_size
+    find_group_features(...)                   → every remaining feature value
+    apply_type_dependency_metadata(...)        → alarm markers the TYPE turns on
+    refresh_alarm_dependency_metadata(...)     → the same markers, recomputed
+                                                 after a remark changed a value
+
+The vocabulary comes entirely from ``resources/json/data.json``, read through
+regex_patterns.load_feature_values, and its key grammar is what makes the
+matching order deterministic:
+
+    M<n>_<L>_<name>   priority tier <n>, tie-break letter <L>, stored name <name>
+    name ^(dep)       when this value matched, ``dep`` may stay empty (no alarm)
+    name ^[dep]       when this value matched, ``dep`` is required (alarm if empty)
+    a||b              one name written several ways. Only ``find_type`` splits
+                      it here: the values under the key are matched as usual,
+                      and the type that comes back is whichever spelling the
+                      description actually contains (the first listed one wins a
+                      tie) — the whole ``a||b`` key when it contains none of
+                      them. A FEATURE key is never split, so ``||`` inside one
+                      is stored verbatim. This file's other alias handling is
+                      ``composite_keys.alias_key_matches`` (used when applying
+                      type dependencies); the lookup-side helper
+                      ``composite_keys.get_by_alias`` is called from rule_engine,
+                      code_assigner, constants and composite_features, not here
+    "null"            this feature is allowed to end up empty
+    phisic_*          a physical/numeric feature (schedule, thickness, diameter),
+                      matched against the punctuation-stripped ORIGINAL text
+                      rather than the cleaned one, because a prefix such as
+                      ``sch`` must stay attached to its number
+
+Matching rule inside a feature: the lowest M tier that matches anything wins and
+higher tiers are not consulted; within a tier the LONGEST cleaned token wins
+(``gr.304l`` beats ``gr.304``), letter order only breaks a tie. Every matched
+token is removed from the remainder, so one word can only be consumed once. The
+value stored for an ordinary feature is the canonical JSON key name, never the
+text token that matched it. Two things do not follow that rule: the type, per
+the ``||`` note above, and every ``phisic_*`` feature — ``find_phisic_feature``
+stores the matched value itself (and, for a diameter pair, a synthesised
+``(OD: 8 - ID: 6)``), because for a physical quantity the number IS the answer
+and there is no canonical key to fall back to.
+
+Variables are named ``<feature>_<group>_<type>``, with two deliberate
+exceptions: the type itself is ``<group>_type``, and a physical feature also
+emits ``display_<core>`` holding the human string (``sch: 40``). code_assigner
+resolves exactly these names against asign_code.json, so the naming here is a
+contract, not a convention.
 """
 
-import json
-import os
 import re
 
-import pandas as pd
-from django.conf import settings
-
-from .resource_paths import json_path, resolve_resource_path
-from .composite_keys import alias_key_matches, get_by_alias, split_alias_key
-
-from .constants import SIZE_DF_CACHE
-from . import constants as _processor_constants
+from .composite_keys import alias_key_matches, split_alias_key
 from .normalizers import (
-    _prepare_pattern_list,
     clean_for_group_and_features,
     parse_feature_pattern_key,
     parse_feature_dependency_markers,
-    preserve_original,
     remove_first_occurrence,
 )
-from .regex_patterns import (
-    load_feature_values,
-    load_json_file,
-    parse_csv_for_field,
-    search_special_feature_in_original,
-)
+from .regex_patterns import load_feature_values
 
 # Alias-set / short-token regex caches (same outputs; avoid rebuild per row).
 _ALIAS_CLEANS_CACHE = {}

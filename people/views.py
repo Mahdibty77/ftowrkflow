@@ -1,4 +1,41 @@
-"""Screens for the people directory (administrators only)."""
+"""Screens for the people directory (administrators only).
+
+Four groups of views live here. They are a map of WHAT is here, not of where it
+sits: the file has been appended to over time, so several views are nowhere near
+the group they belong to (``person_toggle_status`` sits well below the shift and
+heartbeat views, and ``person_reset_password`` sits inside the seats span). Go
+by name, not by line number.
+
+* THE DIRECTORY — ``person_list`` / ``person_create`` / ``person_detail`` /
+  ``person_edit`` / ``person_toggle_status``. Plain CRUD over ``Person``,
+  rendered from the card spec in ``people.spec`` via ``people.forms``.
+* THE SHIFT PAGE — ``person_shift`` and ``person_shift_month`` draw one
+  employee's Jalali year and month of worked hours. They compute nothing
+  themselves; every figure comes from ``people.shift_hours``.
+* THE HEARTBEAT — ``shift_presence_ping`` is the endpoint the signed-in
+  person's open tab POSTs to every few seconds, and ``shift_ended`` is the
+  goodbye screen the middleware sends them to when the shift closes. Neither is
+  administrator-only, so neither carries the admin gate the rest of this file
+  uses, but they are not gated alike: the ping is ``@login_required`` (it credits
+  presence for whoever is signed in), while ``shift_ended`` is deliberately
+  unauthenticated. ``WorkShiftMiddleware`` calls ``logout()`` and only then
+  redirects there, so the request that arrives is always anonymous — requiring a
+  login would bounce the user past the very screen the redirect exists to show.
+  Leaving it open costs nothing: it reads no session and no database, only a
+  display name off the query string, which it clips before rendering.
+* SEATS — ``person_seats``, the POST-only actions around it (``seat_assign``,
+  ``seat_release``, ``seat_claim``, ``role_release``, ``role_translate``,
+  ``role_return``) and ``person_reset_password`` are the administrator's console
+  for the seat model. They validate and redirect; every state change is made by
+  ``people.seats``, which is also where that model is explained. The seat's own
+  lifecycle screens — ``seat_close`` and ``seat_delegate`` — live in
+  ``accounts.views`` instead, because they act on the seat account rather than
+  on the person holding it.
+
+``activate_role`` is the odd one out and belongs to no group: it is what the
+sidebar role switcher posts to when a person with several ``PersonRole`` rows
+changes which one they are working as. See ``people.role_nav``.
+"""
 import logging
 
 from django.contrib import messages
@@ -8,7 +45,6 @@ from django.core.paginator import Paginator
 from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
@@ -18,7 +54,7 @@ from .forms import PersonForm, PersonSearchForm
 from .models import Person, PersonAccount, PersonRole
 from .seats import (
     SeatError, assign_seat, available_seats, ensure_person_login, primary_login,
-    reconcile_person_accounts, release_role, release_seat, roles_of, seats_of,
+    reconcile_person_accounts, release_seat, roles_of, seats_of,
     sync_person_users_active,
 )
 

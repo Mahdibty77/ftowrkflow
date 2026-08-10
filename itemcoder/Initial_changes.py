@@ -1,37 +1,31 @@
-import json
+"""First-paint HTML for one grid cell — the server's half of the table render.
+
+``prepare_table_cell`` is the only entry point, and a single caller reaches it:
+``views.dataframe_to_html_with_ids``, once per cell as it walks the DataFrame.
+That renderer is shared by both ways into the grid — ``views.upload_excel`` for a
+standalone upload, and bridge.py for a case-seeded or saved case form — so a
+decision made here lands identically on both. Every transformation the browser
+would otherwise have to do after paint (wrapping a value in its textarea, cutting
+Alarm_Features into chips, highlighting the parentheses in a size) is done here
+instead, so the first painted row already looks like the settled one and the
+virtual scroller never has to reflow it.
+
+Escaping is decided per column and the reasoning is written at each branch, but
+the rule behind all of them is the same: a cell that holds DATA (a customer's
+description, a typed size) leaves here escaped, because the templates render the
+grid with ``|safe`` and the scroller re-parses it into live nodes; a cell that
+holds markup THIS SERVER built (Filled_Features, a coloured FTCO string) is
+passed through, because it was already neutralised at its source in
+final_feature_display.colored_display. The JS reads cells with ``textContent``,
+which decodes the entities back, so saved values are byte-identical either way.
+
+Despite the file name this module does not change any value — it only decides
+how a value is displayed the first time.
+"""
+
 import re
 from html import escape
 
-
-def colored_display(value, color=None):
-    color = color or "black"
-    return f"<span style='color:{color}'>{value}</span>"
-
-
-def join_filled_features(feature_items):
-    """
-    Render Filled_Features exactly the same way for initial page load and AJAX updates.
-    Keeping this in backend prevents the first JavaScript update from replacing a
-    <br>-based cell with a comma-based cell, which was causing row-height jumps.
-    """
-    return "<br>".join(feature_items)
-
-
-def _extract_order(key):
-    try:
-        return int(str(key).split("_")[-1])
-    except Exception:
-        return 999
-
-
-def _clean(v):
-    return v is not None and str(v).strip() and str(v).strip().lower() != "null"
-
-
-# Final arranged text is now built from final_arrange_builder.py so the
-# arrangement can be customized from final_arrange.json without keeping
-# hard-coded material/grade or separator rules in this initial-render module.
-from .final_arrange_builder import build_final_arrange_and_features
 
 def highlight_parentheses(text):
     return re.sub(r"\([^)]+\)", r'<span class="highlight-red">\g<0></span>', str(text or ""))

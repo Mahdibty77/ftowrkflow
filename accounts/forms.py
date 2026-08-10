@@ -1,4 +1,26 @@
-"""Forms used by administrators to create/manage user accounts."""
+"""Forms used by administrators to create/manage user accounts.
+
+Every form here is paired with a view in ``accounts.views``:
+
+* ``UserCreateForm`` / ``UserEditForm`` — the seat itself: unit, role, seat
+  code, the organisational identity fields, and the signature image. These are
+  plain ``Form``s rather than ``ModelForm``s because one submission writes two
+  rows (a ``User`` and its ``Profile``) and, when the account is linked to a
+  ``Person``, must respect which of those fields the person record now owns.
+* ``AdminPlatformForm`` / ``AdminUnitStampsForm`` — the single
+  ``PlatformConfig`` row, split in two so the stamps upload independently of the
+  text settings.
+* ``SelfProfileForm`` / ``SelfPasswordForm`` / ``ForcePasswordChangeForm`` — what
+  an ordinary signed-in user may change about their own account.
+
+The upload validators at the top (``_validate_png_upload``,
+``_validate_avatar_upload``, ``_validate_stamp_upload``) are shared by several
+of those, and ``_validate_avatar_upload`` is imported directly by
+``accounts.views`` for the same check on a non-form upload path. They are
+deliberately strict about format rather than merely about size: a signature and
+a unit stamp are composited onto exported company documents, where anything
+without a transparent background prints as a white box over the text.
+"""
 import secrets
 
 from django import forms

@@ -333,14 +333,3 @@ CANDIDATE_CARDS = [c for c in ALL_CARDS if c["key"] != "financial"]
 PROFILE_CARDS = [c for c in ALL_CARDS if c.get("profile")]
 
 CARDS_BY_KEY = {c["key"]: c for c in ALL_CARDS}
-
-
-def iter_fields(cards):
-    """Every simple field across ``cards`` (row tables excluded)."""
-    for card in cards:
-        for f in card.get("fields", []):
-            yield card, f
-
-
-def field_names(cards):
-    return [f["name"] for _card, f in iter_fields(cards)]

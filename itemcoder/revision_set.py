@@ -1,8 +1,18 @@
-"""Parse and apply ``set(var:value)`` commands in Revision text.
+"""The ``set(var:value)`` escape hatch an operator can type in Revision.
+
+Normally a feature value has to be recognised in the text. ``set(coating:none)``
+lets the operator state one outright, for the cases where the description simply
+does not say. text_processor drives all three functions in order, once per row:
+``parse_set_commands`` reads them, ``strip_set_commands`` removes them from the
+text (so ``set`` and the variable name are not themselves matched as features),
+and ``apply_set_commands`` writes the values after the alarms are built.
 
 Only features whose data.json definition includes an ``m2_A_null`` (or similar
-null-variant) pattern can be targeted.  Applied commands set the feature
-variable directly and suppress its alarm entry.
+null-variant) pattern can be targeted — a feature that has no legitimate "not
+applicable" state must not be silenced this way. Applied commands set the feature
+variable directly and suppress its alarm entry, and the keys they changed are
+passed to the vocabulary scrub as ``keep_keys`` so a deliberate override is never
+dropped for not being a data.json word.
 """
 
 import re

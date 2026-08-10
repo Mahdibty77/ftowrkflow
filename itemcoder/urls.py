@@ -1,3 +1,21 @@
+"""URL map for the coding tool, grouped by which module answers.
+
+Four view modules serve this app and the split is by audience, not by feature:
+
+* ``views``               — the standalone tool: upload a workbook, re-code one
+                            row over AJAX, serve a JSON config to the frontend.
+* ``bridge``              — the same tool entered FROM a case (seeded from the
+                            case, saved back to it) plus the price/feature panes.
+* ``data_admin``          — the reference-data screens under ``admin/data/``:
+                            code-table import, price lists, feature schema, and
+                            the per-group rules/offer files. Access is gated in
+                            tool_access.py, not here.
+* ``engineering_assistant`` — the ``ea_*`` endpoints behind the in-grid assistant.
+
+The ``name=`` of every route is the public handle used by ``{% url %}`` in the
+templates and by ``reverse()`` in Python (see tool_access.tool_data_home_url_name),
+so renaming one is a breaking change even though the path stays the same.
+"""
 from django.urls import path
 from . import views
 from . import bridge

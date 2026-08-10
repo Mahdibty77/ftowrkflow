@@ -1,5 +1,22 @@
-"""Template context processors shared across the whole site."""
-from .theming import DEFAULT_THEME, theme_for_unit
+"""Template context processors shared across the whole site.
+
+All three are wired up in ``settings.TEMPLATES`` and therefore run on EVERY
+rendered page, which is why each one is written to fail soft: a context
+processor that raises takes down the page it was only meant to decorate, so
+every optional lookup here is wrapped and falls back to a neutral value.
+
+    theme()               the active unit's accent colours plus everything the
+                          left navigation needs (badge counts, seat roles)
+    tool_data_access()    the itemcoder role flags base.html tests to decide
+                          which Tool Data entries a user may see
+    impersonation_status()  the "return to admin" banner
+
+The imports of `people`, `cases` and `itemcoder` sit inside the try blocks
+rather than at the top of the file for the same reason: an import that fails
+lands in the same fallback path as a lookup that fails, instead of breaking the
+whole module and with it every page on the site.
+"""
+from .theming import theme_for_unit
 
 
 def theme(request):
@@ -59,8 +76,6 @@ def theme(request):
                 fx_stale = bool(is_rates_stale())
         except Exception:
             fx_stale = False
-        show_person_requests = False
-        person_request_answers = 0
         # Person-scoped Requests tab (not under any seat accordion).
         try:
             if profile is not None and not profile.is_admin:

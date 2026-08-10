@@ -24,12 +24,54 @@ or a paragraph (motivation, references) is JSON. Roughly forty sparse columns
 were the alternative, most of them empty on most rows, and a migration every
 time the form gains a question.
 
-PEOPLE AND SEATS
-A ``User`` account is a *seat*: a unit and a role — "the commercial manager".
-A ``Person`` is the human. One human may sit in several seats at once (a
-manager who also covers purchasing), and a seat is held by exactly one human at
-a time. ``PersonAccount`` is that holding: a foreign key to the person, a
-one-to-one to the account.
+SEAT, PERSON, ROLE — read this before touching anything seat-shaped
+This is the one idea in the codebase that cannot be guessed from the code, it
+is spread across two apps, and more than one bug has come from conflating its
+parts. It is written out here once; ``people.seats`` and ``accounts.models``
+point back to this paragraph rather than repeating it.
+
+*A seat is a job, not a human.* A seat is a Django ``User`` account, and what
+makes it a seat is its ``accounts.Profile``: a unit and a role — "the
+commercial manager", "the internal supply expert" — plus a short ``seat_code``
+that numbers it within that unit+role pool. The seat outlives whoever fills it.
+Cases, inboxes and archives hang off the seat User, which is exactly why a
+person can leave and their successor inherits the work rather than an empty
+desk.
+
+*A person is a human.* ``Person`` here is that human, and it exists whether or
+not they were ever given a login — that was the whole reason this app was
+added. A person id and a user id are unrelated sequences; a number that means
+one never means the other (see ``person_photo_path`` below for what that cost).
+
+*``PersonAccount`` is the holding of a seat by a human.* Foreign key to the
+person, one-to-one to the seat User. One human may hold several seats at once
+(a manager who also covers purchasing); a seat is held by at most one human at
+a time.
+
+*One human still gets one login.* Assigning a person their FIRST organisational
+seat moves their identity — username, first name, last name — onto that seat's
+User, and that is the account they sign in with. Every further seat they take
+stays linked and stays active, but is given a vacant username and an unusable
+password: it can never be signed into. All of that lives in ``people.seats``.
+
+*``PersonRole`` is how the extra seats keep working.* Each row is one role the
+person may act under on that single login, and it remembers ``source_user`` —
+the seat User whose unit and role it absorbed. Switching role in the sidebar
+writes the chosen row's unit/role onto the login's ``Profile`` and points the
+session's work at that ``source_user``, so the second seat's inbox and archive
+open under the first seat's password. ``people.role_nav`` resolves which role
+is active for a request.
+
+*Permissions read the ``Profile``, never a ``PersonRole``.* The profile always
+carries the *currently active* role; ``PersonRole`` is only the menu of roles
+available to switch into. Checking one where the other was meant is the single
+easiest mistake to make here.
+
+*``SeatTenure`` is the record of holding, kept for history and for undo.* Who
+holds a seat User and how: OWNER for a normal assignment, SUBSTITUTE for a
+temporary Translate, whose ``origin_person`` is what Return restores the seat
+to. A tenure that is still current has ``ended_at`` null. ``SeatEventLog`` and
+``people.seat_history`` turn the same events into the readable timeline.
 """
 from django.conf import settings
 from django.db import models, transaction

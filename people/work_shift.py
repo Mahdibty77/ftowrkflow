@@ -253,10 +253,3 @@ def shift_ended_message(user) -> str:
         f"Dear {name}, your work shift has ended. "
         f"Hope you had a good day — see you next shift."
     )
-
-
-def countdown_message(minutes_left: int) -> str:
-    m = max(0, int(minutes_left))
-    if m == 1:
-        return "1 minute left until your cartable closes"
-    return f"{m} minutes left until your cartable closes"

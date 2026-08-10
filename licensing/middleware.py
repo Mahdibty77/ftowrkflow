@@ -1,9 +1,17 @@
 """Request gate that enforces the license on every page.
 
-Placed *last* in ``MIDDLEWARE`` so that session / auth / messages are already
-available.  When the software is not in a valid licensed state every request is
-redirected to the activation page, except for an allow-list that must stay
-reachable while locked:
+Placed near the end of ``MIDDLEWARE`` — second to last, with
+``accounts.MustChangePasswordMiddleware`` after it — because it needs
+``request.user``, which only exists below ``AuthenticationMiddleware``. That is
+the whole constraint: this gate never touches ``django.contrib.messages``, so
+sitting under ``MessageMiddleware`` is simply where the end of Django's own
+stack falls, not a requirement of its own. It runs before the password gate so
+that an unlicensed install sends everyone to activation rather than hiding the
+problem behind a password prompt.
+
+When the software is not in a valid licensed state every request is redirected
+to the activation page, except for an allow-list that must stay reachable while
+locked:
 
     * the activation page itself (so it can be used to unlock)
     * static files (so the activation page is styled)

@@ -22,11 +22,13 @@ Builder logic (matches the admin UX):
     material already used under any other material_type value (e.g. C.S). Likewise
     the pool of values shown for the picked feature itself excludes values already
     consumed by other selections. This is enforced by `available_values`.
+
+Called only from data_admin.py (the Tool Data → Offer screens); the coding engine
+reads the resulting offer_<group>.json through rule_engine, never through here.
 """
 
 from __future__ import annotations
 
-import glob
 import json
 import os
 

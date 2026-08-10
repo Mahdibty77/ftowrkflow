@@ -15,8 +15,6 @@ import json
 import os
 import re
 
-from django.conf import settings
-
 from .resource_paths import JSON_DIR
 from .composite_keys import iter_alias_items
 

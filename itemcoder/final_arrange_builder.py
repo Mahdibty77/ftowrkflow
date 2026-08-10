@@ -21,11 +21,15 @@ Responsibilities kept here:
 
 General display helpers, color wrapping, physical-value helpers and
 Filled_Features formatting live in final_feature_display.py.
+
+``build_final_arrange_and_features`` is the last stage of the coding pipeline:
+text_processor calls it once the feature values and their colours are final, and
+it returns the two strings the grid shows — ``Final_Text`` (FTCO DISCRIPTION) and
+``Filled_Features`` (the technical breakdown). It decides display only; nothing
+here can change which features were extracted or which code is assigned.
 """
 
 import html
-import json
-import os
 import re
 
 from .resource_paths import json_path
