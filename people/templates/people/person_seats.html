@@ -27,7 +27,7 @@
 
 <div class="card ppl-idcard">
   <div class="ppl-idcard-main">
-    <div class="ppl-idcard-name">{{ person.display_name }}</div>
+    <div class="ppl-idcard-name" dir="auto">{{ person.display_name }}</div>
     <div class="ppl-idcard-sub">{% if person.username %}<span class="mono">{{ person.username }}</span>{% else %}—{% endif %}</div>
   </div>
   <dl class="kv ppl-idcard-kv">
@@ -84,7 +84,7 @@
         {% with role=row.role %}
         <article class="ppl-seat">
           <header class="ppl-seat-head">
-            <span class="ppl-seat-user">{{ role.title_line }}</span>
+            <span class="ppl-seat-user" dir="auto">{{ role.title_line }}</span>
             {% if row.is_sub %}<span class="pill pill-amber">Substitute</span>{% endif %}
             {% if row.tasks %}<span class="pill pill-amber">{{ row.tasks }} task{{ row.tasks|pluralize }}</span>{% endif %}
           </header>

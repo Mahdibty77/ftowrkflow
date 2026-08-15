@@ -265,9 +265,11 @@ class Case(models.Model):
             side = self.primary_side
         cached = getattr(self, "_prefetched_objects_cache", None)
         if cached is not None and "forms" in cached:
-            # The related manager's default ordering is ["kind", "-version"], so
-            # the first match in this list is the highest version — same as the
-            # DB .first() below.
+            # The prefetched list arrives in the related manager's default
+            # ordering (see CaseForm.Meta: kind, then newest version, then the
+            # two-stage generation ahead of the same-numbered version it
+            # supersedes, then newest id), so the first match in this list is
+            # the newest snapshot — exactly the row the DB .first() below picks.
             current = [f for f in cached["forms"] if f.kind == kind and f.is_current]
             form = next((f for f in current if f.side == side), None)
             if form is None and side == self.primary_side:
@@ -406,11 +408,47 @@ class CaseForm(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["kind", "-version"]
+        # A two-stage snapshot does NOT get a new version number: "01" and
+        # "01 · Two Stage" are both version 1, so ordering by version alone
+        # leaves those two rows tied and the database is free to return either
+        # first. That is why "the newest version" used to be a coin toss rather
+        # than a rule. The two-stage generation is the later one by definition,
+        # so it is the next sort term; ``-id`` then settles anything still tied
+        # (an FX-only clone against the real snapshot of the same number), so
+        # ``.first()`` on this manager always means the same row.
+        #
+        # ``-id`` does more than break ties, though: it REVERSES rows that tie on
+        # everything before it — the two PI snapshots of a split Internal &
+        # External case, say, now come back External-first where they used to
+        # come back Internal-first. That is harmless for ``.first()`` (the point
+        # of the term) and harmless for anything that filters or aggregates in
+        # SQL, but a caller that WALKS the rows and does something the order can
+        # be felt in must not read its sequence out of this default. Two such
+        # callers exist and both now state their own ``.order_by()``: the float
+        # money sums in ``cases.export_data`` (float addition is not
+        # associative) and the v00 baseline lookup in ``cases.services``. Add
+        # the same explicit ordering to any new one rather than relying on this.
+        ordering = ["kind", "-version", "-two_stage", "-id"]
 
     def __str__(self):
         from .codes import format_version
         return f"{self.case.doc_no} · {self.get_kind_display()} v{format_version(self.version)}"
+
+    @property
+    def version_key(self) -> tuple:
+        """Ascending rank of this snapshot inside its (kind, side) stream.
+
+        The single definition of "which snapshot is newer". Sorting a list with
+        it puts the oldest first, so a version list reads left → right exactly
+        as the units expect: ``00``, ``01``, ``01 · Two Stage``, ``02`` …. Take
+        ``max()`` of it for the latest and ``min()`` for the original.
+
+        It exists so the chip list, the tool's "which form is current", and the
+        export resolver cannot drift apart: every one of them ranks by this,
+        never by ``version`` on its own (which cannot separate a two-stage
+        snapshot from the same-numbered version it supersedes).
+        """
+        return (int(self.version or 0), 1 if self.two_stage else 0, int(self.pk or 0))
 
     def make_current(self):
         """Mark this snapshot as the current one for its kind and side."""
@@ -661,3 +699,62 @@ class SignatureSnapshot(models.Model):
 
     def __str__(self):
         return f"Signature snapshot · {self.form_id} · {self.signer_name}"
+
+
+class CaseSeen(models.Model):
+    """When a given person last OPENED a given case. Powers the inbox NEW marker.
+
+    "Seen" cannot be a flag on the case: two people can be looking at the same
+    inbox row and must be allowed to disagree about whether they have seen it.
+    So it is one row per (case, person), and it lives on the SERVER — not in a
+    cookie or in localStorage — because the owner's rule is that pressing Back
+    must not bring the marker back, and only the server can still know that on
+    the next request, from any browser or any machine.
+
+    A row is written when the person opens the case DETAIL page, and by nothing
+    else. Writing it must never touch the ``Case`` row (no ``updated_at`` bump)
+    and never write a ``CaseEvent``: opening a case is not a workflow action and
+    must not appear on the audit timeline, change any status, or move the file.
+
+    HOW A CASE BECOMES "NEW" AGAIN
+    ------------------------------
+    The row is never deleted when the case leaves the inbox and never re-created
+    when it comes back. Instead ``seen_at`` is compared against
+    ``Case.updated_at``: the row reads as NEW while ``seen_at < case.updated_at``
+    (and, of course, when there is no row at all). Every handoff in
+    :mod:`cases.services` saves the case with ``updated_at`` in its
+    ``update_fields``, so a case that goes out to another unit and later returns
+    always has an ``updated_at`` newer than the stored ``seen_at`` and is marked
+    NEW again — which is exactly the arrival the owner wants flagged.
+
+    The price of picking that particular timestamp has to be stated plainly:
+    ``updated_at`` advances on ANY save of the case, not only on a change of
+    hands. A deadline edit, an assignee change or an approval toggle therefore
+    re-marks the case as new for everyone who can see it. That is a deliberate
+    trade — those are all things worth a second look — but it is broader than
+    "it changed hands", and anyone tightening it later should compare against a
+    narrower signal (e.g. the newest handoff ``CaseEvent``) rather than change
+    what this field means.
+    """
+
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="seen_marks")
+    # The seat that did the looking. On a multi-seat login this is the seat User
+    # whose inbox the row was in (``WorkContext.seat_user``), so opening a case
+    # from one seat does not silently mark it read for the person's other seat.
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="case_seen_marks",
+    )
+    # Set explicitly by cases.services.mark_case_seen rather than auto_now, so
+    # the value can only come from that one call site.
+    seen_at = models.DateTimeField()
+
+    class Meta:
+        # One row per person per case. This is also the race guard: two browser
+        # tabs opening the same case at the same instant both try to insert, the
+        # loser hits this constraint, and the upsert in mark_case_seen turns that
+        # back into an update instead of an error page.
+        unique_together = ("case", "user")
+
+    def __str__(self):
+        return f"case {self.case_id} seen by user {self.user_id}"

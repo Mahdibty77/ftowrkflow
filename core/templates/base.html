@@ -366,6 +366,58 @@
 {% endif %}
 
 <script>
+  /*
+    Keep the IMPERSONATION forms' CSRF token in step with the cookie the browser
+    will actually send with them.
+
+    Signing a user in rotates the CSRF secret (Django does it deliberately,
+    against session fixation), which invalidates the token baked into every page
+    rendered before it. "Log in as" is exactly such a sign-in — so the People
+    list the administrator started from is stale the moment they enter someone's
+    account. Press Back, and the browser restores that page from its
+    back/forward cache, hidden token and all; press "Log in as" for a second
+    person from it and the token no longer matches the cookie:
+
+        Forbidden (403) - CSRF verification failed. Request aborted.
+
+    Resyncing at submit time fixes that, because the cookie read here is the
+    very one being sent with this request.
+
+    WHY ONLY THESE TWO FORMS. This started as a listener on every form on the
+    site, and that is a much bigger promise than the bug needs. Roughly a
+    hundred CSRF-protected forms would have had their token rewritten on every
+    submit, so any form that ever wants to post a token OTHER than the current
+    cookie's — a deliberately stale one in a test, a second token embedded for
+    some future flow — would have been quietly overwritten, and a bug in this
+    handler would have taken the whole application's POSTs down with it rather
+    than one button. The stale-token window it was covering is specific:
+    impersonation is the only rotation a user drives while continuing to browse
+    the pages that were rendered before it, so those are the only forms narrowed
+    to here. Matching is on the form's action — ``…/impersonate/`` (start) and
+    ``…/impersonate/stop/`` — so no template outside this file has to cooperate.
+
+    This weakens nothing. The token still has to come from the CSRF cookie,
+    which is the whole basis of the protection: only same-origin script can read
+    it (a cross-site page cannot), and a cross-site form post cannot run this
+    handler at all. It is the same value the AJAX helpers on this page already
+    send as X-CSRFToken, which is what Django's own documentation prescribes.
+    The rendered token stays masked in the HTML, so the BREACH mitigation
+    masking exists for is untouched — only the outgoing field is refreshed.
+  */
+  document.addEventListener('submit', function (e) {
+    var form = e.target;
+    if (!form || form.tagName !== 'FORM') return;
+    /* accounts:impersonate_start ends in /impersonate/, impersonate_stop in
+       /impersonate/stop/ — nothing else in the URL map contains that segment. */
+    if (!/\/impersonate\/(stop\/)?$/.test(form.getAttribute('action') || '')) return;
+    var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    if (!m) return;
+    var token = decodeURIComponent(m[1]);
+    form.querySelectorAll('input[name="csrfmiddlewaretoken"]').forEach(function (input) {
+      input.value = token;
+    });
+  }, true);  /* capture: run before any handler that submits or cancels */
+
   document.addEventListener('click', function (e) {
     var w = document.getElementById('whoWidget');
     var m = document.getElementById('profileMenu');

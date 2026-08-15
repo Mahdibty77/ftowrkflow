@@ -37,10 +37,12 @@ sidebar role switcher posts to when a person with several ``PersonRole`` rows
 changes which one they are working as. See ``people.role_nav``.
 """
 import logging
+from functools import wraps
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
+from django.contrib.auth.views import redirect_to_login
 from django.core.paginator import Paginator
 from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
@@ -69,6 +71,42 @@ def _is_admin(user) -> bool:
 
 
 admin_required = user_passes_test(_is_admin, login_url="accounts:login")
+
+
+def admin_or_impersonating_admin_required(view):
+    """``admin_required``, but judged on whoever is really at the keyboard.
+
+    During an impersonation ``request.user`` is deliberately the employee being
+    stood in for, so a plain ``admin_required`` refuses the administrator who
+    started it. That is correct for anything that WRITES — an edit made in that
+    state would be recorded against the employee, not against the administrator
+    who actually made it — but it broke the one page that has to stay reachable:
+    the people list is where the "Log in as" control lives, so being locked out
+    of it mid-impersonation meant an administrator could never switch from one
+    person to another. That is the 403 the owner hit after pressing Back.
+
+    Nobody new is admitted. The test is the same ``_is_admin``, applied to the
+    administrator named in the session and re-read from the database on every
+    request, so an account that has since been deactivated or demoted cannot go
+    on using a session it opened while it still could. An ordinary request —
+    no impersonation in progress — still stands or falls on ``request.user``
+    exactly as before.
+
+    Deliberately applied to the read-only list ONLY. Every mutating people view
+    keeps ``admin_required``: an administrator who wants to change a person
+    should return to their own account first, so the audit trail names them.
+    """
+
+    @wraps(view)
+    def _wrapped(request, *args, **kwargs):
+        from accounts.views import _impersonation_actor
+
+        actor = _impersonation_actor(request)
+        if actor is None or not actor.is_active or not _is_admin(actor):
+            return redirect_to_login(request.get_full_path(), reverse("accounts:login"))
+        return view(request, *args, **kwargs)
+
+    return _wrapped
 
 
 def _with_seats(queryset):
@@ -108,7 +146,7 @@ def _search(queryset, term: str):
 
 
 @login_required
-@admin_required
+@admin_or_impersonating_admin_required
 def person_list(request):
     """The people list, and the same list again as a fragment.
 

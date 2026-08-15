@@ -1866,15 +1866,21 @@ def tool_for_case(request, case_id, kind):
     if (current is not None and services.form_is_currency_conversion_only(current)
             and not services.is_currency_conversion_only(case, side or "")):
         reals = list(
+            # ``-two_stage`` keeps the two-stage generation ahead of the
+            # same-numbered version it supersedes; without it the two rows are
+            # tied on version and the database decides which is "latest".
             case.forms.filter(kind=form_kind, side=side or "")
-            .order_by("-version", "-id")
+            .order_by("-version", "-two_stage", "-id")
         )
         current = next(
             (f for f in reals
              if not services.form_is_currency_conversion_only(f)), None)
     inq = case.current_form(FormKind.INQUIRY, side)
-    inq_v = inq.version if inq else 0
-    behind = bool(current and current.version < inq_v)
+    # "Behind" is not only a lower version NUMBER: a two-stage upgrade leaves
+    # the number alone and changes the generation, and that snapshot must be
+    # branched as a new version too, not edited in place. See
+    # services.form_behind_inquiry for the single definition.
+    behind = services.form_behind_inquiry(current, inq)
     if mode == "edit":
         if current is None:
             mode = "build"
@@ -2224,10 +2230,14 @@ def save_from_tool(request, case_id, kind):
     mode = request.POST.get("mode", "build")
     current = case.current_form(form_kind, side)
     inq = case.current_form(FormKind.INQUIRY, side)
-    inq_v = inq.version if inq else 0
-    # A form left behind by a newer inquiry version must become a new version;
-    # a current form may be edited in place even after it was sent and returned.
-    if mode == "edit" and current is not None and current.version < inq_v:
+    # A form left behind by the inquiry must become a new version; a current
+    # form may be edited in place even after it was sent and returned. "Behind"
+    # covers a higher inquiry NUMBER and a two-stage generation change at the
+    # same number — the latter is a new version in every sense but its number,
+    # so saving over it would silently rewrite the offer already sent. Without
+    # this the save was logged as an EDIT of "Version 01" even though it wrote
+    # the separate "Version 01 · Two Stage" record.
+    if mode == "edit" and services.form_behind_inquiry(current, inq):
         mode = "newversion"
     is_edit = (mode == "edit")
     if mode == "newversion":

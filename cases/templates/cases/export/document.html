@@ -120,6 +120,11 @@
       background: #fff; font-size: 11.5px; color: var(--ink);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
+    /* The Client and Project boxes carry dir="auto" in the markup below: both
+       hold what a person typed, so a Persian name that includes a Latin word
+       must keep the order it was typed in. Vendor and Doc No. do not — they are
+       generated. Nothing here changes size: the box is one nowrap line either
+       way, so the header block is the same height and pagination is untouched. */
 
     .table-zone {
       margin: 0; flex: 1; min-height: 0;
@@ -496,8 +501,8 @@
       </div>
       <div class="info-card">
         <div class="info-card-title">Client / Project Information</div>
-        <div class="label">Client</div><div class="value">{{ client }}</div>
-        <div class="label">Project</div><div class="value">{{ order_no }}</div>
+        <div class="label">Client</div><div class="value" dir="auto">{{ client }}</div>
+        <div class="label">Project</div><div class="value" dir="auto">{{ order_no }}</div>
       </div>
     </div>
 
@@ -514,7 +519,27 @@
           {% for row in page.rows %}
           <tr class="{% if row.issue %}exp-row-issue{% elif row.unsuppliable %}exp-row-unsup{% elif row.service %}exp-row-service{% endif %}{% if row.continued %} exp-row-cont{% endif %}"{% if row.height_mm %} style="height: {{ row.height_mm }}mm; min-height: {{ row.height_mm }}mm;"{% endif %}>
             {% for cell in row.cells %}
-              <td{% if cell.left %} class="left"{% endif %}>{% if cell.cont_mark %}<span class="exp-cont-mark">(cont.)</span>{% endif %}{{ cell.text }}{% if cell.flag_label %} <span class="exp-flag exp-flag-{{ cell.flag_kind }}">[{{ cell.flag_label }}]</span>{% endif %}</td>
+              {% comment %}
+                `cell.left` is set by pdf_export.py for exactly the five text
+                columns a person writes — client description, FTCO description,
+                remark, technical-problem reason and service comment — so it is
+                also the right test for which cells need their own base
+                direction. Without it a Persian remark holding a Latin code
+                prints with its parts swapped round; see the note at the end of
+                static/css/app.css.
+
+                This CANNOT change pagination. `dir` only reorders the runs
+                inside a line: the same characters wrap at the same points, in
+                the same font, in the same column width, so the cell needs the
+                same number of lines and the row the same height. The heights in
+                the style attribute above are still the ones paginate_rows()
+                computed, and the number of sheets is unchanged.
+
+                Every other column is left alone deliberately: item / client
+                numbers, the FTCO code, size, quantity, unit, brand, time and
+                the price columns are all left-to-right by nature.
+              {% endcomment %}
+              <td{% if cell.left %} class="left" dir="auto"{% endif %}>{% if cell.cont_mark %}<span class="exp-cont-mark">(cont.)</span>{% endif %}{{ cell.text }}{% if cell.flag_label %} <span class="exp-flag exp-flag-{{ cell.flag_kind }}">[{{ cell.flag_label }}]</span>{% endif %}</td>
             {% endfor %}
           </tr>
           {% endfor %}
@@ -598,8 +623,8 @@
       </div>
       <div class="info-card">
         <div class="info-card-title">Client / Project Information</div>
-        <div class="label">Client</div><div class="value">{{ client }}</div>
-        <div class="label">Project</div><div class="value">{{ order_no }}</div>
+        <div class="label">Client</div><div class="value" dir="auto">{{ client }}</div>
+        <div class="label">Project</div><div class="value" dir="auto">{{ order_no }}</div>
       </div>
     </div>
     <div class="issues-sheet-banner">
@@ -628,7 +653,7 @@
           {% for row in page.rows %}
           <tr class="exp-row-issue{% if row.continued %} exp-row-cont{% endif %}"{% if row.height_mm %} style="height: {{ row.height_mm }}mm; min-height: {{ row.height_mm }}mm;"{% endif %}>
             {% for cell in row.cells %}
-              <td{% if cell.left %} class="left"{% endif %}>{% if cell.cont_mark %}<span class="exp-cont-mark">(cont.)</span>{% endif %}{{ cell.text }}</td>
+              <td{% if cell.left %} class="left" dir="auto"{% endif %}>{% if cell.cont_mark %}<span class="exp-cont-mark">(cont.)</span>{% endif %}{{ cell.text }}</td>
             {% endfor %}
           </tr>
           {% endfor %}
@@ -688,8 +713,8 @@
       </div>
       <div class="info-card">
         <div class="info-card-title">Client / Project Information</div>
-        <div class="label">Client</div><div class="value">{{ client }}</div>
-        <div class="label">Project</div><div class="value">{{ order_no }}</div>
+        <div class="label">Client</div><div class="value" dir="auto">{{ client }}</div>
+        <div class="label">Project</div><div class="value" dir="auto">{{ order_no }}</div>
       </div>
     </div>
     <div class="services-sheet-banner">
@@ -722,7 +747,7 @@
           {% for row in page.rows %}
           <tr class="exp-row-service{% if row.continued %} exp-row-cont{% endif %}"{% if row.height_mm %} style="height: {{ row.height_mm }}mm; min-height: {{ row.height_mm }}mm;"{% endif %}>
             {% for cell in row.cells %}
-              <td{% if cell.left %} class="left"{% endif %}>{% if cell.cont_mark %}<span class="exp-cont-mark">(cont.)</span>{% endif %}{{ cell.text }}</td>
+              <td{% if cell.left %} class="left" dir="auto"{% endif %}>{% if cell.cont_mark %}<span class="exp-cont-mark">(cont.)</span>{% endif %}{{ cell.text }}</td>
             {% endfor %}
           </tr>
           {% endfor %}

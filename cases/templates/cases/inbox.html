@@ -59,10 +59,13 @@
         <tr class="row-link" onclick="window.location='{% url 'cases:case_detail' c.pk %}'">
           <td>
             <span class="docno-line">
-              <span class="docno"><span>{{ c.doc_no }}</span></span>{% if c.is_delegated %} <span class="pill pill-delegated">Delegated</span>{% endif %}
+              <span class="docno"><span>{{ c.doc_no }}</span></span>{% if c.is_new_in_inbox %} <span class="pill pill-new" title="New in your inbox — you have not opened it yet">NEW</span>{% endif %}{% if c.is_delegated %} <span class="pill pill-delegated">Delegated</span>{% endif %}
             </span>
           </td>
-          {% if unit != 'SUPPLY' %}<td>{{ c.client.name }} <span class="muted mono">({{ c.client.code }})</span></td>{% endif %}
+          {# Client name is typed by a user, the code beside it is generated — #}
+          {# only the name takes its own base direction. See the note at the  #}
+          {# end of static/css/app.css.                                       #}
+          {% if unit != 'SUPPLY' %}<td><span dir="auto">{{ c.client.name }}</span> <span class="muted mono">({{ c.client.code }})</span></td>{% endif %}
           <td>{% for s_label, s_status, s_color in c.inbox_status_rows %}<div{% if not forloop.last %} style="margin-bottom:.2rem;"{% endif %}><span class="status-tag" style="--sc:{{ s_color }}">{% if s_label %}{{ s_label }}: {% endif %}{{ s_status }}</span></div>{% endfor %}</td>
           <td>{% if c.deadline %}{{ c.deadline|jalali:"Y.m.d H:i" }}{% else %}<span class="muted">—</span>{% endif %}</td>
           <td><span class="offer-cell">{{ c.offer_type_label|default:"—" }}</span></td>

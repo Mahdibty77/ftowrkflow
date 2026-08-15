@@ -156,15 +156,15 @@
 
     {% if sd.arrival_comment %}
       <div class="arrival-note unit-note u-{{ sd.arrival_comment.from_unit }}">
-        <div class="an-head"><i class="fa-solid fa-comment-dots"></i> {{ sd.label }} · Note from {{ sd.arrival_comment.from_unit }} — {{ sd.arrival_comment.actor_display_name }}</div>
-        <div class="an-body">{{ sd.arrival_comment.comment }}</div>
+        <div class="an-head"><i class="fa-solid fa-comment-dots"></i> {{ sd.label }} · Note from {{ sd.arrival_comment.from_unit }} — <span dir="auto">{{ sd.arrival_comment.actor_display_name }}</span></div>
+        <div class="an-body" dir="auto">{{ sd.arrival_comment.comment }}</div>
         <div class="an-time">{{ sd.arrival_comment.created_at|jalali:"Y.m.d H:i" }}</div>
       </div>
     {% endif %}
     {% if sd.assign_comment %}
       <div class="arrival-note unit-note u-{{ sd.assign_comment.to_unit }}">
-        <div class="an-head"><i class="fa-solid fa-user-plus"></i> {{ sd.label }} · Assignment note — {{ sd.assign_comment.actor_display_name }}</div>
-        <div class="an-body">{{ sd.assign_comment.comment }}</div>
+        <div class="an-head"><i class="fa-solid fa-user-plus"></i> {{ sd.label }} · Assignment note — <span dir="auto">{{ sd.assign_comment.actor_display_name }}</span></div>
+        <div class="an-body" dir="auto">{{ sd.assign_comment.comment }}</div>
         <div class="an-time">{{ sd.assign_comment.created_at|jalali:"Y.m.d H:i" }}</div>
       </div>
     {% endif %}

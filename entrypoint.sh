@@ -88,10 +88,40 @@ else:
 " || echo "    !! ADMIN NOT CREATED - the step above failed. Create one with: docker compose exec web python manage.py createsuperuser"
 fi
 
+# ---------------------------------------------------------------------------
+# Why there are threads here and not just workers.
+#
+# gunicorn's default *sync* worker serves exactly one request at a time, start
+# to finish. With three of them the whole application can have three requests in
+# flight, of any kind, and everything else waits in the accept queue. That is a
+# generous ceiling for page views (a case detail page is ~70 ms) and a very low
+# one for a PDF export, which drives a headless Chromium and takes about four
+# seconds inside the request.
+#
+# Measured on this application, with three sync workers and three exports taken
+# at the same time: a case-detail click that normally answers in 70 ms took
+# 5.9 seconds. That is the "loading state for a few seconds when a tab is
+# clicked" the operator reported — the click itself is not slow, it is queued
+# behind exports that hold every worker. Re-run with three workers of four
+# threads each (twelve slots) and the same click's worst case falls to 1.1 s,
+# and to ~170 ms once the exports finish.
+#
+# Threads are the right lever specifically because the export spends its four
+# seconds *waiting* — on a child process and on a socket — with the GIL
+# released, so a thread parked on Chromium costs a page view nothing. It is not
+# the real fix, which is to take the export off the request entirely (a job
+# queue), but it is the mitigation that needs no new moving parts.
+#
+# The browser count does not follow the thread count: cases/pdf_export.py caps
+# concurrent Chromium launches per worker process (FT_PDF_MAX_CONCURRENCY,
+# default 2), so more threads buy responsiveness without letting a burst of
+# exports start a dozen browsers and exhaust the machine's memory.
 echo "==> Starting gunicorn on 0.0.0.0:8000..."
 exec gunicorn ftworkflow.wsgi:application \
   --bind 0.0.0.0:8000 \
   --workers "${GUNICORN_WORKERS:-3}" \
+  --threads "${GUNICORN_THREADS:-4}" \
+  --worker-class gthread \
   --timeout "${GUNICORN_TIMEOUT:-600}" \
   --access-logfile - \
   --error-logfile -

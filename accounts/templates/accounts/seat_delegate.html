@@ -108,7 +108,7 @@
               <input type="checkbox" name="cases" value="{{ c.pk }}" class="seat-del-check" hidden>
               <span class="seat-del-bar" aria-hidden="true"></span>
               <span class="mono seat-del-doc">{{ c.doc_no }}</span>
-              <span class="seat-del-client">{{ c.client.name }}</span>
+              <span class="seat-del-client" dir="auto">{{ c.client.name }}</span>
               <span class="seat-del-status">{{ c.status_label }}</span>
               <span class="seat-del-offer muted">{{ c.offer_stage_label|default:c.offer_type_label|default:"—" }}</span>
             </label>

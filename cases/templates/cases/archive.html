@@ -12,7 +12,7 @@
 {% if drill_person %}
 <div class="flash flash-info" style="margin-bottom:1rem;">
   <i class="fa-solid fa-user"></i>
-  <span>Showing cases for <strong>{{ drill_person.get_full_name|default:drill_person.username }}</strong>{% if drill_person.profile.internal_code %} <span class="mono">({{ drill_person.profile.internal_code }})</span>{% endif %}{% if show_money and drill_grand_total_display %} · Grand total (all PI): <strong class="mono">{{ drill_grand_total_display }}</strong>{% endif %} —
+  <span>Showing cases for <strong dir="auto">{{ drill_person.get_full_name|default:drill_person.username }}</strong>{% if drill_person.profile.internal_code %} <span class="mono">({{ drill_person.profile.internal_code }})</span>{% endif %}{% if show_money and drill_grand_total_display %} · Grand total (all PI): <strong class="mono">{{ drill_grand_total_display }}</strong>{% endif %} —
   <a href="{% url 'cases:archive' %}">clear filter</a></span>
 </div>
 {% endif %}
@@ -173,9 +173,15 @@
               <span class="docno"><span>{{ c.doc_no }}</span></span>{% if c.is_delegated %} <span class="pill pill-delegated">Delegated</span>{% endif %}
             </span>
           </td>
-          <td>{{ c.order_no|default:"—" }}</td>
-          {% if unit != 'SUPPLY' %}<td>{{ c.client.name }} <span class="muted mono">({{ c.client.code }})</span></td>{% endif %}
-          {% if is_admin or unit == 'TECHNICAL' or unit == 'SUPPLY' %}<td>{% if c.commercial_expert_display %}{{ c.commercial_expert_display }}{% else %}{{ c.created_by.get_full_name|default:c.created_by.username }} <span class="muted mono">({{ c.expert_code }})</span>{% endif %}</td>{% endif %}
+          {# Order No., client name and expert name are typed by people; they get #}
+          {# their own base direction so Persian mixed with a Latin word reads as #}
+          {# typed (see the note at the end of static/css/app.css). The bracketed #}
+          {# codes stay outside the wrapper — they are generated and always LTR,  #}
+          {# and the surrounding text stays LTR too so the filter columns to the  #}
+          {# right (status, dates, totals) are untouched.                         #}
+          <td dir="auto">{{ c.order_no|default:"—" }}</td>
+          {% if unit != 'SUPPLY' %}<td><span dir="auto">{{ c.client.name }}</span> <span class="muted mono">({{ c.client.code }})</span></td>{% endif %}
+          {% if is_admin or unit == 'TECHNICAL' or unit == 'SUPPLY' %}<td>{% if c.commercial_expert_display %}<span dir="auto">{{ c.commercial_expert_display }}</span>{% else %}<span dir="auto">{{ c.created_by.get_full_name|default:c.created_by.username }}</span> <span class="muted mono">({{ c.expert_code }})</span>{% endif %}</td>{% endif %}
           <td>{{ c.price_type_label }}</td>
           <td data-fval="{{ c.status_fval }}">{% if c.is_split %}{% for s_label, s_status, s_color, s_holder in c.side_status_rows %}<div style="margin-bottom:.2rem;"><span class="status-tag" style="--sc:{{ s_color }}">{{ s_label }}: {{ s_status }}</span></div>{% endfor %}{% else %}<span class="status-tag" style="--sc:{{ c.status_color }}">{{ c.status_label }}</span>{% endif %}</td>
           <td>{{ c.offer_stage_label }}</td>

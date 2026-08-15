@@ -41,15 +41,17 @@ import logging
 import os
 import re
 import time
+from functools import wraps
 
 from django.contrib import messages
 from django.contrib.auth import authenticate, login as auth_login, update_session_auth_hash
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
-from django.contrib.auth.views import LoginView
+from django.contrib.auth.views import LoginView, redirect_to_login
 from django.contrib.sessions.models import Session
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -121,6 +123,54 @@ def _can_impersonate(user) -> bool:
 
 
 impersonation_access_required = user_passes_test(_can_impersonate, login_url="accounts:login")
+
+
+def _impersonation_actor(request):
+    """The account really driving this request — not always ``request.user``.
+
+    During an impersonation ``request.user`` is deliberately the employee being
+    stood in for; the person at the keyboard is the administrator whose id
+    ``impersonate_start`` parked in the session. Any question of the form "is
+    the human doing this allowed to impersonate?" has to be asked about that
+    administrator, because asking it about ``request.user`` gets the answer for
+    an employee who is quite correctly not allowed to impersonate anybody.
+
+    Returns None when the session names an administrator who no longer exists —
+    the caller must treat that as "not authorised", never as "no impersonation
+    in progress".
+    """
+    admin_id = request.session.get("impersonator_id")
+    if not admin_id:
+        return request.user
+    return User.objects.filter(pk=admin_id).select_related("profile").first()
+
+
+def impersonation_actor_required(view):
+    """``impersonation_access_required``, asked about ``_impersonation_actor``.
+
+    Identical test (``_can_impersonate``) and identical refusal (Django's
+    redirect-to-login, which is exactly what ``user_passes_test`` produces), so
+    nobody new is admitted: an ordinary request still stands or falls on
+    ``request.user``. What it adds is that a request made *during* an
+    impersonation is judged on the administrator who started it, which is what
+    makes switching from one person to another possible at all.
+
+    The authority is re-read from the database on every request rather than
+    trusted from the session, and the account must still be active and still
+    pass ``_can_impersonate``: an administrator who has since been cut off or
+    demoted cannot go on impersonating people through a session they opened
+    while they still could.
+    """
+
+    @wraps(view)
+    def _wrapped(request, *args, **kwargs):
+        actor = _impersonation_actor(request)
+        if actor is None or not actor.is_active or not _can_impersonate(actor):
+            return redirect_to_login(request.get_full_path(), reverse("accounts:login"))
+        request.impersonation_actor = actor
+        return view(request, *args, **kwargs)
+
+    return _wrapped
 
 
 # ---------------------------------------------------------------------------
@@ -198,9 +248,28 @@ def admin_console(request):
 
 
 @login_required
-@impersonation_access_required
+@impersonation_actor_required
 def user_list(request):
-    """Seats catalogue — grouped by Unit & role."""
+    """Seats catalogue — grouped by Unit & role.
+
+    Gated on the impersonation ACTOR, not on ``request.user``, and the reason is
+    the Back button. During an impersonation ``request.user`` is the employee
+    being stood in for, who quite correctly fails ``_can_impersonate``. So an
+    administrator who presses Back onto this page mid-impersonation used to be
+    bounced to the sign-in form — but only sometimes, which is what made it hard
+    to see: when the browser RESTORES the page from its back/forward cache no
+    request reaches Django at all and the page simply appears, while a browser
+    that REVALIDATES instead re-runs this view as the employee and gets the
+    refusal. Same key press, two outcomes, depending on the browser's cache
+    state. Asking the question about the administrator behind the impersonation
+    makes both paths agree.
+
+    Nobody new is admitted: ``impersonation_actor_required`` runs the identical
+    ``_can_impersonate`` test, and with no impersonation in progress it is asked
+    about ``request.user`` exactly as before. What the page OFFERS is unchanged
+    too — ``can_manage_users`` below is still read off ``request.user``, so an
+    impersonating session sees the catalogue and none of the admin-only actions.
+    """
     from people.constants import PersonStatus
     from people.models import Person
     from people.seats import is_blank_org_seat
@@ -853,8 +922,41 @@ def force_password_change(request):
 _AUTH_BACKEND = "django.contrib.auth.backends.ModelBackend"
 
 
+def _close_impersonation(request) -> None:
+    """Drop the session markers and stamp the audit row closed.
+
+    Shared by ``impersonate_stop`` and by the switch inside
+    ``impersonate_start`` so that ending an impersonation is written down the
+    same way whichever of the two ends it — a switch from one person to another
+    must leave the same closed ImpersonationLog entry behind as pressing
+    "Return to admin account" would.
+
+    The markers are cleared unconditionally, so a since-deleted administrator
+    account can never leave somebody stuck impersonating with no way back.
+    """
+    log_id = request.session.get("impersonation_log_id")
+    request.session.pop("impersonator_id", None)
+    request.session.pop("impersonator_username", None)
+    request.session.pop("impersonation_log_id", None)
+    if log_id:
+        ImpersonationLog.objects.filter(pk=log_id, ended_at__isnull=True).update(
+            ended_at=timezone.now())
+
+
+def _impersonation_refusal_redirect(request):
+    """Where to send an administrator whose "Log in as" was refused.
+
+    The Users list is the right place when they are themselves; it is the wrong
+    place mid-impersonation, because ``request.user`` is then an employee who
+    cannot open that page and would be bounced on to a sign-in form — losing
+    the message explaining the refusal. Home always renders, and carries the
+    impersonation banner with the way back on it.
+    """
+    return "core:home" if request.session.get("impersonator_id") else "accounts:user_list"
+
+
 @login_required
-@impersonation_access_required
+@impersonation_actor_required
 @require_POST
 def impersonate_start(request, pk):
     """Admin 'log in as' a user — full read/write capability exactly as that
@@ -866,7 +968,7 @@ def impersonate_start(request, pk):
     so both are treated as authorized. A departmental manager (Technical
     Manager, Commercial Manager, or any other unit Manager/Supervisor/
     Expert) can NEVER reach this view, under any circumstances: they fail
-    both @impersonation_access_required above and the explicit re-check
+    both @impersonation_actor_required above and the explicit re-check
     below, and they have no UI path to it either — the "Log in as" action
     only renders on the Users page for someone who already passes this same
     check (see user_list). Extending eligibility to General Manager
@@ -883,29 +985,55 @@ def impersonate_start(request, pk):
     cross-referencing an action's timestamp against that log answers "was
     this really them, or an admin standing in for them" whenever that
     question matters.
+
+    SWITCHING FROM ONE PERSON TO ANOTHER. Arriving here while an impersonation
+    is already open is not an error and is not treated as one: it is the
+    administrator asking to stand in for somebody else instead, which is
+    precisely what they would get by pressing "Return to admin account" and
+    then "Log in as" again. So that is what happens — the open session is
+    closed exactly as impersonate_stop would close it (markers cleared, audit
+    row stamped), and the new one is opened straight afterwards. Refusing
+    instead was not a safeguard, only an obstacle: it granted nothing, and it
+    produced a dead end, because the refusal redirected to a Users list that
+    the employee currently in request.user cannot open.
+
+    Every guard below is applied to the new target on the way through, so a
+    switch can reach no account a fresh impersonation could not — in
+    particular an account with must_change_password set stays unreachable
+    either way. And ``actor`` throughout is the real administrator supplied by
+    @impersonation_actor_required, re-read from the database and re-authorised
+    on this request, never the impersonated employee in request.user.
     """
-    actor_profile = getattr(request.user, "profile", None)
+    actor = request.impersonation_actor
+    actor_profile = getattr(actor, "profile", None)
     if actor_profile is None or not (actor_profile.is_admin or actor_profile.is_general_manager):
-        # Belt-and-suspenders: @impersonation_access_required already blocks
+        # Belt-and-suspenders: @impersonation_actor_required already blocks
         # this request from reaching here for anyone who is neither a
         # Platform Administrator nor a General Manager, including every
         # departmental manager. This explicit re-check exists so that fact
         # is not implicit.
         messages.error(request, "Only a Platform Administrator or General Manager may impersonate a user.")
-        return redirect("accounts:user_list")
+        return redirect(_impersonation_refusal_redirect(request))
 
-    if request.session.get("impersonator_id"):
-        messages.error(request, "You are already viewing the platform as another user. Return to your own account first.")
-        return redirect("accounts:user_list")
+    switching = bool(request.session.get("impersonator_id"))
 
     target = get_object_or_404(User.objects.select_related("profile"), pk=pk)
 
-    if target.pk == request.user.pk:
+    if target.pk == actor.pk:
         messages.error(request, "You are already signed in as yourself.")
-        return redirect("accounts:user_list")
+        return redirect(_impersonation_refusal_redirect(request))
+    if switching and target.pk == request.user.pk:
+        # Same person twice — pressing "Log in as" again on a page restored
+        # from the browser's back cache. Nothing to close and nothing to open;
+        # tearing the session down and rebuilding it would only cost the
+        # audit trail a spurious pair of rows.
+        messages.info(
+            request,
+            f"You are already viewing the platform as {target.get_full_name() or target.username}.")
+        return redirect("core:home")
     if not target.is_active:
         messages.error(request, "This account is closed and cannot be impersonated.")
-        return redirect("accounts:user_list")
+        return redirect(_impersonation_refusal_redirect(request))
     target_profile = getattr(target, "profile", None)
     if target_profile is not None and (target_profile.is_admin or target_profile.is_general_manager):
         # Also blocks impersonating yourself-as-a-second-privileged-account and
@@ -914,7 +1042,7 @@ def impersonate_start(request, pk):
         # signing in with its own credentials — this now matters for General
         # Manager accounts too, since they can initiate impersonation.
         messages.error(request, "Administrator and General Manager accounts cannot be impersonated.")
-        return redirect("accounts:user_list")
+        return redirect(_impersonation_refusal_redirect(request))
     if target_profile is not None and target_profile.must_change_password:
         # An account that is still on its admin-issued temporary password is one
         # step away from having a permanent one chosen for it: every request it
@@ -929,15 +1057,36 @@ def impersonate_start(request, pk):
         messages.error(
             request,
             "This account has not set its own password yet and cannot be impersonated.")
-        return redirect("accounts:user_list")
+        return redirect(_impersonation_refusal_redirect(request))
 
-    original_admin_id = request.user.pk
-    original_admin_username = request.user.username
+    original_admin_id = actor.pk
+    original_admin_username = actor.username
 
-    log_entry = ImpersonationLog.objects.create(
-        admin=request.user, admin_username=original_admin_username,
-        target=target, target_username=target.username,
-    )
+    # Every check above has passed, so the new impersonation is certain to open
+    # — only now is it safe to close the old one. Doing it earlier would let a
+    # refused switch (a closed account, say) drop the administrator into a
+    # session that is neither the person they were standing in for nor
+    # themselves.
+    #
+    # The two audit rows go in one transaction: a switch closes one
+    # impersonation and opens another, and a failure between them would leave
+    # the trail claiming the administrator was standing in for two people at
+    # once. Either both are written or neither is.
+    #
+    # The new row is created BEFORE the old one is closed, though the database
+    # cannot tell the difference: _close_impersonation also clears the session
+    # markers, and a session lives outside the transaction — no rollback can put
+    # them back. Doing the fragile write first means that if it fails, the
+    # administrator is still cleanly impersonating whoever they were, banner and
+    # "Return to admin account" intact, instead of being stranded as that
+    # employee with no way back.
+    with transaction.atomic():
+        log_entry = ImpersonationLog.objects.create(
+            admin=actor, admin_username=original_admin_username,
+            target=target, target_username=target.username,
+        )
+        if switching:
+            _close_impersonation(request)
 
     target.backend = _AUTH_BACKEND
     # Prevent shift login stamp for the impersonated person (session markers
@@ -983,20 +1132,14 @@ def impersonate_stop(request):
         return redirect("core:home")
 
     admin_user = User.objects.filter(pk=admin_id).first()
-    log_id = request.session.get("impersonation_log_id")
 
     # Skip shift stamps for both the target logout side-effects and admin login.
     request._ft_skip_shift_stamp = True
 
-    # Clear the markers unconditionally, so a since-deleted admin account can
-    # never leave someone stuck impersonating with no way back.
-    request.session.pop("impersonator_id", None)
-    request.session.pop("impersonator_username", None)
-    request.session.pop("impersonation_log_id", None)
-
-    if log_id:
-        ImpersonationLog.objects.filter(pk=log_id, ended_at__isnull=True).update(
-            ended_at=timezone.now())
+    # Markers cleared and the audit row stamped by the same helper a switch in
+    # impersonate_start uses, so both ways of ending an impersonation leave
+    # identical records behind.
+    _close_impersonation(request)
 
     if admin_user is None or not admin_user.is_active:
         messages.error(

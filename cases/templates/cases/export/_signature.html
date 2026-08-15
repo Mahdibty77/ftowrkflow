@@ -5,8 +5,8 @@
       <div class="sign-cell sign-vendor">
         <div class="sign-part sign-part-role">
           <span class="sign-role">Vendor</span>
-          {% if vendor_name %}<span class="sign-name">{{ vendor_name }}</span>{% endif %}
-          {% if vendor_title %}<span class="sign-title">{{ vendor_title }}</span>{% endif %}
+          {% if vendor_name %}<span class="sign-name" dir="auto">{{ vendor_name }}</span>{% endif %}
+          {% if vendor_title %}<span class="sign-title" dir="auto">{{ vendor_title }}</span>{% endif %}
         </div>
         <div class="sign-part sign-part-sig">
           {% if vendor_signature %}<img class="sign-inline sign-sig" src="{{ vendor_signature }}" alt="">{% endif %}
@@ -16,7 +16,7 @@
       </div>
       <div class="sign-cell sign-client">
         <span class="sign-role">Client</span>
-        {% if client %}<span class="sign-name">{{ client }}</span>{% endif %}
+        {% if client %}<span class="sign-name" dir="auto">{{ client }}</span>{% endif %}
       </div>
     </div>
   </div>

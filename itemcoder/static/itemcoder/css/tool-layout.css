@@ -434,3 +434,48 @@ body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="ریمارک"]
     #excel-table-container { max-width: calc(100vw - 16px); }
     .calculation-card .calc-section { display: flex; width: 100%; }
 }
+/* ===========================================================================
+   BIDIRECTIONAL TEXT — Persian typed into an English interface
+   ---------------------------------------------------------------------------
+   Same fix, and the same reason, as the block at the end of static/css/app.css
+   — read that one first, it explains the Unicode rule in full. In short: this
+   page has a left-to-right base direction, so a Persian phrase typed next to a
+   Latin token (a code, a brand, a size) is REORDERED on screen relative to it
+   and no longer reads the way it was typed. The stored cell value is correct
+   and untouched; only its base direction was wrong.
+
+   This file needs its own copy because the TO / PI tool is a standalone page:
+   tool_case.html and table.html load theme-pack.css and these tool-*.css files
+   and never load app.css, so a rule written only there would not reach the
+   grid at all.
+
+   The first rule covers every box the user types into on this page — the
+   REMARK / REVISION / PROFORMA REMARK textareas, the BRAND and TIME boxes, the
+   double-click cell editor and the "technical problem" reason panel. All of
+   them are built in JavaScript (or by itemcoder/Initial_changes.py), so none
+   of them can be given a dir attribute from a template.
+
+   The second rule covers the two columns that are read-only prose rather than
+   an editable box. Left alone on purpose, because they are left-to-right by
+   nature and an auto direction could only make them worse: the item code
+   columns ("Item Code", "کد"), SIZE / QTY, the price and total columns, and
+   "Final Arranged Text" — that last one is assembled by the coder from the
+   feature dictionary, so it is generated text, not something a user wrote.
+   =========================================================================== */
+#virtual-scroll-table input[type="text"]:not([dir]):not([inputmode="decimal"]):not([readonly]),
+#virtual-scroll-table textarea:not([dir]),
+.tp-reason-left textarea:not([dir]) {
+    unicode-bidi: plaintext;
+}
+
+#virtual-scroll-table td[data-col-name="description"],
+#virtual-scroll-table td[data-col-name="__proforma_remark__"] {
+    unicode-bidi: plaintext;
+}
+
+/* The "Confirmed problems" list beside the reason box. item_flag.js puts the
+   expert's sentence in its own .tp-text span next to a generated "#3, #7" row
+   label, so only the sentence is given a direction of its own. */
+.tp-reason-list .tp-text {
+    unicode-bidi: plaintext;
+}

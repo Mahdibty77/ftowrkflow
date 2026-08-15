@@ -38,8 +38,11 @@
   <div class="tp-reasons-card">
     <h4><i class="fa-solid fa-screwdriver-wrench"></i> Technical problems</h4>
     <ul class="tp-reasons-list">
+      {# The reason is written by the technical expert, so it needs its own base #}
+      {# direction — see the note at the end of static/css/app.css. The "#12"    #}
+      {# beside it is a row number and stays left-to-right.                      #}
       {% for it in issues %}
-      <li><span class="tp-item">#{{ it.client_no }}</span><span class="tp-text">{{ it.reason }}</span></li>
+      <li><span class="tp-item">#{{ it.client_no }}</span><span class="tp-text" dir="auto">{{ it.reason }}</span></li>
       {% endfor %}
     </ul>
   </div>

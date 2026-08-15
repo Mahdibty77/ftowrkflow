@@ -15,7 +15,12 @@
       <thead><tr><th>Name</th><th>Currency</th><th class="num">Codes</th><th></th></tr></thead>
       <tbody>
         {% for pl in price_lists %}
-          <tr><td><strong>{{ pl.name }}</strong>{% if pl.note %}<div class="muted" style="font-size:.76rem;">{{ pl.note }}</div>{% endif %}</td>
+          {# The list's name and its note are both typed by whoever set the #}
+          {# list up, so each gets its own base direction and a Persian     #}
+          {# note mentioning a Latin code reads the way it was typed. See   #}
+          {# the note at the end of static/css/app.css. Currency and the    #}
+          {# code count are ours and stay left-to-right.                    #}
+          <tr><td><strong dir="auto">{{ pl.name }}</strong>{% if pl.note %}<div class="muted" style="font-size:.76rem;" dir="auto">{{ pl.note }}</div>{% endif %}</td>
             <td>{{ pl.currency }}</td><td class="num">{{ pl.count }}</td>
             <td class="btn-row" style="gap:.25rem;">
               <a class="btn btn-sm btn-primary" href="{% url 'dm_price_workspace' pl.pk %}">Workspace</a>

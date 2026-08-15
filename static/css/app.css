@@ -440,6 +440,25 @@ html[data-theme="dark"] .shift-ot-link:hover{
   flex:0 0 auto;
   vertical-align:middle;
 }
+/* "NEW" marker on an inbox row the viewer has not opened yet. Colours are the
+   sidebar .nav-badge's (accent on on-accent, pill radius) so the two unread
+   signals in the UI read as the same thing; the geometry is .pill-delegated's,
+   because it shares that row with the document-number chip and must not wrap. */
+.pill-new{
+  background:var(--accent);
+  color:var(--on-accent);
+  font-size:.58rem;
+  font-weight:800;
+  padding:.05rem .34rem;
+  border-radius:100px;
+  letter-spacing:.04em;
+  line-height:1.15;
+  margin:0;
+  max-width:none;
+  white-space:nowrap;
+  flex:0 0 auto;
+  vertical-align:middle;
+}
 .pill-grey{background:#6b7280}
 .pill-green{background:#1f7a5a}
 .chip{display:inline-flex;align-items:center;gap:.3rem;font-size:.72rem;font-weight:650;padding:.2rem .55rem;border-radius:100px;border:1px solid color-mix(in srgb,var(--accent) 28%,var(--line));background:var(--accent-soft);color:var(--accent-strong)}
@@ -1280,3 +1299,104 @@ body.unit-admin      .unit-dot{ background:var(--accent); }
 .pm-mode:hover{background:var(--cloud)}
 .pm-mode.sel{background:var(--accent);border-color:var(--accent);color:#fff}
 [data-mode="dark"] .pm-mode.sel{color:#0f172a}
+
+/* ===========================================================================
+   BIDIRECTIONAL TEXT — Persian typed into an English interface
+   ---------------------------------------------------------------------------
+   Background, because this trips up everyone who meets it for the first time.
+   Unicode lays out every paragraph with a BASE DIRECTION. This interface is
+   English, so the base direction is left-to-right, and the Unicode
+   Bidirectional Algorithm then places the right-to-left (Persian) runs
+   RELATIVE to that base. A sentence that mixes the two therefore comes out
+   with its parts in a different visual order than they were typed:
+
+       typed :  در رابطه با پروژه Ft_09_wr_098 باید 23 بار تست شود
+       shown :  باید 23 بار تست شود  Ft_09_wr_098  در رابطه با پروژه
+
+   Nothing is corrupted — the stored string is byte for byte what the user
+   typed, and it is the same string in the database, in the JSON blobs and in
+   the exports. Only the on-screen ORDER is wrong, because the paragraph was
+   given the wrong base direction.
+
+   The fix is to let the text choose its own base: `dir="auto"` on an element
+   takes the base direction from the FIRST STRONG character of the content, so
+   a Persian sentence gets an RTL base and reads exactly as typed, while a
+   Latin sentence is completely unaffected. `unicode-bidi: plaintext` below is
+   the CSS spelling of the same rule, for elements no template of ours writes.
+
+   Deliberately NOT done: `direction: rtl` on any container. That mirrors the
+   whole layout — sidebar, columns, buttons — which is not what was asked and
+   would break an interface whose chrome is English.
+
+   DIVISION OF LABOUR. Elements that DISPLAY user text (a timeline comment, an
+   arrival note, a description cell) get the attribute in the template, because
+   there is no one selector that would find them all and because the reason is
+   then visible where the element is written. Elements the user TYPES into are
+   handled by the one rule below instead — an input or a textarea holds what
+   the user typed BY DEFINITION, so a single rule is both complete and correct,
+   and it is the only way to reach the two large groups of controls no template
+   of ours authors:
+     * the comment box in the inline confirm panel (send / return / cancel /
+       burn / close) — built in JavaScript by static/js/ui.js;
+     * every field on the person and user forms — rendered by Django from the
+       widget definitions in people/forms.py and accounts/forms.py.
+   Neither could be given an attribute without editing code this change must
+   not touch.
+
+   The exclusions are the fields that hold a number, a date or a code. Those
+   are left-to-right by nature (an auto direction is at best a no-op on them
+   and at worst noise), so they are kept out of the rule on purpose:
+     * [inputmode="decimal"] — quantity, price, margin, FX rate;
+     * [data-jalali-datetime] — the Jalali date pickers;
+     * [readonly] — generated codes shown in a box (big/small item code, the
+       locked conversion rate);
+     * .mono — code-styled boxes such as the seat index.
+   =========================================================================== */
+
+/* `:not([dir])` keeps this a DEFAULT rather than an override: a control whose
+   template already states a direction on purpose — the Persian halves of the
+   terms editor are marked dir="rtl", because that column is Persian whatever is
+   typed into it — keeps the direction its author chose. */
+input[type="text"]:not([dir]):not([inputmode="decimal"]):not([data-jalali-datetime]):not([readonly]):not(.mono),
+input[type="search"]:not([dir]),
+textarea:not([dir]) {
+  unicode-bidi: plaintext;
+}
+
+/* The read-only Technical Offer / Proforma grid (cases/templates/cases/_form_table.html).
+   Its cells are written by a {% for %} over the column list, so a single cell
+   cannot be given the attribute without spelling every column key out in the
+   template — and two of those keys are Persian words, which is exactly the kind
+   of literal a save through a non-UTF-8 codepage has flattened to "?" in this
+   project before (see the warning in itemcoder/.../tool-layout.css). Matching on
+   the data-col-key the template already emits keeps those two words in the one
+   kind of file that has always survived, and needs no template change at all.
+   KEEP THIS FILE UTF-8.
+
+   These four are the columns a human writes:
+     description / Description  the client's own wording of the item
+     ریمارک   (REMARK)          the technical or proforma remark
+     اصلاحیه  (REVISION)        the revision note
+     proforma remark            the Proforma remark shown beside a saved TO
+   Every other column is left alone on purpose, because an auto direction on it
+   could only do harm: "#" and "Item Code" are row numbers, "کد" is the FTCO
+   code, "FTCO DISCRIPTION" ("Final Arranged Text") is assembled by the coder
+   rather than typed, "BRAND" is a manufacturer's Latin name, and UNIT / SERVICE
+   / TOTAL PRICE are money. All of those are left-to-right by nature. */
+table.data td[data-col-key="description"],
+table.data td[data-col-key="Description"],
+table.data td[data-col-key="ریمارک"],
+table.data td[data-col-key="اصلاحیه"],
+table.data td[data-col-key="proforma remark"] {
+  unicode-bidi: plaintext;
+}
+
+/* Row comments confirmed in the inquiry editor, listed by the script inside
+   cases/templates/cases/edit_items.html. The script puts the user's sentence in
+   its own span next to a generated "rows: #3" label, so only the sentence is
+   given a direction of its own. (The TO tool has an equivalent list of its own;
+   it is a standalone page that never loads this file, so its rule lives at the
+   end of itemcoder/static/itemcoder/css/tool-layout.css instead.) */
+.inq-comment-list .inq-c-text {
+  unicode-bidi: plaintext;
+}

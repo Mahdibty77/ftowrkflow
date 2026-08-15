@@ -218,7 +218,7 @@
     {% endif %}
   </div>
   {% if sd.assignee %}
-    <div class="muted" style="font-size:.78rem;margin-bottom:.5rem;"><i class="fa-solid fa-user-check"></i> {{ sd.label }} expert: {{ sd.assignee.get_full_name|default:sd.assignee.username }}</div>
+    <div class="muted" style="font-size:.78rem;margin-bottom:.5rem;"><i class="fa-solid fa-user-check"></i> {{ sd.label }} expert: <span dir="auto">{{ sd.assignee.get_full_name|default:sd.assignee.username }}</span></div>
   {% endif %}
   {% if sd.version_lists.PI and is_comm or sd.version_lists.PI and is_supply or sd.version_lists.PI and is_admin_view %}
   <div class="pi-comm-wrap"
@@ -327,8 +327,13 @@
               · <span class="tl-route"><span class="unit u-{{ ev.from_unit }}">{{ ev.from_unit }}</span><i class="fa-solid fa-arrow-right-long arrow"></i><span class="unit u-{{ ev.to_unit }}">{{ ev.to_unit }}</span></span>
             {% endif %}
           </div>
-          <div class="tl-meta">{{ ev.actor_display_name }}{% if ev.actor_is_substitute %} <span class="tl-sub-tag">Substitute</span>{% endif %} · {{ ev.created_at|jalali:"Y.m.d H:i" }}</div>
-          {% if ev.comment %}<div class="tl-comment">{{ ev.comment }}</div>{% endif %}
+          {# dir="auto" gives the comment its own base direction, so a Persian #}
+          {# note that mentions a Latin code reads in the order it was typed.  #}
+          {# See the long note at the end of static/css/app.css. The date next #}
+          {# to the name is ours and stays left-to-right, which is why only    #}
+          {# the name is wrapped and not the whole meta line.                  #}
+          <div class="tl-meta"><span dir="auto">{{ ev.actor_display_name }}</span>{% if ev.actor_is_substitute %} <span class="tl-sub-tag">Substitute</span>{% endif %} · {{ ev.created_at|jalali:"Y.m.d H:i" }}</div>
+          {% if ev.comment %}<div class="tl-comment" dir="auto">{{ ev.comment }}</div>{% endif %}
         </li>
       {% empty %}
         <li class="muted">No activity for this section yet.</li>

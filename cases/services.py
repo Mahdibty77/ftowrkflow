@@ -654,9 +654,18 @@ def _inquiry_forms_qs(case: Case, side: str = ""):
 def inquiry_v00_table(case: Case, side: str = "") -> list:
     """Return the original inquiry baseline (v00, or earliest version if v00 missing)."""
     qs = _inquiry_forms_qs(case, side)
-    form = qs.filter(version=0).first()
+    # Which GENERATION of v00 is wanted has to be said out loud. A two-stage
+    # upgrade keeps the version NUMBER it supersedes, so a case upgraded while
+    # still at version 00 has two rows with version=0 — the original and
+    # "00 · Two Stage" — and CaseForm.Meta orders the two-stage one first (it is
+    # the newer snapshot, which is right for "current" and wrong here). This is
+    # the BASELINE the + / − row marks are measured against: the client's
+    # original inquiry, before anything was added to it. So ask for the oldest
+    # generation explicitly, and settle a remaining tie by id rather than
+    # leaving it to the database.
+    form = qs.filter(version=0).order_by("two_stage", "id").first()
     if form is None:
-        form = qs.order_by("version").first()
+        form = qs.order_by("version", "two_stage", "id").first()
     return list(form.table or []) if form else []
 
 
@@ -1284,6 +1293,31 @@ def _promote_brand_split(case, kind, side, table):
     return out
 
 
+def form_behind_inquiry(form, inq) -> bool:
+    """True when ``form`` (a TO/PI snapshot) has been left behind by ``inq``.
+
+    Two different things put a form behind its inquiry, and only counting the
+    first one is what made a two-stage upgrade look like an ordinary edit:
+
+    * the inquiry moved to a HIGHER version number, or
+    * the inquiry stayed at the SAME number but changed GENERATION — the case
+      was upgraded to a TO & PI two stage, so "01" became "01 · Two Stage".
+
+    The second case has to count, because a two-stage snapshot is a new version
+    in every sense except its number: the unit must branch a fresh one rather
+    than overwrite the offer it already sent. This is the one definition, used
+    by the case page's build-button mode and by the coding tool, so those two
+    cannot drift apart and disagree about whether a save is an edit or a new
+    version. (``save_form`` keeps its own arithmetic because it also has to
+    handle the case with no inquiry at all.)
+    """
+    if form is None or inq is None:
+        return False
+    if form.version < inq.version:
+        return True
+    return bool(form.two_stage) != bool(inq.two_stage)
+
+
 @transaction.atomic
 def save_form(case: Case, *, kind: str, columns: list, table: list, meta: dict,
               actor, new_version: bool = False, is_edit: bool = False,
@@ -1304,8 +1338,12 @@ def save_form(case: Case, *, kind: str, columns: list, table: list, meta: dict,
     if (current is not None and form_is_currency_conversion_only(current)
             and not is_currency_conversion_only(case, side or "")):
         reals = list(
+            # Newest first. ``-two_stage`` sits between the two because a
+            # two-stage snapshot keeps the version NUMBER it supersedes, so
+            # ordering by version alone would leave "01" and "01 · Two Stage"
+            # tied and let the database pick the "latest".
             case.forms.filter(kind=kind, side=side or "")
-            .order_by("-version", "-id")
+            .order_by("-version", "-two_stage", "-id")
         )
         current = next(
             (f for f in reals if not form_is_currency_conversion_only(f)), None
@@ -1667,6 +1705,107 @@ def inbox_count(user, *, role=None, work_user=None) -> int:
         return 0
 
 
+# ---------------------------------------------------------------------------
+# "NEW" marker on inbox rows
+#
+# A case that has just arrived in somebody's inbox carries a NEW badge until
+# that person opens it. The stored state is one CaseSeen row per (case, person);
+# what "new again" means is documented on the model. These two functions are the
+# only code that reads or writes it.
+# ---------------------------------------------------------------------------
+def annotate_inbox_seen(user, cases) -> None:
+    """Set ``case.is_new_in_inbox`` on every row of an already-loaded inbox page.
+
+    ONE query for the whole page no matter how many rows it has: the seen marks
+    for all the case ids on the page are fetched together into a dict, and the
+    actual comparison is done in Python against ``case.updated_at``, a column the
+    inbox query already selected. The obvious alternative — asking
+    ``CaseSeen.objects.filter(case=c, user=u)`` inside the row loop — would cost
+    one query per row, and a Commercial inbox lists every case in the system.
+
+    A case reads as NEW when this person has no seen mark for it, or when the
+    case has been saved since that mark was written (see
+    :class:`cases.models.CaseSeen` for why ``updated_at`` is the comparison
+    point). The objects are mutated in place; the queryset, its filtering and its
+    order are not touched, so this is purely additive to what the inbox shows.
+
+    A lookup failure leaves every row un-marked rather than raising: a missing
+    badge is a far better outcome than a broken inbox.
+    """
+    from .models import CaseSeen
+
+    rows = list(cases)
+    for case in rows:
+        case.is_new_in_inbox = False
+    user_id = getattr(user, "pk", None)
+    if not user_id or not rows:
+        return
+    try:
+        seen = dict(
+            CaseSeen.objects
+            .filter(user_id=user_id, case_id__in=[c.pk for c in rows])
+            .values_list("case_id", "seen_at")
+        )
+    except Exception:
+        logger.exception("annotate_inbox_seen: seen-mark lookup failed for user %s", user_id)
+        return
+    for case in rows:
+        marked_at = seen.get(case.pk)
+        case.is_new_in_inbox = bool(
+            case.updated_at and (marked_at is None or marked_at < case.updated_at)
+        )
+
+
+def mark_case_seen(case, user) -> bool:
+    """Record that ``user`` has now opened ``case``, clearing its NEW marker.
+
+    Called from the case-detail view on every render of that page. Three
+    properties matter and each one is deliberate:
+
+    * It writes ONLY the ``CaseSeen`` row. The case is not saved and no
+      ``CaseEvent`` is logged, so a read never reaches the audit timeline, never
+      bumps ``updated_at`` and never moves the file between inboxes.
+    * It is an upsert on the unique ``(case, user)`` pair, so two tabs opening
+      the same case at the same moment cannot raise: the loser of the race hits
+      the constraint and ``update_or_create`` (whose ``get_or_create`` retries
+      the read on ``IntegrityError``) turns the failed insert into an update. It
+      opens its own ``atomic`` block, so that failed INSERT rolls back to a
+      savepoint instead of poisoning any transaction the caller is inside.
+    * Every failure is swallowed and logged. A read receipt must never be the
+      reason a case page 500s; the worst consequence of a failed write is that
+      the badge survives until the next visit.
+
+    Returns True when the mark was stored, False when it was not.
+    """
+    from django.utils import timezone
+
+    from .models import CaseSeen
+
+    case_id = getattr(case, "pk", None)
+    user_id = getattr(user, "pk", None)
+    if not case_id or not user_id:
+        return False
+    now = timezone.now()
+    try:
+        # Fast path first, because it is by far the common one: a case page is
+        # revisited far more often than a case arrives, so the row almost always
+        # exists already and a bare UPDATE settles it in a single query with no
+        # savepoint round trip. ``update()`` reports how many rows it touched,
+        # so a 0 here is exactly "this person has never opened this case" — and
+        # only then do we pay for the race-safe upsert above.
+        if CaseSeen.objects.filter(case_id=case_id, user_id=user_id).update(seen_at=now):
+            return True
+        CaseSeen.objects.update_or_create(
+            case_id=case_id, user_id=user_id, defaults={"seen_at": now},
+        )
+        return True
+    except Exception:
+        logger.exception(
+            "mark_case_seen: could not store seen mark for case %s / user %s",
+            case_id, user_id)
+        return False
+
+
 def _request_work_context(request):
     """``work_context`` resolved once per request instead of per caller.
 
@@ -2017,7 +2156,11 @@ def _restore_real_offer_current(case, *, side: str, kind: str):
     at the new inquiry version) — never from a Commercial FX-only clone.
     """
     forms = list(
-        case.forms.filter(kind=kind, side=side or "").order_by("-version", "-id")
+        # Newest first, with the two-stage generation ahead of the same-numbered
+        # version it supersedes — otherwise "resume from the last real snapshot"
+        # could hand the unit back the pre-two-stage offer.
+        case.forms.filter(kind=kind, side=side or "")
+        .order_by("-version", "-two_stage", "-id")
     )
     real = next((f for f in forms if not form_is_currency_conversion_only(f)), None)
     for f in forms:

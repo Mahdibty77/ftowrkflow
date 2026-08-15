@@ -182,11 +182,32 @@ def _item_key(row: dict) -> str:
 
 
 def _index_by_item(table) -> dict[str, dict]:
+    """Item Code → row, for reading one form's values while exporting another.
+
+    Item codes are NOT unique. ``bridge._form_grid_html`` mints the column as
+    ``inq_item_by_cr.get(cr) or seq_no``, so any row whose client number carries
+    no Item of its own on the inquiry falls back to its position in the table —
+    which collides with whatever real Item number happens to equal that
+    position. Soft-deleted rows keep their old code and still occupy a slot, so
+    they collide too.
+
+    A collision cannot be resolved here, but a *deleted* row must never be the
+    survivor: it is not on the document at all, and letting it shadow a live row
+    made an issued Proforma quote the price of a line the user had removed.
+    Live rows keep the previous last-one-wins behaviour among themselves.
+    """
     out: dict[str, dict] = {}
+    deleted: dict[str, dict] = {}
     for row in table or []:
         key = _item_key(row)
-        if key:
+        if not key:
+            continue
+        if str((row or {}).get("_deleted", "") or "") == "1":
+            deleted[key] = row
+        else:
             out[key] = row
+    for key, row in deleted.items():
+        out.setdefault(key, row)
     return out
 
 
@@ -564,8 +585,21 @@ def build_export_rows(case, form) -> list[dict[str, str]]:
             continue
         item_no += 1
         item = _item_key(row)
-        to_row = to_index.get(item) or (row if kind == FormKind.TO else {})
-        pi_row = pi_index.get(item) or (row if kind == FormKind.PI else {})
+        # The row in hand is the authority for the values of its OWN form, and
+        # it is read directly — never looked up.
+        #
+        # This used to go through the item-code index even when the index had
+        # been built from the very table being walked (``pi_form is form`` when
+        # a PI is exported, ``to_form is form`` for a TO). That self-lookup can
+        # only ever return a *different* row than the one in hand, because a hit
+        # on the row itself is a no-op. Item codes are not unique — see
+        # ``_index_by_item`` — so on a collision the export printed a
+        # neighbour's, or a soft-deleted line's, UNIT PRICE and TOTAL PRICE in
+        # place of the ones the Commercial expert had entered and approved, and
+        # ``pi_totals`` then summed the substituted figures. A commercial
+        # document must state the price that was saved on that line.
+        to_row = row if kind == FormKind.TO else (to_index.get(item) or {})
+        pi_row = row if kind == FormKind.PI else (pi_index.get(item) or {})
 
         # Prefer the source form's own row for shared fields; fall back sensibly.
         src = row
@@ -920,9 +954,19 @@ def case_pi_grand_total_num(case) -> float:
 
     total = 0.0
     service = 0.0
+    # The ordering is stated here rather than inherited from CaseForm.Meta
+    # because this loop can feel it: the running total is a float, float
+    # addition is not associative, and the last bits of a money figure therefore
+    # depend on the sequence the rows are added in. A split Internal & External
+    # case has two current proformas that tie on everything Meta orders by
+    # except id, so a change to that default would silently move the figure.
+    # ``kind, -version, id`` is the sequence this function has always summed in
+    # (the historic default, with the tie that SQLite settled by row id now
+    # written down), and it is also what case_pi_grand_totals_map uses, which is
+    # what keeps the batch map and this single-case answer identical.
     forms = CaseForm.objects.filter(
         case_id=getattr(case, "pk", case), kind=FormKind.PI, is_current=True,
-    )
+    ).order_by("kind", "-version", "id")
     for form in forms:
         for row in (form.table or []):
             r = row or {}
@@ -961,12 +1005,19 @@ def case_pi_grand_totals_map(case_ids) -> dict:
     # ``.iterator()`` streams the rows instead of building one list that holds
     # every current proforma's JSON table in memory at once — on a dashboard
     # listing hundreds of cases that single list was the whole page's memory
-    # cost. It is the same query with the same ordering, walked in the same
-    # order, so each case's running float sum is added up in exactly the same
-    # sequence and the money figures are bit-for-bit what they were.
+    # cost. Streaming does not change the arithmetic; the ORDER the rows arrive
+    # in would, because each case's running total is a float and float addition
+    # is not associative. So the order is nailed down here instead of being
+    # inherited from CaseForm.Meta, whose default has since gained a ``-id``
+    # term that reverses rows tied on everything before it (the two current
+    # proformas of a split Internal & External case are exactly such a tie).
+    # ``kind, -version, id`` is the sequence these sums were always added in —
+    # the historic default, with the tie that SQLite happened to settle by row
+    # id now written down as a rule — and case_pi_grand_total_num states the
+    # same one, so the batch map and the single-case figure cannot drift apart.
     for form in CaseForm.objects.filter(
         case_id__in=ids, kind=FormKind.PI, is_current=True,
-    ).only("case_id", "table").iterator(chunk_size=200):
+    ).only("case_id", "table").order_by("kind", "-version", "id").iterator(chunk_size=200):
         for row in (form.table or []):
             r = row or {}
             if str(r.get("_deleted", "") or "") == "1":

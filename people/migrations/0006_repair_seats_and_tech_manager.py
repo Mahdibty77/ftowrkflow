@@ -20,6 +20,32 @@ def forwards(apps, schema_editor):
     if admin is None:
         admin = User.objects.filter(is_superuser=True).order_by("pk").first()
     admin_id = admin.pk if admin else None
+    if admin_id is None:
+        # Neither a login called "admin" nor any superuser — which is a perfectly
+        # ordinary shape for this platform, because being an administrator here is
+        # Profile.is_admin and has nothing to do with the username or with Django's
+        # is_superuser flag. Whoever set the site up may simply have called the
+        # account something else.
+        #
+        # What must not happen is what the plain `admin_id is None` test below used
+        # to do: read "we could not identify the administrator" as "so demote every
+        # administrator". The last loop in this function then deactivates every user
+        # that is neither is_admin nor held by a person, so with no admin left it
+        # deactivated ALL of them — an intact database with nobody able to sign in
+        # and no administrator left to assign anyone, unrecoverable through the UI.
+        #
+        # Falling back to the earliest is_admin profile keeps exactly one
+        # administrator, which is what this migration is trying to achieve anyway,
+        # and is the same fallback the sibling migration 0004 already uses for the
+        # identical situation. On any database that does have an "admin" login or a
+        # superuser — every one built by this project's own setup, and the live
+        # server — admin_id is not None and nothing here behaves differently.
+        admin_id = (
+            Profile.objects.filter(is_admin=True)
+            .order_by("pk")
+            .values_list("user_id", flat=True)
+            .first()
+        )
     for profile in Profile.objects.select_related("user").filter(is_admin=True):
         if admin_id is None or profile.user_id != admin_id:
             profile.is_admin = False

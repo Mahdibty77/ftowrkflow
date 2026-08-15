@@ -9,7 +9,7 @@
 <div class="page-head">
   <div>
     <h1><i class="fa-solid fa-clipboard-check"></i> Requests</h1>
-    <div class="sub">{{ person.display_name }} · Open a request type assigned to you</div>
+    <div class="sub"><span dir="auto">{{ person.display_name }}</span> · Open a request type assigned to you</div>
   </div>
 </div>
 
@@ -21,9 +21,9 @@
     {% endif %}
     <div class="md-hub-card-top">
       <span class="md-hub-ic" aria-hidden="true"><i class="fa-solid {{ card.type.icon }}"></i></span>
-      <h3>{{ card.type.title }}</h3>
+      <h3 dir="auto">{{ card.type.title }}</h3>
     </div>
-    <div class="muted md-hub-desc">{{ card.type.description }}</div>
+    <div class="muted md-hub-desc" dir="auto">{{ card.type.description }}</div>
     <div class="ppl-req-card-foot ppl-req-card-foot-end">
       {% include "people/_request_type_route.html" %}
     </div>

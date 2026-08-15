@@ -41,7 +41,7 @@ base_query, filtered.
         <tr class="{% if not person.is_active %}ppl-departed{% endif %}">
           <td><span class="ppl-code">{{ person.detail_code }}</span></td>
           <td>
-            <div>{{ person.full_name_en|default:person.display_name|default:"—" }}</div>
+            <div dir="auto">{{ person.full_name_en|default:person.display_name|default:"—" }}</div>
             {% if person.username %}
               <div class="mono muted ppl-sub">{{ person.username }}</div>
             {% endif %}
@@ -53,7 +53,7 @@ base_query, filtered.
                 {% for role in roles %}
                   <span class="chip ppl-seat-chip" title="{{ role.title_line }}">
                     {% if role.seat_code %}<span class="mono">{{ role.seat_code }}</span>{% endif %}
-                    <span class="ppl-chip-role">{{ role.title_line }}</span>
+                    <span class="ppl-chip-role" dir="auto">{{ role.title_line }}</span>
                   </span>
                 {% endfor %}
               </span>

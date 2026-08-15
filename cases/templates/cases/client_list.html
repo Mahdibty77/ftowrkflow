@@ -39,7 +39,10 @@
       {% for c in clients %}
         <tr data-search="{{ c.name|lower }} {{ c.code|lower }}">
           <td class="mono">{{ c.code }}</td>
-          <td>{{ c.name }}</td>
+          {# The client name is typed by a user; the code beside it is generated. #}
+          {# Only the name takes its own base direction — see the note at the end #}
+          {# of static/css/app.css.                                               #}
+          <td dir="auto">{{ c.name }}</td>
           <td style="white-space:nowrap;text-align:right;">
             {% if can_add %}<a href="{% url 'cases:client_rename' c.pk %}" class="btn btn-sm">Rename</a>{% endif %}
             {% if can_wipe_clients %}

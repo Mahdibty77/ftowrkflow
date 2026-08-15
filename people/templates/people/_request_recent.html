@@ -109,8 +109,8 @@
             {% endif %}
           </td>
           <td class="mono">{{ row.req.request_code|default:row.req.pk }}</td>
-          {% if show_person %}<td>{{ row.req.person.display_name }}</td>{% endif %}
-          <td>{{ row.req.request_type.title }}</td>
+          {% if show_person %}<td dir="auto">{{ row.req.person.display_name }}</td>{% endif %}
+          <td dir="auto">{{ row.req.request_type.title }}</td>
           <td data-fval="{{ row.req.get_status_display }}">
             {% if row.req.status == 'approved' %}<span class="pill pill-green">Approved</span>
             {% elif row.req.status == 'rejected' %}<span class="pill pill-rejected">Rejected</span>
@@ -118,9 +118,16 @@
             {% else %}<span class="pill pill-grey">{{ row.req.get_status_display }}</span>{% endif %}
           </td>
           <td class="muted mono">{{ row.req.submitted_at|default:row.req.created_at|jalali:"Y.m.d H:i" }}</td>
-          <td class="muted">{{ row.req.comment|default:"—"|truncatechars:80 }}</td>
+          {% comment %}
+            Requester name, request-type title, the description the user wrote
+            and the name of whoever decided are all human text, so each takes
+            its own base direction. The code, status and date columns are
+            generated and stay left-to-right. See the note at the end of
+            static/css/app.css.
+          {% endcomment %}
+          <td class="muted" dir="auto">{{ row.req.comment|default:"—"|truncatechars:80 }}</td>
           <td class="muted mono">{% if row.req.decided_at %}{{ row.req.decided_at|jalali:"Y.m.d H:i" }}{% else %}—{% endif %}</td>
-          <td class="muted">{{ row.decider }}</td>
+          <td class="muted" dir="auto">{{ row.decider }}</td>
         </tr>
         {% empty %}
         <tr><td colspan="{% if show_person %}9{% else %}8{% endif %}" class="empty">No requests yet.</td></tr>

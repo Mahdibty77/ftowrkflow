@@ -18,7 +18,11 @@
         <span class="status-tag" style="--sc:{{ case.status_color }}">{{ case.status_label }}</span>
       {% endif %}
     </h1>
-    {% if viewer_unit != 'SUPPLY' %}<div class="sub">{{ case.client.name }} <span class="mono">({{ case.client.code }})</span></div>{% endif %}
+    {# dir="auto" wraps only the client's own name. A Persian name mixed with a #}
+    {# Latin word is reordered on screen without it — see the note at the end   #}
+    {# of static/css/app.css. The code beside it stays outside the wrapper: it  #}
+    {# is generated, always Latin, and must keep the paragraph's LTR direction. #}
+    {% if viewer_unit != 'SUPPLY' %}<div class="sub"><span dir="auto">{{ case.client.name }}</span> <span class="mono">({{ case.client.code }})</span></div>{% endif %}
   </div>
 </div>
 
@@ -72,11 +76,11 @@
       <div class="subcard">
         <div class="sc-head"><i class="fa-solid fa-building"></i> Client information</div>
         <dl class="kv-ic compact">
-          <dt><i class="fa-solid fa-building"></i>Client</dt><dd>{{ case.client.name }} <span class="mono muted">({{ case.client.code }})</span></dd>
-          {% if case.order_no %}<dt><i class="fa-solid fa-file-lines"></i>Order No. / Project Name</dt><dd>{{ case.order_no }}</dd>{% endif %}
-          {% if case.client_commercial_expert %}<dt><i class="fa-solid fa-user"></i>Client commercial contact</dt><dd>{{ case.client_commercial_expert }}</dd>{% endif %}
+          <dt><i class="fa-solid fa-building"></i>Client</dt><dd><span dir="auto">{{ case.client.name }}</span> <span class="mono muted">({{ case.client.code }})</span></dd>
+          {% if case.order_no %}<dt><i class="fa-solid fa-file-lines"></i>Order No. / Project Name</dt><dd dir="auto">{{ case.order_no }}</dd>{% endif %}
+          {% if case.client_commercial_expert %}<dt><i class="fa-solid fa-user"></i>Client commercial contact</dt><dd dir="auto">{{ case.client_commercial_expert }}</dd>{% endif %}
           {% if case.client_commercial_phone %}<dt><i class="fa-solid fa-phone"></i>Client commercial phone</dt><dd class="mono">{{ case.client_commercial_phone }}</dd>{% endif %}
-          {% if case.client_technical_expert %}<dt><i class="fa-solid fa-user-gear"></i>Client technical contact</dt><dd>{{ case.client_technical_expert }}</dd>{% endif %}
+          {% if case.client_technical_expert %}<dt><i class="fa-solid fa-user-gear"></i>Client technical contact</dt><dd dir="auto">{{ case.client_technical_expert }}</dd>{% endif %}
           {% if case.client_technical_phone %}<dt><i class="fa-solid fa-phone"></i>Client technical phone</dt><dd class="mono">{{ case.client_technical_phone }}</dd>{% endif %}
         </dl>
       </div>
@@ -94,9 +98,9 @@
           <dt><i class="fa-solid fa-user-tie"></i>Commercial Expert</dt>
           <dd>
             {% if case.commercial_expert_display %}
-              {{ case.commercial_expert_display }}
+              <span dir="auto">{{ case.commercial_expert_display }}</span>
             {% else %}
-              {{ case.created_by.get_full_name|default:case.created_by.username }}
+              <span dir="auto">{{ case.created_by.get_full_name|default:case.created_by.username }}</span>
               <span class="mono muted">({{ case.created_by.profile.internal_code|default:case.expert_code }})</span>
             {% endif %}
           </dd>
@@ -104,9 +108,9 @@
           <dt><i class="fa-solid fa-screwdriver-wrench"></i>Technical expert</dt>
           <dd>
             {% if case.technical_expert_display %}
-              {{ case.technical_expert_display }}
+              <span dir="auto">{{ case.technical_expert_display }}</span>
             {% elif to_author %}
-              {{ to_author.get_full_name|default:to_author.username }}{% if to_author.profile.internal_code %} <span class="mono muted">({{ to_author.profile.internal_code }})</span>{% endif %}
+              <span dir="auto">{{ to_author.get_full_name|default:to_author.username }}</span>{% if to_author.profile.internal_code %} <span class="mono muted">({{ to_author.profile.internal_code }})</span>{% endif %}
             {% endif %}
           </dd>
           {% endif %}
@@ -327,15 +331,15 @@
 
     {% if arrival_comment and not is_split %}
       <div class="arrival-note unit-note u-{{ arrival_comment.from_unit }}">
-        <div class="an-head"><i class="fa-solid fa-comment-dots"></i> Note from {{ arrival_comment.from_unit }} — {{ arrival_comment.actor_display_name }}</div>
-        <div class="an-body">{{ arrival_comment.comment }}</div>
+        <div class="an-head"><i class="fa-solid fa-comment-dots"></i> Note from {{ arrival_comment.from_unit }} — <span dir="auto">{{ arrival_comment.actor_display_name }}</span></div>
+        <div class="an-body" dir="auto">{{ arrival_comment.comment }}</div>
         <div class="an-time">{{ arrival_comment.created_at|jalali:"Y.m.d H:i" }}</div>
       </div>
     {% endif %}
     {% if assign_comment and not is_split %}
       <div class="arrival-note unit-note u-{{ assign_comment.to_unit }}">
-        <div class="an-head"><i class="fa-solid fa-user-plus"></i> Assignment note — {{ assign_comment.actor_display_name }}</div>
-        <div class="an-body">{{ assign_comment.comment }}</div>
+        <div class="an-head"><i class="fa-solid fa-user-plus"></i> Assignment note — <span dir="auto">{{ assign_comment.actor_display_name }}</span></div>
+        <div class="an-body" dir="auto">{{ assign_comment.comment }}</div>
         <div class="an-time">{{ assign_comment.created_at|jalali:"Y.m.d H:i" }}</div>
       </div>
     {% endif %}
@@ -359,7 +363,7 @@
         <div class="lc-cell-unit">{{ r.label }}</div>
         <div class="lc-entry">
           <span class="lc-time">{{ r.duration }}</span>
-          <span class="lc-person">{{ r.person }}</span>
+          <span class="lc-person" dir="auto">{{ r.person }}</span>
         </div>
       </div>
     {% endfor %}
@@ -405,8 +409,8 @@
                 · <span class="tl-route"><span class="unit u-{{ ev.from_unit }}">{{ ev.from_unit }}</span><i class="fa-solid fa-arrow-right-long arrow"></i><span class="unit u-{{ ev.to_unit }}">{{ ev.to_unit }}</span></span>
               {% endif %}
             </div>
-            <div class="tl-meta">{{ ev.actor_display_name }}{% if ev.actor_is_substitute %} <span class="tl-sub-tag">Substitute</span>{% endif %} · {{ ev.created_at|jalali:"Y.m.d H:i" }}</div>
-            {% if ev.comment %}<div class="tl-comment">{{ ev.comment }}</div>{% endif %}
+            <div class="tl-meta"><span dir="auto">{{ ev.actor_display_name }}</span>{% if ev.actor_is_substitute %} <span class="tl-sub-tag">Substitute</span>{% endif %} · {{ ev.created_at|jalali:"Y.m.d H:i" }}</div>
+            {% if ev.comment %}<div class="tl-comment" dir="auto">{{ ev.comment }}</div>{% endif %}
           </li>
         {% empty %}
           <li class="muted">No activity yet.</li>
@@ -477,12 +481,25 @@
               var empty = ul.querySelector('li.muted');
               if (empty) empty.remove();
               var li = document.createElement('li');
+              // dir="auto" on the same two elements the server-rendered
+              // timeline above already carries. A comment posted this way is
+              // shown without a page reload, so without it the note the user
+              // just typed in Persian would appear re-ordered until they
+              // refreshed and then silently "fix itself" — the most confusing
+              // possible version of the bug.
               li.innerHTML = '<div class="tl-action">Comment</div>'
                 + '<div class="tl-meta"></div>'
-                + '<div class="tl-comment"></div>';
+                + '<div class="tl-comment" dir="auto"></div>';
               var meta = li.querySelector('.tl-meta');
               var actorLabel = (data.actor || form.dataset.userName || 'You');
-              meta.appendChild(document.createTextNode(actorLabel + ' '));
+              // Only the name gets its own direction, exactly as the
+              // server-rendered .tl-meta above does — the "· just now" that
+              // follows is ours and stays left-to-right.
+              var actorEl = document.createElement('span');
+              actorEl.setAttribute('dir', 'auto');
+              actorEl.textContent = actorLabel;
+              meta.appendChild(actorEl);
+              meta.appendChild(document.createTextNode(' '));
               if (data.substitute) {
                 var tag = document.createElement('span');
                 tag.className = 'tl-sub-tag';

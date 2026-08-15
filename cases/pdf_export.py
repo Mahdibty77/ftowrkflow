@@ -7,7 +7,9 @@ headless Chrome/Edge.
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
+import logging
 import math
 import os
 import re
@@ -16,6 +18,7 @@ import socket
 import struct
 import subprocess
 import tempfile
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -130,6 +133,8 @@ _BANNER_H = 16.0
 
 _TABLE_WIDTH_MM = 265.0  # page width minus side margins
 _WS_RE = re.compile(r"\s+")
+
+logger = logging.getLogger(__name__)
 
 
 def _plain_cell_text(text) -> str:
@@ -703,6 +708,74 @@ def _chrome_path() -> str | None:
 _A4_LANDSCAPE_W_IN = 297.0 / 25.4
 _A4_LANDSCAPE_H_IN = 210.0 / 25.4
 
+# The switches every print run needs to *work*: no GPU, no sandbox (we are PID 1
+# in a container), no /dev/shm assumption, no scrollbars in the shot.
+_CHROME_BASE_FLAGS = [
+    "--headless=new",
+    "--disable-gpu",
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-extensions",
+    "--hide-scrollbars",
+    "--no-first-run",
+    "--no-default-browser-check",
+]
+
+# …and the switches that stop a browser we will kill in four seconds from doing
+# the housekeeping a *desktop* browser does on every cold start: phoning home for
+# component and safe-browsing updates, opening a sync channel, writing metrics
+# and crash-report state into the throwaway profile, then throttling the very
+# renderer we are waiting on because its window is not on screen. None of it can
+# reach the document — measured against the same form, the printed PDF is byte
+# for byte the same once Chromium's own /CreationDate stamp is discounted — and
+# together they take about half a second off every single export (spawn 767 →
+# 707 ms, print 3233 → 2794 ms, total 4015 → 3500 ms on the reference document).
+# In an air-gapped install the networking ones matter more than the numbers
+# suggest: those requests do not fail fast, they wait for a DNS timeout.
+_CHROME_LEAN_FLAGS = [
+    "--disable-background-networking",
+    "--disable-component-update",
+    "--disable-client-side-phishing-detection",
+    "--disable-default-apps",
+    "--disable-sync",
+    "--no-pings",
+    "--metrics-recording-only",
+    "--disable-breakpad",
+    "--mute-audio",
+    "--disable-backgrounding-occluded-windows",
+    "--disable-renderer-backgrounding",
+    "--disable-background-timer-throttling",
+]
+
+
+def _max_concurrent_chrome() -> int:
+    """How many headless browsers this *process* may run at the same time.
+
+    One export is one whole browser: measured, a single 6-sheet PI export starts
+    16 OS processes and peaks around 1.1 GB of resident memory, and nothing in
+    this module used to count them. Under gunicorn's default *sync* worker that
+    did not matter, because a worker serves one request at a time and so could
+    never start a second browser — the ceiling was the worker count, and it was
+    the whole application's ceiling rather than the export's (see DEPLOY notes /
+    entrypoint.sh). The moment a worker is given threads, that accidental
+    ceiling disappears and ten simultaneous exports would start ten browsers and
+    take the machine down with them.
+
+    So the limit is stated here instead of being inherited from the process
+    model. Two is deliberately low: an export is already seconds long, a third
+    one queueing for a moment costs nothing anybody can feel, and the memory it
+    would otherwise take is memory the rest of the application needs to stay
+    responsive.
+    """
+    try:
+        value = int(os.environ.get("FT_PDF_MAX_CONCURRENCY") or 2)
+    except (TypeError, ValueError):
+        value = 2
+    return max(1, value)
+
+
+_CHROME_SLOTS = threading.BoundedSemaphore(_max_concurrent_chrome())
+
 
 def _free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -843,14 +916,8 @@ def _html_to_pdf_cdp(chrome: str, html_uri: str) -> bytes:
             chrome,
             f"--remote-debugging-port={port}",
             f"--user-data-dir={user_data}",
-            "--headless=new",
-            "--disable-gpu",
-            "--no-sandbox",
-            "--disable-dev-shm-usage",
-            "--disable-extensions",
-            "--hide-scrollbars",
-            "--no-first-run",
-            "--no-default-browser-check",
+            *_CHROME_BASE_FLAGS,
+            *_CHROME_LEAN_FLAGS,
             "about:blank",
         ],
         stdout=subprocess.DEVNULL,
@@ -938,13 +1005,69 @@ def _html_to_pdf_cdp(chrome: str, html_uri: str) -> bytes:
         shutil.rmtree(user_data, ignore_errors=True)
 
 
+# How long a printed document stays worth re-using, and how big one may be
+# before it is left out of the cache entirely.
+#
+# The window is short on purpose. It is not there to make yesterday's export
+# instant — it is there to absorb the burst the operator actually described:
+# several people taking the same document within a minute or two of each other,
+# and one person taking the same document twice (open it, look at it, download
+# it again). Five minutes covers that and nothing else, which keeps the cache
+# table to the handful of documents printed in the last five minutes rather than
+# letting it grow into a second copy of the archive.
+#
+# The ceiling is a guard, not a tuning knob: a pathological 200-sheet document
+# is exactly the one that should not be pushed through the cache backend, where
+# it would be pickled, base64'd and written to the database on every miss.
+_PDF_CACHE_TTL = 300
+_PDF_CACHE_MAX_BYTES = 12 * 1024 * 1024
+
+
+def _pdf_cache_key(html: str) -> str:
+    """Cache key for a printed document: a digest of the exact HTML printed.
+
+    Keying on the *rendered HTML* rather than on the form is what makes this
+    cache incapable of serving a stale document. Everything that can change what
+    the reader sees — a row edited, the terms retyped on the export screen, a new
+    signatory taking over the unit, a different stamp image, the currency the
+    prices are shown in — has already been resolved into this string by the time
+    it gets here, so any such change is a different key and a fresh print. There
+    is no invalidation to get wrong, and no way for a document to be cached under
+    a key that does not describe it.
+    """
+    return "ft:pdf:" + hashlib.sha256(html.encode("utf-8")).hexdigest()
+
+
 def html_to_pdf(html: str) -> bytes:
     """Convert print HTML to A4-landscape PDF bytes via headless Chromium.
 
     Prefer Chrome DevTools ``Page.printToPDF`` so paper size is exactly A4
     landscape with zero margins and no browser header/footer. Fall back to the
     ``--print-to-pdf`` CLI flag when CDP is unavailable.
+
+    Printing the same document twice used to do the whole job twice: measured,
+    about four seconds of a request-handling worker for a six-sheet PI, every
+    time, for a byte-for-byte identical result. The first thing this does now is
+    ask the cache whether that exact document has already been printed, so the
+    second and later takes of one document cost a cache read instead of a
+    browser. The cache is the one configured for the site, which under gunicorn
+    means the database table (or Redis when ``REDIS_URL`` is set) — shared by
+    every worker, so the copy printed for one user serves the next.
+
+    The cache is advisory in both directions. A backend that is down, full or
+    misconfigured must never be the reason an export fails, so every call into it
+    is contained and a failure simply means the document is printed the slow way.
     """
+    key = _pdf_cache_key(html)
+    try:
+        from django.core.cache import cache
+
+        cached = cache.get(key)
+        if isinstance(cached, bytes) and cached.startswith(b"%PDF"):
+            return cached
+    except Exception:
+        logger.warning("PDF export cache read failed; printing instead", exc_info=True)
+
     chrome = _chrome_path()
     if not chrome:
         raise RuntimeError(
@@ -953,6 +1076,25 @@ def html_to_pdf(html: str) -> bytes:
             "on Windows install Google Chrome or set CHROME_PATH."
         )
 
+    # Only ``_max_concurrent_chrome()`` browsers at a time, per process. Held
+    # around the browser work alone: the cache lookup above and the store below
+    # are not what needs rationing.
+    with _CHROME_SLOTS:
+        pdf = _print_html(chrome, html)
+
+    if len(pdf) <= _PDF_CACHE_MAX_BYTES:
+        try:
+            from django.core.cache import cache
+
+            cache.set(key, pdf, _PDF_CACHE_TTL)
+        except Exception:
+            logger.warning("PDF export cache write failed; export unaffected",
+                           exc_info=True)
+    return pdf
+
+
+def _print_html(chrome: str, html: str) -> bytes:
+    """Run the browser: CDP first, the ``--print-to-pdf`` CLI as a fallback."""
     with tempfile.TemporaryDirectory(prefix="ft_pdf_") as tmp:
         html_path = Path(tmp) / "document.html"
         pdf_path = Path(tmp) / "document.pdf"

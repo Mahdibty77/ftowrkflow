@@ -97,6 +97,21 @@ services:
       BACKUP_DIR: /backups
       # --- gunicorn ---
       GUNICORN_WORKERS: ${GUNICORN_WORKERS:-3}
+      # Threads per worker (entrypoint.sh explains the arithmetic). Total
+      # requests the site can have in flight is workers x threads, so the
+      # default is 12 rather than 3. It matters because a PDF export occupies
+      # its slot for about four seconds while a headless Chromium runs, and
+      # with only three slots three simultaneous exports stalled every other
+      # click on the site for ~6 seconds. Threads are safe here because that
+      # wait is spent in a child process and on a socket, both with the GIL
+      # released. Set to 1 to go back to the old one-request-per-worker model.
+      GUNICORN_THREADS: ${GUNICORN_THREADS:-4}
+      # Headless browsers one worker process may run at once. Each export is a
+      # whole Chromium — measured at 16 OS processes and ~1.1 GB resident for a
+      # six-sheet document — so this is what stops the extra threads above from
+      # turning a burst of exports into a memory emergency. Exports past the
+      # limit queue for a moment; they were seconds long already.
+      FT_PDF_MAX_CONCURRENCY: ${FT_PDF_MAX_CONCURRENCY:-2}
       # Large code-table imports (millions of rows) run inside one request, so
       # give gunicorn a generous worker timeout. Without this a big "Import
       # group" would be killed mid-build and surface as an Internal Server Error.

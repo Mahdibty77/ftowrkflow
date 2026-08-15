@@ -274,6 +274,17 @@ def inbox(request):
     for case in cases_list:
         case.inbox_status_rows = services.inbox_status_rows(case, ctx.seat_user)
 
+    # NEW marker: one query for the whole page (never one per row — see
+    # services.annotate_inbox_seen). Purely additive: it only hangs an
+    # ``is_new_in_inbox`` attribute on rows that were already loaded, so which
+    # cases appear, in what order, and every count/summary above are unchanged.
+    # Keyed on the seat user because that is whose inbox this is. Belt and braces
+    # around the helper's own guard: a read receipt must never break the inbox.
+    try:
+        services.annotate_inbox_seen(ctx.seat_user, cases_list)
+    except Exception:
+        logger.exception("inbox: NEW marker lookup failed for user %s", request.user.pk)
+
     fx_stale = False
     is_manager = (
         (role.role if role is not None else profile.role) == Role.MANAGER
@@ -840,6 +851,18 @@ def _side_notes(events_recent, side_code, holder_unit):
     return arrival, assign
 
 
+def _form_rank(form):
+    """Ascending rank of one form snapshot — the single ordering rule.
+
+    Delegates to ``CaseForm.version_key`` so the version chips, the "which
+    snapshot is current" decisions and the export resolver all agree. Sorting
+    or ``max()``-ing by ``version`` alone cannot separate a two-stage snapshot
+    from the same-numbered version it supersedes (both are, say, version 1),
+    which is what used to leave that ordering up to the database.
+    """
+    return form.version_key
+
+
 @login_required
 def case_detail(request, pk):
     case = (Case.objects
@@ -913,6 +936,13 @@ def case_detail(request, pk):
         messages.error(request, "You do not have access to this case.")
         return redirect("cases:inbox")
 
+    # The viewer has now actually opened this case, so drop its inbox NEW badge
+    # for them. Deliberately placed *after* the access check, so somebody who was
+    # bounced off the page never records a read. The helper writes nothing but
+    # the CaseSeen row (no CaseEvent, no save on the case, nothing on the audit
+    # timeline) and swallows its own errors, so this line cannot fail the page.
+    services.mark_case_seen(case, seat_user or request.user)
+
     def _hide_fx_only(forms):
         """Technical/Supply never see Commercial-only currency-conversion snapshots.
 
@@ -930,7 +960,7 @@ def case_detail(request, pk):
         if cur and services.form_is_currency_conversion_only(cur):
             if not (is_admin_view or is_comm):
                 reals = _hide_fx_only(_forms_of(kind, side=side))
-                cur = max(reals, key=lambda f: (f.version, f.id), default=None) if reals else None
+                cur = max(reals, key=_form_rank, default=None) if reals else None
         return cur
 
     forms_by_kind = {
@@ -944,15 +974,14 @@ def case_detail(request, pk):
                   FormKind.TO: Unit.TECHNICAL,
                   FormKind.PI: Unit.SUPPLY}
 
-    def _form_chip_sort_key(f):
-        """Left → right: older versions first; same version by creation time.
-
-        Keeps ``Version 00`` left of ``Version 00 · Two Stage`` (and any later
-        same-number snapshot) so each newly built form lands to the right.
-        """
-        created = getattr(f, "created_at", None)
-        # Naive fallback keeps None sorted first among equals.
-        return (int(getattr(f, "version", 0) or 0), created is not None, created, int(getattr(f, "pk", 0) or 0))
+    # Left → right: older versions first, and within one version number the
+    # original before its two-stage successor — so ``Version 01`` sits left of
+    # ``Version 01 · Two Stage`` and the newest snapshot is always the rightmost
+    # chip. This used to lean on ``created_at``, which gave the right answer
+    # only because the two-stage row happens to be written later; the rank is
+    # now stated as a rule (see CaseForm.version_key) instead of inferred from
+    # a timestamp.
+    _form_chip_sort_key = _form_rank
 
     def _forms_published_to_viewer(kind, side=None):
         """Non-owner: latest form version handed to this viewer's unit."""
@@ -1035,7 +1064,7 @@ def case_detail(request, pk):
     to_author = None
     first_to = min(
         (f for f in _forms_of(FormKind.TO) if not services.form_is_currency_conversion_only(f)),
-        key=lambda f: (f.version, f.id), default=None)
+        key=_form_rank, default=None)
     if first_to:
         to_author = first_to.created_by
 
@@ -1050,7 +1079,7 @@ def case_detail(request, pk):
                 f for f in _forms_of(kind, side=side)
                 if not services.form_is_currency_conversion_only(f)
             ]
-            cur = max(reals, key=lambda f: (f.version, f.id), default=None) if reals else None
+            cur = max(reals, key=_form_rank, default=None) if reals else None
         if not cur:
             return "build"
         inq = case.current_form(FormKind.INQUIRY, side)
@@ -1059,8 +1088,7 @@ def case_detail(request, pk):
         # stage) — forces a matching new form version. Otherwise the unit edits
         # its current form in place — even after sending it and getting the case
         # back, as long as the inquiry has not moved on.
-        if inq and (cur.version < inq.version
-                    or bool(cur.two_stage) != bool(inq.two_stage)):
+        if services.form_behind_inquiry(cur, inq):
             return "newversion"
         return "edit"
     to_mode = _form_mode(FormKind.TO)
@@ -2134,6 +2162,32 @@ def transition(request, pk):
 # ---------------------------------------------------------------------------
 # Exports
 # ---------------------------------------------------------------------------
+def _parse_version_token(version):
+    """Split the ``?v=`` token into (version number, two-stage generation).
+
+    A version NUMBER does not identify a snapshot on its own: a two-stage
+    upgrade keeps the number of the version it supersedes, so "01" and
+    "01 · Two Stage" are both ``version == 1``. Both version chips therefore
+    used to send the same ``?v=1`` and both exported the same document — the
+    unit could look at "Version 01" and download "Version 01 · Two Stage".
+
+    The chips now mark the two-stage generation with a trailing ``s``
+    (``?v=1s``); a bare number means the original generation. Returns
+    ``(None, None)`` for anything unparseable, which sends the caller to the
+    current form.
+    """
+    text = str(version if version is not None else "").strip().lower()
+    if not text:
+        return None, None
+    two_stage = False
+    if text.endswith("s"):
+        text, two_stage = text[:-1], True
+    try:
+        return int(text), two_stage
+    except (TypeError, ValueError):
+        return None, None
+
+
 def _resolve_export_form(case, form_kind, side: str = "", version=None):
     kind = (form_kind or "").upper()
     side = (side or "").strip()
@@ -2141,15 +2195,19 @@ def _resolve_export_form(case, form_kind, side: str = "", version=None):
     # (e.g. v00 vs v03), not always the latest. Falls back to current when the
     # version is missing/unknown.
     if version is not None and str(version).strip() != "":
-        try:
-            vnum = int(version)
-        except (TypeError, ValueError):
-            vnum = None
+        vnum, want_two_stage = _parse_version_token(version)
         if vnum is not None:
             qs = CaseForm.objects.filter(case=case, kind=kind, version=vnum)
             if side:
                 qs = qs.filter(side=side)
-            f = qs.order_by("-id").first()
+            f = qs.filter(two_stage=want_two_stage).order_by("-id").first()
+            if f is None:
+                # No snapshot in the requested generation. This is the path a
+                # link written before the suffix existed takes when the number
+                # it names has since been superseded by a two-stage snapshot,
+                # so fall back to the newest snapshot carrying that number
+                # (two-stage first) rather than refusing the export.
+                f = qs.order_by("-two_stage", "-id").first()
             if f is not None:
                 return f
     if side:
@@ -2187,7 +2245,12 @@ def _resolve_export_form_for_viewer(case, form_kind, side: str, version, profile
     elif getattr(form, "side", None):
         qs = qs.filter(side=form.side)
     visible = [
-        f for f in qs.order_by("version", "id")
+        # Oldest first, so the last entry is the newest snapshot this unit was
+        # given. ``two_stage`` has to sit between version and id: the two-stage
+        # snapshot carries the SAME number as the version it supersedes, so
+        # without it the "latest published to Commercial" was decided by
+        # insertion order rather than by which version is actually newer.
+        f for f in qs.order_by("version", "two_stage", "id")
         if services.form_published_to_unit(f, profile.unit)
     ]
     return visible[-1] if visible else None
