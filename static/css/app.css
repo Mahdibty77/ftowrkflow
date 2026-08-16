@@ -440,25 +440,6 @@ html[data-theme="dark"] .shift-ot-link:hover{
   flex:0 0 auto;
   vertical-align:middle;
 }
-/* "NEW" marker on an inbox row the viewer has not opened yet. Colours are the
-   sidebar .nav-badge's (accent on on-accent, pill radius) so the two unread
-   signals in the UI read as the same thing; the geometry is .pill-delegated's,
-   because it shares that row with the document-number chip and must not wrap. */
-.pill-new{
-  background:var(--accent);
-  color:var(--on-accent);
-  font-size:.58rem;
-  font-weight:800;
-  padding:.05rem .34rem;
-  border-radius:100px;
-  letter-spacing:.04em;
-  line-height:1.15;
-  margin:0;
-  max-width:none;
-  white-space:nowrap;
-  flex:0 0 auto;
-  vertical-align:middle;
-}
 .pill-grey{background:#6b7280}
 .pill-green{background:#1f7a5a}
 .chip{display:inline-flex;align-items:center;gap:.3rem;font-size:.72rem;font-weight:650;padding:.2rem .55rem;border-radius:100px;border:1px solid color-mix(in srgb,var(--accent) 28%,var(--line));background:var(--accent-soft);color:var(--accent-strong)}
@@ -476,6 +457,41 @@ table.data thead th{background:var(--cloud);font-weight:650;color:var(--slate);f
 table.data tbody tr:hover{background:var(--cloud)}
 table.data td.num,table.data th.num{text-align:right;font-family:var(--mono)}
 .row-link{cursor:pointer}
+
+/* ---- Unopened inbox row -------------------------------------------------
+   A case the viewer has not opened yet used to carry a "NEW" word next to its
+   document number; the owner asked for the ROW to read as unopened instead, the
+   way an unread message does in a mail client. Three quiet signals, no text:
+   an accent stripe down the row's leading edge, a small solid dot in the cell's
+   own left padding, and a faint accent wash across the whole row. Shape (stripe
+   + dot) carries the meaning on its own, so the marker still reads when the
+   colours are muted or the viewer cannot separate the hues.
+
+   Everything here is drawn WITHOUT taking part in layout: the stripe is an
+   inset box-shadow, the dot is absolutely positioned inside padding that was
+   already there, and the weight change only touches the monospaced document
+   number, whose glyphs have a fixed advance. Row height, column widths and the
+   position of every cell's content are therefore exactly what they would be
+   with no marker at all — the list is scanned in columns and must not jump.
+
+   The wash is deliberately left at low specificity (one class on a bare tr) so
+   that `table.data tbody tr:hover` still wins: hovering an unopened row must
+   look like hovering any other row. Do not "tidy" this selector by scoping it
+   to table.data tbody — that would out-rank the hover rule and kill it. */
+tr.row-unseen{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+tr.row-unseen > td:first-child{
+  position:relative;                        /* anchors the dot; no layout effect */
+  box-shadow:inset 3px 0 0 var(--accent);   /* leading edge stripe, drawn inside */
+}
+tr.row-unseen .docno{font-weight:800}
+.unseen-mark{
+  position:absolute;
+  left:5px;                                 /* inside the cell's .75rem padding */
+  top:50%;
+  width:6px;height:6px;margin-top:-3px;
+  border-radius:50%;
+  background:var(--accent);
+}
 
 /* ---------------- Buttons ---------------- */
 .btn{display:inline-flex;align-items:center;gap:.4rem;cursor:pointer;font-family:var(--sans);font-size:.82rem;font-weight:600;padding:.5rem .9rem;border-radius:var(--radius-sm);border:1px solid var(--line);background:var(--paper);color:var(--ink);transition:background .12s,border-color .12s,color .12s,box-shadow .12s}
@@ -510,6 +526,23 @@ table.data td.num,table.data th.num{text-align:right;font-family:var(--mono)}
 .btn-sm{padding:.34rem .62rem;font-size:.76rem}
 .btn-row{display:flex;flex-wrap:wrap;gap:.5rem}
 button:disabled,.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* A confirm-action form is normally a flex item sharing a .btn-row with its
+   siblings, so it is sized by its trigger button — which is what lines those
+   buttons up. That is wrong the moment its comment panel opens: the panel
+   inherits the button's width, so a burn or cancel note was written in a box
+   about 148px wide inside a 350px card, with the rest of the card empty beside
+   it. While open the form claims the whole row (and forces the following
+   siblings onto the next line, which is what "the whole row" means in a wrap
+   container). Closing it removes the class and the buttons line up again, so
+   the resting layout is exactly what it was. */
+form.confirm-action.confirm-open{flex:1 1 100%;min-width:0}
+/* Reserve the scrollbar groove from the start. The auto-grow module flips
+   overflow-y from hidden to auto when a box reaches its maximum height, and a
+   scroll container's groove counts towards the intrinsic width of a flex-sized
+   panel — so without this the panel visibly jumps narrower at exactly the
+   moment the box stops growing. */
+.confirm-panel textarea{scrollbar-gutter:stable}
 
 /* ---------------- Forms ---------------- */
 .field{margin-bottom:.9rem}

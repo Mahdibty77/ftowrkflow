@@ -593,6 +593,11 @@
       function clearSelection() {
         selected = [];
         if (inp) inp.value = '';
+        // Emptying the box from script fires no `input` event, so the auto-grow
+        // module at the end of static/js/ui.js would leave the box at the height
+        // the confirmed comment had grown it to. Same hook, same reason, as the
+        // timeline box in case_detail.html.
+        if (inp && window.FTAutoGrow) window.FTAutoGrow(inp);
         if (err) err.hidden = true;
         paintSelection();
       }

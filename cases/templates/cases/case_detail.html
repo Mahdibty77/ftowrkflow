@@ -512,6 +512,12 @@
               ul.insertBefore(li, ul.firstChild);
             }
             ta.value = '';
+            // The box had grown to fit the comment that was just posted. Clearing
+            // it from script fires no `input` event, so the auto-grow module at the
+            // end of static/js/ui.js never hears about it and an empty box would sit
+            // there a whole screen tall. Tell it directly, through the hook it
+            // exposes for exactly this.
+            if (window.FTAutoGrow) window.FTAutoGrow(ta);
             btn.disabled = false;
           }).catch(function () {
             btn.disabled = false;

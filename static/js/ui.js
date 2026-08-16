@@ -346,12 +346,29 @@
       '</div>';
     form.appendChild(panel);
 
+    // The form is often a flex item: several of these sit side by side in a
+    // .btn-row so their triggers line up as a row of buttons. A flex item is
+    // sized by its content, so while the panel was open it stayed as narrow as
+    // the button that opened it — a comment box about 148px wide inside a 350px
+    // card, with the rest of the card empty beside it. Marking the form open
+    // lets the stylesheet give it the whole row for as long as it is open, and
+    // hand it straight back when it closes so the buttons line up again.
+    function setOpen(open) {
+      panel.style.display = open ? "block" : "none";
+      form.classList.toggle("confirm-open", open);
+      // Opening widens the form, so the text rewraps and the box needs fewer
+      // lines than it would have at the narrow width. Re-fit it now rather than
+      // leaving it at a height measured against a width it no longer has.
+      var box = panel.querySelector("textarea");
+      if (open && box && window.FTAutoGrow) window.FTAutoGrow(box);
+    }
+
     trigger.addEventListener("click", function (e) {
       e.preventDefault();
-      panel.style.display = panel.style.display === "none" ? "block" : "none";
+      setOpen(panel.style.display === "none");
     });
     panel.querySelector("[data-confirm-cancel]").addEventListener("click", function () {
-      panel.style.display = "none";
+      setOpen(false);
     });
   });
 })();
@@ -505,3 +522,9 @@
     }
   });
 })();
+
+/* The auto-growing comment boxes used to live here. They moved to
+   static/js/autogrow.js so the standalone item-coder pages, which do not extend
+   base.html and so never load this file, can have them too without dragging the
+   rest of this file along. base.html loads autogrow.js BEFORE this file, because
+   the inline confirm panel above calls window.FTAutoGrow when it opens. */

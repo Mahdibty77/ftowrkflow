@@ -56,10 +56,10 @@
     </thead>
     <tbody>
       {% for c in cases %}
-        <tr class="row-link" onclick="window.location='{% url 'cases:case_detail' c.pk %}'">
-          <td>
+        <tr class="row-link{% if c.is_new_in_inbox %} row-unseen{% endif %}" onclick="window.location='{% url 'cases:case_detail' c.pk %}'">
+          <td>{% if c.is_new_in_inbox %}<span class="unseen-mark" role="img" aria-label="Unopened — you have not opened this case yet" title="Unopened — you have not opened this case yet"></span>{% endif %}
             <span class="docno-line">
-              <span class="docno"><span>{{ c.doc_no }}</span></span>{% if c.is_new_in_inbox %} <span class="pill pill-new" title="New in your inbox — you have not opened it yet">NEW</span>{% endif %}{% if c.is_delegated %} <span class="pill pill-delegated">Delegated</span>{% endif %}
+              <span class="docno"><span>{{ c.doc_no }}</span></span>{% if c.is_delegated %} <span class="pill pill-delegated">Delegated</span>{% endif %}
             </span>
           </td>
           {# Client name is typed by a user, the code beside it is generated — #}
