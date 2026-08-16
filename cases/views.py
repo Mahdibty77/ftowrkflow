@@ -16,6 +16,7 @@ from types import SimpleNamespace
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import never_cache
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import Prefetch, Q
@@ -237,6 +238,13 @@ def preview_excel(request):
 # Inbox (kartabl)
 # ---------------------------------------------------------------------------
 @login_required
+# The inbox states what is waiting for you RIGHT NOW, so a stored copy of it is
+# wrong the moment anything moves. Without this the browser is free to answer
+# the BACK button out of its own cache: open a case, press Back, and the page
+# that returns is the one from before you opened it — still showing the case as
+# unopened, and still missing anything that arrived meanwhile. Refusing to store
+# it costs one request on Back and makes the answer always the server's.
+@never_cache
 def inbox(request):
     profile = _profile(request.user)
     if profile is None or profile.is_admin:

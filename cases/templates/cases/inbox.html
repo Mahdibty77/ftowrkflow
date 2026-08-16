@@ -57,7 +57,7 @@
     <tbody>
       {% for c in cases %}
         <tr class="row-link{% if c.is_new_in_inbox %} row-unseen{% endif %}" onclick="window.location='{% url 'cases:case_detail' c.pk %}'">
-          <td>{% if c.is_new_in_inbox %}<span class="unseen-mark" role="img" aria-label="Unopened — you have not opened this case yet" title="Unopened — you have not opened this case yet"></span>{% endif %}
+          <td>{% if c.is_new_in_inbox %}<span class="sr-only">Unopened. </span>{% endif %}
             <span class="docno-line">
               <span class="docno"><span>{{ c.doc_no }}</span></span>{% if c.is_delegated %} <span class="pill pill-delegated">Delegated</span>{% endif %}
             </span>
@@ -77,4 +77,36 @@
     </tbody>
   </table>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* Opening a case marks it read on the server, so returning to the inbox by any
+   route that asks the server again — the Inbox link, a refresh — correctly shows
+   the row as read. The browser BACK button is the exception: it restores this
+   page from the back/forward cache, which replays the DOM exactly as it was
+   left, stripe and all, without consulting the server. The row then looks
+   unopened when it has been opened, which is what was reported.
+
+   So the row is marked read here, at the moment it is clicked, before the
+   navigation starts. The back/forward cache then restores a page that already
+   agrees with the server, and a route that does ask the server agrees anyway.
+   Nothing is sent from here and no state is written: the server already recorded
+   the read when it rendered the case, and this only stops the cached copy from
+   contradicting it.
+
+   Capture phase, so it runs before the row's own inline handler navigates. */
+(function () {
+  "use strict";
+  var table = document.querySelector("table.data");
+  if (!table) return;
+  table.addEventListener("click", function (e) {
+    var row = e.target && e.target.closest ? e.target.closest("tr.row-unseen") : null;
+    if (!row || !table.contains(row)) return;
+    row.classList.remove("row-unseen");
+    var note = row.querySelector(".sr-only");
+    if (note) note.remove();
+  }, true);
+})();
+</script>
 {% endblock %}

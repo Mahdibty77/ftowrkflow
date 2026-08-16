@@ -480,17 +480,25 @@ table.data td.num,table.data th.num{text-align:right;font-family:var(--mono)}
    to table.data tbody — that would out-rank the hover rule and kill it. */
 tr.row-unseen{background:color-mix(in srgb,var(--accent) 8%,transparent)}
 tr.row-unseen > td:first-child{
-  position:relative;                        /* anchors the dot; no layout effect */
-  box-shadow:inset 3px 0 0 var(--accent);   /* leading edge stripe, drawn inside */
+  /* Leading edge stripe, drawn INSIDE the cell as a shadow so it costs no
+     layout: the row keeps the exact height and column positions of a row that
+     has been read, which is what lets the list still be scanned as columns. */
+  box-shadow:inset 3px 0 0 var(--accent);
 }
 tr.row-unseen .docno{font-weight:800}
-.unseen-mark{
+
+/* Announced by a screen reader, never painted. The unopened state is carried
+   visually by the stripe, the tint and the heavier number, and none of those
+   three is available to somebody who cannot see the row - so the state is also
+   written out here in words, inside the row where it is read in context. */
+.sr-only{
   position:absolute;
-  left:5px;                                 /* inside the cell's .75rem padding */
-  top:50%;
-  width:6px;height:6px;margin-top:-3px;
-  border-radius:50%;
-  background:var(--accent);
+  width:1px;height:1px;
+  padding:0;margin:-1px;
+  overflow:hidden;
+  clip-path:inset(50%);
+  white-space:nowrap;
+  border:0;
 }
 
 /* ---------------- Buttons ---------------- */
