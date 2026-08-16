@@ -398,27 +398,52 @@ def archive(request):
         # Substitutes do not see fully closed / terminal archive rows.
         if ctx.is_substitute:
             qs = qs.exclude(status__in=CaseStatus.ENDED)
+    # The four branches below used to reach the forms / events tables by JOIN.
+    # Every one of them is a *multi-valued* relation, so the join multiplies the
+    # case out to one row per matching form and per matching event before
+    # SELECT DISTINCT folds it back — on a live-sized archive that is tens of
+    # thousands of intermediate rows, and this queryset is then evaluated seven
+    # more times below (once per filter dropdown, once for the rows). Measured on
+    # a 300-case / 1081-form / 5689-event copy: 46-85 ms per evaluation for a
+    # Technical or Supply seat, against 1-4 ms for an Administrator, whose
+    # branch has no join at all.
+    #
+    # Asking the same question as a subquery on the case's primary key returns
+    # exactly the same set — "this case has at least one form/event matching"
+    # is precisely what an inner join plus DISTINCT means — but the case table is
+    # never multiplied, so there is nothing to fold back. Note the two mine_only
+    # branches keep both conditions inside ONE subquery, because they were one
+    # ``filter()`` call and therefore had to be satisfied by a single form row.
+    # ``.distinct()`` stays exactly where it was on every branch: whether this
+    # queryset is distinct decides whether the inbox union a few lines down is
+    # accepted or raises, and that must not move.
     elif is_unit_manager and mine_only and profile_unit == Unit.TECHNICAL:
         qs = qs.filter(
-            forms__kind=FormKind.TO, forms__created_by=seat_user
+            pk__in=CaseForm.objects.filter(
+                kind=FormKind.TO, created_by=seat_user).values("case_id")
         ).distinct()
     elif is_unit_manager and mine_only and profile_unit == Unit.SUPPLY:
         qs = qs.filter(
-            forms__kind=FormKind.PI, forms__created_by=seat_user
+            pk__in=CaseForm.objects.filter(
+                kind=FormKind.PI, created_by=seat_user).values("case_id")
         ).distinct()
     elif profile_role == Role.SUPERVISOR and profile_unit:
         u = profile_unit
         qs = qs.filter(
             Q(holder_unit=u)
-            | Q(events__from_unit=u) | Q(events__to_unit=u)
-            | Q(forms__unit_at_creation=u)
+            | Q(pk__in=CaseEvent.objects.filter(
+                Q(from_unit=u) | Q(to_unit=u)).values("case_id"))
+            | Q(pk__in=CaseForm.objects.filter(
+                unit_at_creation=u).values("case_id"))
         ).distinct()
     else:
         qs = qs.filter(
             Q(created_by=seat_user)
             | Q(assigned_to=seat_user)
-            | Q(forms__created_by=seat_user)
-            | Q(events__actor=seat_user)
+            | Q(pk__in=CaseForm.objects.filter(
+                created_by=seat_user).values("case_id"))
+            | Q(pk__in=CaseEvent.objects.filter(
+                actor=seat_user).values("case_id"))
         ).distinct()
         if ctx.is_substitute:
             qs = qs.exclude(status__in=CaseStatus.ENDED)
@@ -430,7 +455,18 @@ def archive(request):
         try:
             inbox_qs = services.inbox_cases_for_request(request)
             if inbox_qs is not None:
-                qs = (qs | inbox_qs).distinct()
+                # ``qs | inbox_qs`` is a TypeError whenever exactly one side has
+                # had .distinct() applied — "Cannot combine a unique query with a
+                # non-unique query", raised by Query.combine on self.distinct !=
+                # rhs.distinct. inbox_cases() always ends in .distinct(), while
+                # the Commercial branches above deliberately do not, so this
+                # raised on EVERY archive load for every Commercial seat (logged
+                # once per page view) and the union was silently skipped — the
+                # "Archive ⊇ Inbox" guarantee in the docstring quietly did not
+                # hold for the unit that relies on it most. Making both sides
+                # distinct is what the .distinct() on the result already asked
+                # for; it changes no row, only whether the OR is legal to build.
+                qs = (qs.distinct() | inbox_qs.distinct()).distinct()
         except Exception:
             logger.exception("archive: failed to union inbox cases for user %s", request.user.pk)
 
@@ -478,45 +514,64 @@ def archive(request):
     # RETURNED_TO_TECHNICAL, etc.) used by status tabs + row data-fval.
     status_group = CaseStatus.ARCHIVE_GROUP
 
-    # Build the filter dropdown choices from the WHOLE filtered set using cheap
-    # DISTINCT queries — not by loading every case — so the options stay complete
-    # even though only one page of rows is rendered below.
     def _offer_label(offer_type, upgraded):
         if offer_type != OfferType.TO_PI:
             return "TO"
         return "TO & PI (Two Stage)" if upgraded else "TO & PI"
 
+    # No pagination: every matching case is rendered once; the table scrolls
+    # via .vscroll (sticky header), same idea as inquiry / TO / PI tables.
+    cases_list = list(qs)
+
+    # Filter dropdown choices, over the WHOLE filtered set.
+    #
+    # These were six ``values_list(...).distinct()`` round trips, written that way
+    # back when this page was paginated and "the whole filtered set" was more than
+    # the rows on screen. It is not any more: ``cases_list`` immediately above IS
+    # the whole filtered set, and ``client`` and ``created_by`` are already
+    # select_related onto it, so every value the six queries returned is sitting
+    # in memory. Deriving them here is the same set of strings — each of the six
+    # was collected into a Python ``set`` and sorted, so neither the duplicates
+    # the database happened to return nor the order it returned them in ever
+    # reached the page — at six fewer queries. That mattered: each of those
+    # queries re-ran the viewer's whole archive scope, which for a Technical or
+    # Supply seat measured 47-60 ms a piece (≈330 ms of the page) because the
+    # scope joined the forms and events tables.
+    #
+    # ``created_by`` is nullable, so the empty-user tuple below stands in for the
+    # LEFT JOIN's NULLs and is fed to the very same expression, keeping whatever
+    # that expression did with them unchanged.
+    _no_user = ("", "", "")
     f_clients = sorted({
         f"{name} ({code})"
-        for name, code in qs.values_list("client__name", "client__code").distinct()
+        for name, code in {(c.client.name, c.client.code) for c in cases_list}
         if name
     })
     f_experts = sorted({
         f"{((first + ' ' + last).strip() or username)} ({ecode})"
-        for first, last, username, ecode in qs.values_list(
-            "created_by__first_name", "created_by__last_name",
-            "created_by__username", "expert_code").distinct()
+        for first, last, username, ecode in {
+            ((c.created_by.first_name, c.created_by.last_name, c.created_by.username)
+             if c.created_by_id else _no_user) + (c.expert_code,)
+            for c in cases_list
+        }
     })
     f_prices = sorted({
         PriceType.LABELS.get(pt, "")
-        for pt in qs.values_list("price_type", flat=True).distinct() if pt
+        for pt in {c.price_type for c in cases_list} if pt
     })
     f_offers = sorted({
         _offer_label(ot, up)
-        for ot, up in qs.values_list("offer_type", "upgraded_two_stage").distinct()
+        for ot, up in {(c.offer_type, c.upgraded_two_stage) for c in cases_list}
     })
     f_kinds = sorted({
         dict(DocKind.CHOICES).get(k, k)
-        for k in qs.values_list("kind", flat=True).distinct() if k
+        for k in {c.kind for c in cases_list} if k
     })
     f_orders = sorted({
-        ono for ono in qs.values_list("order_no", flat=True).distinct()
+        ono for ono in {c.order_no for c in cases_list}
         if (ono or "").strip()
     })
 
-    # No pagination: every matching case is rendered once; the table scrolls
-    # via .vscroll (sticky header), same idea as inquiry / TO / PI tables.
-    cases_list = list(qs)
     tab_counts = {label: 0 for label in CaseStatus.ARCHIVE_TAB_ORDER}
     for c in cases_list:
         if c.is_split:

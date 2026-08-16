@@ -159,7 +159,7 @@ def _case_ids_by_user(qs, id_set, *fields):
     return out
 
 
-def _commercial_cards(users, from_dt, to_dt):
+def _commercial_cards(users, from_dt, to_dt, form_cache=None):
     # One grouped query with conditional counts instead of ~6 counts per user.
     from cases.export_data import case_pi_grand_totals_map, format_money_amount
 
@@ -179,7 +179,8 @@ def _commercial_cards(users, from_dt, to_dt):
     }
     # Grand totals for cases in range, grouped by creator.
     case_creator = list(qs.values_list("id", "created_by"))
-    gt_map = case_pi_grand_totals_map([cid for cid, _ in case_creator])
+    gt_map = case_pi_grand_totals_map(
+        [cid for cid, _ in case_creator], form_cache=form_cache)
     money_by_user = defaultdict(float)
     for cid, uid in case_creator:
         money_by_user[uid] += gt_map.get(cid, 0.0)
@@ -298,10 +299,10 @@ def _unit_users(unit, include_manager):
     ).select_related("profile").order_by("first_name", "username")
 
 
-def _unit_section(unit, from_dt, to_dt, include_manager):
+def _unit_section(unit, from_dt, to_dt, include_manager, form_cache=None):
     users = _unit_users(unit, include_manager)
     if unit == Unit.COMMERCIAL:
-        cards = _commercial_cards(users, from_dt, to_dt)
+        cards = _commercial_cards(users, from_dt, to_dt, form_cache=form_cache)
         kind = "commercial"
     elif unit == Unit.TECHNICAL:
         cards = _technical_cards(users, from_dt, to_dt)
@@ -348,7 +349,7 @@ _STATUS_BUCKETS = {
 }
 
 
-def _platform_overview(from_dt, to_dt):
+def _platform_overview(from_dt, to_dt, form_cache=None):
     """Overall case counts + simple chart series for Admin / General Manager."""
     from cases.export_data import case_pi_grand_totals_map, format_money_amount
 
@@ -379,7 +380,7 @@ def _platform_overview(from_dt, to_dt):
              | Q(holder_unit=Unit.SUPPLY)).distinct().count()},
     ]
     case_ids = list(qs.values_list("id", flat=True))
-    gt_map = case_pi_grand_totals_map(case_ids)
+    gt_map = case_pi_grand_totals_map(case_ids, form_cache=form_cache)
     money = sum(gt_map.values()) if gt_map else 0.0
     max_status = max(by_status.values()) if by_status else 1
     max_unit = max((u["count"] for u in by_unit), default=1) or 1
@@ -421,11 +422,20 @@ def dashboard(request):
     # ---- Admin / General manager: overview + all three units ---------------
     if is_admin or is_gm:
         ov_f, ov_t, ov_rf, ov_rt = _range_from_request(request, prefix="ov_")
-        overview = _platform_overview(ov_f, ov_t)
+        # This page totals the proformas twice — once for the platform overview,
+        # once for the Commercial expert cards — and the two passes walk mostly
+        # the same current proformas. This dict lets the second pass reuse the
+        # per-row figures the first already worked out. It is a local variable
+        # of one request: it is created here, used by the two calls below and
+        # discarded with the response, so nothing in it can reach another
+        # visitor's page. See case_pi_grand_totals_map for what it holds.
+        form_cache = {}
+        overview = _platform_overview(ov_f, ov_t, form_cache=form_cache)
         sections = []
         for unit in (Unit.COMMERCIAL, Unit.TECHNICAL, Unit.SUPPLY):
             f, t, rf, rt = _range_from_request(request, prefix=f"{unit.lower()}_")
-            section = _unit_section(unit, f, t, include_manager=True)
+            section = _unit_section(unit, f, t, include_manager=True,
+                                    form_cache=form_cache)
             section["raw_from"], section["raw_to"] = rf, rt
             sections.append(section)
         return render(request, "reports/dashboard.html", {

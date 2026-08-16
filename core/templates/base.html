@@ -24,6 +24,116 @@
       if (mode === 'dark') r.setAttribute('data-theme', 'dark'); // keep app.css dark rules in sync
     })();
   </script>
+  <script>
+    /*
+      One CSRF token source for every script on the site.
+
+      Django rotates the CSRF secret on sign-in (deliberately, against session
+      fixation), which invalidates the token baked into every page rendered
+      before it. Any page left open across a re-sign-in, a "Log in as", or a
+      shift-end/expiry followed by a fresh sign-in therefore carries a hidden
+      token the server will reject:
+
+          Forbidden (403) - CSRF verification failed. Request aborted.
+
+      Measured, with django.test.Client(enforce_csrf_checks=True): posting the
+      old page's rendered token after a second sign-in returns 403, and — this
+      is the part that catches people — sending a CORRECT X-CSRFToken header
+      alongside the stale POST field is ALSO 403, because Django reads the
+      csrfmiddlewaretoken field first and never looks at the header when the
+      field is present. So a script that posts `new FormData(form)` cannot be
+      rescued by adding a header; the field itself has to be refreshed.
+
+      token()    the value the browser will actually be judged against (the
+                 cookie), falling back to a rendered field only when there is
+                 no cookie to read (CSRF_USE_SESSIONS, or a first request that
+                 has not been given one yet).
+      apply()    rewrite a form's hidden field from the cookie.
+      formData() FormData for a form, with the hidden field refreshed.
+
+      This weakens nothing: the token still comes from the CSRF cookie, which
+      is the whole basis of the protection — only same-origin script can read
+      it, and a cross-site form post cannot run this code at all. It is exactly
+      the value Django's own documentation tells AJAX callers to send.
+    */
+    window.FTCsrf = (function () {
+      function token() {
+        var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+        if (m) return decodeURIComponent(m[1]);
+        var inp = document.querySelector('input[name=csrfmiddlewaretoken]');
+        return (inp && inp.value) || '';
+      }
+      function apply(form) {
+        var t = token();
+        if (!form || !t) return t;
+        var fields = form.querySelectorAll('input[name="csrfmiddlewaretoken"]');
+        if (!fields.length) {
+          var el = document.createElement('input');
+          el.type = 'hidden';
+          el.name = 'csrfmiddlewaretoken';
+          form.appendChild(el);
+          fields = [el];
+        }
+        Array.prototype.forEach.call(fields, function (f) { f.value = t; });
+        return t;
+      }
+      function formData(form) {
+        apply(form);
+        var fd = new FormData(form);
+        var t = token();
+        if (t) fd.set('csrfmiddlewaretoken', t);
+        return fd;
+      }
+      return { token: token, apply: apply, formData: formData };
+    })();
+
+    /*
+      Turn a fetch() Response into JSON, or into an error a human can act on.
+
+      Every JSON endpoint on this site sits behind @login_required, and Django's
+      login_required answers an unauthenticated request with a 302 to the HTML
+      sign-in page — measured: /cases/<pk>/transition/, /cases/preview-excel/
+      and /cases/fx-rates/api/ all return "302 -> /accounts/login/?next=…" once
+      the session is gone. fetch() follows that redirect silently, so the caller
+      gets status 200 with an HTML body and res.json() throws a SyntaxError. The
+      user sees "request failed", a red cell, or nothing at all, and no amount of
+      retrying will ever help: the session ended (a shift close, an expiry, or a
+      sign-in elsewhere) and the page has to be signed in again.
+
+      FTJson names those two cases so callers can say so.
+        err.ftSessionEnded  the answer was the sign-in page
+        err.ftCsrf          403 — this page's security token is stale
+    */
+    window.FTJson = function (res) {
+      var ct = (res.headers.get('Content-Type') || '').toLowerCase();
+      // Two different levels of certainty, kept apart on purpose.
+      //
+      // A redirect that landed on the sign-in page is PROOF: the server said so.
+      // "Answered 200 with something that is not JSON" is only a strong guess —
+      // it is what a signed-out session usually looks like from here, but an
+      // HTML error page, a proxy notice or a misconfigured endpoint look the
+      // same. Anything that merely tells the user something may act on the
+      // guess; anything that ENDS THE SESSION must not, because a wrong guess
+      // there signs somebody out in the middle of their work.
+      var provedSignedOut = res.redirected && /\/accounts\/login\//.test(res.url || '');
+      var looksSignedOut = res.ok && ct.indexOf('json') === -1;
+      if (provedSignedOut || looksSignedOut) {
+        var e1 = new Error('Your session has ended. Please sign in again — this page is no longer connected.');
+        e1.ftSessionEnded = true;          // safe to report
+        e1.ftSessionEndedProven = provedSignedOut;  // safe to act on
+        throw e1;
+      }
+      if (res.status === 403) {
+        var e2 = new Error('This page’s security token has expired. Refresh the page and try again.');
+        e2.ftCsrf = true;
+        throw e2;
+      }
+      if (!res.ok && ct.indexOf('json') === -1) {
+        throw new Error('The server could not complete that request (' + res.status + '). Refresh the page and try again.');
+      }
+      return res.json();
+    };
+  </script>
   {% block head_extra %}{% endblock %}
 </head>
 <body class="unit-{{ active_unit_code|lower }}">
@@ -40,7 +150,29 @@
 
     <nav class="sb-nav">
       {% with p=user.profile %}
-        {% if p.is_admin %}
+        {% if p.must_change_password %}
+          {% comment %}
+            An account with must_change_password set can reach exactly one page —
+            accounts.middleware.MustChangePasswordMiddleware redirects everything
+            else back to the change-password screen. That screen extends this
+            template, so the full navigation used to be drawn on it and every
+            single entry bounced straight back: measured 5 of 5 links (My
+            profile, Settings, Inbox, Archive, New Case) returning 302 to
+            /accounts/force-password-change/. Offering a control the server will
+            not honour is the bug; the answer is not to widen the gate but to
+            stop drawing what the gate refuses. Sign out stays reachable (the
+            middleware allow-lists it) and is rendered in the profile menu below.
+
+            Note {% templatetag openbrace %}# … #{% templatetag closebrace %}
+            cannot be used here: that form of comment is single-line only, so a
+            multi-line one is emitted into the page as visible text.
+          {% endcomment %}
+          <div class="sb-group">Account</div>
+          <div class="sb-item" style="opacity:.7;cursor:default">
+            <span class="ic"><i class="fa-solid fa-key"></i></span>
+            Set a new password to continue
+          </div>
+        {% elif p.is_admin %}
           <div class="sb-group">Administration</div>
           <a href="{% url 'accounts:admin_console' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-gauge-high"></i></span>Console</a>
           <a href="{% url 'accounts:user_list' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-sitemap"></i></span>Seats</a>
@@ -228,7 +360,9 @@
             <dt>Username</dt><dd>{{ user.username }}</dd>
             {% if p.internal_code %}<dt>Internal code</dt><dd class="mono">{{ p.internal_code }}</dd>{% endif %}
           </dl>
-          <a href="{% url 'accounts:my_profile' %}" class="pm-link"><i class="fa-solid fa-id-badge"></i> My profile</a>
+          {% if not p.must_change_password %}
+            <a href="{% url 'accounts:my_profile' %}" class="pm-link"><i class="fa-solid fa-id-badge"></i> My profile</a>
+          {% endif %}
           <div class="pm-theme">
             <div class="pm-theme-row">
               <span class="pm-theme-label">Colour</span>
@@ -252,9 +386,11 @@
               <input type="hidden" name="explicit_shift_end" value="0" id="explicitShiftEnd">
               <button type="submit" id="pmSignOutBtn"><i class="fa-solid fa-right-from-bracket"></i> Sign out</button>
             </form>
-            <a href="{% url 'accounts:settings' %}" class="pm-settings" title="Settings" aria-label="Settings">
-              <i class="fa-solid fa-gear"></i>
-            </a>
+            {% if not p.must_change_password %}
+              <a href="{% url 'accounts:settings' %}" class="pm-settings" title="Settings" aria-label="Settings">
+                <i class="fa-solid fa-gear"></i>
+              </a>
+            {% endif %}
           </div>
         </div>
         {% endwith %}
@@ -367,34 +503,45 @@
 
 <script>
   /*
-    Keep the IMPERSONATION forms' CSRF token in step with the cookie the browser
-    will actually send with them.
+    Keep every same-origin POST form's CSRF token in step with the cookie the
+    browser will actually send with it.
 
     Signing a user in rotates the CSRF secret (Django does it deliberately,
     against session fixation), which invalidates the token baked into every page
-    rendered before it. "Log in as" is exactly such a sign-in — so the People
-    list the administrator started from is stale the moment they enter someone's
-    account. Press Back, and the browser restores that page from its
-    back/forward cache, hidden token and all; press "Log in as" for a second
-    person from it and the token no longer matches the cookie:
+    rendered before it. Submit such a page afterwards and Django answers with its
+    own bare error page, which has no navigation and no way back:
 
         Forbidden (403) - CSRF verification failed. Request aborted.
 
-    Resyncing at submit time fixes that, because the cookie read here is the
-    very one being sent with this request.
+    Resyncing at submit time fixes that, because the cookie read here is the very
+    one being sent with this request.
 
-    WHY ONLY THESE TWO FORMS. This started as a listener on every form on the
-    site, and that is a much bigger promise than the bug needs. Roughly a
-    hundred CSRF-protected forms would have had their token rewritten on every
-    submit, so any form that ever wants to post a token OTHER than the current
-    cookie's — a deliberately stale one in a test, a second token embedded for
-    some future flow — would have been quietly overwritten, and a bug in this
-    handler would have taken the whole application's POSTs down with it rather
-    than one button. The stale-token window it was covering is specific:
-    impersonation is the only rotation a user drives while continuing to browse
-    the pages that were rendered before it, so those are the only forms narrowed
-    to here. Matching is on the form's action — ``…/impersonate/`` (start) and
-    ``…/impersonate/stop/`` — so no template outside this file has to cooperate.
+    WHY THIS IS NOT NARROWED TO THE IMPERSONATION FORMS. It used to be, on the
+    reasoning that "Log in as" is the only rotation a user drives while still
+    browsing pages rendered before it. That reasoning is wrong, and the ordinary
+    daily path proves it. Measured, with django.test.Client(enforce_csrf_checks=
+    True) and no impersonation anywhere:
+
+        sign in as a commercial expert, open a case page,
+        WorkShiftMiddleware ends the shift and logs them out,
+        the same person signs in again in the same browser,
+        the still-open tab presses "Submit to Technical"
+            -> 403, Django's bare CSRF error page
+        the identical POST with the field refreshed from the cookie
+            -> 302, the transition runs normally
+
+    Every account on this platform is logged out by WorkShiftMiddleware at the
+    end of its shift, and a forced password change or an admin password reset
+    does the same, so "sign in again with a tab still open" is the common case
+    rather than an exotic one. Narrowing to two forms left roughly a hundred
+    others — every workflow button on the case page among them — answering that
+    ordinary sequence with an unrecoverable 403.
+
+    A form that genuinely wants to post something other than the current cookie's
+    token can opt out with ``data-csrf-keep``; nothing in this project does today.
+    Only forms that already carry a rendered ``csrfmiddlewaretoken`` are touched,
+    and only when a cookie exists to read, so a page with no token field and the
+    ``CSRF_USE_SESSIONS`` configuration are both left exactly as they were.
 
     This weakens nothing. The token still has to come from the CSRF cookie,
     which is the whole basis of the protection: only same-origin script can read
@@ -403,19 +550,32 @@
     send as X-CSRFToken, which is what Django's own documentation prescribes.
     The rendered token stays masked in the HTML, so the BREACH mitigation
     masking exists for is untouched — only the outgoing field is refreshed.
+    It also grants nobody anything: the CSRF token never carries identity, so the
+    request is still executed as whoever the session cookie says, and every
+    permission gate in the view runs exactly as before. The only difference is
+    that a POST the user was always allowed to make now reaches that gate instead
+    of dying in front of it.
   */
   document.addEventListener('submit', function (e) {
     var form = e.target;
     if (!form || form.tagName !== 'FORM') return;
-    /* accounts:impersonate_start ends in /impersonate/, impersonate_stop in
-       /impersonate/stop/ — nothing else in the URL map contains that segment. */
-    if (!/\/impersonate\/(stop\/)?$/.test(form.getAttribute('action') || '')) return;
+    /* GET forms carry no token and must not gain one (it would leak into the
+       query string); an explicit opt-out wins over everything. */
+    if ((form.getAttribute('method') || 'get').toLowerCase() !== 'post') return;
+    if (form.hasAttribute('data-csrf-keep')) return;
+    /* Same-origin only. An empty/relative action posts back to this page. */
+    var action = form.getAttribute('action') || '';
+    if (action && !/^[/?#]/.test(action)) {
+      try {
+        if (new URL(action, window.location.href).origin !== window.location.origin) return;
+      } catch (err) { return; }
+    }
+    var fields = form.querySelectorAll('input[name="csrfmiddlewaretoken"]');
+    if (!fields.length) return;
     var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
     if (!m) return;
     var token = decodeURIComponent(m[1]);
-    form.querySelectorAll('input[name="csrfmiddlewaretoken"]').forEach(function (input) {
-      input.value = token;
-    });
+    Array.prototype.forEach.call(fields, function (input) { input.value = token; });
   }, true);  /* capture: run before any handler that submits or cancels */
 
   document.addEventListener('click', function (e) {
@@ -655,9 +815,26 @@
           'Accept': 'application/json'
         },
         credentials: 'same-origin'
-      }).then(function (r) {
-        return r.json().then(function (data) { return data; });
-      }).then(syncFromServer).catch(function () {});
+      }).then(window.FTJson).then(syncFromServer).catch(function (err) {
+        // A ping that cannot be read as JSON almost always means the session is
+        // gone: WorkShiftMiddleware only answers this endpoint with the
+        // shift_ended JSON while the session still exists, and once it does not
+        // @login_required redirects to the sign-in page instead. Measured, with
+        // no session: POST /people/shift/ping/ -> 302 -> text/html, which
+        // fetch() follows and returns as 200 HTML.
+        //
+        // The old handler was r.json() with an empty .catch(), so that HTML
+        // threw a SyntaxError that was swallowed whole: the tab went on pinging
+        // every ten seconds indefinitely, the shift banner kept counting down,
+        // and the end-of-shift overlay this code exists to show never appeared.
+        // The person was signed out and the page did not say so. showEnd() is
+        // what says so — but it also signs them out and navigates away, so it
+        // runs only on PROOF (the request was redirected to the sign-in page),
+        // never on the "200 but not JSON" guess. A wrong guess here would end a
+        // working session, which is far worse than a ping that quietly fails
+        // and gets retried a few seconds later.
+        if (err && err.ftSessionEndedProven) showEnd();
+      });
     }
 
     function pingIntervalMs() {

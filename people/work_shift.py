@@ -42,6 +42,22 @@ _DEFAULT_END = time(17, 0)
 _MEMO_ATTR = "_ft_shift_status_memo"
 _MEMO_TTL_SECONDS = 5.0
 
+# Per-request memo for ``person_for_user`` — same container, same key, same TTL
+# and therefore exactly the same isolation argument as the shift-status memo
+# spelled out above: it lives on the ``User`` instance ``AuthenticationMiddleware``
+# rebuilds from the session on every request, it stores the primary key it was
+# computed for and is rejected on a mismatch (so an impersonation that swaps
+# ``request.user`` mid-request re-reads), and it is rejected once older than the
+# TTL. A rejected memo simply runs the original query.
+#
+# It is worth having because rendering one page asks this same question three or
+# four times for the same login: ``WorkShiftMiddleware`` through
+# ``shift_status``, the sidebar badge in ``core.context_processors.theme``, and
+# ``display_first_name`` from the shift banner — each of which was a separate
+# round trip to ``people_personaccount`` for an answer that cannot change inside
+# one render.
+_PERSON_MEMO_ATTR = "_ft_person_for_user_memo"
+
 
 def _tz():
     name = getattr(settings, "TIME_ZONE", None) or "Asia/Tehran"
@@ -57,9 +73,34 @@ def now_local() -> datetime:
 
 
 def person_for_user(user):
-    """Primary Person linked to this login, if any."""
+    """Primary Person linked to this login, if any.
+
+    Memoised on the ``User`` instance — see ``_PERSON_MEMO_ATTR`` above for what
+    scopes that and why it cannot answer for the wrong person.
+    """
     if user is None or not getattr(user, "is_authenticated", False):
         return None
+    pk = getattr(user, "pk", None)
+    now = monotonic()
+    memo = getattr(user, _PERSON_MEMO_ATTR, None)
+    if (
+        isinstance(memo, tuple)
+        and len(memo) == 3
+        and memo[0] == pk
+        and 0 <= (now - memo[1]) < _MEMO_TTL_SECONDS
+    ):
+        return memo[2]
+    person = _person_for_user_uncached(user)
+    try:
+        setattr(user, _PERSON_MEMO_ATTR, (pk, now, person))
+    except Exception:
+        # Some user-like objects refuse attribute writes. The memo is only ever
+        # an optimisation, so losing it just means querying twice as before.
+        pass
+    return person
+
+
+def _person_for_user_uncached(user):
     try:
         from .models import PersonAccount
         link = (

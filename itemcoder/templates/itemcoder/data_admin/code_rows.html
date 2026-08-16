@@ -66,7 +66,6 @@
   var ROWS_URL = "{% url 'dm_code_rows_api' group %}";
   var EDIT_URL = "{% url 'dm_code_rows' group %}";
   var DISTINCT_URL = "{% url 'dm_code_distinct_api' group %}";
-  var csrf = document.querySelector('input[name=csrfmiddlewaretoken]').value;
   var EDITABLE = [{% for idx,c,ed in cols_with_flags %}{{ ed }}{% if not forloop.last %},{% endif %}{% endfor %}];
   var COLS = [{% for idx,c,ed in cols_with_flags %}{idx:{{ idx }},ed:{{ ed }}}{% if not forloop.last %},{% endif %}{% endfor %}];
   var NO_VARIANT = JSON.parse(document.getElementById('nv-data').textContent);
@@ -85,8 +84,11 @@
 
   function filters() { return GF.getFilters(); }
   function qs(o) { return Object.keys(o).map(function (k) { return encodeURIComponent(k) + "=" + encodeURIComponent(o[k]); }).join("&"); }
+  // Token read per request from the cookie, not captured once at page load:
+  // the CSRF secret rotates on every sign-in, so a grid left open across one
+  // answered every cell edit with 403. See window.FTCsrf in base.html.
   function post(url, data) {
-    return fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrf }, body: new URLSearchParams(data).toString() }).then(function (r) { return r.json(); });
+    return fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": window.FTCsrf.token() }, body: new URLSearchParams(data).toString() }).then(window.FTJson);
   }
   function reset() { after = -1; busy = false; done = false; body.innerHTML = ""; endNote.style.display = "none"; load(); }
 
@@ -94,14 +96,23 @@
     if (busy || done) return;
     busy = true; loading.style.display = "block";
     var p = filters(); p.after = after;
-    fetch(ROWS_URL + "?" + qs(p)).then(function (r) { return r.json(); }).then(function (d) {
+    // window.FTJson, not r.json(): once the session has ended this endpoint
+    // answers with a 302 to the sign-in page, which fetch() follows and hands
+    // back as 200 text/html. The old bare .catch() then swallowed the resulting
+    // SyntaxError, so the grid simply stopped loading rows — an empty table with
+    // no message and nothing that retrying would ever fix.
+    fetch(ROWS_URL + "?" + qs(p)).then(window.FTJson).then(function (d) {
       loading.style.display = "none"; busy = false;
       document.getElementById("total-count").textContent = (d.total || 0).toLocaleString() + " items";
       (d.rows || []).forEach(addRow);
       if (d.next === null || d.next === undefined) { done = true; endNote.style.display = body.children.length ? "block" : "none"; }
       else after = d.next;
       if (!done && box.scrollHeight <= box.clientHeight + 40) load();
-    }).catch(function () { loading.style.display = "none"; busy = false; });
+    }).catch(function (err) {
+      loading.style.display = "none"; busy = false; done = true;
+      endNote.textContent = (err && err.message) || "Could not load rows. Refresh the page and try again.";
+      endNote.style.display = "block";
+    });
   }
 
   function addRow(r) {

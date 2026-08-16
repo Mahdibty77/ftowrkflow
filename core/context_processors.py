@@ -38,7 +38,10 @@ def theme(request):
         profile = getattr(user, "profile", None)
         try:
             from people.role_nav import build_nav_roles, user_has_gm_access, work_context
-            is_gm_nav = user_has_gm_access(user)
+            # Passing the request lets this answer come out of the same seat
+            # list the accordion below is about to read, instead of a separate
+            # EXISTS query for a question that list already settles.
+            is_gm_nav = user_has_gm_access(user, request=request)
             nav_roles = build_nav_roles(request, user)
             # Refresh profile after possible active-role sync.
             profile = getattr(user, "profile", None)
@@ -61,8 +64,20 @@ def theme(request):
         if is_gm_nav and not nav_roles:
             unit_code = "ADMIN"
         try:
-            from cases.services import inbox_cases_for_request
-            inbox_count = inbox_cases_for_request(request).count()
+            # The accordion above already counted this exact inbox. Its active
+            # entry comes from peek_inbox_count(user, active_role), which passes
+            # the same login user, the same PersonRole and the same seat User
+            # that inbox_cases_for_request derives from the work context — the
+            # very same COUNT, run a few lines earlier. Reuse it rather than
+            # asking the database the identical question twice per page. When
+            # there is no accordion (admins, general managers, a login with no
+            # PersonRole) nav_roles is empty and the original call still runs.
+            active_nav = next((r for r in nav_roles if r.get("is_active")), None)
+            if active_nav is not None:
+                inbox_count = int(active_nav.get("inbox_count") or 0)
+            else:
+                from cases.services import inbox_cases_for_request
+                inbox_count = inbox_cases_for_request(request).count()
         except Exception:
             inbox_count = 0
         # Commercial manager or Admin: warn when FX board is older than 24h / empty.

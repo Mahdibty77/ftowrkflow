@@ -256,8 +256,6 @@
 
   var dataEl = document.getElementById('sg-seat-data');
   var bodyEl = document.getElementById('sgBody');
-  var csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
-  var csrf = csrfInput ? csrfInput.value : '';
 
   var baseItems = [];
   try { baseItems = JSON.parse((dataEl && dataEl.textContent) || '[]'); } catch (e) { baseItems = []; }
@@ -560,8 +558,16 @@
     var form = document.createElement('form');
     form.method = 'post';
     form.action = tpl.replace('__ID__', String(assignState.pk));
+    // Read the token when the form is actually submitted, from the cookie the
+    // browser will send with it. This page is the one place on the site where a
+    // stale token is guaranteed rather than unlucky: "Log in as" signs somebody
+    // in, which rotates the CSRF secret, and pressing Back restores this page
+    // from the bfcache with the pre-rotation token still in it. A seat action
+    // fired from that restored page was answered with
+    //     Forbidden (403) - CSRF verification failed. Request aborted.
+    // See window.FTCsrf in base.html.
     var c = document.createElement('input');
-    c.type = 'hidden'; c.name = 'csrfmiddlewaretoken'; c.value = csrf;
+    c.type = 'hidden'; c.name = 'csrfmiddlewaretoken'; c.value = window.FTCsrf.token();
     form.appendChild(c);
     if (mode === 'assign' || mode === 'translate') {
       var p = document.createElement('input');

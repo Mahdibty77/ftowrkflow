@@ -349,8 +349,44 @@
         {% endif %}
     {% endif %}
 
+    {% comment %}
+      This page posts only from script, so it has no form of its own. The token
+      is still rendered here for two reasons: rendering it is what asks Django
+      to send the csrftoken cookie with this response (the getter below reads
+      that cookie), and it is the fallback the getter uses on an install
+      configured with CSRF_USE_SESSIONS, where there is no cookie to read.
+    {% endcomment %}
+    <div hidden>{% csrf_token %}</div>
+
     <script>
-      window.FT_TOOL_SAVE = { saveUrl: "{{ save_url }}", statusUrl: "/tool/case/{{ case.pk }}/{{ kind }}/status/?side={{ side|default:'' }}", currencyLogUrl: "{% url 'cases:log_currency_conversion' case.pk %}", csrfToken: "{{ csrf_token }}", mode: "{{ tool_mode }}", kind: "{{ kind }}", docKind: "{{ doc_kind }}", pricingLocked: {% if pricing_locked %}true{% else %}false{% endif %}, requireFtcoCode: {% if require_ftco_code %}true{% else %}false{% endif %}, externalCurrency: {% if external_currency %}true{% else %}false{% endif %}, unlockCommercial: {% if unlock_commercial %}true{% else %}false{% endif %}, side: "{{ side|default:'' }}", caseId: {{ case.pk }}, hidePricing: {% if hide_pricing %}true{% else %}false{% endif %} };
+      window.FT_TOOL_SAVE = { saveUrl: "{{ save_url }}", statusUrl: "/tool/case/{{ case.pk }}/{{ kind }}/status/?side={{ side|default:'' }}", currencyLogUrl: "{% url 'cases:log_currency_conversion' case.pk %}", mode: "{{ tool_mode }}", kind: "{{ kind }}", docKind: "{{ doc_kind }}", pricingLocked: {% if pricing_locked %}true{% else %}false{% endif %}, requireFtcoCode: {% if require_ftco_code %}true{% else %}false{% endif %}, externalCurrency: {% if external_currency %}true{% else %}false{% endif %}, unlockCommercial: {% if unlock_commercial %}true{% else %}false{% endif %}, side: "{{ side|default:'' }}", caseId: {{ case.pk }}, hidePricing: {% if hide_pricing %}true{% else %}false{% endif %} };
+      /*
+        csrfToken is a LIVE read of the CSRF cookie. It used to be the page's
+        own csrf_token template variable, baked in once at render time.
+
+        This page is where the longest sessions on the platform happen: a unit
+        opens the grid, codes or prices hundreds of rows for an hour, and the
+        only copy of that work lives in this page's memory until Save posts it
+        (see collect() in tool_save.js). Django rotates the CSRF secret on every
+        sign-in, so if anybody signs in again in this browser while the grid is
+        open — including the administrator using "Log in as" — the baked token
+        stops matching the cookie and Save comes back 403. tool_save.js then
+        lands in its .catch and shows "Could not save. Please try again.", and
+        trying again can never succeed. Reading the cookie at the moment of the
+        request is what makes the retry work.
+
+        The other readers of this field (calculation_controls.js, pi_pricing.js)
+        get the same live value through the same property.
+      */
+      Object.defineProperty(window.FT_TOOL_SAVE, "csrfToken", {
+        get: function () {
+          var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+          if (m) return decodeURIComponent(m[1]);
+          var inp = document.querySelector('input[name=csrfmiddlewaretoken]');
+          return (inp && inp.value) || "";
+        },
+        enumerable: true
+      });
     </script>
     {{ group_features_map|json_script:"ft-group-features" }}
     {{ group_feature_aliases|json_script:"ft-group-feature-aliases" }}

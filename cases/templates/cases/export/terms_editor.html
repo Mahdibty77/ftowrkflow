@@ -169,8 +169,12 @@
       status.textContent = isHtml ? "Generating Print view…" : "Generating PDF…";
     }
 
-    var csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
-    var csrf = (csrfInput && csrfInput.value) || cookieValue("csrftoken");
+    // Cookie first, rendered field only as a fallback — the old order preferred
+    // the field, which is exactly the value that goes stale when the CSRF secret
+    // rotates on a sign-in. And because Django reads the POST field before the
+    // header, sending a good header next to a stale field does not help: the
+    // field in the body is what has to be refreshed, which FTCsrf.formData does.
+    var csrf = window.FTCsrf.token() || cookieValue("csrftoken");
     var headers = {
       "X-Requested-With": "XMLHttpRequest",
       "Accept": "application/json"
@@ -179,7 +183,7 @@
 
     fetch(form.action, {
       method: "POST",
-      body: new FormData(form),
+      body: window.FTCsrf.formData(form),
       credentials: "same-origin",
       headers: headers,
       cache: "no-store"

@@ -74,7 +74,6 @@
   var OPTIONS_URL = "{% url 'dm_item_options_api' group %}";
   var SEQ_URL = "{% url 'dm_item_seq_api' group %}";
   var CREATE_URL = "{% url 'dm_item_new' group %}";
-  var csrf = document.querySelector('input[name=csrfmiddlewaretoken]').value;
 
   var selected = {};          // feature -> chosen value
   var allowed = {};           // feature -> current allowed values list
@@ -157,12 +156,14 @@
     ORDER.forEach(function (f) { p.set("f_" + f, selected[f] || ""); });
     document.querySelectorAll('#extra-wrap input').forEach(function (el) { if (el.name) p.set(el.name, el.value); });
     status.style.color = ""; status.textContent = "Saving…";
-    fetch(CREATE_URL, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrf }, body: p.toString() })
-      .then(function (r) { return r.json(); })
+    // Cookie, not the rendered field — the secret rotates on sign-in and a
+    // stale field is answered with 403. See window.FTCsrf in base.html.
+    fetch(CREATE_URL, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": window.FTCsrf.token() }, body: p.toString() })
+      .then(window.FTJson)
       .then(function (d) {
         if (d.ok) { status.style.color = "#1f7a5a"; status.textContent = "Added " + d.item + " (technical " + d.technical + "). Selections kept — change any attribute to add another."; recompute(); }
         else { status.style.color = "var(--rej)"; status.textContent = "Error: " + (d.error || "failed"); }
-      }).catch(function () { status.style.color = "var(--rej)"; status.textContent = "Request failed."; });
+      }).catch(function (err) { status.style.color = "var(--rej)"; status.textContent = (err && err.message) || "Request failed."; });
   });
 
   // initialise: first feature options

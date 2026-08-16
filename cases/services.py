@@ -1654,18 +1654,53 @@ def inbox_cases(user, *, role=None, work_user=None):
 
 
 def inbox_counts_for_users(users, *, narrow=None) -> dict:
-    """Inbox size for many people in ONE query instead of one query each.
+    """Inbox size for every person in ``users``, as ``{user id: count}``.
 
-    A manager's dashboard draws a card per expert, and asking
-    ``inbox_cases(expert).count()`` per card meant a round trip per card. Every
-    person's rule is the same ``Q`` :func:`inbox_cases` would have used, folded
-    here into one aggregate of conditional counts, so the numbers are the ones
-    the Inbox tab itself shows — this must never grow a second, hand-written
-    copy of the routing rules.
+    A manager's dashboard draws a card per expert. Every person's number is
+    counted through the very same ``Q`` :func:`inbox_cases` would have used, so
+    the figures are the ones the Inbox tab itself shows — this must never grow a
+    second, hand-written copy of the routing rules.
 
     ``narrow`` is an optional callable applied to the base queryset before
     counting (the dashboard uses it for its created-at range filter), keeping
     that filter's definition with the caller that owns it.
+
+    THIS IS THE SLOWEST THING ON THE MANAGEMENT DASHBOARD AND SPLITTING IT UP
+    IS NOT THE ANSWER — the experiment has been run, please do not repeat it.
+    Almost none of the cost below is the database: on the 300-case fixture the
+    single statement it issues takes 2-3 ms while the call takes 38-61 ms. The
+    rest is Django assembling the aggregate. ``Query.get_aggregation`` calls
+    ``replace_expressions`` on every aggregate, which walks the aggregate's
+    resolved ``filter`` tree doing ``replacements.get(node)`` at each node — a
+    dict lookup, so each node is hashed, and hashing a ``WhereNode`` recursively
+    hashes its whole subtree. The routing filters are deep (split sides,
+    per-unit assignee columns), so that is quadratic in one person's tree and is
+    paid once per person before a row is read.
+
+    Issuing one aggregate per person instead makes each of those trees be
+    assembled alone, which is much cheaper in Python and costs one table scan
+    per person instead of one for everybody. Both shapes return byte-identical
+    numbers (asserted equal for all three units at every size below). Median
+    ms, Django 5.2 / SQLite, same process, interleaved:
+
+        cases     unit          one combined aggregate   one aggregate each
+          300     Commercial            60.7                   31.5
+          300     Technical             38.4                   26.2
+          300     Supply                48.1                   35.2
+        3 000     Commercial            72.0                   47.2
+        3 000     Supply                52.6                   46.2
+        9 000     Commercial            93.3                   80.2
+        9 000     Supply                64.3                   68.4
+       18 000     Commercial           144.6                  213.1
+       18 000     Technical             72.2                  135.1
+       18 000     Supply                86.8                  186.2
+
+    The per-person shape wins by a third at today's size and loses by a factor
+    of two once the case table passes roughly ten thousand rows, because the
+    scan cost grows with the data while the assembly cost does not. A workflow
+    system accumulates cases forever, so the shape that degrades gracefully is
+    the one to keep. Making this genuinely fast needs a smaller routing ``Q``
+    or a cheaper hash on Django's side, not a different number of statements.
     """
     from django.db.models import Count
 
@@ -1699,8 +1734,31 @@ def inbox_counts_for_users(users, *, narrow=None) -> dict:
 
 
 def inbox_count(user, *, role=None, work_user=None) -> int:
+    """How many cases are in this seat's inbox.
+
+    ``.values("pk")`` before the count is not a different question: it is the
+    same rows, counted by primary key instead of by whole row. ``inbox_cases``
+    ends in ``.distinct()``, and counting a distinct queryset makes the database
+    run ``SELECT COUNT(*) FROM (SELECT DISTINCT …)``. Without the ``values`` that
+    inner select carries all forty-odd columns of every matching case, so the
+    engine materialises and de-duplicates the entire row set to produce one
+    integer — on every page in the platform, because the sidebar badge asks for
+    this number on every render. Every column in the filter belongs to
+    ``cases_case`` itself, so two rows sharing an id are identical in all of
+    them and de-duplicating by id yields exactly the same count (verified equal
+    for a commercial manager, a commercial expert, a technical expert and a
+    supply expert on the 300-case fixture: 52, 12, 4 and 0 either way).
+
+    Median ms for that badge, same process, interleaved, SQLite, by table size:
+
+        cases    commercial manager   whole row 3.71 → by id 3.56
+        3 000    commercial manager   whole row 5.53 → by id 4.72
+       18 000    commercial manager   whole row 23.81 → by id 20.75
+
+    Small today and growing with the archive, on every page, for free.
+    """
     try:
-        return inbox_cases(user, role=role, work_user=work_user).count()
+        return inbox_cases(user, role=role, work_user=work_user).values("pk").distinct().count()
     except Exception:
         return 0
 

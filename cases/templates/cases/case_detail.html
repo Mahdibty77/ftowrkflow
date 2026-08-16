@@ -469,12 +469,22 @@
         if (!text) return;
         var btn = form.querySelector('button[type="submit"]');
         btn.disabled = true;
+        // The token rendered into this form is stale the moment anyone signs in
+        // again in this browser (Django rotates the CSRF secret on login), and
+        // Django reads the POST field before the header — so posting the form as
+        // rendered comes back 403 and the retry the alert asked for could never
+        // work. FTCsrf.formData refreshes the field from the cookie the browser
+        // is actually sending. FTJson names a dead session instead of failing
+        // with a generic "try again" the user cannot act on.
         fetch(form.dataset.actionUrl, {
           method: 'POST',
-          body: new FormData(form),
-          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          body: window.FTCsrf.formData(form),
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': window.FTCsrf.token()
+          },
           credentials: 'same-origin'
-        }).then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+        }).then(window.FTJson)
           .then(function (data) {
             var ul = document.getElementById(form.dataset.target);
             if (ul) {
@@ -519,9 +529,16 @@
             // exposes for exactly this.
             if (window.FTAutoGrow) window.FTAutoGrow(ta);
             btn.disabled = false;
-          }).catch(function () {
+          }).catch(function (err) {
             btn.disabled = false;
-            alert('Could not post the comment. Please try again.');
+            // Keep what the user typed — the comment exists nowhere but this
+            // textarea, so it is the one thing that must survive a failure.
+            // Deliberately no reload, not even when the session has clearly
+            // ended: reloading a signed-out page lands on the sign-in screen and
+            // takes the comment with it, which is the loss this branch exists to
+            // avoid. The message already says what happened; signing back in is
+            // the user's move to make, once they have their text somewhere safe.
+            alert((err && err.message) || 'Could not post the comment. Please try again.');
           });
       });
     });

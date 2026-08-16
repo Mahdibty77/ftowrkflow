@@ -436,13 +436,17 @@
         if (!fileInput.files || !fileInput.files.length) return;
         var fd = new FormData();
         fd.append('excel_file', fileInput.files[0]);
-        var token = (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '';
+        // Read the token from the COOKIE, not from the field this page rendered:
+        // the secret rotates on every sign-in, so a page left open across one
+        // carries a token the server answers with 403. static/js/case_create.js
+        // does the same thing for the same upload on the New Case screen; this
+        // copy had been left on the field.
         if (uploadStatus) uploadStatus.textContent = 'Reading…';
         fetch(window.FT_PREVIEW_URL, {
           method: 'POST',
-          headers: { 'X-CSRFToken': token },
+          headers: { 'X-CSRFToken': window.FTCsrf.token() },
           body: fd
-        }).then(function (r) { return r.json(); }).then(function (data) {
+        }).then(window.FTJson).then(function (data) {
           if (data.ok) {
             if (IG) {
               var check = IG.validateRows(data.rows || []);
@@ -463,8 +467,10 @@
             if (uploadStatus) uploadStatus.textContent = data.error || 'Upload failed.';
             if (IG) IG.showBanner(banner, data.error || 'Upload failed.');
           }
-        }).catch(function () {
-          if (uploadStatus) uploadStatus.textContent = 'Upload failed.';
+        }).catch(function (err) {
+          var msg = (err && err.message) || 'Upload failed.';
+          if (uploadStatus) uploadStatus.textContent = msg;
+          if (IG) IG.showBanner(banner, msg);
         });
       });
     }
