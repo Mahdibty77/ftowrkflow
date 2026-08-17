@@ -1598,6 +1598,443 @@ def inbox_status_rows(case: Case, user):
     return [_row_for_side(case, sc) for sc in sides]
 
 
+# ---------------------------------------------------------------------------
+# Archive: one scope, one set of column filters, one window
+# ---------------------------------------------------------------------------
+# The archive page renders a WINDOW of rows and fetches the rest as the reader
+# scrolls (cases.views.archive_slice). Two views therefore answer "which cases
+# may this seat see, in what order" — and a seat that saw a different set from
+# one of them would be a case silently missing from someone's history. So the
+# scope is decided exactly once, here, and both views call it.
+
+# How many rows the first window holds, and how many each scroll fetch adds.
+#
+# Measured, not guessed: `.vscroll-list` is `max-height: calc(100vh - 240px)`,
+# so on the densest seat we could find (2560x1440, browser chrome included) the
+# list box is 1046 px tall, and an archive row measured 45 px there (60 px at
+# 1600x1000, 80 px on a 1366x768 laptop). 1046 / 45 = 23 rows on screen at once
+# on the seat that shows the most. The window is two and a half of those
+# screenfuls — ceil(23.24 * 2.5) = 58 — so the reader has roughly a screen and
+# a half of runway left at the moment the next fetch is triggered.
+ARCHIVE_WINDOW = 58
+# Nothing may ask the slice endpoint for an unbounded number of rows; four
+# windows is already far more than any scroll gesture can consume in one step.
+ARCHIVE_MAX_SLICE = ARCHIVE_WINDOW * 4
+
+
+class ArchiveScope:
+    """What one request is allowed to see in the archive, and how it was asked.
+
+    ``qs`` is ordered and ready to slice. Everything else is what the page needs
+    to describe itself (headings, toggles, which columns exist).
+    """
+
+    __slots__ = ("qs", "profile", "seat_user", "mine_only", "is_unit_manager",
+                 "drill_person", "query", "status", "doc_kind", "date_from",
+                 "date_to", "unit", "is_admin", "show_money", "select_mode",
+                 "select_return", "mine_toggle_label", "show_expert_filter")
+
+    def __init__(self, **kw):
+        for k in self.__slots__:
+            setattr(self, k, kw.get(k))
+
+
+def archive_scope(request):
+    """The archive queryset for this request, plus how the request was framed.
+
+    Returns ``None`` when the user has no profile (the caller redirects).
+
+    Scope:
+      admin / general manager     -> the entire archive
+      commercial manager (off)    -> the entire archive (incl. experts' cases)
+      commercial manager (on)     -> only cases they personally created
+      commercial expert           -> only cases they personally created
+      technical manager (on)      -> only TOs they personally created
+      supply manager (on)         -> only PIs they personally created
+      unit supervisor             -> every case that passed through their unit
+      technical / supply (else)   -> cases they personally participated in
+    Scope uses the active seat user so secondary / translated seats see their
+    own cases (not the login profile's primary seat alone).
+
+    Archive always includes every case that is also in the user's inbox (and
+    drafts), so active files are never missing from history.
+    """
+    from django.contrib.auth.models import User
+    from django.db.models import Q
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    profile = getattr(request.user, "profile", None)
+    if profile is None:
+        return None
+
+    select_mode = str(request.GET.get("select") or "").strip() in ("1", "true", "yes")
+    select_return = (request.GET.get("return") or "").strip()
+    # "Starts with a slash" is not the same as "stays on this site": a
+    # protocol-relative URL (//evil.example/x, or /\evil.example) passes that
+    # test, and the Cancel link / Confirm-selection script would then carry the
+    # picked case ids off to another host. The leading slash is kept so the
+    # accepted set is still exactly "a path on this site"; Django's own helper is
+    # what recognises the host-bearing forms that sneak through it.
+    if select_mode and not (
+            select_return.startswith("/")
+            and url_has_allowed_host_and_scheme(
+                url=select_return, allowed_hosts={request.get_host()})):
+        select_return = ""
+
+    qs = Case.objects.select_related("client", "created_by").all()
+
+    # Manager "Only my cases" toggle (default OFF = current wide archive view).
+    mine_only = str(request.GET.get("mine", "") or "").strip() in ("1", "true", "on", "yes")
+    is_unit_manager = bool(
+        profile.role == Role.MANAGER
+        and profile.unit in (Unit.COMMERCIAL, Unit.TECHNICAL, Unit.SUPPLY)
+        and not profile.is_admin
+        and not profile.is_general_manager
+    )
+
+    from people.role_nav import work_context
+    ctx = work_context(request)
+    seat_user = ctx.seat_user
+    if ctx.role is not None:
+        # Prefer active role for archive unit/role filters.
+        profile_unit = ctx.role.unit or profile.unit
+        profile_role = ctx.role.role or profile.role
+    else:
+        profile_unit = profile.unit
+        profile_role = profile.role
+
+    if profile.is_admin or profile.is_general_manager:
+        pass
+    elif profile_unit == Unit.COMMERCIAL and profile_role == Role.MANAGER:
+        if mine_only:
+            qs = qs.filter(created_by=seat_user)
+    elif profile_unit == Unit.COMMERCIAL:
+        qs = qs.filter(created_by=seat_user)
+        # Substitutes do not see fully closed / terminal archive rows.
+        if ctx.is_substitute:
+            qs = qs.exclude(status__in=CaseStatus.ENDED)
+    # The four branches below used to reach the forms / events tables by JOIN.
+    # Every one of them is a *multi-valued* relation, so the join multiplies the
+    # case out to one row per matching form and per matching event before
+    # SELECT DISTINCT folds it back — on a live-sized archive that is tens of
+    # thousands of intermediate rows, and this queryset is then evaluated seven
+    # more times below (once per filter dropdown, once for the rows). Measured on
+    # a 300-case / 1081-form / 5689-event copy: 46-85 ms per evaluation for a
+    # Technical or Supply seat, against 1-4 ms for an Administrator, whose
+    # branch has no join at all.
+    #
+    # Asking the same question as a subquery on the case's primary key returns
+    # exactly the same set — "this case has at least one form/event matching"
+    # is precisely what an inner join plus DISTINCT means — but the case table is
+    # never multiplied, so there is nothing to fold back. Note the two mine_only
+    # branches keep both conditions inside ONE subquery, because they were one
+    # ``filter()`` call and therefore had to be satisfied by a single form row.
+    # ``.distinct()`` stays exactly where it was on every branch: whether this
+    # queryset is distinct decides whether the inbox union a few lines down is
+    # accepted or raises, and that must not move.
+    elif is_unit_manager and mine_only and profile_unit == Unit.TECHNICAL:
+        qs = qs.filter(
+            pk__in=CaseForm.objects.filter(
+                kind=FormKind.TO, created_by=seat_user).values("case_id")
+        ).distinct()
+    elif is_unit_manager and mine_only and profile_unit == Unit.SUPPLY:
+        qs = qs.filter(
+            pk__in=CaseForm.objects.filter(
+                kind=FormKind.PI, created_by=seat_user).values("case_id")
+        ).distinct()
+    elif profile_role == Role.SUPERVISOR and profile_unit:
+        u = profile_unit
+        qs = qs.filter(
+            Q(holder_unit=u)
+            | Q(pk__in=CaseEvent.objects.filter(
+                Q(from_unit=u) | Q(to_unit=u)).values("case_id"))
+            | Q(pk__in=CaseForm.objects.filter(
+                unit_at_creation=u).values("case_id"))
+        ).distinct()
+    else:
+        qs = qs.filter(
+            Q(created_by=seat_user)
+            | Q(assigned_to=seat_user)
+            | Q(pk__in=CaseForm.objects.filter(
+                created_by=seat_user).values("case_id"))
+            | Q(pk__in=CaseEvent.objects.filter(
+                actor=seat_user).values("case_id"))
+        ).distinct()
+        if ctx.is_substitute:
+            qs = qs.exclude(status__in=CaseStatus.ENDED)
+
+    # Always include this user's current inbox (and therefore drafts / live
+    # files sitting there) so Archive ⊇ Inbox — except when the manager
+    # "Only my cases" toggle is ON (that view is intentionally narrower).
+    if not mine_only:
+        try:
+            inbox_qs = inbox_cases_for_request(request)
+            if inbox_qs is not None:
+                # ``qs | inbox_qs`` is a TypeError whenever exactly one side has
+                # had .distinct() applied — "Cannot combine a unique query with a
+                # non-unique query", raised by Query.combine on self.distinct !=
+                # rhs.distinct. inbox_cases() always ends in .distinct(), while
+                # the Commercial branches above deliberately do not, so this
+                # raised on EVERY archive load for every Commercial seat (logged
+                # once per page view) and the union was silently skipped — the
+                # "Archive ⊇ Inbox" guarantee in the docstring quietly did not
+                # hold for the unit that relies on it most. Making both sides
+                # distinct is what the .distinct() on the result already asked
+                # for; it changes no row, only whether the OR is legal to build.
+                qs = (qs.distinct() | inbox_qs.distinct()).distinct()
+        except Exception:
+            logger.exception("archive: failed to union inbox cases for user %s",
+                             request.user.pk)
+
+    query = request.GET.get("q", "").strip()
+    status = request.GET.get("status", "").strip()
+    doc_kind = request.GET.get("kind", "").strip()
+    date_from = request.GET.get("from", "").strip()
+    date_to = request.GET.get("to", "").strip()
+
+    # Drill-down from the dashboard: a single expert's cases.
+    creator_id = request.GET.get("creator", "").strip()
+    assignee_id = request.GET.get("assignee", "").strip()
+    drill_person = None
+    if creator_id.isdigit():
+        qs = qs.filter(created_by_id=int(creator_id))
+        drill_person = User.objects.filter(pk=int(creator_id)).first()
+    elif assignee_id.isdigit():
+        aid = int(assignee_id)
+        qs = qs.filter(
+            Q(technical_assignee_id=aid) | Q(supply_internal_assignee_id=aid)
+            | Q(supply_external_assignee_id=aid) | Q(supply_assignee_id=aid)
+            | Q(assigned_to_id=aid)
+        ).distinct()
+        drill_person = User.objects.filter(pk=aid).first()
+
+    if query:
+        flt = (Q(client__name__icontains=query) | Q(client__code__icontains=query)
+               | Q(doc_no__icontains=query))
+        if query.isdigit():
+            flt |= Q(serial=int(query))
+        qs = qs.filter(flt)
+    if status:
+        codes = [c for c in status.split(",") if c]
+        qs = qs.filter(status__in=codes) if codes else qs
+    if doc_kind:
+        kinds = [k for k in doc_kind.split(",") if k]
+        qs = qs.filter(kind__in=kinds) if kinds else qs
+    if date_from:
+        qs = qs.filter(created_at__date__gte=date_from)
+    if date_to:
+        qs = qs.filter(created_at__date__lte=date_to)
+
+    # ``-created_at`` alone is NOT a total order, and it never was — two cases
+    # created in the same second come back in whatever order the database felt
+    # like. That was harmless while the page was one query rendering one list;
+    # it is not harmless now that the reader's second and third fetch are
+    # separate queries with an OFFSET, because an unstable sort under OFFSET is
+    # exactly how a row gets shown twice and another never shown at all. The
+    # primary key breaks every tie, so every fetch walks the same list.
+    #
+    # Descending, not ascending: SQLite already returned tied rows highest-pk
+    # first (verified over the whole 300- and 3,000-case fixtures, on the plain,
+    # the DISTINCT and the inbox-union forms of this queryset), so this pins
+    # today's order rather than choosing a new one.
+    qs = qs.order_by("-created_at", "-pk")
+
+    show_money = bool(
+        profile.is_admin or profile.is_general_manager
+        or profile.unit == Unit.COMMERCIAL
+    )
+    return ArchiveScope(
+        qs=qs,
+        profile=profile,
+        seat_user=seat_user,
+        mine_only=mine_only,
+        is_unit_manager=is_unit_manager,
+        drill_person=drill_person,
+        query=query,
+        status=status,
+        doc_kind=doc_kind,
+        date_from=date_from,
+        date_to=date_to,
+        unit="" if (profile.is_admin or profile.is_general_manager) else profile.unit,
+        is_admin=bool(profile.is_admin or profile.is_general_manager),
+        show_money=show_money,
+        select_mode=select_mode,
+        select_return=select_return,
+        mine_toggle_label={
+            Unit.COMMERCIAL: "Only cases I created",
+            Unit.TECHNICAL: "Only TOs I created",
+            Unit.SUPPLY: "Only PIs I created",
+        }.get(profile.unit or "", "Only my cases"),
+        show_expert_filter=bool(
+            profile.role in (Role.SUPERVISOR, Role.MANAGER)
+            or profile.is_general_manager or profile.is_admin),
+    )
+
+
+# The archive's column filters, in the order the filter card lists them.
+#
+# ``param``  the GET name the page and the slice endpoint both use
+# ``mode``   contains / equals / gte / lte — the same four the browser had
+# ``seat``   when set, the column only exists for some seats, and a filter on a
+#            column this seat cannot see is ignored (exactly as before: there
+#            was no control to type into, so there was no filter)
+ARCHIVE_FILTERS = (
+    ("doc", "docno", "contains", None),
+    ("order", "order", "contains", None),
+    ("client", "client", "contains", "client"),
+    ("expert", "expert", "contains", "expert"),
+    ("price", "price", "equals", None),
+    ("status", "status", "contains", None),
+    ("offer", "offer", "equals", None),
+    ("kind", "kind", "equals", None),
+    ("from", "created", "gte", None),
+    ("to", "created", "lte", None),
+)
+
+
+def archive_column_visible(column, *, unit, is_admin) -> bool:
+    """Whether a seat's archive shows a column that only some seats get."""
+    if column == "client":
+        return unit != Unit.SUPPLY
+    if column == "expert":
+        return bool(is_admin or unit == Unit.TECHNICAL or unit == Unit.SUPPLY)
+    return True
+
+
+def archive_filter_text(case) -> dict:
+    """The text each filterable archive cell contains, keyed by column.
+
+    This is the value the reader is filtering ON, and it must be the text they
+    can SEE — the same string the cell renders, lower-cased and trimmed, which
+    is precisely what the browser used to compare against when it filtered the
+    rendered table. Two consequences that look like bugs and are not:
+
+    * the Commercial expert cell prints ``commercial_expert_display`` when the
+      case carries one, and only falls back to the creator's name plus expert
+      code otherwise — so it is the display string that is matched then, not
+      the creator;
+    * the Order No. cell prints an em dash when the case has no order number,
+      so that is what an order filter sees for those rows.
+
+    ``status`` mirrors the cell's ``data-fval`` (the collapsed archive group
+    names), which the browser preferred over the cell text; ``created`` is the
+    Jalali stamp the cell prints.
+
+    ``cases.tests`` renders _archive_rows.html and checks every cell's text
+    against this function, so the two cannot drift apart.
+    """
+    from core.templatetags.ft_extras import jalali
+
+    doc = case.doc_no or ""
+    if case.is_delegated:
+        doc = f"{doc} Delegated"
+
+    if case.commercial_expert_display:
+        expert = case.commercial_expert_display
+    else:
+        name = ""
+        if case.created_by_id and case.created_by is not None:
+            name = (case.created_by.get_full_name() or "").strip() or case.created_by.username
+        expert = f"{name} ({case.expert_code})"
+
+    client = f"{case.client.name} ({case.client.code})" if case.client_id else ""
+
+    return {
+        "docno": doc.strip().lower(),
+        "order": (case.order_no or "—").strip().lower(),
+        "client": client.strip().lower(),
+        "expert": expert.strip().lower(),
+        "price": (case.price_type_label or "").strip().lower(),
+        "status": (getattr(case, "status_fval", "") or "").strip().lower(),
+        "offer": (case.offer_stage_label or "").strip().lower(),
+        "kind": (case.kind_label or "").strip().lower(),
+        "created": (jalali(case.created_at, "Y.m.d H:i") or "").strip().lower(),
+    }
+
+
+def _archive_cell_matches(text: str, mode: str, raw: str) -> bool:
+    """One column's predicate — the browser's, character for character.
+
+    ``gte`` / ``lte`` compare only the first ten characters and compare them as
+    STRINGS, which is what the rendered Jalali stamp allows (Y.m.d sorts
+    lexicographically). Note that the date picker writes ``1404-06-15 09:00``
+    with hyphens while the cell prints ``1404.06.15 09:00`` with dots, so for
+    two dates in the same Jalali year the separator decides the comparison and
+    ``To date`` matches nothing. That is a live defect, not a new one — it is
+    what the page has always done and this port reproduces it exactly rather
+    than quietly changing which cases a saved filter returns. Normalising both
+    sides' separators in this one function is the whole fix, when someone
+    decides to make it.
+    """
+    if mode == "gte":
+        return text[:10] >= raw[:10]
+    if mode == "lte":
+        return text[:10] <= raw[:10]
+    if mode == "equals":
+        return text == raw
+    parts = [p.strip() for p in raw.split(",")]
+    parts = [p for p in parts if p]
+    return any(p in text for p in parts)
+
+
+def archive_filter_params(request, *, unit, is_admin) -> dict:
+    """The column filters this request asks for, ignoring the ones it cannot see."""
+    out = {}
+    for param, column, mode, seat_col in ARCHIVE_FILTERS:
+        raw = (request.GET.get("f" + param) or "").strip().lower()
+        if not raw:
+            continue
+        if seat_col and not archive_column_visible(seat_col, unit=unit, is_admin=is_admin):
+            continue
+        out[param] = (column, mode, raw)
+    return out
+
+
+def archive_apply_column_filters(cases, params):
+    """Rows still visible under ``params`` (all of them ANDed), order kept."""
+    if not params:
+        return cases
+    terms = list(params.values())
+    kept = []
+    for case in cases:
+        text = archive_filter_text(case)
+        if all(_archive_cell_matches(text.get(col, ""), mode, raw)
+               for col, mode, raw in terms):
+            kept.append(case)
+    return kept
+
+
+def archive_decorate(cases):
+    """Attach the status pills / filter value every archive row renders.
+
+    Also what the status tab counts are built from, so a row is filtered under
+    exactly the statuses a reader can see printed on it.
+    """
+    for case in cases:
+        rows, groups, sides_differ = archive_status_rows(case)
+        case.status_rows = rows
+        case.status_sides_differ = sides_differ
+        case.status_fval = " ".join(sorted(groups))
+        case.status_groups = groups
+    return cases
+
+
+def archive_attach_money(cases):
+    """Attach ``grand_total_display`` to each row; returns the id -> amount map.
+
+    The map is returned because the drill-down banner sums it over every match,
+    not just the rows on screen.
+    """
+    from .export_data import case_pi_grand_totals_map, format_money_amount
+
+    gt_map = case_pi_grand_totals_map([c.pk for c in cases])
+    for case in cases:
+        amt = gt_map.get(case.pk, 0.0)
+        case.grand_total_num = amt
+        case.grand_total_display = format_money_amount(amt) if amt else "—"
+    return gt_map
+
+
 def inbox_filter_q(user, *, role=None, work_user=None):
     """The membership rule behind :func:`inbox_cases`, as a bare ``Q``.
 

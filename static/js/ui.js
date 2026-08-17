@@ -322,6 +322,11 @@
         clearAll();
       });
     });
+    // Re-run the hiding pass on demand. A table whose rows all exist by the time
+    // this runs never needs it, but the archive appends rows as the reader
+    // scrolls and a row that arrived after the last pass has never been judged
+    // against the filters — it would show through a filter that excludes it.
+    table.ftApplyFilters = apply;
     apply();
   });
 

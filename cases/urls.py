@@ -7,6 +7,8 @@ app_name = "cases"
 urlpatterns = [
     path("", views.inbox, name="inbox"),
     path("archive/", views.archive, name="archive"),
+    # One window of archive rows for the scrolling table on that page.
+    path("archive/rows/", views.archive_slice, name="archive_slice"),
     path("new/", views.case_create, name="case_create"),
     path("preview-excel/", views.preview_excel, name="preview_excel"),
     path("<int:pk>/", views.case_detail, name="case_detail"),

@@ -22,6 +22,7 @@ from django.db import transaction
 from django.db.models import Prefetch, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme, urlencode
 
@@ -330,194 +331,34 @@ def archive(request):
     """Searchable history of cases.
 
     Commercial users (and admins) may search every case; Technical/Supply see
-    the cases that have passed through their hands. Search matches the global
-    serial number, the client name or the client code, and can be filtered by
-    status and by creation date.
+    the cases that have passed through their hands. Which cases that is — and
+    the order they come in — is decided by :func:`cases.services.archive_scope`,
+    the one place both this page and :func:`archive_slice` ask.
 
-    Archive always includes every case that is also in the user's inbox
-    (and drafts), so active files are never missing from history.
+    The page renders only the FIRST WINDOW of rows (``services.ARCHIVE_WINDOW``,
+    sized from the real row height and the tallest realistic list box). The rest
+    arrive from ``archive_slice`` as the reader scrolls or filters, so neither
+    the bytes nor the DOM nodes for three thousand rows are ever paid for a
+    reader who looks at the first twenty.
+
+    What is still worked out over EVERY match, not just the window: the filter
+    dropdown option lists, the status tab counts, ``total_count``, and the money
+    column plus the drill-down grand total.
     """
-    profile = _profile(request.user)
-    if profile is None:
+    scope = services.archive_scope(request)
+    if scope is None:
         return redirect("accounts:login")
-
-    select_mode = str(request.GET.get("select") or "").strip() in ("1", "true", "yes")
-    select_return = (request.GET.get("return") or "").strip()
-    # "Starts with a slash" is not the same as "stays on this site": a
-    # protocol-relative URL (//evil.example/x, or /\evil.example) passes that
-    # test, and the Cancel link / Confirm-selection script would then carry the
-    # picked case ids off to another host. The leading slash is kept so the
-    # accepted set is still exactly "a path on this site"; Django's own helper is
-    # what recognises the host-bearing forms that sneak through it.
-    if select_mode and not (
-            select_return.startswith("/")
-            and url_has_allowed_host_and_scheme(
-                url=select_return, allowed_hosts={request.get_host()})):
-        select_return = ""
-
-    qs = Case.objects.select_related("client", "created_by").all()
-
-    # Manager "Only my cases" toggle (default OFF = current wide archive view).
-    mine_only = str(request.GET.get("mine", "") or "").strip() in ("1", "true", "on", "yes")
-    is_unit_manager = bool(
-        profile.role == Role.MANAGER
-        and profile.unit in (Unit.COMMERCIAL, Unit.TECHNICAL, Unit.SUPPLY)
-        and not profile.is_admin
-        and not profile.is_general_manager
-    )
-
-    # Scope:
-    #   admin / general manager     -> the entire archive
-    #   commercial manager (off)    -> the entire archive (incl. experts' cases)
-    #   commercial manager (on)     -> only cases they personally created
-    #   commercial expert           -> only cases they personally created
-    #   technical manager (on)      -> only TOs they personally created
-    #   supply manager (on)         -> only PIs they personally created
-    #   unit supervisor             -> every case that passed through their unit
-    #   technical / supply (else)   -> cases they personally participated in
-    # Scope uses the active seat user so secondary / translated seats see
-    # their own cases (not the login profile's primary seat alone).
-    from people.role_nav import work_context
-    ctx = work_context(request)
-    seat_user = ctx.seat_user
-    if ctx.role is not None:
-        # Prefer active role for archive unit/role filters.
-        profile_unit = ctx.role.unit or profile.unit
-        profile_role = ctx.role.role or profile.role
-    else:
-        profile_unit = profile.unit
-        profile_role = profile.role
-
-    if profile.is_admin or profile.is_general_manager:
-        pass
-    elif profile_unit == Unit.COMMERCIAL and profile_role == Role.MANAGER:
-        if mine_only:
-            qs = qs.filter(created_by=seat_user)
-    elif profile_unit == Unit.COMMERCIAL:
-        qs = qs.filter(created_by=seat_user)
-        # Substitutes do not see fully closed / terminal archive rows.
-        if ctx.is_substitute:
-            qs = qs.exclude(status__in=CaseStatus.ENDED)
-    # The four branches below used to reach the forms / events tables by JOIN.
-    # Every one of them is a *multi-valued* relation, so the join multiplies the
-    # case out to one row per matching form and per matching event before
-    # SELECT DISTINCT folds it back — on a live-sized archive that is tens of
-    # thousands of intermediate rows, and this queryset is then evaluated seven
-    # more times below (once per filter dropdown, once for the rows). Measured on
-    # a 300-case / 1081-form / 5689-event copy: 46-85 ms per evaluation for a
-    # Technical or Supply seat, against 1-4 ms for an Administrator, whose
-    # branch has no join at all.
-    #
-    # Asking the same question as a subquery on the case's primary key returns
-    # exactly the same set — "this case has at least one form/event matching"
-    # is precisely what an inner join plus DISTINCT means — but the case table is
-    # never multiplied, so there is nothing to fold back. Note the two mine_only
-    # branches keep both conditions inside ONE subquery, because they were one
-    # ``filter()`` call and therefore had to be satisfied by a single form row.
-    # ``.distinct()`` stays exactly where it was on every branch: whether this
-    # queryset is distinct decides whether the inbox union a few lines down is
-    # accepted or raises, and that must not move.
-    elif is_unit_manager and mine_only and profile_unit == Unit.TECHNICAL:
-        qs = qs.filter(
-            pk__in=CaseForm.objects.filter(
-                kind=FormKind.TO, created_by=seat_user).values("case_id")
-        ).distinct()
-    elif is_unit_manager and mine_only and profile_unit == Unit.SUPPLY:
-        qs = qs.filter(
-            pk__in=CaseForm.objects.filter(
-                kind=FormKind.PI, created_by=seat_user).values("case_id")
-        ).distinct()
-    elif profile_role == Role.SUPERVISOR and profile_unit:
-        u = profile_unit
-        qs = qs.filter(
-            Q(holder_unit=u)
-            | Q(pk__in=CaseEvent.objects.filter(
-                Q(from_unit=u) | Q(to_unit=u)).values("case_id"))
-            | Q(pk__in=CaseForm.objects.filter(
-                unit_at_creation=u).values("case_id"))
-        ).distinct()
-    else:
-        qs = qs.filter(
-            Q(created_by=seat_user)
-            | Q(assigned_to=seat_user)
-            | Q(pk__in=CaseForm.objects.filter(
-                created_by=seat_user).values("case_id"))
-            | Q(pk__in=CaseEvent.objects.filter(
-                actor=seat_user).values("case_id"))
-        ).distinct()
-        if ctx.is_substitute:
-            qs = qs.exclude(status__in=CaseStatus.ENDED)
-
-    # Always include this user's current inbox (and therefore drafts / live
-    # files sitting there) so Archive ⊇ Inbox — except when the manager
-    # "Only my cases" toggle is ON (that view is intentionally narrower).
-    if not mine_only:
-        try:
-            inbox_qs = services.inbox_cases_for_request(request)
-            if inbox_qs is not None:
-                # ``qs | inbox_qs`` is a TypeError whenever exactly one side has
-                # had .distinct() applied — "Cannot combine a unique query with a
-                # non-unique query", raised by Query.combine on self.distinct !=
-                # rhs.distinct. inbox_cases() always ends in .distinct(), while
-                # the Commercial branches above deliberately do not, so this
-                # raised on EVERY archive load for every Commercial seat (logged
-                # once per page view) and the union was silently skipped — the
-                # "Archive ⊇ Inbox" guarantee in the docstring quietly did not
-                # hold for the unit that relies on it most. Making both sides
-                # distinct is what the .distinct() on the result already asked
-                # for; it changes no row, only whether the OR is legal to build.
-                qs = (qs.distinct() | inbox_qs.distinct()).distinct()
-        except Exception:
-            logger.exception("archive: failed to union inbox cases for user %s", request.user.pk)
-
-    query = request.GET.get("q", "").strip()
-    status = request.GET.get("status", "").strip()
-    doc_kind = request.GET.get("kind", "").strip()
-    date_from = request.GET.get("from", "").strip()
-    date_to = request.GET.get("to", "").strip()
-
-    # Drill-down from the dashboard: a single expert's cases.
-    creator_id = request.GET.get("creator", "").strip()
-    assignee_id = request.GET.get("assignee", "").strip()
-    drill_person = None
-    if creator_id.isdigit():
-        qs = qs.filter(created_by_id=int(creator_id))
-        drill_person = User.objects.filter(pk=int(creator_id)).first()
-    elif assignee_id.isdigit():
-        aid = int(assignee_id)
-        qs = qs.filter(
-            Q(technical_assignee_id=aid) | Q(supply_internal_assignee_id=aid)
-            | Q(supply_external_assignee_id=aid) | Q(supply_assignee_id=aid)
-            | Q(assigned_to_id=aid)
-        ).distinct()
-        drill_person = User.objects.filter(pk=aid).first()
-
-    if query:
-        flt = Q(client__name__icontains=query) | Q(client__code__icontains=query) | Q(doc_no__icontains=query)
-        if query.isdigit():
-            flt |= Q(serial=int(query))
-        qs = qs.filter(flt)
-    if status:
-        codes = [c for c in status.split(",") if c]
-        qs = qs.filter(status__in=codes) if codes else qs
-    if doc_kind:
-        kinds = [k for k in doc_kind.split(",") if k]
-        qs = qs.filter(kind__in=kinds) if kinds else qs
-    if date_from:
-        qs = qs.filter(created_at__date__gte=date_from)
-    if date_to:
-        qs = qs.filter(created_at__date__lte=date_to)
-
-    qs = qs.order_by("-created_at")
 
     def _offer_label(offer_type, upgraded):
         if offer_type != OfferType.TO_PI:
             return "TO"
         return "TO & PI (Two Stage)" if upgraded else "TO & PI"
 
-    # No pagination: every matching case is rendered once; the table scrolls
-    # via .vscroll (sticky header), same idea as inquiry / TO / PI tables.
-    cases_list = list(qs)
+    cases_list = list(scope.qs)
+    # Status pills first: the tab counts, the status filter and the pills a row
+    # prints all come off the same call, so a row is filtered under exactly the
+    # statuses a reader can see on it.
+    services.archive_decorate(cases_list)
 
     # Filter dropdown choices, over the WHOLE filtered set.
     #
@@ -533,6 +374,10 @@ def archive(request):
     # queries re-ran the viewer's whole archive scope, which for a Technical or
     # Supply seat measured 47-60 ms a piece (≈330 ms of the page) because the
     # scope joined the forms and events tables.
+    #
+    # They are built from every match and NOT from the filtered subset: narrowing
+    # the lists as filters are applied would hide values the reader is trying to
+    # switch to, which is not what the page did before.
     #
     # ``created_by`` is nullable, so the empty-user tuple below stands in for the
     # LEFT JOIN's NULLs and is fed to the very same expression, keeping whatever
@@ -568,19 +413,9 @@ def archive(request):
         if (ono or "").strip()
     })
 
-    # The pills a row shows and the value its status tab filters on are decided
-    # in ONE place — services.archive_status_rows — so the two cannot describe
-    # different things: a row is filtered under exactly the statuses a reader can
-    # see printed on it. The group names it returns are the collapsed ones (so
-    # "With Technical" covers both WITH_TECHNICAL and RETURNED_TO_TECHNICAL), which
-    # is what the tabs and the row's data-fval have always used.
     tab_counts = {label: 0 for label in CaseStatus.ARCHIVE_TAB_ORDER}
     for c in cases_list:
-        rows, groups, sides_differ = services.archive_status_rows(c)
-        c.status_rows = rows
-        c.status_sides_differ = sides_differ
-        c.status_fval = " ".join(sorted(groups))
-        for g in groups:
+        for g in c.status_groups:
             if g in tab_counts:
                 tab_counts[g] += 1
 
@@ -595,50 +430,78 @@ def archive(request):
         if tab_counts.get(label, 0) > 0
     ]
 
-    # PI grand totals (VAT-inclusive) for every visible row + drill-down sum.
-    show_money = bool(
-        profile.is_admin or profile.is_general_manager
-        or profile.unit == Unit.COMMERCIAL
-    )
+    # PI grand totals (VAT-inclusive) for every match + drill-down sum. Both stay
+    # over the whole set: the banner's "Grand total (all PI)" means all of them,
+    # and a row that scrolls in later must show the same figure it would have
+    # shown on the first screen.
     drill_grand_total_display = ""
-    if show_money:
-        from .export_data import case_pi_grand_totals_map, format_money_amount
-        all_ids = [c.pk for c in cases_list]
-        gt_map = case_pi_grand_totals_map(all_ids)
-        for c in cases_list:
-            amt = gt_map.get(c.pk, 0.0)
-            c.grand_total_num = amt
-            c.grand_total_display = format_money_amount(amt) if amt else "—"
-        if drill_person:
+    if scope.show_money:
+        from .export_data import format_money_amount
+        gt_map = services.archive_attach_money(cases_list)
+        if scope.drill_person:
             drill_sum = sum(gt_map.values()) if gt_map else 0.0
             drill_grand_total_display = (
                 format_money_amount(drill_sum) if drill_sum else "—"
             )
 
-    show_expert_filter = bool(
-        profile and (profile.role in (Role.SUPERVISOR, Role.MANAGER)
-                     or profile.is_general_manager or profile.is_admin))
-    mine_toggle_label = {
-        Unit.COMMERCIAL: "Only cases I created",
-        Unit.TECHNICAL: "Only TOs I created",
-        Unit.SUPPLY: "Only PIs I created",
-    }.get(profile.unit or "", "Only my cases")
+    # Column filters: the same predicate the browser used to run over the
+    # rendered table, run here instead — because a filter that can only see the
+    # rows that were sent would silently hide the rest.
+    params = services.archive_filter_params(
+        request, unit=scope.unit, is_admin=scope.is_admin)
+    filtered = services.archive_apply_column_filters(cases_list, params)
+    filtered_count = len(filtered)
+
+    # ``?all=1`` renders every matching row in one page. It is the no-JavaScript
+    # escape hatch (and what the "Show all N matching cases" link points at), and
+    # it is exactly the page this view produced before windowing.
+    show_all = str(request.GET.get("all") or "").strip() in ("1", "true", "yes")
+    window = filtered if show_all else filtered[:services.ARCHIVE_WINDOW]
+
+    # Everything the filter form must carry through a plain (no-JavaScript) GET
+    # submit so the seat, the drill-down and the select flow survive it.
+    carry_params = [
+        (k, request.GET.get(k))
+        for k in ("mine", "select", "return", "creator", "assignee",
+                  "q", "status", "kind", "from", "to", "all")
+        if (request.GET.get(k) or "").strip()
+    ]
+    # Echo back exactly what arrived, not the lower-cased text the predicate
+    # compares: the form's <option> values and the date boxes carry the original
+    # casing, and a re-rendered form has to select the option the reader picked.
+    f_active = {
+        param: (request.GET.get("f" + param) or "").strip()
+        for param, _col, _mode, _seat in services.ARCHIVE_FILTERS
+    }
+    all_url = "%s?%s" % (
+        reverse("cases:archive"),
+        urlencode([(k, v) for k, v in request.GET.items() if k != "all"]
+                  + [("all", "1")]))
+
     return render(request, "cases/archive.html", {
-        "cases": cases_list,
+        "cases": window,
         "total_count": len(cases_list),
-        "query": query,
-        "status": status,
-        "doc_kind": doc_kind,
-        "date_from": date_from,
-        "date_to": date_to,
+        "filtered_count": filtered_count,
+        "window_size": services.ARCHIVE_WINDOW,
+        "next_offset": len(window),
+        "has_more": filtered_count > len(window),
+        "all_url": all_url,
+        "carry_params": carry_params,
+        "f_active": f_active,
+        "f_active_json": {("f" + k): v for k, v in f_active.items() if v},
+        "query": scope.query,
+        "status": scope.status,
+        "doc_kind": scope.doc_kind,
+        "date_from": scope.date_from,
+        "date_to": scope.date_to,
         "status_choices": CaseStatus.CHOICES,
         "kind_choices": DocKind.CHOICES,
-        "unit": "" if (profile.is_admin or profile.is_general_manager) else profile.unit,
-        "is_admin": profile.is_admin or profile.is_general_manager,
-        "show_expert_filter": show_expert_filter,
-        "viewer_unit": profile.unit,
-        "drill_person": drill_person,
-        "show_money": show_money,
+        "unit": scope.unit,
+        "is_admin": scope.is_admin,
+        "show_expert_filter": scope.show_expert_filter,
+        "viewer_unit": scope.profile.unit,
+        "drill_person": scope.drill_person,
+        "show_money": scope.show_money,
         "drill_grand_total_display": drill_grand_total_display,
         "f_clients": f_clients,
         "f_experts": f_experts,
@@ -647,12 +510,80 @@ def archive(request):
         "f_kinds": f_kinds,
         "f_orders": f_orders,
         "status_tabs": status_tabs,
-        "show_mine_toggle": is_unit_manager,
-        "mine_only": mine_only,
-        "mine_toggle_label": mine_toggle_label,
-        "select_mode": select_mode,
-        "select_return": select_return,
+        "show_mine_toggle": scope.is_unit_manager,
+        "mine_only": scope.mine_only,
+        "mine_toggle_label": scope.mine_toggle_label,
+        "select_mode": scope.select_mode,
+        "select_return": scope.select_return,
     })
+
+
+@never_cache
+@login_required
+def archive_slice(request):
+    """One window of archive rows, rendered from the SAME partial as the page.
+
+    ``offset`` / ``limit`` (limit capped at ``services.ARCHIVE_MAX_SLICE``; a
+    request may not ask for an unbounded number of rows) plus the same ``f*``
+    column filters the page understands. The queryset comes from
+    ``services.archive_scope`` — the identical call the page makes — so what a
+    seat may see cannot drift between the first screen and the fifth.
+
+    Replies with the rendered rows and the counts in headers, so the HTML is not
+    paid for twice over by JSON string escaping.
+    """
+    scope = services.archive_scope(request)
+    if scope is None:
+        return HttpResponse(status=403)
+
+    def _int(name, default):
+        try:
+            return int(str(request.GET.get(name) or "").strip() or default)
+        except (TypeError, ValueError):
+            return default
+
+    offset = max(0, _int("offset", 0))
+    limit = max(1, min(_int("limit", services.ARCHIVE_WINDOW),
+                       services.ARCHIVE_MAX_SLICE))
+
+    params = services.archive_filter_params(
+        request, unit=scope.unit, is_admin=scope.is_admin)
+    if params:
+        # A column filter compares the text a cell PRINTS, so the rows have to
+        # exist as objects before they can be judged; there is no SQL for
+        # "the Jalali stamp this row would render". The status pills are only
+        # worked out up front when the status column is actually being filtered,
+        # because that is the one filter value that is derived rather than read.
+        cases_list = list(scope.qs)
+        if "status" in params:
+            services.archive_decorate(cases_list)
+        matched = services.archive_apply_column_filters(cases_list, params)
+        total = len(matched)
+        window = matched[offset:offset + limit]
+    else:
+        # Nothing to judge in Python: let the database do the window.
+        total = scope.qs.count()
+        window = list(scope.qs[offset:offset + limit])
+
+    services.archive_decorate(window)
+    if scope.show_money:
+        services.archive_attach_money(window)
+
+    html = render_to_string("cases/_archive_rows.html", {
+        "cases": window,
+        "unit": scope.unit,
+        "is_admin": scope.is_admin,
+        "show_money": scope.show_money,
+        "select_mode": scope.select_mode,
+        "show_empty": False,
+    }, request=request)
+    response = HttpResponse(html)
+    response["X-Archive-Total"] = str(total)
+    response["X-Archive-Offset"] = str(offset)
+    response["X-Archive-Count"] = str(len(window))
+    response["X-Archive-Next-Offset"] = str(offset + len(window))
+    response["X-Archive-Has-More"] = "1" if offset + len(window) < total else "0"
+    return response
 
 
 # ---------------------------------------------------------------------------
