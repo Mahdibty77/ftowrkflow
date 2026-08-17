@@ -56,6 +56,25 @@
         .tb-btn.primary:hover { background: var(--primary-light); border-color: var(--primary-light); }
         .tb-btn.lang-toggle.is-fa { background: var(--primary-soft, #eef2ff); border-color: var(--primary); color: var(--primary); }
         .tb-pill { cursor: default; font-size: 12px; opacity: .85; height: 38px; display: inline-flex; align-items: center; }
+        {% if read_only %}
+        /* View-only: say so in the bar, and again above the grid, because the
+           grid itself looks identical to the editable one by design. Rendered
+           only for a viewer, so the page an editing unit gets is untouched. */
+        .tb-readonly { gap: 6px; padding: 0 12px; border-radius: 8px; font-weight: 700;
+            opacity: 1; color: var(--warn, #92400e); background: var(--warn-soft, #fef3c7);
+            border: 1px solid var(--warn, #f59e0b); }
+        .ro-banner { margin: 0 16px .7rem; padding: .6rem .85rem; border-radius: 10px;
+            display: flex; align-items: center; gap: .55rem; font-size: .84rem;
+            color: var(--warn, #92400e); background: var(--warn-soft, #fef3c7);
+            border: 1px solid var(--warn, #f59e0b); }
+        /* Courtesy only — the save endpoint is what refuses a viewer (see
+           _may_build_form in bridge.py). This just stops the pointer from
+           inviting an edit that could never be stored. */
+        body[data-read-only="1"] #excel-table-container input,
+        body[data-read-only="1"] #excel-table-container textarea,
+        body[data-read-only="1"] #excel-table-container select,
+        body[data-read-only="1"] #excel-table-container button { cursor: not-allowed; }
+        {% endif %}
         .tool-bar a, .tool-bar button, .tool-bar .pill-note {
             font: inherit; cursor: pointer; border-radius: 7px; }
         .tool-bar .primary { background: var(--primary); border-color: var(--primary); color: #fff; }
@@ -73,7 +92,7 @@
         th[data-col-name="Filled_Features"], td[data-col-name="Filled_Features"] { display: none !important; }
     </style>
 </head>
-<body data-tool-kind="{{ kind }}"{% if hide_pricing %} data-hide-pricing="1"{% endif %}>
+<body data-tool-kind="{{ kind }}"{% if hide_pricing %} data-hide-pricing="1"{% endif %}{% if read_only %} data-read-only="1"{% endif %}>
 
     <div class="tool-bar">
         <span class="doc">{{ case.doc_no }}</span>
@@ -81,7 +100,7 @@
         <span class="builder">{{ kind }} builder{% if side_label %} · {{ side_label }}{% endif %}</span>
         {% if kind == 'PI' and doc_kind == 'TENDER' %}<span class="indent-note"><i class="fa-solid fa-circle-info"></i> Tender case — items can't be marked “not suppliable”.</span>{% endif %}
         <span class="spacer"></span>
-        {% if tool_mode == 'edit' %}<span class="tb-pill">Editing current version</span>{% elif tool_mode == 'newversion' %}<span class="tb-pill">New version from the last</span>{% endif %}
+        {% if read_only %}<span class="tb-pill tb-readonly"><i class="fa-solid fa-eye"></i> View only</span>{% elif tool_mode == 'edit' %}<span class="tb-pill">Editing current version</span>{% elif tool_mode == 'newversion' %}<span class="tb-pill">New version from the last</span>{% endif %}
         <!-- Language: button shows the TARGET language (click to switch to it). -->
         <select class="lang-switch" data-json-url="{% url 'app_json_resource' 'data_translation.json' %}" hidden>
             <option value="en" selected>English</option>
@@ -90,8 +109,15 @@
         <button type="button" class="tb-btn lang-toggle" id="lang-toggle-btn" title="Toggle document language">
             <i class="fa-solid fa-language"></i> <span class="lang-toggle-text">Persian</span>
         </button>
+        {% if read_only %}
+        {# No Save control at all in View mode: the endpoint would refuse this  #}
+        {# seat anyway, so offering the button would only promise a save that   #}
+        {# can never happen. Back is the one way out, so it leads the bar.      #}
+        <a class="tb-btn primary" href="/cases/{{ case.pk }}/"><i class="fa-solid fa-arrow-left"></i> Back to case</a>
+        {% else %}
         <button type="button" class="tb-btn primary" id="tool-save-btn">Save {{ kind }}</button>
         <a class="tb-btn" href="/cases/{{ case.pk }}/">Back to case</a>
+        {% endif %}
     </div>
     <script>
     (function () {
@@ -115,6 +141,17 @@
     </script>
 
     <h1 class="tool-page-title">{% if kind == 'PI' %}Proforma Invoice{% else %}Technical Offer{% endif %}{% if side_label %} · {{ side_label }}{% endif %}</h1>
+
+    {% if read_only %}
+    <div class="ro-banner" role="status">
+      <i class="fa-solid fa-lock"></i>
+      <span>This case is not with your unit right now, so you are looking at the
+        saved {% if kind == 'PI' %}Proforma{% else %}Technical Offer{% endif %} in
+        <strong>view-only</strong> mode. Filters and the reference tools still work;
+        no value, price, margin or conversion can be changed. Use
+        <strong>Back to case</strong> when you are done.</span>
+    </div>
+    {% endif %}
 
     {% if table_html %}
         {% if kind == 'PI' %}
@@ -359,7 +396,7 @@
     <div hidden>{% csrf_token %}</div>
 
     <script>
-      window.FT_TOOL_SAVE = { saveUrl: "{{ save_url }}", statusUrl: "/tool/case/{{ case.pk }}/{{ kind }}/status/?side={{ side|default:'' }}", currencyLogUrl: "{% url 'cases:log_currency_conversion' case.pk %}", mode: "{{ tool_mode }}", kind: "{{ kind }}", docKind: "{{ doc_kind }}", pricingLocked: {% if pricing_locked %}true{% else %}false{% endif %}, requireFtcoCode: {% if require_ftco_code %}true{% else %}false{% endif %}, externalCurrency: {% if external_currency %}true{% else %}false{% endif %}, unlockCommercial: {% if unlock_commercial %}true{% else %}false{% endif %}, side: "{{ side|default:'' }}", caseId: {{ case.pk }}, hidePricing: {% if hide_pricing %}true{% else %}false{% endif %} };
+      window.FT_TOOL_SAVE = { saveUrl: "{{ save_url }}", statusUrl: "/tool/case/{{ case.pk }}/{{ kind }}/status/?side={{ side|default:'' }}", currencyLogUrl: "{% url 'cases:log_currency_conversion' case.pk %}", mode: "{{ tool_mode }}", kind: "{{ kind }}", docKind: "{{ doc_kind }}", pricingLocked: {% if pricing_locked %}true{% else %}false{% endif %}, requireFtcoCode: {% if require_ftco_code %}true{% else %}false{% endif %}, externalCurrency: {% if external_currency %}true{% else %}false{% endif %}, unlockCommercial: {% if unlock_commercial %}true{% else %}false{% endif %}, side: "{{ side|default:'' }}", caseId: {{ case.pk }}, hidePricing: {% if hide_pricing %}true{% else %}false{% endif %}, readOnly: {% if read_only %}true{% else %}false{% endif %} };
       /*
         csrfToken is a LIVE read of the CSRF cookie. It used to be the page's
         own csrf_token template variable, baked in once at render time.
@@ -410,10 +447,10 @@
     <script src="{% static 'itemcoder/js/excel_paste.js' %}?v=pasteundo-5"></script>
     <script src="{% static 'itemcoder/js/calculation_controls.js' %}?v=fxboard-5"></script>
     <script src="{% static 'itemcoder/js/translator.js' %}?v=ftco-edit-3"></script>
-    <script src="{% static 'itemcoder/js/tool_save.js' %}?v=brand-split-scope-1"></script>
+    <script src="{% static 'itemcoder/js/tool_save.js' %}?v=readonly-1"></script>
     {% if kind == 'PI' %}<script src="{% static 'itemcoder/js/pi_pricing.js' %}?v=price-sep-1"></script>
     <script src="{% static 'itemcoder/js/pi_same_code_sync.js' %}?v=no-brand-remark-sync-1"></script>
     <script src="{% static 'itemcoder/js/service_price.js' %}?v=svcprice-5"></script>{% endif %}
-    <script src="{% static 'itemcoder/js/tool_guard.js' %}?v=kickout-1"></script>
+    <script src="{% static 'itemcoder/js/tool_guard.js' %}?v=readonly-1"></script>
 </body>
 </html>

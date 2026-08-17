@@ -7,10 +7,10 @@
   <div>
     <h1>Inbox</h1>
     <div class="sub">
-      {% if scope == 'commercial' %}Live status of every case — nearest deadline first.
-      {% elif scope == 'technical' %}Cases currently with the Technical unit — nearest deadline first.
-      {% elif scope == 'supply' %}Pricing queue — nearest deadline first.
-      {% else %}Your cases — nearest deadline first.{% endif %}
+      {% if scope == 'commercial' %}Live status of every case — unopened first, then nearest deadline.
+      {% elif scope == 'technical' %}Cases currently with the Technical unit — unopened first, then nearest deadline.
+      {% elif scope == 'supply' %}Pricing queue — unopened first, then nearest deadline.
+      {% else %}Your cases — unopened first, then nearest deadline.{% endif %}
     </div>
   </div>
   {% if can_create %}<a href="{% url 'cases:case_create' %}" class="btn btn-primary">New Case</a>{% endif %}

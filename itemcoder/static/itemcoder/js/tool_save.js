@@ -8,6 +8,13 @@
   "use strict";
   var CFG = window.FT_TOOL_SAVE || {};
 
+  // View-only mode (a unit looking at its own form while the case sits with
+  // somebody else). The template renders no Save button at all, and the save
+  // endpoint refuses this seat regardless — see _may_build_form in bridge.py,
+  // which is the same check that set this flag. Bailing out here means no
+  // collector, no dirty-tracking listeners, and no code path that could post.
+  if (CFG.readOnly) return;
+
   /** Strip colour / highlight markup (and escaped markup) to plain FTCO text. */
   function plainFtcoText(htmlOrText) {
     var s = String(htmlOrText || "");

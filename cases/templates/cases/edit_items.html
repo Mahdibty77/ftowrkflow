@@ -25,7 +25,13 @@
   <div class="btn-row form-actions-top">
     <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> {% if contacts_only %}Save contacts{% elif editable_meta %}Save{% else %}Save items{% endif %}</button>
     <a href="{% url 'cases:case_detail' case.pk %}" class="btn btn-ghost">Cancel</a>
-    {% if editable_meta %}
+    {% if editable_meta or show_deadline and newver_mode or show_deadline and case.deadline %}
+    {# The deadline card carries a star of its own even when the case fields are #}
+    {# not editable, so the legend has to follow it there as well — but only     #}
+    {# when that star is actually drawn. A screen whose deadline is genuinely    #}
+    {# optional has nothing marked, and a legend for a mark that is nowhere on   #}
+    {# the page is what makes a user hunt for a field that is not being asked    #}
+    {# of them.                                                                  #}
     <span class="spacer"></span>
     <span class="muted" style="font-size:.78rem;"><span class="req">*</span> Required</span>
     {% endif %}
@@ -130,9 +136,21 @@
         </select>
         <div class="help">Internal, External, or both — splits the case into sub-streams.</div>
       </div>
-      <div class="field"><label><i class="fa-solid fa-clock"></i> Deadline (Jalali) — optional</label>
-        <input type="text" name="deadline" data-jalali-datetime autocomplete="off" value="{{ case.deadline|jalali:'Y.m.d H:i' }}">
-        <div class="help">Optional. If set, it cannot be earlier than now.</div>
+      <div class="field"><label><i class="fa-solid fa-clock"></i> Deadline (Jalali){% if case.deadline %}<span class="req" title="Required">*</span>{% endif %}</label>
+        {# An unset deadline has to leave the box EMPTY. The jalali filter prints #}
+        {# an em dash for a missing value — fine in a table cell, but in an input #}
+        {# it is a character the user did not type, it is not a date the picker   #}
+        {# or the parser can read, and it would sail past a "did you fill it in"  #}
+        {# check while setting nothing.                                           #}
+        {# The star and the star's promise only appear when this screen really    #}
+        {# does insist: a deadline already set here may be moved but not wiped,   #}
+        {# while a case that has never carried one is not asked for one on the    #}
+        {# way past — it is asked for when the case is opened and when a new      #}
+        {# version is saved, which is where the server demands it.                #}
+        {# ``deadline_input`` is what the user typed on a save that was refused;  #}
+        {# it beats the stored value so a refusal hands their date back to them.  #}
+        <input type="text" name="deadline" data-jalali-datetime autocomplete="off" {% if case.deadline %}data-required="1" {% endif %}value="{% if deadline_input %}{{ deadline_input }}{% elif case.deadline %}{{ case.deadline|jalali:'Y.m.d H:i' }}{% endif %}">
+        <div class="help">{% if case.deadline %}Required — it can be moved but not cleared.{% else %}Optional here.{% endif %} A new deadline cannot be earlier than now.</div>
       </div>
     </div>
   </div>
@@ -187,9 +205,15 @@
   {% elif show_deadline %}
   <div class="card">
     <div class="card-head"><h3>Deadline</h3></div>
-    <div class="field" style="max-width:420px;"><label>Deadline (Jalali) — optional</label>
-      <input type="text" name="deadline" data-jalali-datetime autocomplete="off" value="{{ case.deadline|jalali:'Y.m.d H:i' }}">
-      <div class="help">Only the deadline can be changed for a new version (optional; cannot be in the past). Edit the items in the table below.</div>
+    <div class="field" style="max-width:420px;"><label>Deadline (Jalali){% if newver_mode or case.deadline %}<span class="req" title="Required">*</span>{% endif %}</label>
+      {# Empty box when there is no deadline yet — see the note on the same input #}
+      {# in the "Edit case" card above, including what ``deadline_input`` is for. #}
+      {# Saving a NEW VERSION is one of the two moments a deadline is demanded,   #}
+      {# so the box is required here whatever the case carries. The same card     #}
+      {# also serves the plain per-side edit, where it is required only to the    #}
+      {# extent that an existing deadline may not be wiped.                       #}
+      <input type="text" name="deadline" data-jalali-datetime autocomplete="off" {% if newver_mode or case.deadline %}data-required="1" {% endif %}value="{% if deadline_input %}{{ deadline_input }}{% elif case.deadline %}{{ case.deadline|jalali:'Y.m.d H:i' }}{% endif %}">
+      <div class="help">{% if newver_mode %}A new version needs a deadline.{% elif case.deadline %}The deadline can be moved but not cleared.{% else %}The deadline is optional here.{% endif %} A new deadline cannot be earlier than now. Edit the items in the table below.</div>
     </div>
   </div>
   {% endif %}

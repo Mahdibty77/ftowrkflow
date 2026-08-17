@@ -211,6 +211,93 @@ def _index_by_item(table) -> dict[str, dict]:
     return out
 
 
+def _client_row_key(row: dict) -> str:
+    """The client's own row number (``#``), normalised — the one row identity
+    that means the same product on the Inquiry, the TO and the PI.
+
+    Deliberately NOT ``Item Code``: that column is minted per form and is not
+    unique (see ``_index_by_item``), which is exactly what once made an export
+    print a neighbouring line's price. ``#`` is the number the client wrote on
+    the inquiry line; the TO and the PI rows built from that line both carry it
+    and it is never renumbered, so it survives soft-deletes and added rows.
+    ``client_row`` is the same value under the name the inquiry editor uses.
+
+    "2" and "2.0" are the same line — a spreadsheet import can hand back either.
+    """
+    s = str((row or {}).get("#", (row or {}).get("client_row", "")) or "").strip()
+    if not s:
+        return ""
+    try:
+        f = float(s)
+        if f == int(f):
+            return str(int(f))
+    except (TypeError, ValueError):
+        pass
+    return s
+
+
+def _pi_unsuppliable_client_rows(case, to_form, pi_form=None) -> dict[str, bool]:
+    """``{client row # -> True}`` for the rows the Proforma of ``to_form``'s OWN
+    version has marked NOT SUPPLIABLE.
+
+    Supply owns that mark and sets it on the Proforma; the Technical Offer only
+    reports it. It is therefore read live here instead of being copied onto the
+    TO's stored rows — which is also what keeps the two in step: clearing the
+    flag on the Proforma clears it on the TO at the same moment, and there is no
+    second copy that can go stale (or rewrite a TO snapshot that has been sent).
+
+    The Proforma is matched on side AND version AND two-stage generation, so
+    TO 01 answers to PI 01 even once the case is working on version 02, and a
+    version whose Proforma does not exist yet is left exactly as it was.
+
+    A ``#`` that somehow lands on more than one live Proforma row only counts as
+    flagged when EVERY one of those rows is flagged: an ambiguous pair must not
+    be able to stamp NOT SUPPLIABLE on a line Supply is still quoting.
+
+    ``pi_form`` is the Proforma the caller has already loaded. It is used only
+    when it IS the Proforma of this version — which is the ordinary case, since
+    a TO is normally exported at the version its Proforma is also current at.
+    Re-reading that same record means a second query and a second decode of its
+    JSON table, worth ~3 ms on a 300-row Technical Offer; reusing it puts the
+    whole mirror at 0.4 ms (measured: 6.6 ms to build that TO's export rows
+    before this, 7.8 ms after).
+    """
+    from .models import CaseForm
+
+    side = getattr(to_form, "side", "") or ""
+    version = getattr(to_form, "version", 0) or 0
+    two_stage = bool(getattr(to_form, "two_stage", False))
+
+    pi = pi_form if (
+        pi_form is not None
+        and (getattr(pi_form, "side", "") or "") == side
+        and (getattr(pi_form, "version", 0) or 0) == version
+        and bool(getattr(pi_form, "two_stage", False)) == two_stage
+    ) else (
+        CaseForm.objects.filter(
+            case=case, kind=FormKind.PI,
+            side=side, version=version, two_stage=two_stage,
+        )
+        # The default manager ordering is not to be relied on when a caller picks
+        # one row out of several (see CaseForm.Meta): say it here. The live
+        # snapshot of that version wins; ``-id`` settles anything still tied.
+        .order_by("-is_current", "-id")
+        .first()
+    )
+    if pi is None:
+        return {}
+    out: dict[str, bool] = {}
+    for row in (pi.table or []):
+        if str((row or {}).get("_deleted", "") or "") == "1":
+            continue
+        key = _client_row_key(row)
+        if not key:
+            continue
+        flagged = str((row or {}).get("_unsuppliable", "") or "") == "1"
+        out[key] = out.get(key, True) and flagged
+    return out
+
+
 def unit_manager(unit_code: str):
     """Return the Profile for the manager of ``unit_code``, or None.
 
@@ -571,6 +658,15 @@ def build_export_rows(case, form) -> list[dict[str, str]]:
     to_index = _index_by_item(getattr(to_form, "table", None) if to_form else [])
     pi_index = _index_by_item(getattr(pi_form, "table", None) if pi_form else [])
 
+    # NOT SUPPLIABLE belongs to the Proforma, and the Technical Offer of the same
+    # version mirrors it: a line Supply cannot supply is not on offer on either
+    # document. Empty for a PI (its rows are the source), and empty for a TO
+    # whose version has no Proforma yet — that TO then exports exactly as before.
+    unsup_from_pi = (
+        _pi_unsuppliable_client_rows(case, form, pi_form)
+        if kind == FormKind.TO else {}
+    )
+
     # Currency and its display label belong to the form, not to a row. Resolving
     # the label once matters for anything outside rial/usd/eur: currency_label
     # then has to read the FX board, and doing that per priced cell put several
@@ -613,6 +709,12 @@ def build_export_rows(case, form) -> list[dict[str, str]]:
         desc_ftco = _strip_html(_cell(src, "Final Arranged Text"))
         is_issue = str((src or {}).get("_issue", "") or "") == "1"
         is_unsup = str((src or {}).get("_unsuppliable", "") or "") == "1"
+        # A TO row inherits the mark from the Proforma line with the same client
+        # ``#``. Rows already carrying a TECHNICAL PROBLEM are left alone: that
+        # flag is Technical's own, it outranks this one everywhere it is shown,
+        # and touching those rows is not what was asked for.
+        if unsup_from_pi and not is_unsup and not is_issue:
+            is_unsup = unsup_from_pi.get(_client_row_key(src), False)
         svc_comment = _meta_text((src or {}).get("_service_comment", ""))
         has_service = bool(svc_comment)
         flag_label = ""
@@ -629,6 +731,12 @@ def build_export_rows(case, form) -> list[dict[str, str]]:
             # (do not fall back to the PI brand).
             if not brand and str((src or {}).get("_brand_split", "") or "") != "1":
                 brand = _strip_html(_cell(pi_row, "BRAND"))
+            # The brand of a NOT SUPPLIABLE row is deliberately left as it is.
+            # The rule for this mark is "the TO behaves exactly as the Proforma
+            # does", and the Proforma only sets the flag — it has never touched
+            # BRAND, on the stored row or on the document. Blanking it here would
+            # have made the two forms disagree about a column neither of them was
+            # asked to change.
         else:
             brand = _strip_html(_cell(pi_row, "BRAND"))
             if not brand and str((pi_row or {}).get("_brand_split", "") or "") != "1":

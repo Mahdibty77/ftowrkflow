@@ -334,6 +334,100 @@
   // A form with class "confirm-action" hides its real submit behind a small
   // confirm panel (with an optional comment), so even the first send is a
   // two-step action that never navigates to a separate page first.
+
+  // ONE CONFIRMED ACTION AT A TIME.
+  //
+  // Confirm used to stay live for the whole time its POST was in flight, and
+  // nothing else on the page moved either, so there was no sign at all that the
+  // click had been taken: three clicks on one Confirm sent three POSTs, and on a
+  // case sitting at CLOSED that wrote the same transition into the timeline
+  // three times over.
+  //
+  // The server is what actually decides now — cases.views.transition takes the
+  // case row's lock, re-reads it and re-asks the same permission rules before it
+  // writes, so a second POST meets the first one's result and is turned away.
+  // This guard is the other half of that: it keeps the page from sending the
+  // second POST at all, so the reader gets a page that answers their click
+  // instead of a refusal they never asked for. The lock is for the page and not
+  // just for one button — while any confirmed action is unresolved, no confirmed
+  // action may be started — because two DIFFERENT panels sent together (Burn and
+  // Finalize) are the pair that produced "it came out of loading already final
+  // approved". It costs nothing in ordinary use: the answer to that POST
+  // replaces this page anyway.
+  //
+  // A SLOW SERVER IS THE CASE THIS EXISTS FOR, so waiting is never a reason to
+  // let go. The first version of this guard handed the buttons back after 20
+  // seconds "in case the submit never landed" — but a POST still in flight and a
+  // POST that died look identical from here, and the owner's own report is a
+  // server slow enough that the screen sits in loading. Re-arming on a timer
+  // therefore re-opened exactly the gap it was added to close, in the one
+  // situation that produced the complaint.
+  //
+  // So nothing here re-arms a button on its own. The two ways out are both real
+  // evidence that the request is over:
+  //   * the browser restored this page from the bfcache (Back) — the submit
+  //     either finished or was abandoned, and this page is being reused;
+  //   * the reader decides. After a long wait the panel says so and offers a
+  //     reload, which throws this page away and shows what the case actually
+  //     did — the honest answer, and one that cannot double-send anything.
+  var confirmButtons = [];
+  var confirmSending = false;
+  var confirmStall = null;
+  var confirmNote = null;
+
+  function clearNote() {
+    if (confirmStall) {
+      clearTimeout(confirmStall);
+      confirmStall = null;
+    }
+    if (confirmNote && confirmNote.parentNode) {
+      confirmNote.parentNode.removeChild(confirmNote);
+    }
+    confirmNote = null;
+  }
+
+  function stallNote(active) {
+    if (confirmNote || !active) return;
+    var host = active.closest(".confirm-panel") || active.parentNode;
+    if (!host) return;
+    var note = document.createElement("div");
+    note.className = "muted";
+    note.setAttribute("role", "status");
+    note.style.cssText = "font-size:.78rem;margin-top:.4rem;";
+    note.innerHTML =
+      "The server has not answered yet. Your action may still be going " +
+      "through — do not send it again. " +
+      '<button type="button" class="btn btn-sm btn-ghost" ' +
+      'data-confirm-reload style="margin-top:.3rem">Reload this page</button>';
+    note.querySelector("[data-confirm-reload]").addEventListener(
+      "click", function () { window.location.reload(); });
+    host.appendChild(note);
+    confirmNote = note;
+  }
+
+  function confirmBusy(on, active) {
+    confirmSending = on;
+    confirmButtons.forEach(function (b) {
+      b.disabled = on;
+      b.innerHTML = (on && b === active)
+        ? '<i class="fa-solid fa-circle-notch fa-spin"></i> Working…'
+        : b._ftIdleLabel;
+    });
+    clearNote();
+    // Still nothing after fifteen seconds: say so, rather than leaving a spinner
+    // the reader has no way to read. The buttons stay disabled — this only adds
+    // words and a way off the page.
+    if (on) {
+      confirmStall = setTimeout(function () { stallNote(active); }, 15000);
+    }
+  }
+
+  // The Back button restores this page from the bfcache exactly as it was left,
+  // mid-submit and disabled, whether or not that action actually happened.
+  window.addEventListener("pageshow", function (ev) {
+    if (ev.persisted && confirmSending) confirmBusy(false);
+  });
+
   document.querySelectorAll("form.confirm-action").forEach(function (form) {
     var trigger = form.querySelector("[data-confirm-trigger]");
     if (!trigger) return;
@@ -374,6 +468,21 @@
     });
     panel.querySelector("[data-confirm-cancel]").addEventListener("click", function () {
       setOpen(false);
+    });
+
+    var confirmBtn = panel.querySelector('button[type="submit"]');
+    confirmBtn._ftIdleLabel = confirmBtn.innerHTML;
+    confirmButtons.push(confirmBtn);
+    // The guard hangs off "submit" and not off "click" on purpose: a panel whose
+    // comment is required fails the browser's own validation before "submit"
+    // ever fires, so a Confirm the browser refused to send is never disabled and
+    // the user is never locked out of the form they still have to fill in.
+    form.addEventListener("submit", function (e) {
+      if (confirmSending) {
+        e.preventDefault();
+        return;
+      }
+      confirmBusy(true, confirmBtn);
     });
   });
 })();

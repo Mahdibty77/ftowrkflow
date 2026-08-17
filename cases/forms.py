@@ -73,9 +73,15 @@ class CaseCreateForm(forms.Form):
         widget=forms.Select(attrs={"data-combo": "1", "data-placeholder": "Search price type…", "data-required": "1"}),
     )
     deadline = forms.CharField(
-        required=False, label="Deadline (Jalali) — optional",
+        # A commercial case is worked against its deadline — it is what the
+        # inbox orders on and what every unit plans around — so a case may not
+        # be opened without one. ``data-required`` is what the New Case screen's
+        # own validator looks for (see the note on ``use_required_attribute``
+        # above for why the native attribute is not emitted), so this field is
+        # marked exactly like client / order no. / kind.
+        required=True, label="Deadline (Jalali)",
         widget=forms.TextInput(attrs={
-            "data-jalali-datetime": "1", "autocomplete": "off",
+            "data-jalali-datetime": "1", "autocomplete": "off", "data-required": "1",
         }),
     )
     pasted_table = forms.CharField(
@@ -100,7 +106,7 @@ class CaseCreateForm(forms.Form):
         """Parse a Jalali 'YYYY-MM-DD[ HH:MM]' string into an aware datetime."""
         import datetime as _dt
         from django.utils import timezone
-        from .jalali import jalali_to_gregorian
+        from .jalali import gregorian_to_jalali, jalali_to_gregorian
 
         raw = (self.cleaned_data.get("deadline") or "").strip()
         if not raw:
@@ -112,9 +118,20 @@ class CaseCreateForm(forms.Form):
             norm = date_part.replace("/", "-").replace(".", "-")
             jy, jm, jd = [int(x) for x in norm.split("-")]
             hh, mm = (int(x) for x in (time_part.split(":") + ["0", "0"])[:2]) if time_part else (0, 0)
+            if not (1 <= jm <= 12 and 1 <= jd <= 31 and 0 <= hh <= 23 and 0 <= mm <= 59):
+                raise ValueError("out of range")
             gy, gm, gd = jalali_to_gregorian(jy, jm, jd)
+            # jalali_to_gregorian does no range checking of its own: hand it
+            # month 13 or day 45 and it returns a real date somewhere past the
+            # end of the year rather than complaining, so "1406-13-45" was
+            # accepted and silently stored as a day the user never chose. The
+            # bounds above catch the obvious nonsense; converting back catches
+            # the rest — a day that does not exist in that month, such as 12-30
+            # in a year that is not a leap year, comes back as a different date.
+            if gregorian_to_jalali(gy, gm, gd) != (jy, jm, jd):
+                raise ValueError("no such Jalali date")
             naive = _dt.datetime(gy, gm, gd, hh, mm)
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OverflowError):
             raise forms.ValidationError("Enter the deadline as a Jalali date, e.g. 1405-03-27 14:30.")
         tz = timezone.get_current_timezone()
         aware = timezone.make_aware(naive, tz) if timezone.is_naive(naive) else naive
@@ -124,8 +141,9 @@ class CaseCreateForm(forms.Form):
 
     def clean(self):
         cleaned = super().clean()
-        # The deadline is always optional; only a past date is rejected
-        # (handled in clean_deadline).
+        # The deadline is mandatory: an empty box is refused by the field itself
+        # and a past date by clean_deadline, so there is nothing left to decide
+        # across fields here.
         return cleaned
 
 

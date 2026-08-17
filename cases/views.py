@@ -19,7 +19,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.cache import never_cache
 from django.contrib.auth.models import User
 from django.db import transaction
-from django.db.models import Prefetch, Q
+from django.db.models import F, Prefetch, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -180,6 +180,47 @@ def _parse_jalali_deadline(raw: str):
     return timezone.make_aware(naive, tz) if timezone.is_naive(naive) else naive
 
 
+def _read_typed_deadline(raw: str, current=None):
+    """Read a deadline the user typed, exactly as the New Case screen reads it.
+
+    Returns ``(value, error)`` — ``error`` empty when the value is usable.
+
+    The rule and the wording are not restated here: the box is validated by
+    ``CaseCreateForm``'s own ``clean_deadline``, the single place that decides
+    what a typed Jalali deadline means (which separators are read, that an
+    unreadable value is refused, that a new deadline may not be in the past).
+    Every screen that offers the box therefore judges it identically, and the
+    user is told the same thing wherever they are standing.
+
+    ``current`` is the deadline already on the case. The editor pre-fills the box
+    with it, so re-submitting it unchanged is not the user setting a deadline —
+    and a case whose own deadline has since gone by would otherwise refuse every
+    save from the moment it passed, on a screen the user opened to edit rows.
+    An unchanged value is passed straight through; only a value that actually
+    moves the deadline meets the not-in-the-past rule.
+
+    "Unchanged" is judged against what the box SHOWS, which is the deadline to
+    the minute (``Y.m.d H:i``). A stored value carrying seconds — nothing the
+    editor can type, but an import or a shell can leave one — would otherwise
+    never match the value it pre-filled, and a case whose second-carrying
+    deadline had passed could then neither be re-sent (refused as past) nor
+    cleared (refused as a wipe): the screen would refuse every save there is.
+
+    Callers decide what an EMPTY box means (it differs per screen), so this is
+    only called with something typed.
+    """
+    raw = (raw or "").strip()
+    if current is not None and _parse_jalali_deadline(raw) in (
+            current, current.replace(second=0, microsecond=0)):
+        return current, ""
+    form = CaseCreateForm(data={"deadline": raw})
+    form.is_valid()          # runs the field's own clean_deadline
+    errs = form.errors.get("deadline")
+    if errs:
+        return None, str(errs[0])
+    return form.cleaned_data.get("deadline"), ""
+
+
 
 def _looks_like_header(raw) -> bool:
     """True when the first Excel row is a header (contains column titles like
@@ -293,6 +334,24 @@ def inbox(request):
         services.annotate_inbox_seen(ctx.seat_user, cases_list)
     except Exception:
         logger.exception("inbox: NEW marker lookup failed for user %s", request.user.pk)
+
+    # Two levels of ordering: what this person has not opened yet comes first,
+    # and inside each group the deadline order above still decides. Python's
+    # sort is stable, so sorting on the unseen flag alone leaves every row's
+    # position relative to its group-mates exactly as the database returned it —
+    # nearest deadline first, no-deadline last, then creation time.
+    #
+    # It is done HERE, in Python, and not in the ORDER BY: the seen state lives
+    # in a per-reader table that the inbox query does not join, and it has just
+    # been resolved for the whole page by the ONE query above. Sorting the list
+    # we already hold costs no query at all, while ordering on it in SQL would
+    # mean joining that table back into a filter tree that is already the
+    # slowest part of this page.
+    #
+    # A row only moves when the page is fetched again — opening a case marks it
+    # read on the server, and the reader sees it drop on their NEXT load rather
+    # than sliding out from under the cursor mid-page.
+    cases_list.sort(key=lambda c: not getattr(c, "is_new_in_inbox", False))
 
     fx_stale = False
     is_manager = (
@@ -1476,7 +1535,8 @@ def _event_visible_to(event, unit) -> bool:
 
 
 def _newver_context(case, rows, side, offer_type, price_type, seeded=False,
-                    currency_conversion=False, update_price=False):
+                    currency_conversion=False, update_price=False,
+                    deadline_input=""):
     """Build the edit_items render context for "New version" mode.
 
     ``rows`` is a list of dicts with keys client_row/description/size/quantity/
@@ -1509,6 +1569,11 @@ def _newver_context(case, rows, side, offer_type, price_type, seeded=False,
         "editable_contacts": False,
         "show_items": True,
         "show_deadline": True,
+        # What the user typed, on a re-render that refused the save. The grid
+        # comes back exactly as they left it; the deadline box has to as well,
+        # or a refusal quietly replaces their date with the stored one and the
+        # message then points at a box that no longer holds what it is about.
+        "deadline_input": deadline_input,
         "edit_side": side,
         "newver_mode": True,
         "nv_offer": offer_type,
@@ -1569,6 +1634,24 @@ def edit_items(request, pk):
             except ValueError:
                 rows = []
             inq_errs = validate_inquiry_rows(rows)
+            # A commercial case may not exist without a deadline, and a new
+            # version is the one other moment the editor offers the box — so it
+            # has to be filled here too, and the value the user types is what the
+            # case ends up with. It is read by the same validator the New Case
+            # screen uses (``_read_typed_deadline``), so an unreadable value and
+            # a date already gone by are refused here exactly as they are there
+            # rather than being accepted and dropped. Every refusal rides the
+            # same path as a bad inquiry row, so the grid the user was editing
+            # comes back untouched — with the date they typed still in the box.
+            nv_deadline_raw = (request.POST.get("deadline", "") or "").strip()
+            nv_deadline = None
+            if not nv_deadline_raw:
+                inq_errs = ["Set the deadline before saving the new version."] + list(inq_errs)
+            else:
+                nv_deadline, nv_deadline_err = _read_typed_deadline(
+                    nv_deadline_raw, current=case.deadline)
+                if nv_deadline_err:
+                    inq_errs = [nv_deadline_err] + list(inq_errs)
             if inq_errs:
                 for err in inq_errs:
                     messages.error(request, err)
@@ -1591,7 +1674,8 @@ def edit_items(request, pk):
                                                   services.v00_client_row_set(case, nv_side)),
                                               nv_side, nv_offer, nv_price,
                                               currency_conversion=nv_currency,
-                                              update_price=nv_update_price))
+                                              update_price=nv_update_price,
+                                              deadline_input=nv_deadline_raw))
             # Build the canonical inquiry table from the submitted grid. # is
             # taken from each surviving row's data-client (so deletions leave a
             # visible gap); Item reflows 1..N.
@@ -1651,7 +1735,17 @@ def edit_items(request, pk):
                                                   shown, services.v00_client_row_set(case, nv_side)),
                                               nv_side, nv_offer, nv_price,
                                               currency_conversion=nv_currency,
-                                              update_price=nv_update_price))
+                                              update_price=nv_update_price,
+                                              deadline_input=nv_deadline_raw))
+            # The version stands, so the deadline the editor insisted on is now
+            # the case's deadline. It is written only after the commit: a version
+            # that was refused (unchanged table) leaves the case exactly as it
+            # was, deadline included. ``update_fields`` keeps this to the one
+            # column — the service has just written the case row, and nothing
+            # this view still holds in memory may be pushed back over it.
+            if nv_deadline is not None and nv_deadline != case.deadline:
+                case.deadline = nv_deadline
+                case.save(update_fields=["deadline", "updated_at"])
             messages.success(request, f"New inquiry version {version:02d} saved.")
             if nv_side:
                 return redirect(f"{reverse('cases:case_detail', args=[pk])}?side={nv_side}")
@@ -1773,18 +1867,35 @@ def edit_items(request, pk):
     deadline_editable = (case.status == CaseStatus.DRAFT) or side_edit
 
     if request.method == "POST":
-        # Parse the (optional) deadline. Invalid or past dates are ignored
-        # silently (the previous deadline is kept) so a bad date never blocks
-        # saving the user's row edits.
+        # This is the ORDINARY edit, and it is not one of the two moments a
+        # deadline is asked for. It covers the fresh-draft "Edit case" screen and
+        # the per-side inquiry edit, and it may be reached on a case that has
+        # never had a deadline at all — a case opened before the box became
+        # mandatory, or a side of one. Demanding one here would stop such a case
+        # being saved at all, from a seat that was never asked to set it, so an
+        # empty box is accepted whenever the case has no deadline to begin with.
+        #
+        # What it does refuse is going BACKWARDS. A deadline that exists may be
+        # moved but not wiped, so a case that arrived here with one cannot leave
+        # without one — which is the whole of what setting it at creation is
+        # worth. And a typed value is read by the same validator the New Case
+        # screen uses, so junk is refused instead of being quietly ignored: the
+        # old "ignore what you cannot read" let a mistyped date look accepted
+        # while the case kept the date the user believed they had replaced.
+        deadline_err = ""
         new_deadline = case.deadline
         if deadline_editable:
             deadline_raw = (request.POST.get("deadline", "") or "").strip()
             if deadline_raw:
-                dt = _parse_jalali_deadline(deadline_raw)
-                if dt is not None:
+                dt, deadline_err = _read_typed_deadline(
+                    deadline_raw, current=case.deadline)
+                if not deadline_err:
                     new_deadline = dt
-            else:
-                new_deadline = None
+            elif case.deadline is not None:
+                deadline_err = ("The deadline cannot be cleared. "
+                                "Enter a new one, or leave the current one in place.")
+        else:
+            deadline_raw = ""
 
         rows_json = request.POST.get("rows", "[]")
         try:
@@ -1793,6 +1904,10 @@ def edit_items(request, pk):
             rows = []
 
         inq_errs = validate_inquiry_rows(rows)
+        if deadline_err:
+            # Same refusal path as an invalid inquiry row: nothing is written and
+            # the editor comes back with the grid the user was working on.
+            inq_errs = [deadline_err] + list(inq_errs)
         if inq_errs:
             for err in inq_errs:
                 messages.error(request, err)
@@ -1814,6 +1929,9 @@ def edit_items(request, pk):
                 "editable_contacts": False,
                 "show_items": True,
                 "show_deadline": deadline_editable,
+                # See ``_newver_context``: a refused save gives the user back
+                # what they typed, not what the case still holds.
+                "deadline_input": deadline_raw,
                 "edit_side": side if side_edit else "",
                 "doc_kinds": DocKind.CHOICES, "offer_types": OfferType.CHOICES,
                 "price_types": PriceType.CHOICES,
@@ -2003,6 +2121,37 @@ def edit_items(request, pk):
 # ---------------------------------------------------------------------------
 # Transitions
 # ---------------------------------------------------------------------------
+class _TransitionRaceLost(Exception):
+    """Raised when the case moved on before this POST got to write."""
+
+
+def _lock_case_row(pk) -> None:
+    """Hold the case row against every other transition until this commit.
+
+    ``transition`` reads the case, decides from its status, and only then calls
+    the service that writes. Two POSTs that arrive together used to run that
+    sequence interleaved: both read CLOSED, both were told yes, and both wrote.
+    Measured on this app — two Burns wrote the cancellation request twice, and a
+    Burn racing a Finalize left the case FINAL_APPROVED while still carrying the
+    burn request, which is a state no single sequence of clicks can produce.
+
+    Serialising it needs a lock that outlives the read, and ``select_for_update``
+    is not it: SQLite has no ``SELECT ... FOR UPDATE`` and Django silently drops
+    the clause there, so the guard would hold on the deployed Postgres and be
+    absent on a SQLite install — the worst of both. A one-row UPDATE locks that
+    row on every backend we run on: Postgres takes the row's exclusive lock until
+    commit, SQLite takes the write lock and makes the second connection wait for
+    it. The row is written back to the value it already holds, so nothing about
+    the case changes and no ``auto_now`` fires — ``update()`` never applies it.
+
+    It must be the FIRST statement of the transaction. On SQLite a transaction
+    that has already read cannot then take the write lock (its snapshot is stale
+    and the write is refused outright rather than waited for), so the lock is
+    taken before this view reads anything else inside the block.
+    """
+    Case.objects.filter(pk=pk).update(updated_at=F("updated_at"))
+
+
 @login_required
 def transition(request, pk):
     case = get_object_or_404(Case, pk=pk)
@@ -2014,9 +2163,6 @@ def transition(request, pk):
     side = request.POST.get("side", "")
     from people.role_nav import work_context
     ctx = work_context(request)
-    allowed = services.allowed_actions(
-        case, request.user, role=ctx.role, work_user=ctx.seat_user,
-    )
     wants_json = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
     # Currency conversion is a Commercial-only form edit (not a workflow button).
@@ -2054,18 +2200,29 @@ def transition(request, pk):
     # writing an expert from the wrong pool into that side's assignee, which no
     # real holder can then act on or clear. A sided assign belongs to that side's
     # holding unit, which is exactly what ``can_do_side_action`` checks.
-    side_dispatched = (
-        case.is_split and side in (Side.INTERNAL, Side.EXTERNAL)
-        and action in {"close", "send_to_client", "request_cancel",
-                       "finalize", "final_close", "burn", "assign"}
-    )
-    if side_dispatched or action not in allowed:
-        permitted = services.can_do_side_action(
-            case, request.user, action, side,
-            role=ctx.role, work_user=ctx.seat_user)
-    else:
-        permitted = True
-    if not permitted:
+    #
+    # This is asked TWICE of the very same rules: once here, where a POST that
+    # was never allowed is turned away without touching the database, and once
+    # more under the row lock below, where the answer is the one that counts.
+    # Nothing about who may do what changes — it is the same question put to the
+    # case as it stands at the moment of writing rather than as it stood when
+    # the page was read.
+    def _permitted_for(current):
+        allowed = services.allowed_actions(
+            current, request.user, role=ctx.role, work_user=ctx.seat_user,
+        )
+        side_dispatched = (
+            current.is_split and side in (Side.INTERNAL, Side.EXTERNAL)
+            and action in {"close", "send_to_client", "request_cancel",
+                           "finalize", "final_close", "burn", "assign"}
+        )
+        if side_dispatched or action not in allowed:
+            return services.can_do_side_action(
+                current, request.user, action, side,
+                role=ctx.role, work_user=ctx.seat_user)
+        return True
+
+    if not _permitted_for(case):
         messages.error(request, "That action is not available right now.")
         return redirect("cases:case_detail", pk=pk)
 
@@ -2077,121 +2234,141 @@ def transition(request, pk):
 
     actor = request.user
     try:
-        _side = request.POST.get("side", "")
-        if action == "submit_to_technical":
-            services.submit_to_technical(case, actor, comment, side=_side)
-        elif action == "return_to_commercial":
-            services.return_to_commercial(case, actor, comment, side=_side)
-        elif action == "send_to_supply":
-            services.send_to_supply(case, actor, comment, side=_side)
-        elif action == "return_to_technical":
-            services.return_to_technical(case, actor, comment, side=_side)
-        elif action == "send_to_commercial":
-            services.send_to_commercial(case, actor, comment, side=_side)
-        elif action == "send_to_client" and case.is_split and _side:
-            services.close_side(case, actor, _side, comment)
-        elif action == "close" and case.is_split and _side:
-            services.close_side(case, actor, _side, comment)
-        elif action == "request_cancel" and case.is_split and _side:
-            services.cancel_side(case, actor, _side, comment)
-        # Unreachable today: neither allowed_actions nor can_do_side_action ever
-        # grants "propose_send", so the gate above rejects the POST first. Kept
-        # wired for the day the propose/approve step is switched back on.
-        elif action == "propose_send":
-            proposed = request.POST.get("proposed_action", "")
-            services.propose_send(case, actor, proposed, comment)
-        elif action == "approve_send":
-            services.approve_send(case, actor, comment)
-        elif action == "assign":
-            assignee_id = request.POST.get("assignee")
-            # The assignee must come from the same pool the UI offers. services
-            # .assign writes the FK without looking at the target's profile, so a
-            # hand-crafted pk would park the case on someone outside the holding
-            # unit: it then drops out of every inbox and the manager loses the
-            # "assign" action, leaving nobody who can undo it. The holding unit is
-            # resolved exactly the way services.assign picks its target field.
-            if case.is_split and not _side and (
-                    case.side_holder(Side.INTERNAL) == Unit.TECHNICAL
-                    or case.side_holder(Side.EXTERNAL) == Unit.TECHNICAL):
-                assign_unit = Unit.TECHNICAL
-            elif case.is_split and _side in (Side.INTERNAL, Side.EXTERNAL):
-                assign_unit = case.side_holder(_side)
+        # ONE TRANSITION AT A TIME, decided and written together.
+        #
+        # The lock is taken first, so a second request that arrived while
+        # this one was deciding waits here instead of deciding in parallel;
+        # the case is then re-read under it and the same permission rules are
+        # put to what the case has actually become. A duplicate click, or a
+        # second confirm panel sent from the same page, therefore meets the
+        # first one's result and is turned away with the wording a late click
+        # has always got — while a case that legitimately transitions once is
+        # not affected at all, because the rules themselves are unchanged.
+        with transaction.atomic():
+            _lock_case_row(case.pk)
+            case.refresh_from_db()
+            if not _permitted_for(case):
+                raise _TransitionRaceLost
+            _side = request.POST.get("side", "")
+            if action == "submit_to_technical":
+                services.submit_to_technical(case, actor, comment, side=_side)
+            elif action == "return_to_commercial":
+                services.return_to_commercial(case, actor, comment, side=_side)
+            elif action == "send_to_supply":
+                services.send_to_supply(case, actor, comment, side=_side)
+            elif action == "return_to_technical":
+                services.return_to_technical(case, actor, comment, side=_side)
+            elif action == "send_to_commercial":
+                services.send_to_commercial(case, actor, comment, side=_side)
+            elif action == "send_to_client" and case.is_split and _side:
+                services.close_side(case, actor, _side, comment)
+            elif action == "close" and case.is_split and _side:
+                services.close_side(case, actor, _side, comment)
+            elif action == "request_cancel" and case.is_split and _side:
+                services.cancel_side(case, actor, _side, comment)
+            # Unreachable today: neither allowed_actions nor can_do_side_action ever
+            # grants "propose_send", so the gate above rejects the POST first. Kept
+            # wired for the day the propose/approve step is switched back on.
+            elif action == "propose_send":
+                proposed = request.POST.get("proposed_action", "")
+                services.propose_send(case, actor, proposed, comment)
+            elif action == "approve_send":
+                services.approve_send(case, actor, comment)
+            elif action == "assign":
+                assignee_id = request.POST.get("assignee")
+                # The assignee must come from the same pool the UI offers. services
+                # .assign writes the FK without looking at the target's profile, so a
+                # hand-crafted pk would park the case on someone outside the holding
+                # unit: it then drops out of every inbox and the manager loses the
+                # "assign" action, leaving nobody who can undo it. The holding unit is
+                # resolved exactly the way services.assign picks its target field.
+                if case.is_split and not _side and (
+                        case.side_holder(Side.INTERNAL) == Unit.TECHNICAL
+                        or case.side_holder(Side.EXTERNAL) == Unit.TECHNICAL):
+                    assign_unit = Unit.TECHNICAL
+                elif case.is_split and _side in (Side.INTERNAL, Side.EXTERNAL):
+                    assign_unit = case.side_holder(_side)
+                else:
+                    assign_unit = case.holder_unit
+                assignee = get_object_or_404(
+                    User.objects.filter(profile__unit=assign_unit,
+                                        profile__role=Role.EXPERT, is_active=True),
+                    pk=assignee_id,
+                )
+                services.assign(case, actor, assignee, comment=comment,
+                                side=request.POST.get("side", ""))
+            elif action == "close":
+                services.close_case(case, actor, comment)
+            elif action == "cannot_supply":
+                services.mark_cannot_supply(case, actor, comment, side=request.POST.get("side", ""))
+            # There is deliberately no approve/reject step for "cannot supply": the
+            # decision goes live immediately via mark_cannot_supply above (status
+            # UNSUPPLIABLE, no review). The approve_unsuppliable / reject_unsuppliable
+            # branches that used to sit here could never run — nothing granted those
+            # actions, so the permission gate above rejected the POST first — and were
+            # removed along with their services functions and case-page buttons.
+            elif action == "return_to_supply":
+                services.return_to_supply(case, actor, comment, side=_side)
+            elif action == "finalize" and case.is_split and _side:
+                services.finalize_side(case, actor, _side, comment)
+            elif action == "finalize":
+                services.finalize_case(case, actor, comment)
+            elif action == "final_close" and case.is_split and _side:
+                services.final_close_side(case, actor, _side, comment)
+            elif action == "final_close":
+                services.final_close_case(case, actor, comment)
+            elif action == "burn" and case.is_split and _side:
+                services.burn_side(case, actor, _side, comment)
+            elif action == "burn":
+                services.burn_case(case, actor, comment)
+            elif action == "request_cancel":
+                services.request_cancel(case, actor, comment)
+            elif action == "approve_cancel":
+                services.approve_cancel(case, actor, comment)
+            elif action == "reject_cancel":
+                services.reject_cancel(case, actor, comment)
+            elif action == "new_inquiry_version":
+                # The version is NOT created here any more. "New version" simply opens
+                # the inquiry editor; a new version is committed there only if the
+                # table actually changes (or a two-stage upgrade is requested). Carry
+                # the chosen offer/price upgrade through as query params.
+                params = {"newver": "1"}
+                ot = request.POST.get("offer_type", "")
+                pt = request.POST.get("price_type", "")
+                if ot:
+                    params["offer_type"] = ot
+                if pt:
+                    params["price_type"] = pt
+                if case.is_split and _side:
+                    params["side"] = _side
+                qs = urlencode(params)
+                messages.info(request, "Edit the items — a new version is saved only if you change the table.")
+                return redirect(f"{reverse('cases:edit_items', args=[pk])}?{qs}")
+            elif action == "upgrade_two_stage":
+                services.upgrade_two_stage(case, actor, comment)
+                messages.success(request, "Converted to Internal & External two stage.")
+                return redirect("cases:case_detail", pk=pk)
+            elif action == "comment":
+                if comment:
+                    ev = services.add_comment(case, actor, comment,
+                                              side=request.POST.get("side", ""))
+                    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                        return JsonResponse({
+                            "ok": True,
+                            "actor": ev.actor_display_name or (actor.get_full_name() or actor.username),
+                            "substitute": bool(ev.actor_is_substitute),
+                            "comment": ev.comment,
+                        })
+                elif request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return JsonResponse({"ok": False, "error": "Empty comment."}, status=400)
             else:
-                assign_unit = case.holder_unit
-            assignee = get_object_or_404(
-                User.objects.filter(profile__unit=assign_unit,
-                                    profile__role=Role.EXPERT, is_active=True),
-                pk=assignee_id,
-            )
-            services.assign(case, actor, assignee, comment=comment,
-                            side=request.POST.get("side", ""))
-        elif action == "close":
-            services.close_case(case, actor, comment)
-        elif action == "cannot_supply":
-            services.mark_cannot_supply(case, actor, comment, side=request.POST.get("side", ""))
-        # There is deliberately no approve/reject step for "cannot supply": the
-        # decision goes live immediately via mark_cannot_supply above (status
-        # UNSUPPLIABLE, no review). The approve_unsuppliable / reject_unsuppliable
-        # branches that used to sit here could never run — nothing granted those
-        # actions, so the permission gate above rejected the POST first — and were
-        # removed along with their services functions and case-page buttons.
-        elif action == "return_to_supply":
-            services.return_to_supply(case, actor, comment, side=_side)
-        elif action == "finalize" and case.is_split and _side:
-            services.finalize_side(case, actor, _side, comment)
-        elif action == "finalize":
-            services.finalize_case(case, actor, comment)
-        elif action == "final_close" and case.is_split and _side:
-            services.final_close_side(case, actor, _side, comment)
-        elif action == "final_close":
-            services.final_close_case(case, actor, comment)
-        elif action == "burn" and case.is_split and _side:
-            services.burn_side(case, actor, _side, comment)
-        elif action == "burn":
-            services.burn_case(case, actor, comment)
-        elif action == "request_cancel":
-            services.request_cancel(case, actor, comment)
-        elif action == "approve_cancel":
-            services.approve_cancel(case, actor, comment)
-        elif action == "reject_cancel":
-            services.reject_cancel(case, actor, comment)
-        elif action == "new_inquiry_version":
-            # The version is NOT created here any more. "New version" simply opens
-            # the inquiry editor; a new version is committed there only if the
-            # table actually changes (or a two-stage upgrade is requested). Carry
-            # the chosen offer/price upgrade through as query params.
-            params = {"newver": "1"}
-            ot = request.POST.get("offer_type", "")
-            pt = request.POST.get("price_type", "")
-            if ot:
-                params["offer_type"] = ot
-            if pt:
-                params["price_type"] = pt
-            if case.is_split and _side:
-                params["side"] = _side
-            qs = urlencode(params)
-            messages.info(request, "Edit the items — a new version is saved only if you change the table.")
-            return redirect(f"{reverse('cases:edit_items', args=[pk])}?{qs}")
-        elif action == "upgrade_two_stage":
-            services.upgrade_two_stage(case, actor, comment)
-            messages.success(request, "Converted to Internal & External two stage.")
-            return redirect("cases:case_detail", pk=pk)
-        elif action == "comment":
-            if comment:
-                ev = services.add_comment(case, actor, comment,
-                                          side=request.POST.get("side", ""))
-                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                    return JsonResponse({
-                        "ok": True,
-                        "actor": ev.actor_display_name or (actor.get_full_name() or actor.username),
-                        "substitute": bool(ev.actor_is_substitute),
-                        "comment": ev.comment,
-                    })
-            elif request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                return JsonResponse({"ok": False, "error": "Empty comment."}, status=400)
-        else:
-            messages.error(request, "Unknown action.")
-            return redirect("cases:case_detail", pk=pk)
+                messages.error(request, "Unknown action.")
+                return redirect("cases:case_detail", pk=pk)
+    except _TransitionRaceLost:
+        # Someone else got there first. Nothing was written by this request:
+        # raising out of the atomic block rolls it back, lock included.
+        messages.error(request, "That action is not available right now.")
+        return redirect("cases:case_detail", pk=pk)
     except Exception as exc:  # pragma: no cover - defensive
         # Surface a short message to the user, but also log the full traceback so
         # a failed workflow action is never silently lost from the server logs.
@@ -2423,6 +2600,18 @@ def log_currency_conversion(request, pk):
     to_unit = (request.POST.get("to_unit") or "").strip()
     rate = request.POST.get("rate", "")
     side = (request.POST.get("side") or "").strip()
+    # …and they must actually be able to PERFORM one. This records a conversion
+    # that has happened; somebody who is only looking cannot have performed it.
+    # A read-only viewer of a Proforma — a unit that does not hold the case,
+    # opening it from the Archive — passes both tests above (they may see the
+    # case, and they are in Supply or Commercial), so without this they could
+    # file an entry on the admin's Conversion Timeline for a conversion nobody
+    # made. The rule asked is the SAME ONE that decides whether their page is
+    # read-only in the first place, imported rather than restated so the two
+    # cannot drift apart.
+    from itemcoder.bridge import _may_build_form
+    if not _may_build_form(request, case, FormKind.PI, side)[0]:
+        return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
     reset = (request.POST.get("reset") or "").strip() in ("1", "true", "yes")
     form = case.current_form(FormKind.PI, side) if side else case.current_form(FormKind.PI)
     try:

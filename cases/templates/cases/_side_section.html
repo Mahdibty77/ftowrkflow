@@ -181,6 +181,16 @@
       {% else %}
         <a class="btn btn-sm btn-primary" href="/tool/case/{{ case.pk }}/TO/?mode=newversion&amp;side={{ sd.code }}"><i class="fa-solid fa-code-branch"></i> New version</a>
       {% endif %}
+    {% elif is_tech and sd.version_lists.TO and not is_split %}
+      {# Technical does not hold the case, so there is no Edit here. The offer #}
+      {# is still theirs to read, and the whole table is already printed below #}
+      {# this row for any Technical seat (case_detail hands the owning unit    #}
+      {# every version of its own form), so opening it in the TO environment   #}
+      {# adds the filters and the reference tools, not new information. The    #}
+      {# environment itself is read-only — see _may_build_form in bridge.py.   #}
+      {# Split cases are excluded: there each side is private to the seat that #}
+      {# may act on it, and that rule is left exactly as it is.                #}
+      <a class="btn btn-sm" href="/tool/case/{{ case.pk }}/TO/?mode=edit&amp;side={{ sd.code }}"><i class="fa-solid fa-eye"></i> View</a>
     {% endif %}
     {% if sd.version_lists.TO %}{% if is_admin_view or is_tech or is_comm %}
       <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'TO' 'xlsx' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">Excel</a>
@@ -203,6 +213,11 @@
       {% else %}
         <a class="btn btn-sm btn-primary" href="/tool/case/{{ case.pk }}/PI/?mode=newversion&amp;side={{ sd.code }}"><i class="fa-solid fa-code-branch"></i> New version</a>
       {% endif %}
+    {% elif is_supply and sd.version_lists.PI and not is_split %}
+      {# Same as the TO tab above, for Supply and the Proforma: View instead of #}
+      {# Edit whenever the case is not with Supply. Read-only is enforced by    #}
+      {# the save endpoint's own authorisation, not by the page.                #}
+      <a class="btn btn-sm" href="/tool/case/{{ case.pk }}/PI/?mode=edit&amp;side={{ sd.code }}"><i class="fa-solid fa-eye"></i> View</a>
     {% endif %}
     {% if sd.version_lists.PI %}
       {% if is_admin_view or is_comm %}

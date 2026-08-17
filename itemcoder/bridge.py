@@ -1810,6 +1810,59 @@ def tool_prices(request):
                          "comparison": comparison, "suggestion": suggestion})
 
 
+def _may_build_form(request, case, form_kind, side):
+    """May this request's active seat WRITE this TO/PI right now? -> (ok, reason).
+
+    ONE definition with TWO callers, and that is the whole point of extracting
+    it. ``save_from_tool`` refuses when it says no, and ``tool_for_case`` opens
+    the grid READ-ONLY when it says no. Because the page's read-only state is
+    the exact negation of the check that guards the save endpoint, a viewer's
+    hand-crafted POST is turned away by the very rule that put their page in
+    that mode — there is no second, softer copy of the rule that could drift.
+    Disabling the inputs in the browser is only a courtesy layered on top; this
+    function is what actually decides.
+
+    ``reason`` is the message to show; the two texts are kept distinct exactly
+    as they were before this was one function.
+    """
+    from cases import services
+    from cases.constants import FormKind
+    from people.role_nav import work_context
+
+    ctx = work_context(request)
+    allowed = services.allowed_actions(
+        case, request.user, role=ctx.role, work_user=ctx.seat_user,
+    )
+    needed = "build_pi" if form_kind == FormKind.PI else "build_to"
+    permitted = needed in allowed or "open_assistant" in allowed
+    # Split cases freeze the case status, so the whole-case permission above does
+    # not see per-side building; authorise it explicitly per side instead.
+    if not permitted and case.is_split:
+        holder = case.side_holder(side)
+        profile = getattr(request.user, "profile", None)
+        role = ctx.role
+        unit = (role.unit if role is not None else (profile.unit if profile else "")) or ""
+        role_name = (role.role if role is not None else (profile.role if profile else "")) or ""
+        seat_id = getattr(ctx.seat_user, "id", None)
+        if form_kind == FormKind.PI:
+            permitted = (unit == "SUPPLY"
+                         and holder == "SUPPLY"
+                         and services.can_act_on_side(
+                             case, request.user, side, role=ctx.role, work_user=ctx.seat_user))
+        else:  # TO
+            tech_owns = (unit == "TECHNICAL"
+                         and (role_name == "MANAGER"
+                              or case.technical_assignee_id == seat_id))
+            permitted = bool(tech_owns and holder == "TECHNICAL")
+    if not permitted:
+        return False, "You are not allowed to build this form right now."
+    # On split cases, only the side's owner may save that side.
+    if case.is_split and not services.can_act_on_side(
+            case, request.user, side, role=ctx.role, work_user=ctx.seat_user):
+        return False, "You can only work on your own side of this case."
+    return True, ""
+
+
 @login_required
 def tool_for_case(request, case_id, kind):
     """Open the coding/pricing tool.
@@ -1817,6 +1870,12 @@ def tool_for_case(request, case_id, kind):
     mode=build (default): seed a fresh grid from the latest inquiry (TO) or the
     latest TO descriptions (PI). mode=edit / mode=newversion: reload the last
     saved TO/PI grid so prior edits (e.g. remarks) are preserved.
+
+    A unit that cannot write this form right now — Technical or Supply looking
+    at their own offer after the case has moved on — gets the SAME grid in
+    READ-ONLY mode instead of being turned away: same rows, same filters, no
+    way to change a value. See ``_may_build_form`` for why that cannot be
+    written through.
     """
     from cases.models import Case
     from cases.constants import FormKind, Side, PriceType
@@ -1851,10 +1910,22 @@ def tool_for_case(request, case_id, kind):
     # a user may only open the tool for a side they are allowed to act on.
     if case.is_split:
         if not services.can_act_on_side(case, request.user, side):
-            from django.contrib import messages
+            # NB: no local ``from django.contrib import messages`` here. This
+            # module already imports it at the top, and re-importing it inside
+            # the function made ``messages`` a local name for the WHOLE function
+            # — so the earlier user_can_view_case refusal above raised
+            # UnboundLocalError and returned 500 instead of its redirect.
             messages.error(request, "You can only work on your own side of this case.")
             return redirect(f"/cases/{case.pk}/")
     form_kind = FormKind.PI if kind == "PI" else FormKind.TO
+
+    # READ ONLY (the "View" control on the case page). A seat that may not save
+    # this form gets to look at it and nothing else. Deriving the flag from the
+    # save endpoint's own authorisation — rather than from a ``mode=view`` in
+    # the query string, which the visitor controls — is what makes the mode
+    # honest: it is on exactly when a save would be refused, so it can never be
+    # turned off by editing the URL, and a save can never slip past it.
+    read_only = not _may_build_form(request, case, form_kind, side)[0]
 
     # Reconcile the requested mode with reality. Editing the current form is
     # allowed whenever it is at the current inquiry version (even if it was sent
@@ -1888,6 +1959,12 @@ def tool_for_case(request, case_id, kind):
             mode = "newversion"
     elif mode == "newversion" and current is None:
         mode = "build"
+    if read_only and current is not None:
+        # A viewer looks at what WAS saved, never at a branch of it. The
+        # newversion pass drops rows the inquiry deleted and appends freshly
+        # coded ones — a useful starting point for somebody about to save, and
+        # a misleading picture for somebody who cannot.
+        mode = "edit"
 
     # Building/loading the grid runs the vendored coding pipeline (pandas +
     # openpyxl + the schema JSON). If anything in that pipeline raises we must
@@ -2048,6 +2125,31 @@ def tool_for_case(request, case_id, kind):
             )
         table_html = mask_price_columns(table_html)
 
+    if hide_pricing:
+        # The saved calc state is the other half of the pricing, and it does not
+        # travel in the table HTML: tool_case.html emits it through json_script
+        # as #ft-saved-calc, so masking the price cells and the row price
+        # attributes above still shipped a Technical viewer the margin
+        # percentages and the FX rate this Proforma was built with — the same
+        # "only the page source shows it" leak mask_price_columns exists to
+        # close, one element further down the page.
+        #
+        # KEEP-list, not a drop-list, for the same reason the masking above
+        # replaces the whole <td> rather than its text: a key added to
+        # CalcSerializeState later must not leak by default. What is kept is
+        # only the currency IDENTITY of the document — which currency it is
+        # written in — because calculation_controls.js restores the conversion
+        # selects from it and the grid's currency labels follow those. No
+        # amount, percentage or rate rides in any of the three:
+        #   from     — the currency the prices were entered in
+        #   to       — the currency the document is shown in
+        #   currency — the unit label painted next to a figure
+        # Dropped: ``rate`` (the FX rate used), ``groupMargins`` (the per-group
+        # margin steps) and ``rowMargins`` (the per-row overrides).
+        if isinstance(saved_calc, dict):
+            saved_calc = {k: v for k, v in saved_calc.items()
+                          if k in ("from", "to", "currency")}
+
     # Give the tool the same per-unit accent the rest of the site uses.
     from core.theming import theme_for_unit
     from cases.export_data import vat_percent as _vat_percent
@@ -2072,6 +2174,7 @@ def tool_for_case(request, case_id, kind):
         "save_url": f"/tool/case/{case.pk}/{kind}/save/?side={side}",
         "new_version_default": "1" if mode == "newversion" else "0",
         "tool_mode": mode,
+        "read_only": read_only,
         # Passed as plain Python objects and rendered with Django's ``json_script``
         # (unicode-escapes </script> etc.) instead of |safe, so a stray character
         # in the data can never break out of the JSON block.
@@ -2167,40 +2270,13 @@ def save_from_tool(request, case_id, kind):
     if side not in (Side.INTERNAL, Side.EXTERNAL):
         side = case.primary_side
 
-    # Permission: the user must currently be allowed to build this form.
-    from people.role_nav import work_context
-    ctx = work_context(request)
-    allowed = services.allowed_actions(
-        case, request.user, role=ctx.role, work_user=ctx.seat_user,
-    )
-    needed = "build_pi" if form_kind == FormKind.PI else "build_to"
-    permitted = needed in allowed or "open_assistant" in allowed
-    # Split cases freeze the case status, so the whole-case permission above does
-    # not see per-side building; authorise it explicitly per side instead.
-    if not permitted and case.is_split:
-        holder = case.side_holder(side)
-        profile = getattr(request.user, "profile", None)
-        role = ctx.role
-        unit = (role.unit if role is not None else (profile.unit if profile else "")) or ""
-        role_name = (role.role if role is not None else (profile.role if profile else "")) or ""
-        seat_id = getattr(ctx.seat_user, "id", None)
-        if form_kind == FormKind.PI:
-            permitted = (unit == "SUPPLY"
-                         and holder == "SUPPLY"
-                         and services.can_act_on_side(
-                             case, request.user, side, role=ctx.role, work_user=ctx.seat_user))
-        else:  # TO
-            tech_owns = (unit == "TECHNICAL"
-                         and (role_name == "MANAGER"
-                              or case.technical_assignee_id == seat_id))
-            permitted = bool(tech_owns and holder == "TECHNICAL")
-    if not permitted:
-        messages.error(request, "You are not allowed to build this form right now.")
-        return redirect("cases:case_detail", pk=case.pk)
-    # On split cases, only the side's owner may save that side.
-    if case.is_split and not services.can_act_on_side(
-            case, request.user, side, role=ctx.role, work_user=ctx.seat_user):
-        messages.error(request, "You can only work on your own side of this case.")
+    # Permission: the user must currently be allowed to build this form. This is
+    # the SAME call tool_for_case makes to decide whether to open the grid
+    # read-only, so a viewer who forges this POST is refused by the rule that
+    # made their page read-only in the first place.
+    may_save, refusal = _may_build_form(request, case, form_kind, side)
+    if not may_save:
+        messages.error(request, refusal)
         return redirect("cases:case_detail", pk=case.pk)
 
     try:

@@ -86,9 +86,9 @@
         {% if form.price_type.errors %}<ul class="errorlist">{% for e in form.price_type.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
       </div>
       <div class="field">
-        <label for="{{ form.deadline.id_for_label }}"><i class="fa-solid fa-clock"></i> {{ form.deadline.label }}</label>
+        <label for="{{ form.deadline.id_for_label }}"><i class="fa-solid fa-clock"></i> {{ form.deadline.label }}<span class="req" title="Required">*</span></label>
         {{ form.deadline }}
-        <div class="help">Optional. If set, it cannot be earlier than now.</div>
+        <div class="help">Required. It cannot be earlier than now.</div>
         {% if form.deadline.errors %}<ul class="errorlist">{% for e in form.deadline.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
       </div>
     </div>
