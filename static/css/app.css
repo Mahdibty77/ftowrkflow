@@ -29,8 +29,26 @@ code,.mono{font-family:var(--mono);font-variant-numeric:lining-nums;font-feature
 .muted{color:var(--muted)}
 
 /* ---------------- Shell ---------------- */
-.shell{display:flex;min-height:100vh}
-.sidebar{width:236px;flex-shrink:0;background:var(--navy);color:#c3d2e8;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+/* The window itself does not scroll. The shell is exactly one viewport tall and
+   the scrolling happens INSIDE it — in .main, or in a list box within .main.
+
+   It used to be the other way round: the shell was min-height:100vh, the whole
+   page scrolled, and the sidebar was position:sticky pretending to stay put.
+   Sticky did work, but the page should never have been scrolling at all: a list
+   box was allowed to be taller than the room left for it (see .vscroll-list
+   below), which pushed the page past the fold. Scrolling that page dragged the
+   layout under a sidebar that is only one viewport tall, so the navy column ran
+   out and left an empty strip beneath it — which is what was reported.
+
+   dvh, not vh: on a phone the address bar slides away and vh keeps the taller
+   number, which reintroduces exactly that strip. vh stays as the fallback for
+   anything that does not know dvh. */
+.shell{display:flex;height:100vh;height:100dvh;overflow:hidden}
+/* No longer sticky, and no viewport unit of its own: as a flex item of a shell
+   that is one viewport tall, it simply IS that tall. It cannot scroll away
+   because nothing around it scrolls. A nav taller than the screen scrolls
+   within the sidebar. */
+.sidebar{width:236px;flex-shrink:0;background:var(--navy);color:#c3d2e8;display:flex;flex-direction:column;height:100%;overflow-y:auto}
 .sb-brand{display:flex;align-items:center;gap:.6rem;padding:1rem 1.05rem;border-bottom:1px solid rgba(255,255,255,.07)}
 .sb-logo{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-family:var(--mono);font-weight:800;font-size:.9rem;letter-spacing:.5px;background:var(--accent);color:#fff}
 .sb-brand-text{display:flex;flex-direction:column;line-height:1.15}
@@ -314,7 +332,10 @@ html[data-theme="dark"] .shift-ot-link:hover{
 .sb-role[open] > .sb-role-sum .sb-role-ic{color:#fff}
 .unit-dot{width:9px;height:9px;border-radius:50%}
 
-.main{flex:1;min-width:0;display:flex;flex-direction:column}
+/* The one thing that scrolls on an ordinary page. min-height:0 is what lets it:
+   a flex item refuses to shrink below its content unless told, and without it
+   .main would grow past the shell and take the scrollbar back to the window. */
+.main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow-y:auto}
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:.55rem 1.5rem;background:var(--paper);border-bottom:1px solid var(--line);position:relative;z-index:2;min-height:3.6rem;box-sizing:border-box}
 .page-title{font-size:1.05rem;font-weight:650}
 
@@ -366,6 +387,12 @@ html[data-theme="dark"] .shift-ot-link:hover{
 }
 
 .content{padding:1.25rem 1.5rem 2.5rem;width:100%;max-width:1640px}
+/* A page whose main subject is a scrolling list — the inbox, the archive — hands
+   the leftover height to that list instead of growing past the fold. The list is
+   then the only thing that scrolls, and it always ends exactly at the bottom of
+   the screen however tall the filters and headings above it happen to be.
+   Every other page is untouched and keeps flowing normally inside .main. */
+.content:has(> .vscroll-list){display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
 
 /* ---------------- Messages ---------------- */
 .messages{padding:.8rem 1.5rem 0}
@@ -493,6 +520,16 @@ tr.row-unseen .docno{font-weight:800}
    written out here in words, inside the row where it is read in context. */
 .sr-only{
   position:absolute;
+  /* Pinned to the top-left of whatever contains it. Without these offsets an
+     absolutely positioned box sits at its STATIC position, and with no
+     positioned ancestor that position is resolved against the page — so one of
+     these per unseen inbox row landed further and further down the document and
+     stretched it hundreds of pixels past the fold. The page then scrolled, and
+     scrolling it dragged the layout out from under a sidebar that is only one
+     viewport tall, leaving the empty strip that was reported.
+     It is one clipped pixel and never visible, so where it sits does not matter;
+     a screen reader announces it in DOM order either way. */
+  top:0;left:0;
   width:1px;height:1px;
   padding:0;margin:-1px;
   overflow:hidden;
@@ -500,6 +537,10 @@ tr.row-unseen .docno{font-weight:800}
   white-space:nowrap;
   border:0;
 }
+/* Give it a positioned ancestor so it resolves inside its own row rather than
+   against the page. Belt and braces with the offsets above: either alone fixes
+   the stretching, together they also keep it in the right place. */
+tr.row-unseen > td:first-child{position:relative}
 
 /* ---------------- Buttons ---------------- */
 .btn{display:inline-flex;align-items:center;gap:.4rem;cursor:pointer;font-family:var(--sans);font-size:.82rem;font-weight:600;padding:.5rem .9rem;border-radius:var(--radius-sm);border:1px solid var(--line);background:var(--paper);color:var(--ink);transition:background .12s,border-color .12s,color .12s,box-shadow .12s}
@@ -629,7 +670,18 @@ td .chips-row,th .chips-row{margin-top:0}
 
 /* ---------------- Virtual-scroll table container ---------------- */
 .vscroll{border:1px solid var(--line);border-radius:var(--radius);background:var(--paper);box-shadow:var(--shadow);overflow:auto;max-height:62vh}
-.vscroll.vscroll-list{max-height:calc(100vh - 240px);min-height:280px}
+/* No magic constant. This used to be max-height:calc(100vh - 240px), where 240
+   was a guess at how tall the topbar, page heading, status tabs and filter card
+   are. Measured on the real archive at 1366x768 they come to 424px, so the box
+   was allowed to be ~184px taller than the space it had and pushed the page past
+   the fold — and zoom made it worse, because the stack above is text and padding
+   and grows while a constant does not. Taking the leftover height as a flex item
+   lets the layout engine measure it instead, at every zoom and every screen. */
+/* Scoped to a list that IS the page — a direct child of .content, which the rule
+   above has made a flex column. Elsewhere .vscroll-list is a panel inside some
+   other card (the overtime inbox, the recent-requests strip); those are not the
+   subject of their page and keep the ordinary capped box they have always had. */
+.content:has(> .vscroll-list) > .vscroll-list{flex:1 1 auto;min-height:0;max-height:none}
 .vscroll table{width:100%;border-collapse:collapse;font-size:.83rem}
 .vscroll thead th{position:sticky;top:0;background:var(--cloud);z-index:1;padding:.5rem .7rem;text-align:left;font-size:.7rem;text-transform:uppercase;letter-spacing:.4px;color:var(--slate);border-bottom:1px solid var(--line)}
 .vscroll td{padding:.45rem .7rem;border-bottom:1px solid var(--line-soft)}
