@@ -183,7 +183,12 @@
           {% if unit != 'SUPPLY' %}<td><span dir="auto">{{ c.client.name }}</span> <span class="muted mono">({{ c.client.code }})</span></td>{% endif %}
           {% if is_admin or unit == 'TECHNICAL' or unit == 'SUPPLY' %}<td>{% if c.commercial_expert_display %}<span dir="auto">{{ c.commercial_expert_display }}</span>{% else %}<span dir="auto">{{ c.created_by.get_full_name|default:c.created_by.username }}</span> <span class="muted mono">({{ c.expert_code }})</span>{% endif %}</td>{% endif %}
           <td>{{ c.price_type_label }}</td>
-          <td data-fval="{{ c.status_fval }}">{% if c.is_split %}{% for s_label, s_status, s_color, s_holder in c.side_status_rows %}<div style="margin-bottom:.2rem;"><span class="status-tag" style="--sc:{{ s_color }}">{{ s_label }}: {{ s_status }}</span></div>{% endfor %}{% else %}<span class="status-tag" style="--sc:{{ c.status_color }}">{{ c.status_label }}</span>{% endif %}</td>
+          {# One pill when there is one status to report; one pill per side, each #}
+          {# named, only when the two sides of a combined case are genuinely in   #}
+          {# different places — with a caption saying so, because otherwise a     #}
+          {# reader takes the first pill for the status of the whole case. The    #}
+          {# rows and the data-fval both come from services.archive_status_rows.  #}
+          <td data-fval="{{ c.status_fval }}">{% if c.status_sides_differ %}<div class="muted" style="font-size:.66rem;text-transform:uppercase;letter-spacing:.4px;margin-bottom:.2rem;">Per side</div>{% endif %}{% for s_label, s_status, s_color in c.status_rows %}<div{% if not forloop.last %} style="margin-bottom:.2rem;"{% endif %}><span class="status-tag" style="--sc:{{ s_color }}">{% if s_label %}{{ s_label }}: {% endif %}{{ s_status }}</span></div>{% endfor %}</td>
           <td>{{ c.offer_stage_label }}</td>
           <td>{{ c.kind_label }}</td>
           {% if show_money %}<td class="mono">{{ c.grand_total_display|default:"—" }}</td>{% endif %}

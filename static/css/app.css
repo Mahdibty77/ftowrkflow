@@ -1437,7 +1437,16 @@ table.data td[data-col-key="proforma remark"] {
    its own span next to a generated "rows: #3" label, so only the sentence is
    given a direction of its own. (The TO tool has an equivalent list of its own;
    it is a standalone page that never loads this file, so its rule lives at the
-   end of itemcoder/static/itemcoder/css/tool-layout.css instead.) */
+   end of itemcoder/static/itemcoder/css/tool-layout.css instead.)
+
+   That span now also carries dir="auto" from the script, and the two do
+   different halves of the job, so both are wanted:
+     dir="auto"              sets the ELEMENT's direction, which is what makes an
+                             RTL comment align and wrap to the right rather than
+                             hang off the left edge of the column;
+     unicode-bidi: plaintext re-derives the base direction for each LINE, so a
+                             comment typed over several lines gets an English
+                             line and a Persian line each the right way round. */
 .inq-comment-list .inq-c-text {
   unicode-bidi: plaintext;
 }

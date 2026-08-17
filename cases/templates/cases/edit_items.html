@@ -210,7 +210,14 @@
       <div class="inq-comment-left">
         <div class="inq-comment-head">
           <div class="inq-comment-title"><i class="fa-solid fa-comment-dots"></i> Row comments</div>
-          <span class="inq-comment-target" id="inq-comment-target">No rows selected</span>
+          {% comment %}
+            dir="auto" here and on every other element of this panel that carries
+            what the user typed: the page is English, so a Persian run inside it is
+            reordered against the Latin runs unless the element takes its base
+            direction from its own first strong character. The long form of the
+            reasoning is in the bidi block at the end of static/css/app.css.
+          {% endcomment %}
+          <span class="inq-comment-target" id="inq-comment-target" dir="auto">No rows selected</span>
         </div>
         <div class="inq-comment-toolbar">
           <button type="button" class="btn btn-sm inq-comment-all-btn" id="inq-comment-all" aria-pressed="false">
@@ -220,6 +227,14 @@
             Clear selection
           </button>
         </div>
+        {% comment %}
+          No dir="auto" on this one on purpose. static/css/app.css already gives
+          every textarea unicode-bidi: plaintext, which is the stronger rule for a
+          box you type several LINES into — it re-derives the base direction per
+          line, so a comment whose first line is English and second line Persian
+          gets both right. That rule is guarded by :not([dir]), so writing the
+          attribute here would switch the box to one direction for the whole value.
+        {% endcomment %}
         <textarea id="inq-comment-input" rows="3" placeholder="Write one comment for all selected rows…"></textarea>
         <div id="inq-comment-error" class="inq-comment-error" hidden></div>
         <div class="inq-comment-actions">
@@ -563,9 +578,18 @@
             label = 'rows';
           }
           var li = document.createElement('li');
-          li.innerHTML = '<span class="inq-c-item"></span><span class="inq-c-text"></span>';
-          li.querySelector('.inq-c-item').textContent = label;
-          li.querySelector('.inq-c-text').textContent = ': ' + note;
+          li.innerHTML = '<span class="inq-c-item"></span><span class="inq-c-text" dir="auto"></span>';
+          // The ":" belongs to the generated "rows: #1 , 3" label, not to the
+          // sentence. It used to be prefixed onto the comment span, and a neutral
+          // character carried by a Persian run travels to that run's own end: with
+          // the comment reading right to left the colon landed at the FAR RIGHT of
+          // the line, several hundred pixels from the label it was separating. It
+          // is written into the Latin label instead, where it cannot move.
+          li.querySelector('.inq-c-item').textContent = label + ':';
+          // dir="auto" (above) makes the sentence choose its own base direction, so
+          // it also aligns and wraps to that side; app.css keeps unicode-bidi:
+          // plaintext on the same span for multi-line comments.
+          li.querySelector('.inq-c-text').textContent = note;
           list.appendChild(li);
         });
         if (emptyEl) emptyEl.hidden = order.length > 0;

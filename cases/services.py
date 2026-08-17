@@ -708,7 +708,44 @@ def apply_inquiry_row_marks_vs_v00(rows, v00_rows: set) -> list:
     return out
 
 
-def _inquiry_signature(rows) -> list:
+def _inquiry_comment_map(table, meta=None) -> dict:
+    """Commercial's row notes for one inquiry version: ``{client row # -> note}``.
+
+    The note is written *about* a row but it is not data *of* the row. It is
+    something Commercial says while handing a version over ("please confirm
+    brand"), so it belongs to the version — ``CaseForm.meta``, beside the other
+    per-version facts like ``update_price`` and ``_sent_to`` — and never to
+    ``CaseForm.table``. That placement is the whole point: every export, the
+    inquiry table and the proforma detail tables all read ``table``, so a note
+    kept out of ``table`` cannot leak onto a client-facing row or a sheet.
+
+    Keyed by client row (#), the identity ``_rb_fingerprint`` and
+    ``_index_rows_by_client`` already use to follow one row across versions, and
+    the number the announcement itself prints.
+
+    Versions saved before the note moved off the row still carry it inside the
+    row dict. They are read here in that old shape, so an old case still opens,
+    still announces the text it always announced, and needs no migration; the
+    first new version saved from such a case lifts the notes into meta as it
+    passes.
+    """
+    stored = (meta or {}).get("_comm_comments")
+    if isinstance(stored, dict):
+        return {str(k): str(v or "").strip()
+                for k, v in stored.items() if str(v or "").strip()}
+    legacy = {}
+    for r in (table or []):
+        r = r or {}
+        note = str(r.get("_comm_comment", r.get("comment", "")) or "").strip()
+        if not note:
+            continue
+        cr = _norm_cell(r.get("#", r.get("client_row", "")))
+        if cr:
+            legacy[cr] = note
+    return legacy
+
+
+def _inquiry_signature(rows, comments=None) -> list:
     """Return a comparable signature of an inquiry table.
 
     Two inquiry tables are considered IDENTICAL (no new version warranted) when
@@ -716,28 +753,39 @@ def _inquiry_signature(rows) -> list:
     same Description / Size / Qty / Unit / soft-delete / add markers. Soft-
     deleting a row (keeping it with ``_deleted=1``) or adding a row changes the
     signature. The live "Item" sequence (1..N) is intentionally ignored.
+
+    The Commercial row note still takes part, so a version whose only edit is a
+    comment is a real change and does get saved. It now arrives as ``comments``
+    (the version's note map) rather than out of the row; passing nothing falls
+    back to reading it off the rows, which is how an old version compares.
     """
+    if comments is None:
+        comments = _inquiry_comment_map(rows)
     sig = []
     for r in (rows or []):
         r = r or {}
+        cr = _norm_cell(r.get("#", r.get("client_row", "")))
         sig.append((
-            _norm_cell(r.get("#", r.get("client_row", ""))),
+            cr,
             _norm_cell(r.get("Description", r.get("description", ""))),
             _norm_cell(r.get("Size", r.get("size", ""))),
             _norm_cell(r.get("Qty", r.get("quantity", ""))),
             _norm_cell(r.get("Unit", r.get("unit", ""))),
             "1" if str(r.get("_deleted", "") or "") == "1" else "0",
             "1" if str(r.get("_added", "") or "") == "1" else "0",
-            _norm_cell(r.get("_comm_comment", r.get("comment", ""))),
+            _norm_cell(comments.get(cr, "")),
         ))
     return sig
 
 
 def _inquiry_content_signature(rows) -> list:
-    """Like ``_inquiry_signature`` but ignores per-row Commercial comments.
+    """Like ``_inquiry_signature`` but ignores the Commercial row comments.
 
     Used so “Update price” version labelling cares about real table edits
-    (cells / add / delete), not comment-only changes.
+    (cells / add / delete), not comment-only changes. It takes no ``comments``
+    argument on purpose — there is nothing to ignore once the note lives on the
+    version, and an old version's ``_comm_comment`` row key is not among the
+    keys read below, so both shapes stay comment-blind here.
     """
     sig = []
     for r in (rows or []):
@@ -1079,13 +1127,19 @@ def _handoff_auto_notes(case, kind: str, side: str = "", *,
     return "   ".join(parts)
 
 
-def _inquiry_tables_equal(rows_a, rows_b) -> bool:
-    """True when two inquiry tables have identical content (see _inquiry_signature)."""
-    return _inquiry_signature(rows_a) == _inquiry_signature(rows_b)
+def _inquiry_tables_equal(rows_a, rows_b, comments_a=None, comments_b=None) -> bool:
+    """True when two inquiry tables have identical content (see _inquiry_signature).
+
+    The note maps are passed in because the notes no longer travel inside the
+    rows; omitting them compares whatever the rows themselves carry, which is
+    what an old (pre-move) version has.
+    """
+    return (_inquiry_signature(rows_a, comments_a)
+            == _inquiry_signature(rows_b, comments_b))
 
 
 def _inquiry_tables_content_equal(rows_a, rows_b) -> bool:
-    """True when tables match ignoring Commercial per-row comments."""
+    """True when tables match ignoring the Commercial row comments."""
     return _inquiry_content_signature(rows_a) == _inquiry_content_signature(rows_b)
 
 
@@ -1455,6 +1509,40 @@ def _row_for_side(case, sc):
     return (Side.LABELS.get(sc, sc),
             CaseStatus.LABELS.get(st, st),
             CaseStatus.COLORS.get(st, "#6b7280"))
+
+
+def archive_status_rows(case: Case):
+    """(rows, archive group names, sides_differ) for one Archive row.
+
+    The Archive is the record, so unlike the inbox and the case page it never
+    narrows to the sides a particular reader holds — every side is listed. What
+    it must not do is let a reader take one side's status for *the* status of the
+    case, which is what a bare pair of pills invites: a commercial expert whose
+    Internal side came back "Cannot supply" sees that word in their inbox (which
+    only ever shows the sides in their hands) and then reads the same case in the
+    Archive as "Returned to Technical", because that is genuinely where the other
+    side is. Both readings are true; only the Archive was silent about there
+    being two of them.
+
+    So: identical sides collapse to one unlabelled pill — a case that is Cannot
+    supply on both sides now reads exactly "Cannot supply" here, the same as it
+    does everywhere else — and when the sides really do differ the caller says so
+    in as many words. Nothing here changes a status; ``side_status`` is read, and
+    the whole-case ``status`` is still what a non-split case shows.
+
+    The group names come back alongside the rows because the row's status FILTER
+    value has to describe the very pills that are on screen; deriving them apart
+    from the rows is how the two drift.
+    """
+    if not case.is_split:
+        return ([(None, case.status_label, case.status_color)],
+                {CaseStatus.ARCHIVE_GROUP.get(case.status, case.status_label)},
+                False)
+    rows = [_row_for_side(case, sc) for sc in case.sides]
+    groups = {CaseStatus.ARCHIVE_GROUP.get(case.side_status(sc), case.status_label)
+              for sc in case.sides}
+    collapsed = _collapse_rows(rows)
+    return collapsed, groups, len(collapsed) > 1
 
 
 def detail_status_rows(case: Case, user):
@@ -1961,11 +2049,16 @@ def can_do_side_action(case: Case, user, action: str, side: str, *,
         if side_st in CaseStatus.TERMINAL:
             return False
         # A side already sent to the client (CLOSED) or marked final is likewise
-        # no longer "at Commercial" for routing or editing. "New version" is the
-        # deliberate exception: branching a fresh inquiry off a sent side is
-        # exactly how such a side gets revised (see can_new_inquiry_version).
+        # no longer "at Commercial" for routing or editing. Two deliberate
+        # exceptions: "New version" — branching a fresh inquiry off a sent side is
+        # exactly how such a side gets revised (see can_new_inquiry_version) — and
+        # the cancel request on a FINAL_APPROVED side, which mirrors the cancel
+        # the whole-case path offers on a final-approved case. A merely CLOSED
+        # side still has no cancel: there it is Final Approved or Burned.
         if (side_st in (CaseStatus.CLOSED, CaseStatus.FINAL_APPROVED)
-                and action != "new_inquiry_version"):
+                and action != "new_inquiry_version"
+                and not (action == "request_cancel"
+                         and side_st == CaseStatus.FINAL_APPROVED)):
             return False
         if action == "submit_to_technical":
             # Currency-conversion-only reopen stays with Commercial.
@@ -1998,11 +2091,14 @@ def can_do_side_action(case: Case, user, action: str, side: str, *,
                 and case.side_status(side) == CaseStatus.FINAL_APPROVED)
 
     # --- Commercial: Burn a side once it has been sent to the client ---
-    # Allowed only while merely CLOSED; once a side is FINAL_APPROVED it can only
-    # be Final-Closed.
+    # Offered while the side is CLOSED and, since the owner asked for it, while
+    # it is FINAL_APPROVED too: a final approval can still fall through. Same
+    # transition (burn_side) either way — an expert's burn goes to the commercial
+    # manager, a manager's burn takes effect at once.
     if action == "burn":
         return (holder == Unit.COMMERCIAL and owns
-                and case.side_status(side) == CaseStatus.CLOSED)
+                and case.side_status(side) in (CaseStatus.CLOSED,
+                                               CaseStatus.FINAL_APPROVED))
 
     # --- Technical side actions ---
     if action == "send_to_supply":
@@ -2520,9 +2616,13 @@ def allowed_actions(case: Case, user, *, role=None, work_user=None) -> set[str]:
             # cancel / submit / return here.
             actions = {"finalize", "burn", "view"}
         if status == CaseStatus.FINAL_APPROVED:
-            # A final-approved case is still open but can only be Final-Closed
-            # (terminal). Burning is no longer offered once it is final-approved.
-            actions = {"final_close", "comment", "view"}
+            # A final-approved case is still open. Final Close shuts it, and a
+            # final approval can still fall through afterwards — the client walks
+            # away, or the order is cancelled — so Burn and the cancel request
+            # stay on offer here exactly as they were while the case was merely
+            # CLOSED. Same two transitions, same confirm-with-comment control,
+            # and an expert's request still goes to the commercial manager.
+            actions = {"final_close", "burn", "request_cancel", "comment", "view"}
         if can_new_version:
             actions.add("new_inquiry_version")
         # Two-stage conversion (Internal/External single side -> BOTH) is offered
@@ -2761,6 +2861,7 @@ def submit_to_technical(case: Case, actor, comment: str = "", side: str = ""):
         # one) and hands Technical a stream nobody gave them.
         _publish_current_forms_to(case, Unit.TECHNICAL, side=side,
                                   leaving_unit=Unit.COMMERCIAL)
+        _mark_inquiry_comments_announced(case, side)
         case.set_side_state(side, CaseStatus.WITH_TECHNICAL, Unit.TECHNICAL)
         case.save(update_fields=["internal_status", "external_status",
                                  "internal_holder", "external_holder", "updated_at"])
@@ -2776,6 +2877,7 @@ def submit_to_technical(case: Case, actor, comment: str = "", side: str = ""):
     _sync_sides_to_case(case)
     case.save()
     _publish_current_forms_to(case, Unit.TECHNICAL, leaving_unit=Unit.COMMERCIAL)
+    _mark_inquiry_comments_announced(case, side or "")
     log(case, actor, EventAction.SUBMIT_TO_TECHNICAL, comment=comment,
         from_unit=Unit.COMMERCIAL, to_unit=Unit.TECHNICAL)
 
@@ -3998,7 +4100,8 @@ def commit_inquiry_version(case: Case, actor, *, new_table: list, side: str = ""
                            offer_type: str = "", price_type: str = "",
                            currency_conversion: bool = False,
                            update_price: bool = False,
-                           columns: list | None = None, meta: dict | None = None):
+                           columns: list | None = None, meta: dict | None = None,
+                           comments: dict | None = None):
     """Commit a "New version" save coming from the inquiry editor.
 
     The caller (edit_items) has already collected the freshly-edited rows. The
@@ -4033,6 +4136,13 @@ def commit_inquiry_version(case: Case, actor, *, new_table: list, side: str = ""
             above the inquiry table. Timeline + Technical handoff notes always
             reflect every requested toggle.
         Unit conversion and Update price apply only on TO & PI cases.
+
+    ``comments`` is the Commercial row-note map (``{client row # -> note}``) the
+    editor collected for this save. It is stored on the new version's meta, not
+    on its rows — see ``_inquiry_comment_map``. ``None`` means "the caller has
+    nothing to say about the notes", so the version we branch from keeps its
+    own; that is what the ``new_inquiry_version`` shim below needs, since it
+    re-commits the current table without ever seeing the editor.
     """
     columns = columns or ["#", "Item", "Description", "Size", "Qty", "Unit"]
 
@@ -4062,7 +4172,16 @@ def commit_inquiry_version(case: Case, actor, *, new_table: list, side: str = ""
         prior_pi = case.current_form(FormKind.PI)
 
     # --- Did the table actually change? ---------------------------------------
-    changed = not _inquiry_tables_equal(prior_table, new_table)
+    # The notes are compared alongside the rows so a comment-only edit is still a
+    # change worth a version. They are resolved through the map helper, which
+    # reads an old version's notes off its rows, so branching from a pre-move
+    # version compares like with like instead of seeing every note disappear.
+    prior_comments = _inquiry_comment_map(prior_table, cur.meta if cur else None)
+    new_comments = ({str(k): str(v or "").strip()
+                     for k, v in (comments or {}).items() if str(v or "").strip()}
+                    if comments is not None else dict(prior_comments))
+    changed = not _inquiry_tables_equal(prior_table, new_table,
+                                        prior_comments, new_comments)
     # Real row/cell/add/delete change (comments alone do not clear Update-price chip).
     content_changed = not _inquiry_tables_content_equal(prior_table, new_table)
 
@@ -4135,6 +4254,21 @@ def commit_inquiry_version(case: Case, actor, *, new_table: list, side: str = ""
     # When BOTH are on (with or without table edits), the chip stays plain
     # "Version NN" and badges above the inquiry table carry the labels.
     chip_update = bool(update_price_flag and not content_changed and not currency_flag)
+
+    # The Commercial row notes for THIS version. Written here and nowhere near
+    # ``new_form.table``, which is what keeps them off the inquiry / proforma
+    # detail rows and out of every export.
+    if comments is not None:
+        if new_comments:
+            form_meta["_comm_comments"] = dict(new_comments)
+        else:
+            form_meta.pop("_comm_comments", None)
+    # ``_comm_comments_sent`` — the notes as last read out on the timeline — is
+    # inherited with the rest of form_meta and deliberately left alone here. A
+    # note the editor seeded forward untouched still matches it and stays quiet
+    # on this version's handoff; edit the text, or move it to other rows, and it
+    # no longer matches, so the handoff reads out the new one. Comparing the two
+    # maps at send time is the whole rule; there is no flag to keep in step.
 
     if currency_only_req:
         form_meta["currency_conversion_only"] = True
@@ -4252,7 +4386,7 @@ def commit_inquiry_version(case: Case, actor, *, new_table: list, side: str = ""
     row_note = _row_change_summary(prior_table, new_table) if changed else ""
     if row_note:
         notes.append(row_note)
-    comment_note = _inquiry_comment_summary(new_table)
+    comment_note = _inquiry_comment_summary(new_table, new_comments)
     if comment_note:
         notes.append(comment_note)
     note_suffix = (" — " + " · ".join(notes)) if notes else ""
@@ -4264,14 +4398,24 @@ def commit_inquiry_version(case: Case, actor, *, new_table: list, side: str = ""
     return version
 
 
-def _inquiry_comment_groups(table) -> list[tuple[str, list]]:
-    """Group identical Commercial row comments → (note, [client_row, …])."""
+def _inquiry_comment_groups(table, comments=None) -> list[tuple[str, list]]:
+    """Group identical Commercial row comments → (note, [client_row, …]).
+
+    ``comments`` is the version's note map; omitting it reads the notes off the
+    rows, the old shape. Either way the grouping still walks the TABLE, so the
+    order of the groups and of the row numbers inside each one is the order the
+    rows sit in the grid — moving the storage changes nothing the reader sees.
+    """
     from collections import OrderedDict
+    if comments is None:
+        comments = _inquiry_comment_map(table)
     groups: OrderedDict[str, list] = OrderedDict()
     for r in (table or []):
-        if str((r or {}).get("_deleted", "") or "") == "1":
+        r = r or {}
+        if str(r.get("_deleted", "") or "") == "1":
             continue
-        note = str((r or {}).get("_comm_comment", "") or "").strip()
+        note = str(comments.get(
+            _norm_cell(r.get("#", r.get("client_row", ""))), "") or "").strip()
         if not note:
             continue
         cr = _row_client_no(r)
@@ -4306,12 +4450,12 @@ def _inquiry_active_row_count(table) -> int:
     return n
 
 
-def _inquiry_comment_summary(table) -> str:
-    """Short timeline note listing Commercial per-row comments on the inquiry."""
+def _inquiry_comment_summary(table, comments=None) -> str:
+    """Short timeline note listing the Commercial row comments on the inquiry."""
     active = _inquiry_active_row_count(table)
     parts = [
         _format_inquiry_comment_line(note, crs, active_count=active)
-        for note, crs in _inquiry_comment_groups(table)
+        for note, crs in _inquiry_comment_groups(table, comments)
     ]
     parts = [p for p in parts if p]
     if not parts:
@@ -4347,12 +4491,56 @@ def _commercial_handoff_auto_notes(case, side: str = "") -> list:
         notes.append(
             f"New version {inq.version:02d} — Unit Convert."
         )
-    active = _inquiry_active_row_count(inq.table)
-    for note, crs in _inquiry_comment_groups(inq.table):
-        line = _format_inquiry_comment_line(note, crs, active_count=active)
-        if line:
-            notes.append(line)
+    # A row note is read out on the handoff it was written for, once.
+    # ``_comm_comments_sent`` holds the notes as last announced; while they still
+    # match, this handoff has nothing new to say. Without that check the same
+    # note goes onto the timeline again every time the version comes back from
+    # Technical and is sent out afresh, which reads as Commercial repeating an
+    # instruction nobody repeated.
+    row_notes = _inquiry_comment_map(inq.table, meta)
+    if row_notes and meta.get("_comm_comments_sent") != row_notes:
+        active = _inquiry_active_row_count(inq.table)
+        for note, crs in _inquiry_comment_groups(inq.table, row_notes):
+            line = _format_inquiry_comment_line(note, crs, active_count=active)
+            if line:
+                notes.append(line)
     return notes
+
+
+def _mark_inquiry_comments_announced(case, side: str = "") -> None:
+    """Record on the handed-over inquiry which row notes the timeline just read.
+
+    Resolves the same form ``_commercial_handoff_auto_notes`` read from, so what
+    is recorded is exactly what was announced.
+
+    Stored as the note map itself rather than a flag, for two reasons. It answers
+    the only question the next handoff asks — "is this the same thing Commercial
+    already said?" — and a mapping is a value ``_form_table.html`` skips when it
+    prints a form's meta as badges, so this stays out of the case page the way
+    ``_sent_to`` and ``_sent_rb`` do. A bare ``True`` would be printed there.
+
+    Called AFTER the handoff has published the forms: ``_publish_current_forms_to``
+    rewrites the same ``meta`` to add ``_sent_to`` and the later write wins, so
+    going last is what keeps both.
+
+    An old version whose notes still sit on its rows is recorded too — that is
+    what lets an existing case stop repeating itself without a migration.
+    """
+    inq = case.current_form(FormKind.INQUIRY, side or None)
+    if inq is None and not side:
+        inq = case.current_form(FormKind.INQUIRY)
+    if inq is None:
+        return
+    meta = dict(inq.meta or {})
+    announced = _inquiry_comment_map(inq.table, meta)
+    stored = meta.get("_comm_comments_sent")
+    # Nothing to record, and nothing recorded before: leave meta untouched rather
+    # than stamping an empty map onto every inquiry that ever changes hands.
+    if stored == announced or (stored is None and not announced):
+        return
+    meta["_comm_comments_sent"] = announced
+    inq.meta = meta
+    inq.save(update_fields=["meta"])
 
 
 @transaction.atomic

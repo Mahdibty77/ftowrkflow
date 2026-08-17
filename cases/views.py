@@ -510,10 +510,6 @@ def archive(request):
 
     qs = qs.order_by("-created_at")
 
-    # Collapsed status groups (so "With Technical" covers both WITH_TECHNICAL and
-    # RETURNED_TO_TECHNICAL, etc.) used by status tabs + row data-fval.
-    status_group = CaseStatus.ARCHIVE_GROUP
-
     def _offer_label(offer_type, upgraded):
         if offer_type != OfferType.TO_PI:
             return "TO"
@@ -572,12 +568,17 @@ def archive(request):
         if (ono or "").strip()
     })
 
+    # The pills a row shows and the value its status tab filters on are decided
+    # in ONE place — services.archive_status_rows — so the two cannot describe
+    # different things: a row is filtered under exactly the statuses a reader can
+    # see printed on it. The group names it returns are the collapsed ones (so
+    # "With Technical" covers both WITH_TECHNICAL and RETURNED_TO_TECHNICAL), which
+    # is what the tabs and the row's data-fval have always used.
     tab_counts = {label: 0 for label in CaseStatus.ARCHIVE_TAB_ORDER}
     for c in cases_list:
-        if c.is_split:
-            groups = {status_group.get(c.side_status(sc), c.status_label) for sc in c.sides}
-        else:
-            groups = {status_group.get(c.status, c.status_label)}
+        rows, groups, sides_differ = services.archive_status_rows(c)
+        c.status_rows = rows
+        c.status_sides_differ = sides_differ
         c.status_fval = " ".join(sorted(groups))
         for g in groups:
             if g in tab_counts:
@@ -1081,8 +1082,10 @@ def case_detail(request, pk):
             is_active=True,
         ).select_related("profile").order_by("first_name", "username")
 
-    # Timeline scoping: a unit sees its own internal actions plus the handoff
-    # events that touch it (received/sent). Admins see the full timeline.
+    # Timeline scoping: every unit reads the whole history of the case, so they
+    # can see what happened to it before and after their own desk. The only entry
+    # still scoped narrowly is the TO/PI form-edit record — see
+    # _event_visible_to. Admins see everything, unfiltered.
     all_events = case_events
     if is_admin_view:
         events = list(all_events)
@@ -1258,7 +1261,13 @@ def case_detail(request, pk):
             can_close_side = (is_comm and owns and side_at_comm
                               and side_status != CaseStatus.UNSUPPLIABLE
                               and services._can_send_to_client(case, sc))
-            can_cancel_side = (is_comm and owns and side_at_comm
+            # A FINAL_APPROVED side is deliberately not "at Commercial" for
+            # routing (see side_at_comm above), but it does still take the cancel
+            # request — same rule the whole-case panel now applies to a
+            # final-approved case, and the same one can_do_side_action enforces.
+            can_cancel_side = (is_comm and owns
+                               and (side_at_comm
+                                    or side_status == CaseStatus.FINAL_APPROVED)
                                and side_status != CaseStatus.PENDING_CANCEL)
             currency_only = services.is_currency_conversion_only(case, sc)
             # Currency-conversion-only reopen: no routing to Technical / Supply.
@@ -1274,7 +1283,8 @@ def case_detail(request, pk):
             can_final_close_side = (is_comm and owns
                                     and case.side_status(sc) == CaseStatus.FINAL_APPROVED)
             can_burn_side = (is_comm and owns
-                             and case.side_status(sc) == CaseStatus.CLOSED)
+                             and case.side_status(sc) in (CaseStatus.CLOSED,
+                                                          CaseStatus.FINAL_APPROVED))
             can_approve_cancel_side = (
                 bool(is_comm and is_mgr)
                 and side_status == CaseStatus.PENDING_CANCEL
@@ -1499,13 +1509,28 @@ def case_detail(request, pk):
 
 
 def _event_visible_to(event, unit) -> bool:
-    """An event is visible to a unit when that unit performed it, or when the
-    event is a handoff into or out of that unit. System events are shown to all.
+    """Whether one timeline entry is shown to a viewer from ``unit``.
+
+    Every unit now reads the WHOLE case history — start to finish, every handoff
+    and every comment, whichever units they passed between. A case is one story
+    and each unit needs to see what happened to it, not only the chapter their
+    own desk touched.
+
+    The single exception is the form-edit entry: ``EventAction.EDIT`` carrying a
+    TO or PI form kind, which records that the owning unit re-saved its own
+    current form version. That is workshop noise for the unit doing the work, not
+    case history, so it keeps the narrower scoping the whole timeline used to
+    have — the unit that made the edit (or a unit the entry was handed to) sees
+    it, nobody else. Building a form (BUILD_TO / BUILD_PI) is a real event and is
+    shown to everyone.
 
     Prefer frozen ``from_unit`` / ``to_unit`` over the actor's live profile so
     history stays readable after seat reassignment / Delegate.
     """
     if unit is None:
+        return True
+    if not (getattr(event, "action", "") == EventAction.EDIT
+            and getattr(event, "form_kind", "") in (FormKind.TO, FormKind.PI)):
         return True
     if event.from_unit == unit or event.to_unit == unit:
         return True
@@ -1540,6 +1565,10 @@ def _newver_context(case, rows, side, offer_type, price_type, seeded=False,
             unit=r.get("unit", r.get("Unit", "")),
             deleted=str(r.get("deleted", r.get("_deleted", "")) or "") == "1",
             added=str(r.get("added", r.get("_added", "")) or "") == "1",
+            # ``comment`` is the grid's own key, put there by every caller below
+            # from the version's note map. ``_comm_comment`` is only still read
+            # in case a raw pre-move row reaches here directly: the grid showing
+            # a stale note is nothing, the grid silently dropping one is not.
             comment=str(r.get("comment", r.get("_comm_comment", "")) or "").strip(),
         ))
     return {
@@ -1624,7 +1653,7 @@ def edit_items(request, pk):
                                                           "unit": r.get("unit", ""),
                                                           "_deleted": "1" if str(r.get("deleted", "") or "") == "1" else "",
                                                           "_added": "1" if str(r.get("added", "") or "") == "1" else "",
-                                                          "_comm_comment": str(r.get("comment", "") or "").strip(),
+                                                          "comment": str(r.get("comment", "") or "").strip(),
                                                       }
                                                       for r in rows
                                                   ],
@@ -1635,7 +1664,15 @@ def edit_items(request, pk):
             # Build the canonical inquiry table from the submitted grid. # is
             # taken from each surviving row's data-client (so deletions leave a
             # visible gap); Item reflows 1..N.
-            new_table = []
+            #
+            # The Commercial row notes ride in with the grid, one per row, but
+            # they do NOT go into the table. They are what Commercial says about
+            # this version when handing it over, not a property of the product on
+            # the line, so they are collected into a {# -> note} map and stored on
+            # the version (CaseForm.meta) instead. Every export and every
+            # price/detail table renders from CaseForm.table, so a note that never
+            # enters the table can never surface on a row or in a sheet.
+            new_table, new_comments = [], {}
             for idx, row in enumerate(rows, start=1):
                 try:
                     cr = int(str(row.get("client_row", "")).strip() or idx)
@@ -1655,7 +1692,7 @@ def edit_items(request, pk):
                     entry["_added"] = "1"
                 note = str(row.get("comment", "") or "").strip()
                 if note:
-                    entry["_comm_comment"] = note
+                    new_comments[str(cr)] = note
                 new_table.append(entry)
             try:
                 version = services.commit_inquiry_version(
@@ -1663,6 +1700,7 @@ def edit_items(request, pk):
                     offer_type=nv_offer, price_type=nv_price,
                     currency_conversion=nv_currency,
                     update_price=nv_update_price,
+                    comments=new_comments,
                 )
             except services.InquiryUnchanged:
                 # No change + no upgrade -> refuse, stay on the page.
@@ -1671,10 +1709,15 @@ def edit_items(request, pk):
                     "No new version was created: change the table (edit a cell, "
                     "add or delete a row) — or turn on Unit conversion / Update "
                     "price / the two-stage upgrade — before saving.")
+                # Nothing was saved, so put each note back beside its row purely
+                # so the grid re-renders the way the user left it. These dicts
+                # die with the response; they are not the table.
+                shown = [dict(r, comment=new_comments.get(str(r.get("#", "")), ""))
+                         for r in new_table]
                 return render(request, "cases/edit_items.html",
                               _newver_context(case,
                                               services.apply_inquiry_row_marks_vs_v00(
-                                                  new_table, services.v00_client_row_set(case, nv_side)),
+                                                  shown, services.v00_client_row_set(case, nv_side)),
                                               nv_side, nv_offer, nv_price,
                                               currency_conversion=nv_currency,
                                               update_price=nv_update_price))
@@ -1685,17 +1728,24 @@ def edit_items(request, pk):
 
         # GET: show the editor seeded with the current version's rows.
         v00_rows = services.v00_client_row_set(case, nv_side)
+        # The notes come off the version, not off its rows, so re-opening the
+        # editor still shows what Commercial wrote and lets them edit it. The
+        # helper also reads a version saved before the move, whose notes are
+        # still on the rows — those cases open with their comments intact.
+        nv_comments = services._inquiry_comment_map(
+            nv_rows, nv_cur.meta if nv_cur else None)
         seed = []
         for r in nv_rows:
+            cr = r.get("#", r.get("client_row", ""))
             seed.append({
-                "client_row": r.get("#", r.get("client_row", "")),
+                "client_row": cr,
                 "description": r.get("Description", r.get("description", "")),
                 "size": r.get("Size", r.get("size", "")),
                 "quantity": r.get("Qty", r.get("quantity", "")),
                 "unit": r.get("Unit", r.get("unit", "")),
                 "_deleted": r.get("_deleted", ""),
                 "_added": r.get("_added", ""),
-                "_comm_comment": r.get("_comm_comment", ""),
+                "comment": nv_comments.get(str(cr).strip(), ""),
             })
         seed = services.apply_inquiry_row_marks_vs_v00(seed, v00_rows)
         return render(request, "cases/edit_items.html",

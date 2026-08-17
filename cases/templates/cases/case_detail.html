@@ -321,6 +321,12 @@
           {% csrf_token %}<input type="hidden" name="action" value="final_close">
           <button type="button" data-confirm-trigger class="btn btn-sm btn-dark"><i class="fa-solid fa-lock"></i> Final Closed</button>
         </form>
+        {% if 'burn' in actions %}
+          <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment data-required>
+            {% csrf_token %}<input type="hidden" name="action" value="burn">
+            <button type="button" data-confirm-trigger class="btn btn-sm btn-dark"><i class="fa-solid fa-fire"></i> Burned</button>
+          </form>
+        {% endif %}
       </div>
     {% endif %}
 
