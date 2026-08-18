@@ -149,7 +149,27 @@
     </div>
 
     <nav class="sb-nav">
-      {% with p=user.profile %}
+      {% comment %}
+        report_units: the units reports.views.dashboard will actually serve an
+        expert's own report for — the same three _own_report tests. It is a real
+        TUPLE, built in core.context_processors as _OWN_REPORT_UNITS, and that
+        matters: written here as a string, "unit in report_units" would be a
+        SUBSTRING test, and "" is a substring of every string — so a seat with
+        no unit passed the guard and was offered a link the view bounces
+        straight back. A tuple makes it membership again, which also makes the
+        empty unit fail on its own without a separate term for it.
+
+        The "My Report" entry is drawn in three places below (active accordion
+        role, inactive accordion role, and the no-accordion fallback); all three
+        ask this one question, so the three guards say the same thing and a seat
+        whose unit is not one of these is never offered a link the view bounces
+        back. Add a unit to Unit.CHOICES and it has to be added to
+        _OWN_REPORT_UNITS and _own_report together.
+
+        Note {% templatetag openbrace %}# … #{% templatetag closebrace %} cannot
+        be used for a note this long: that comment form is single-line only, so
+        a multi-line one is emitted into the page as visible text.
+      {% endcomment %}{% with p=user.profile report_units=nav_report_units %}
         {% if p.must_change_password %}
           {% comment %}
             An account with must_change_password set can reach exactly one page —
@@ -224,6 +244,10 @@
                     <a href="{% url 'reports:dashboard' %}" class="sb-item">
                       <span class="ic"><i class="fa-solid fa-chart-pie"></i></span>Dashboard
                     </a>
+                  {% elif nr.role == 'EXPERT' and nr.unit in report_units and not nr.is_substitute %}
+                    <a href="{% url 'reports:dashboard' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-chart-pie"></i></span>My Report
+                    </a>
                   {% endif %}
                   {% if nr.show_pricing %}
                     <a href="{% url 'dm_price_lists' %}" class="sb-item">
@@ -258,6 +282,10 @@
                     <a href="{% url 'people:activate_role' nr.id %}?next={% url 'reports:dashboard' %}" class="sb-item">
                       <span class="ic"><i class="fa-solid fa-chart-pie"></i></span>Dashboard
                     </a>
+                  {% elif nr.role == 'EXPERT' and nr.unit in report_units and not nr.is_substitute %}
+                    <a href="{% url 'people:activate_role' nr.id %}?next={% url 'reports:dashboard' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-chart-pie"></i></span>My Report
+                    </a>
                   {% endif %}
                   {% if nr.show_pricing %}
                     <a href="{% url 'people:activate_role' nr.id %}?next={% url 'dm_price_lists' %}" class="sb-item">
@@ -288,6 +316,16 @@
             <a href="{% url 'cases:archive' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-box-archive"></i></span>Archive</a>
             {% if p.role == 'MANAGER' or p.role == 'SUPERVISOR' %}
             <a href="{% url 'reports:dashboard' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-chart-pie"></i></span>Dashboard</a>
+            {% elif p.role == 'EXPERT' and p.unit in report_units %}{% comment %}
+              Same question the two accordion branches ask, in this branch's own
+              vocabulary — the accordion reads a PersonRole (nr), this reads the
+              login's own Profile (p), exactly as the Dashboard entry above it
+              does. The accordion's third term, "not nr.is_substitute", has no
+              counterpart to write here and needs none: this branch only draws
+              when the person holds no PersonRole at all, and a Substitute
+              tenure is opened against a seat that carries one.
+            {% endcomment %}
+            <a href="{% url 'reports:dashboard' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-chart-pie"></i></span>My Report</a>
             {% endif %}
             {% if p.unit == 'SUPPLY' and p.role == 'MANAGER' %}
               <div class="sb-group">Master Data</div>

@@ -57,7 +57,7 @@
           aria-selected="false"
           title="All statuses">
     <span class="ast-label"><span class="ast-w">All</span></span>
-    <span class="ast-count">{{ total_count }}</span>
+    <span class="ast-count">{{ all_tab_count }}</span>
   </button>
 </nav>
 
@@ -169,6 +169,14 @@
 {# stays so ui.js keeps wiring the combos and the clear buttons; its row-hiding #}
 {# pass can now only ever agree with the server, because both sides run the     #}
 {# same predicate over the same cell text (cases.services.archive_filter_text). #}
+{# That agreement is a MATCHED PAIR, not one rule: the two date boxes below     #}
+{# compare Jalali stamps as strings, so each side first reduces both the cell   #}
+{# and the typed value to the same YYYY.MM.DD (dropping the separator the       #}
+{# picker and the cell disagree on, and the clock, which is what keeps both     #}
+{# ends of a range inclusive of their whole day) — cases.services with          #}
+{# _archive_date_key, the browser with dateKey() in static/js/ui.js. Moving     #}
+{# one alone is exactly what emptied this table: the server sent the right      #}
+{# rows and ui.js then hid every one of them.                                   #}
 <div class="vscroll vscroll-list" id="archiveScroll">
   <table class="data" id="archiveTable" data-filter-table
          data-slice-url="{% url 'cases:archive_slice' %}"

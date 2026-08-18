@@ -1639,6 +1639,49 @@ class ArchiveScope:
             setattr(self, k, kw.get(k))
 
 
+# The separators a Jalali date is written with anywhere on this page: the
+# pickers emit ``-``, the rendered cell prints ``.``, and hand-typed values use
+# either (or ``/``). Both date paths reduce their input through this.
+_ARCHIVE_DATE_SEP = re.compile(r"[-/.]")
+
+
+def _archive_scope_date(raw):
+    """``?from=`` / ``?to=`` as a ``datetime.date``, or ``None`` when unusable.
+
+    Deliberately unannotated: ``datetime`` is imported in the body (it is needed
+    nowhere else in this module), so a ``-> datetime.date | None`` here names
+    something that does not exist at module level — inert under
+    ``from __future__ import annotations`` right up until anything resolves the
+    annotation, e.g. ``typing.get_type_hints``, which raises ``NameError``.
+
+    The archive is written in Jalali end to end — every date it prints and every
+    date box it offers — so a bare ``1404-06-01`` is a Jalali day and is
+    converted before it goes anywhere near ``created_at``. A year of 1500 or
+    more cannot be Jalali in this system's lifetime, so such a value is taken as
+    the Gregorian date it plainly is; any separator the pickers use is accepted
+    and a trailing clock is dropped, since the column is compared per DAY and
+    both ends of the range are inclusive.
+
+    Returns ``None`` rather than raising for anything that is not a date: an
+    unreadable query string must not take the page down.
+    """
+    import datetime as _date_mod
+
+    head = str(raw or "").strip().split(" ", 1)[0]
+    parts = [p for p in _ARCHIVE_DATE_SEP.split(head) if p]
+    if len(parts) != 3 or not all(p.isdigit() for p in parts):
+        return None
+    year, month, day = (int(p) for p in parts)
+    try:
+        if year >= 1500:
+            return _date_mod.date(year, month, day)
+        from .jalali import jalali_to_gregorian
+        gy, gm, gd = jalali_to_gregorian(year, month, day)
+        return _date_mod.date(gy, gm, gd)
+    except (ValueError, TypeError, OverflowError):
+        return None
+
+
 def archive_scope(request):
     """The archive queryset for this request, plus how the request was framed.
 
@@ -1820,10 +1863,21 @@ def archive_scope(request):
     if doc_kind:
         kinds = [k for k in doc_kind.split(",") if k]
         qs = qs.filter(kind__in=kinds) if kinds else qs
-    if date_from:
-        qs = qs.filter(created_at__date__gte=date_from)
-    if date_to:
-        qs = qs.filter(created_at__date__lte=date_to)
+    # ``?from=`` / ``?to=`` is the OTHER date range this page understands — the
+    # one that filters in SQL rather than on the rendered cell. The archive's own
+    # date boxes post ``ffrom`` / ``fto`` and never reach here, so this pair only
+    # ever arrives on a hand-written or bookmarked URL; when it did, the string
+    # went straight into a Gregorian date column, so a Jalali ``1404-06-01`` was
+    # read as the year 1404 AD (before every row, i.e. no filter at all) and
+    # ``to=`` excluded everything, while the ``YYYY-MM-DD HH:MM`` the picker
+    # writes raised ValidationError and returned a 500. Parsed here instead, in
+    # the calendar the page is written in, and ignored when it is unusable.
+    d_from = _archive_scope_date(date_from)
+    d_to = _archive_scope_date(date_to)
+    if d_from is not None:
+        qs = qs.filter(created_at__date__gte=d_from)
+    if d_to is not None:
+        qs = qs.filter(created_at__date__lte=d_to)
 
     # ``-created_at`` alone is NOT a total order, and it never was — two cases
     # created in the same second come back in whatever order the database felt
@@ -1952,24 +2006,43 @@ def archive_filter_text(case) -> dict:
     }
 
 
+def _archive_date_key(value: str) -> str:
+    """A Jalali stamp reduced to the ``YYYY.MM.DD`` head two of them compare on.
+
+    Both sides of a date range reach the predicate as text, and they are written
+    by different hands: the picker writes ``1404-06-15 09:00`` with hyphens, the
+    Created cell prints ``1404.06.15 09:00`` with dots. Since the comparison is
+    lexicographic, the separator itself used to decide it — ``.`` sorts after
+    ``-`` — so within one Jalali year ``From`` matched every row and ``To``
+    matched none, which is the empty table. Reducing both sides to the same
+    ``YYYY.MM.DD`` shape is what makes the comparison about the date again.
+
+    Only the DATE survives, never the time: a ``To`` of ``1404-06-15 09:00``
+    still has to keep that day's 21:30 rows, and dropping the clock on both
+    sides is what keeps a one-day range meaning the whole day. Anything that is
+    not three numbers is handed back as-is, so a cell that prints an em dash
+    still compares as it did.
+    """
+    head = (value or "").strip().split(" ", 1)[0][:10]
+    parts = [p for p in _ARCHIVE_DATE_SEP.split(head) if p]
+    if len(parts) == 3 and all(p.isdigit() for p in parts):
+        return "%04d.%02d.%02d" % (int(parts[0]), int(parts[1]), int(parts[2]))
+    return head
+
+
 def _archive_cell_matches(text: str, mode: str, raw: str) -> bool:
     """One column's predicate — the browser's, character for character.
 
-    ``gte`` / ``lte`` compare only the first ten characters and compare them as
-    STRINGS, which is what the rendered Jalali stamp allows (Y.m.d sorts
-    lexicographically). Note that the date picker writes ``1404-06-15 09:00``
-    with hyphens while the cell prints ``1404.06.15 09:00`` with dots, so for
-    two dates in the same Jalali year the separator decides the comparison and
-    ``To date`` matches nothing. That is a live defect, not a new one — it is
-    what the page has always done and this port reproduces it exactly rather
-    than quietly changing which cases a saved filter returns. Normalising both
-    sides' separators in this one function is the whole fix, when someone
-    decides to make it.
+    ``gte`` / ``lte`` compare dates as STRINGS, which is what the rendered
+    Jalali stamp allows (Y.m.d sorts lexicographically) — but only once both
+    sides have been put in the same shape by :func:`_archive_date_key`, which
+    also drops the time of day so both ends of a range are inclusive of their
+    whole day.
     """
     if mode == "gte":
-        return text[:10] >= raw[:10]
+        return _archive_date_key(text) >= _archive_date_key(raw)
     if mode == "lte":
-        return text[:10] <= raw[:10]
+        return _archive_date_key(text) <= _archive_date_key(raw)
     if mode == "equals":
         return text == raw
     parts = [p.strip() for p in raw.split(",")]

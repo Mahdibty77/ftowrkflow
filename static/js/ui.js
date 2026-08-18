@@ -55,10 +55,18 @@
       // Empty selection → blank input so the placeholder shows (no "All …" text).
       input.value = (cur && cur.value !== "") ? cur.label : "";
     }
-    // Filter combos start empty (placeholder + Clear filter), never pre-selected.
-    if (isFilter) {
-      select.value = "";
-    }
+    // A filter combo shows the filter that is IN FORCE. The archive answers its
+    // filters on the server now and re-renders the page with the chosen <option>
+    // marked selected, so a <select> that arrives carrying a value means "the
+    // rows you are looking at are already narrowed by this". That value used to
+    // be thrown away here, on the reasoning that a filter field starts empty —
+    // true only while the browser did the filtering, and it cost two things once
+    // the server took over: the field read "no filter" over a table that was
+    // filtered (and the clear X stayed hidden), and, because emptying a field
+    // that is already empty changes nothing, backspacing it away left the last
+    // window on screen instead of fetching the whole list back. Keeping the
+    // value is what makes clearing it mean something: setFromValue() prints its
+    // label, the X lights, and clearFilterValue() has something to clear.
     setFromValue();
 
     // Public refresh hook: re-read the <select> options and repaint the field.
@@ -148,8 +156,15 @@
     input.addEventListener("focus", function () { render(""); list.classList.add("open"); });
     input.addEventListener("input", function () {
       if (isFilter && !(input.value || "").trim()) {
+        // The box is empty again, however it got there — one backspace at a
+        // time, select-all-and-delete, or the last character of the word. Empty
+        // means "no filter": drop the value the field was carrying (which is
+        // what re-requests the unfiltered list, since the archive answers its
+        // filters on the server and only a change on the <select> reaches it),
+        // and show every option, which is the state a first click gives.
         clearFilterValue();
-        list.classList.remove("open");
+        render("");
+        list.classList.add("open");
         return;
       }
       render(input.value);
@@ -158,15 +173,13 @@
     });
     input.addEventListener("keydown", function (e) {
       if (!isFilter) return;
-      // Delete / Backspace clears the whole filter and keeps the list closed.
-      if (e.key === "Delete" || e.key === "Backspace") {
-        if ((input.value || "").trim() || (select.value || "").trim()) {
-          e.preventDefault();
-          clearFilterValue();
-          list.classList.remove("open");
-        }
-        return;
-      }
+      // Delete and Backspace are deliberately NOT handled here. They used to be:
+      // either key cancelled itself, emptied the whole field and shut the menu,
+      // so one backspace threw away everything that had been typed. The field is
+      // an ordinary text box — let the browser remove the one character (from
+      // the middle of the text as readily as from the end, and the whole of a
+      // selection), and the "input" handler above re-filters the menu against
+      // whatever is left, or clears the filter once nothing is left.
       if (e.key === "Escape") {
         clearFilterValue();
         list.classList.remove("open");
@@ -202,6 +215,69 @@
   window.FTBuildCombo = buildCombo;
 
   /* ----------------------------------------------------------- table filters */
+  // A Jalali stamp reduced to the YYYY.MM.DD head that two of them compare on.
+  // THE MIRROR of cases.services._archive_date_key — the two are a matched pair
+  // and must be changed together. The server filters the rows and this pass
+  // hides rows in the rendered table; whenever the two predicates disagree the
+  // reader sees the difference as an empty table.
+  //
+  // Both sides of a date range arrive as text written by different hands: the
+  // picker writes "1404-06-15 09:00" with hyphens, the Created cell prints
+  // "1404.06.15 09:00" with dots. The comparison is lexicographic, so the
+  // separator alone used to decide it ("." sorts after "-") — within one Jalali
+  // year From matched every row and To matched none, which is the empty table.
+  // Reducing both sides to the same shape is what makes it about the date.
+  //
+  // Only the DATE survives, never the clock: a To of "1404-06-15 09:00" still
+  // has to keep that day's 21:30 rows, and dropping the time on both sides is
+  // what keeps a one-day range meaning the whole day. Anything that is not
+  // three numbers is handed back as-is, so a cell printing an em dash still
+  // compares as it did.
+  //
+  // The server reads its three numbers with Python's int(), which accepts
+  // Persian and Arabic-Indic digits as readily as ASCII ones; folding them here
+  // first is what stops a date written in Persian numerals (reachable through a
+  // hand-built URL — the date boxes themselves are read-only pickers) from
+  // being a date to the server and a meaningless string to the browser, which
+  // is the empty table all over again. Done by code point rather than by a
+  // table of the digits themselves: this file is served without a charset, so
+  // nothing it EXECUTES may depend on the file being decoded as UTF-8.
+  function foldDigits(s) {
+    var out = "";
+    for (var i = 0; i < s.length; i++) {
+      var cp = s.charCodeAt(i);
+      if (cp >= 0x0660 && cp <= 0x0669) out += String(cp - 0x0660);        // Arabic-Indic
+      else if (cp >= 0x06F0 && cp <= 0x06F9) out += String(cp - 0x06F0);   // Persian
+      else out += s.charAt(i);
+    }
+    return out;
+  }
+  function pad0(digits, width) {
+    var s = String(parseInt(digits, 10));
+    while (s.length < width) s = "0" + s;
+    return s;
+  }
+  function dateKey(value) {
+    var head = (value || "").trim().split(" ")[0].slice(0, 10);
+    var parts = foldDigits(head).split(/[-/.]/).filter(Boolean);
+    var numeric = parts.length === 3 && parts.every(function (p) { return /^[0-9]+$/.test(p); });
+    if (!numeric) return head;   // not a date: compares exactly as it always did
+    return pad0(parts[0], 4) + "." + pad0(parts[1], 2) + "." + pad0(parts[2], 2);
+  }
+
+  // A table's empty-state line ("No cases in the archive yet.", "Your inbox is
+  // empty.", "No requests yet.") is one cell spanning every column, not a row
+  // of data. It has no Created cell to compare and no Document No. to search,
+  // so every predicate judges it on "" and hides the one line that explains
+  // why the table is bare — which is what a date range matching nothing used
+  // to look like: a blank table with nothing saying so. It is also not a match
+  // and must never reach the "N of M" count. This pass simply does not own
+  // that row: it neither hides it nor shows it, so a table whose own script
+  // toggles its placeholder keeps control of it.
+  function isPlaceholderRow(tr) {
+    return tr.cells.length === 1 && tr.cells[0].hasAttribute("colspan");
+  }
+
   // <table data-filter-table> with inputs/selects carrying data-filter-col="N".
   document.querySelectorAll("[data-filter-table]").forEach(function (table) {
     var tbody = table.tBodies[0];
@@ -228,18 +304,23 @@
                      parts: raw.split(",").map(function (s) { return s.trim(); }).filter(Boolean) });
       });
       Array.prototype.forEach.call(tbody.rows, function (tr) {
+        if (isPlaceholderRow(tr)) return;
         var show = terms.every(function (t) {
           var cell = tr.cells[t.col];
           var text = cell ? ((cell.getAttribute("data-fval") || cell.textContent) || "").trim().toLowerCase() : "";
-          if (t.mode === "gte") return text.slice(0, 10) >= t.raw.slice(0, 10);  // Jalali Y-m-d sorts lexicographically
-          if (t.mode === "lte") return text.slice(0, 10) <= t.raw.slice(0, 10);
+          // Dates compare as STRINGS (Jalali Y.m.d sorts lexicographically) —
+          // but only once dateKey() has put both sides in the same shape.
+          if (t.mode === "gte") return dateKey(text) >= dateKey(t.raw);
+          if (t.mode === "lte") return dateKey(text) <= dateKey(t.raw);
           if (t.mode === "equals") return text === t.raw;
           return t.parts.some(function (p) { return text.indexOf(p) !== -1; });
         });
         tr.style.display = show ? "" : "none";
       });
       var counter = document.querySelector('[data-filter-count="' + table.id + '"]');
-      if (counter) counter.textContent = Array.prototype.filter.call(tbody.rows, function (r) { return r.style.display !== "none"; }).length;
+      if (counter) counter.textContent = Array.prototype.filter.call(tbody.rows, function (r) {
+        return !isPlaceholderRow(r) && r.style.display !== "none";
+      }).length;
     }
     function clearAll() {
       controls.forEach(function (c) {

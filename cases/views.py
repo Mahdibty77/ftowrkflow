@@ -472,11 +472,41 @@ def archive(request):
         if (ono or "").strip()
     })
 
+    # Column filters: the same predicate the browser used to run over the
+    # rendered table, run here instead — because a filter that can only see the
+    # rows that were sent would silently hide the rest.
+    params = services.archive_filter_params(
+        request, unit=scope.unit, is_admin=scope.is_admin)
+
+    # The status tabs are themselves a filter — they drive the hidden ``fstatus``
+    # control — so they are applied LAST, over the set every other filter has
+    # already narrowed. ``in_range`` is that set: the rows the date range and the
+    # column filters leave, before a tab is chosen. Counting the tabs over it is
+    # what makes them agree with the list underneath: with no tab chosen the two
+    # sets are the same set, and with one chosen that tab's number is exactly the
+    # rows on screen. Splitting the pass this way also costs nothing when no tab
+    # is active — the second call has no terms and hands the list straight back.
+    status_params = {k: v for k, v in params.items() if k == "status"}
+    other_params = {k: v for k, v in params.items() if k != "status"}
+    in_range = services.archive_apply_column_filters(cases_list, other_params)
+    filtered = services.archive_apply_column_filters(in_range, status_params)
+    filtered_count = len(filtered)
+
     tab_counts = {label: 0 for label in CaseStatus.ARCHIVE_TAB_ORDER}
-    for c in cases_list:
+    for c in in_range:
         for g in c.status_groups:
             if g in tab_counts:
                 tab_counts[g] += 1
+
+    # WHICH tabs are on the strip still comes from the whole archive, and only
+    # the numbers printed on them move with the filters. That is deliberate, and
+    # the same reason the dropdown option lists above are not narrowed either: a
+    # tab that disappeared the moment a date range emptied it would take the
+    # reader's way back out of that range with it, and the hidden <select> is
+    # built from this same list, so the tab a request has active must stay in it.
+    tabs_present = set()
+    for c in cases_list:
+        tabs_present.update(c.status_groups)
 
     status_tabs = [
         {
@@ -486,7 +516,7 @@ def archive(request):
             "words": label.split(),
         }
         for label in CaseStatus.ARCHIVE_TAB_ORDER
-        if tab_counts.get(label, 0) > 0
+        if label in tabs_present
     ]
 
     # PI grand totals (VAT-inclusive) for every match + drill-down sum. Both stay
@@ -502,14 +532,6 @@ def archive(request):
             drill_grand_total_display = (
                 format_money_amount(drill_sum) if drill_sum else "—"
             )
-
-    # Column filters: the same predicate the browser used to run over the
-    # rendered table, run here instead — because a filter that can only see the
-    # rows that were sent would silently hide the rest.
-    params = services.archive_filter_params(
-        request, unit=scope.unit, is_admin=scope.is_admin)
-    filtered = services.archive_apply_column_filters(cases_list, params)
-    filtered_count = len(filtered)
 
     # ``?all=1`` renders every matching row in one page. It is the no-JavaScript
     # escape hatch (and what the "Show all N matching cases" link points at), and
@@ -540,6 +562,9 @@ def archive(request):
     return render(request, "cases/archive.html", {
         "cases": window,
         "total_count": len(cases_list),
+        # What the All tab prints: every row the filters leave with no status tab
+        # chosen, which is precisely the list All shows when it is clicked.
+        "all_tab_count": len(in_range),
         "filtered_count": filtered_count,
         "window_size": services.ARCHIVE_WINDOW,
         "next_offset": len(window),

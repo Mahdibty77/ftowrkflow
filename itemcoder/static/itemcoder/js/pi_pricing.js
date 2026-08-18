@@ -1584,9 +1584,14 @@
         }
         refreshCalc(); recomputeGrand();
       } else if (tr.getAttribute('data-brand-cleared') === '1') {
-        // Brand still changed — keep unit/TIME/svc locked; leave saved-* for brand restore.
+        // Brand still changed — keep unit/svc locked; leave saved-* for brand
+        // restore. The remark that DID lock TIME has just been emptied, and the
+        // brand lock does not cover TIME, so TIME re-opens here — otherwise it
+        // would sit disabled with nothing left holding it.
         setUnitLocked(tr, true);
-        setCellDisabled(tr, TIME_COL, true);
+        if (tr.getAttribute('data-unsuppliable') !== '1') {
+          setCellDisabled(tr, TIME_COL, false);
+        }
         clearAndLockServicePrice(tr);
       } else {
         setUnitLocked(tr, false);
@@ -1692,9 +1697,16 @@
         refreshCalc(); recomputeGrand();
       }
       setUnitLocked(tr, true);
-      setCellDisabled(tr, TIME_COL, true);
+      // TIME is NOT part of the brand lock. A price quoted for one brand does
+      // not carry over to another, so unit + service price are cleared and
+      // fixed; a delivery lead time is Supply's own figure and stays open so it
+      // can be entered (or kept) while the new brand is being priced. Only a
+      // remark round or NOT SUPPLIABLE closes TIME.
+      if (tr.getAttribute('data-remark-cleared') !== '1') {
+        setCellDisabled(tr, TIME_COL, false);
+      }
       clearAndLockServicePrice(tr);
-      // BRAND and REMARK stay editable.
+      // BRAND, TIME and REMARK stay editable.
     } else if (tr.getAttribute('data-brand-cleared') === '1') {
       // Reverted to baseline — restore like remark clear, unless remark still holds lock.
       tr.removeAttribute('data-brand-cleared');
@@ -1767,12 +1779,15 @@
         tr.setAttribute('data-unsup-locked', '1');
       } else if (tr.getAttribute('data-unsup-locked') === '1') {
         tr.removeAttribute('data-unsup-locked');
-        // Keep TIME/price locked when a remark or brand-clear is still active.
+        // Keep the price locked when a remark or brand-clear is still active.
+        // TIME only follows the remark — a brand change never locks it.
         // BRAND stays unlocked unless NOT SUPPLIABLE (remark must not lock brand).
         setCellDisabled(tr, BRAND_COL, false);
+        if (tr.getAttribute('data-remark-cleared') !== '1') {
+          setCellDisabled(tr, TIME_COL, false);
+        }
         if (tr.getAttribute('data-remark-cleared') !== '1'
             && tr.getAttribute('data-brand-cleared') !== '1') {
-          setCellDisabled(tr, TIME_COL, false);
           if (!pricingLocked()) setUnitLocked(tr, false);
         }
         setCellDisabled(tr, CODE_COL, false);
@@ -1922,8 +1937,10 @@
     // some rows. Lock those rows (clear price + code, disable unit/TIME) exactly
     // as if the user had just typed the remark. BRAND stays editable.
     // Brand vs Technical TO baseline (data-brand-baseline): if Supply changed
-    // BRAND, lock TIME + UNIT PRICE; if still equal to Technical's brand, keep
-    // TIME + UNIT PRICE open (even when FTCO code is empty).
+    // BRAND, lock the UNIT + SERVICE PRICE — a price quoted for one brand does
+    // not carry over to another. TIME is not part of that group and stays open
+    // either way, and UNIT PRICE is open (even when FTCO code is empty) as long
+    // as the brand still equals Technical's.
     // After a workflow handoff (unlockCommercial): leave commercial cells open
     // until the user types in New again — do not re-apply prior-session locks.
     setTimeout(function () {
@@ -1999,7 +2016,13 @@
             clearAndLockServicePrice(tr);
           }
           setUnitLocked(tr, true);
-          setCellDisabled(tr, TIME_COL, true);
+          // Same rule as onBrandInput: the brand lock covers unit + service
+          // price only. A PI reopened with Supply's own brand on it must still
+          // offer its TIME cell (unless a remark or NOT SUPPLIABLE holds it).
+          if (tr.getAttribute('data-remark-cleared') !== '1'
+              && tr.getAttribute('data-unsuppliable') !== '1') {
+            setCellDisabled(tr, TIME_COL, false);
+          }
           clearAndLockServicePrice(tr);
         } else {
           // Matches Technical BRAND — TIME + UNIT PRICE editable (unless remark /

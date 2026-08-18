@@ -16,7 +16,15 @@ rather than at the top of the file for the same reason: an import that fails
 lands in the same fallback path as a lookup that fails, instead of breaking the
 whole module and with it every page on the site.
 """
+from accounts.constants import Unit
+
 from .theming import theme_for_unit
+
+# The units an expert can be served their own report for. Named here rather
+# than imported from reports.views because that module pulls in the case
+# models, and this one is loaded for every template render. reports._own_report
+# tests the same three; add a unit to one and it goes in the other.
+_OWN_REPORT_UNITS = (Unit.COMMERCIAL, Unit.TECHNICAL, Unit.SUPPLY)
 
 
 def theme(request):
@@ -116,6 +124,12 @@ def theme(request):
     return {
         "active_unit_code": unit_code,
         "unit_theme": theme_for_unit(unit_code),
+        # The units reports.views.dashboard will build an expert their own
+        # report for, as a real tuple so the sidebar's ``unit in`` test is
+        # membership. Written as a string it would be a SUBSTRING test, and
+        # "" is a substring of everything -- which is how a unit-less seat
+        # came to be offered a link the view bounces straight back.
+        "nav_report_units": _OWN_REPORT_UNITS,
         "nav_inbox_count": inbox_count,
         "nav_fx_stale": fx_stale,
         "nav_roles": nav_roles,
