@@ -1239,7 +1239,7 @@ table.data td.client-no { font-weight: 650; opacity: .75; }
    omitted server-side. All sits with the other tabs.
    ============================================================ */
 .archive-status-tabs{
-  display:flex; flex-wrap:nowrap; align-items:stretch;
+  display:flex; flex-wrap:nowrap; align-items:stretch; flex-shrink:0;
   gap:.3rem; margin:0 0 .85rem; padding:.4rem;
   background:var(--cloud); border:1px solid var(--line);
   border-radius:14px; box-shadow:var(--shadow-sm, 0 1px 2px rgba(15,23,42,.04));

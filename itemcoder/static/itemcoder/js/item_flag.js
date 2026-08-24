@@ -208,6 +208,14 @@
         cell.dataset.issueWasFtcoEdit = '1';
       } else {
         cell.dataset.issuePrevHtml = cell.dataset.originalHtml || cell.innerHTML || '';
+        // Explicit '0' (not merely "unset") records the per-cell fact that THIS
+        // cell was plain colored HTML — not a live textarea — at the moment the
+        // flag was applied. restoreFinalText() below trusts this over any global
+        // setting, so a cell that happens to sit under a site-wide
+        // requireFtcoCode=false config, but was never itself a textarea, is
+        // rebuilt back to exactly what it was on clear instead of being turned
+        // into a textarea it never was.
+        cell.dataset.issueWasFtcoEdit = '0';
       }
     }
     if (!cell.dataset.originalHtml) {
@@ -241,11 +249,23 @@
     var cell = tr && tr.querySelector('td[data-col-name="Final Arranged Text"]');
     if (!cell) return;
     if (cell.dataset.issuePrevHtml) {
-      var editable = (window.FT_TOOL_SAVE
-        && String(window.FT_TOOL_SAVE.kind || '').toUpperCase() === 'TO'
-        && window.FT_TOOL_SAVE.requireFtcoCode === false)
-        || cell.dataset.issueWasFtcoEdit === '1'
-        || cell.dataset.ftcoDescEditable === '1';
+      // Decide purely on what THIS cell actually was at stash time
+      // (issueWasFtcoEdit, set by stashFinalText above), not on a global
+      // setting — a cell that was plain colored HTML at page load must come
+      // back as plain colored HTML, even when requireFtcoCode is false
+      // site-wide. Fall back to the old global-setting heuristic only for a
+      // state stashFinalText never captured (defensive — should not happen
+      // in normal apply→clear flow, since stashFinalText always records '0'
+      // or '1' before restoreFinalText can run).
+      var editable;
+      if (typeof cell.dataset.issueWasFtcoEdit !== 'undefined') {
+        editable = cell.dataset.issueWasFtcoEdit === '1';
+      } else {
+        editable = (window.FT_TOOL_SAVE
+          && String(window.FT_TOOL_SAVE.kind || '').toUpperCase() === 'TO'
+          && window.FT_TOOL_SAVE.requireFtcoCode === false)
+          || cell.dataset.ftcoDescEditable === '1';
+      }
       if (editable) {
         cell.innerHTML = '';
         var ta = document.createElement('textarea');

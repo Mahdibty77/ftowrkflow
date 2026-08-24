@@ -307,6 +307,25 @@
 
   function captureInitialSignature() {
     if (!isEditMode()) return;
+    // Settle calc-derived cells (TOTAL PRICE, UNIT PRICE, …) into their
+    // steady-state representation before reading the baseline. Until the
+    // grid's own calc engine (calculation_controls.js / pi_pricing.js) has
+    // run at least once, a data-calc-variable cell with no data-calc-value
+    // attribute yet falls back to its server-rendered textContent in
+    // cellValue() (e.g. "0 Rial"); the moment ANY later ft-calc-refreshed
+    // fires — a real price edit, or just a flag toggle, since both flag
+    // paths in item_flag.js dispatch it — that attribute gets populated and
+    // the same cell serialises differently from then on (e.g. "0"). Without
+    // this nudge that one-time, irreversible format shift would show up as
+    // a phantom diff against initialSig, so toggling a flag back OFF (a
+    // true no-op) would leave Save stuck enabled instead of disabling again.
+    // Firing the grid's own "recompute now" signal here — the same event
+    // pi_unsuppliable.js / item_flag.js / calculation_controls.js already
+    // dispatch for this exact purpose — makes the baseline match whatever
+    // representation every later signature will also see. It only settles
+    // display/serialisation timing, not any calculation rule, and changes
+    // nothing about what save() eventually posts.
+    try { document.dispatchEvent(new CustomEvent("ft-calc-refreshed")); } catch (_e0) {}
     try {
       initialSig = tableSignature();
       dirty = false;
@@ -390,6 +409,35 @@
           scheduleDirtyCheck();
         }
       }, true);
+      // Row flags (PI NOT SUPPLIABLE, TO Technical Problem apply/clear) are
+      // real changes — collect() already serialises them into the row
+      // signature (_unsuppliable / _issue / _issue_reason above) — but none
+      // of their controls are a plain input/change, or one of the click
+      // classes above: item_flag.js's .ic-box (the live control for BOTH the
+      // PI Not-Suppliable ban icon and the TO Technical-Problem wrench) and
+      // the #tp-reason-confirm / wrench-clear TO path live outside that list.
+      // item_flag.js dispatches ft-flags-changed itself on every apply/clear
+      // of either flag (applyIssue / clearIssue / the PI toggle in
+      // onTableClick — verified: it is the ONLY dispatcher of this event in
+      // the itemcoder JS), so listening for that one event, scoped to actual
+      // flag changes, catches every case without hand-listing controls.
+      //
+      // ft-calc-refreshed is deliberately NOT wired here. It sounds like the
+      // same kind of signal but is not: it also fires for perfectly ordinary,
+      // non-flag calc-engine settles — an unrelated price recompute, and
+      // notably calculation_controls.js's bootstrap(), which fires an async
+      // fetch to sync the managed FX rate and then dispatches
+      // ft-calc-refreshed once its batched repaint finishes, on EVERY PI
+      // load, whether or not any flag was touched. On a large case that
+      // settle can land a second or more after page load — after
+      // captureInitialSignature's own baseline captures below — so treating
+      // it as "the user changed something" was misreading an ordinary async
+      // settle as a live edit and left Save permanently enabled from load,
+      // with zero user action, for the rest of the session. (Confirmed live:
+      // a 377-row PI page load with a slow FX endpoint stayed stuck enabled
+      // from ~300ms through 5s+ with the old wiring, and stayed correctly
+      // disabled the whole time once this listener was removed.)
+      document.addEventListener("ft-flags-changed", scheduleDirtyCheck);
       // Snapshot after the grid / pricing / split UI finish initialising.
       setTimeout(captureInitialSignature, 400);
       setTimeout(captureInitialSignature, 1200);

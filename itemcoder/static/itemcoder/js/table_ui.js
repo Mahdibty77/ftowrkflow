@@ -353,6 +353,22 @@
         table.addEventListener('focusin', (event) => {
             const textarea = event.target.closest('textarea');
             if (!textarea) return;
+            // static/js/autogrow.js also listens for 'focusin' on `document` and,
+            // seeing any textarea gain focus (this grid's included), resizes it to
+            // ITS OWN "comment box" floor — at least 6 rows tall — meant for the
+            // standalone burn/cancel/comment panels it was written for. Bubble
+            // order runs this handler (table-level) before that one
+            // (document-level), so without stopping propagation here, clicking a
+            // cell first sizes it correctly and then autogrow.js immediately
+            // overwrites that with its oversized floor: the visible "row jumps
+            // taller on click" bug. Typing is unaffected — autogrow.js listens for
+            // 'input' in the CAPTURE phase, ahead of this grid's own 'input'
+            // handler below, which runs after it and overwrites with the correct
+            // content-driven height, so growth-by-typing already self-corrects.
+            // Stopping propagation here keeps this grid's textareas out of that
+            // unrelated module entirely, for every focus path (a real click, a
+            // programmatic .focus() from pi_columns.js, keyboard nav, …).
+            event.stopPropagation();
             const colName = textarea.closest('td')?.dataset.colName || '';
             if (AUTO_SIZE_COLS.has(colName) || textarea.classList.contains('pi-text-area')
                 || textarea.classList.contains('remark-revision-textarea')) {
