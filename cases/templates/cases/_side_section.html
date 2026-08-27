@@ -141,7 +141,7 @@
         {% csrf_token %}<input type="hidden" name="action" value="upgrade_two_stage">
         <div class="alert-inline alert-warn" style="margin-bottom:.5rem;">
           <i class="fa-solid fa-triangle-exclamation"></i>
-          <span>This permanently splits the case into independent <strong>Internal</strong> and <strong>External</strong> streams. The current side keeps its history; the other side starts fresh. This can't be undone.</span>
+          <span>This permanently splits the case into independent <strong>Internal</strong> and <strong>External</strong> streams. The side that already exists stays exactly as it is — same status, same holder, same expert, same history — and the case does not come back to you. Only the other side is created, and it starts fresh in your hands. This can't be undone.</span>
         </div>
         <div class="btn-row">
           <button class="btn btn-sm btn-primary" type="submit"><i class="fa-solid fa-layer-group"></i> Confirm conversion</button>
@@ -191,6 +191,8 @@
       {# Split cases are excluded: there each side is private to the seat that #}
       {# may act on it, and that rule is left exactly as it is.                #}
       <a class="btn btn-sm" href="/tool/case/{{ case.pk }}/TO/?mode=edit&amp;side={{ sd.code }}"><i class="fa-solid fa-eye"></i> View</a>
+    {% elif sd.to_locked_reason %}
+      <span class="muted" style="font-size:.78rem;"><i class="fa-solid fa-lock"></i> {{ sd.to_locked_reason }}</span>
     {% endif %}
     {% if sd.version_lists.TO %}{% if is_admin_view or is_tech or is_comm %}
       <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'TO' 'xlsx' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">Excel</a>
@@ -218,6 +220,10 @@
       {# Edit whenever the case is not with Supply. Read-only is enforced by    #}
       {# the save endpoint's own authorisation, not by the page.                #}
       <a class="btn btn-sm" href="/tool/case/{{ case.pk }}/PI/?mode=edit&amp;side={{ sd.code }}"><i class="fa-solid fa-eye"></i> View</a>
+    {% elif sd.pi_locked_reason %}
+      {# Why this row is empty. Set in case_detail from the same predicate that #}
+      {# hid the button above, so it can only ever show where none was drawn.   #}
+      <span class="muted" style="font-size:.78rem;"><i class="fa-solid fa-lock"></i> {{ sd.pi_locked_reason }}</span>
     {% endif %}
     {% if sd.version_lists.PI %}
       {% if is_admin_view or is_comm %}

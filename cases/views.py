@@ -310,19 +310,48 @@ def inbox(request):
              Unit.COMMERCIAL: "commercial"}.get(unit, "none")
     context_extra = {"scope": scope, "unit": unit}
 
-    # Status summary over the whole inbox (grouped COUNT — not by loading rows).
-    from django.db.models import Count
-    summary = {}
-    for row in (services.inbox_cases_for_request(request)
-                .order_by().values("status").annotate(n=Count("id", distinct=True))):
-        label = CaseStatus.LABELS.get(row["status"], row["status"])
-        summary[label] = summary.get(label, 0) + row["n"]
-
     # No pagination: every inbox case is rendered once; the table scrolls via
     # .vscroll (same sticky-header pattern as inquiry / TO / PI tables).
     cases_list = list(cases)
+
+    # Status summary, counted off the very rows this page is about to render.
+    #
+    # It used to be a grouped COUNT in the database over the whole-case
+    # ``status`` column, chosen to avoid loading rows. But the rows are loaded
+    # anyway — the line below renders every one of them — and that column is a
+    # FOSSIL on a split case: the sides have moved on and it has not. So the
+    # chips counted one thing and the pills beside them showed another, and the
+    # two disagreed exactly where a case is split. That is how an inbox with no
+    # Draft row could say "Draft: 1", and how a supply expert whose six cases
+    # were all With Supply was told Draft / With Commercial / With Technical.
+    #
+    # Counting the rows costs no query at all — one fewer, in fact, since the
+    # aggregate re-ran the whole membership filter — and no query per row
+    # either: ``inbox_status_view`` only reads columns already on the loaded
+    # case. A row contributes ONE to each DISTINCT status printed on it, which
+    # is the contract in as many words: the number beside a status is the
+    # number of visible rows carrying that status. A split row showing two
+    # different side-pills is therefore counted under both — it really is
+    # waiting in two places, and a reader who clicks either word must find it —
+    # while a row whose two sides read the same is counted once, because it
+    # only says one thing. The chips are emitted in the declared status order
+    # so the strip does not reshuffle between loads.
+    counts = {}
     for case in cases_list:
-        case.inbox_status_rows = services.inbox_status_rows(case, ctx.seat_user)
+        view = services.inbox_status_view(case, ctx.seat_user)
+        case.inbox_status_rows = view.rows
+        # ``view.labels`` IS the de-duplicated list of what this row prints, so
+        # the chip and the pill cannot be counted from two different readings.
+        for label in view.labels:
+            counts[label] = counts.get(label, 0) + 1
+    summary = {label: counts[label]
+               for label in dict.fromkeys(lbl for _code, lbl in CaseStatus.CHOICES)
+               if label in counts}
+    # Anything the declared list does not name (legacy or hand-edited data) is
+    # still shown rather than silently dropped — the pill prints it, so the
+    # summary has to count it.
+    for label in counts:
+        summary.setdefault(label, counts[label])
 
     # NEW marker: one query for the whole page (never one per row — see
     # services.annotate_inbox_seen). Purely additive: it only hangs an
@@ -417,7 +446,11 @@ def archive(request):
     # Status pills first: the tab counts, the status filter and the pills a row
     # prints all come off the same call, so a row is filtered under exactly the
     # statuses a reader can see on it.
-    services.archive_decorate(cases_list)
+    #
+    # The reader is passed in, and it is ``request.user`` — the very user the
+    # case page resolves its own pills from (see ``case_detail``) — so the two
+    # pages cannot tell one reader two different stories about the same case.
+    services.archive_decorate(cases_list, request.user)
 
     # Filter dropdown choices, over the WHOLE filtered set.
     #
@@ -640,7 +673,7 @@ def archive_slice(request):
         # because that is the one filter value that is derived rather than read.
         cases_list = list(scope.qs)
         if "status" in params:
-            services.archive_decorate(cases_list)
+            services.archive_decorate(cases_list, request.user)
         matched = services.archive_apply_column_filters(cases_list, params)
         total = len(matched)
         window = matched[offset:offset + limit]
@@ -649,7 +682,9 @@ def archive_slice(request):
         total = scope.qs.count()
         window = list(scope.qs[offset:offset + limit])
 
-    services.archive_decorate(window)
+    # Same reader as the first screen (and as the case page), so a row that
+    # scrolls in later cannot be labelled differently from one already on it.
+    services.archive_decorate(window, request.user)
     if scope.show_money:
         services.archive_attach_money(window)
 
@@ -1233,6 +1268,48 @@ def case_detail(request, pk):
             can_pi_side = is_supply and owns and side_at_supply
             can_assign_side = (is_supply and is_mgr and not s_assignee
                                and side_at_supply and not s_has_pi)
+            # WHY the Build / Edit / New version control is missing here.
+            #
+            # The page has always simply drawn NOTHING when this seat may not
+            # act on this side. So a Supply manager who had delegated a side to
+            # an expert opened the Proforma tab, found an empty control row and
+            # no statement of the rule that emptied it — and, on a page that had
+            # been loaded BEFORE the delegation, still saw a live "New version"
+            # which the tool then refused with "You can only work on your own
+            # side of this case." Neither the missing button nor the refusal
+            # said why.
+            #
+            # These two sentences are derived from ``owns`` — the SAME predicate
+            # that hides the control here and the same one ``tool_for_case``
+            # refuses on — so a sentence can only ever appear exactly where the
+            # control is absent, and never beside one. They are text: no action
+            # is added, no permission is widened, and nothing below reads them.
+            pi_locked_reason = ""
+            if is_supply and side_at_supply and not owns:
+                _pi_who = (case.supply_internal_assignee if sc == Side.INTERNAL
+                           else case.supply_external_assignee
+                           if sc == Side.EXTERNAL else None)
+                if _pi_who is not None:
+                    pi_locked_reason = (
+                        f"Assigned to {_pi_who.get_full_name() or _pi_who.username}. "
+                        "Once a side is assigned to a Supply expert, only that "
+                        "expert can build or revise its Proforma.")
+                else:
+                    pi_locked_reason = (
+                        "Only the Supply manager can work a side that has no "
+                        "expert assigned yet.")
+            to_locked_reason = ""
+            if is_tech and side_at_tech and not owns:
+                _to_who = case.technical_assignee
+                if _to_who is not None:
+                    to_locked_reason = (
+                        f"Assigned to {_to_who.get_full_name() or _to_who.username}. "
+                        "Once a case is assigned to a Technical expert, only that "
+                        "expert can build or revise its Technical Offer.")
+                else:
+                    to_locked_reason = (
+                        "Only the Technical manager can work a case that has no "
+                        "expert assigned yet.")
             # Per-side PI-remark block: this side's current PI carrying any
             # filled remark cannot be forwarded to commercial. Return-to-technical
             # stays available so supply can hand it back.
@@ -1321,6 +1398,10 @@ def case_detail(request, pk):
             can_final_close_side = False
             can_burn_side = False
             can_approve_cancel_side = False
+            # Non-split cases never hit the per-side gate, so there is nothing
+            # to explain: the seat that may not write still gets the read-only
+            # "View" control the panel draws below.
+            pi_locked_reason = to_locked_reason = ""
         inq_cur = s_forms[FormKind.INQUIRY]
         inq_sent = bool(inq_cur and inq_cur.sent)
         if case.is_split:
@@ -1343,6 +1424,8 @@ def case_detail(request, pk):
             "to_mode": _form_mode(FormKind.TO, sc),
             "pi_mode": _form_mode(FormKind.PI, sc),
             "can_pi": can_pi_side,
+            "pi_locked_reason": pi_locked_reason,
+            "to_locked_reason": to_locked_reason,
             "can_assign": can_assign_side,
             "can_send": can_send_side,
             "can_return": can_return_side,
@@ -1448,6 +1531,14 @@ def case_detail(request, pk):
 
     from django.conf import settings as _dj_settings
 
+    # The status this page prints, and whether it is printing per-side statuses,
+    # both come out of the one call. ``is_split`` below still gates the ACTION
+    # buttons — that is a different question with a different answer, and it is
+    # unchanged — but it no longer decides what the status pills say: it used to,
+    # and on a ``split_active`` case with a one-sided price type it disagreed
+    # with the inbox and the Archive, which read the same case off its sides.
+    status = services.detail_status_view(case, request.user)
+
     context = {
         "case": case,
         "actions": actions,
@@ -1472,7 +1563,8 @@ def case_detail(request, pk):
         "tech_split_can_assign": tech_split_can_assign,
         "tech_pool": tech_pool,
         "is_split": case.is_split,
-        "status_rows": services.detail_status_rows(case, request.user),
+        "status_rows": status.rows,
+        "status_per_side": status.per_side,
         "multi_side": multi_side,
         "hide_combined": hide_combined,
         "combined_events": events,
@@ -1538,6 +1630,18 @@ def _event_visible_to(event, unit) -> bool:
     have — the unit that made the edit (or a unit the entry was handed to) sees
     it, nobody else. Building a form (BUILD_TO / BUILD_PI) is a real event and is
     shown to everyone.
+
+    That exception is now HISTORY ONLY, and it has to stay for exactly that
+    reason. ``services.save_form`` no longer writes an EDIT row for an in-place
+    edit at all (the owner asked for edits to stop being recorded, and the tool's
+    autosave would otherwise have filed one every five minutes), so no new row
+    can reach this branch. The rows already in the production database can, and
+    they must keep rendering to the same readers they always did — deleting this
+    condition would suddenly expose years of other units' workshop noise on every
+    old case. Note the branch is deliberately unreachable for the other two EDIT
+    writers, currency conversion and "Requested manager approval": neither
+    carries a TO/PI ``form_kind``… except conversion, which carries PI and is
+    therefore scoped to Commercial exactly as it was before this change.
 
     Prefer frozen ``from_unit`` / ``to_unit`` over the actor's live profile so
     history stays readable after seat reassignment / Delegate.
@@ -2530,6 +2634,34 @@ def _parse_terms_post(request, kind: str = "PI") -> dict:
     }
 
 
+def _remember_export_terms(form, terms) -> None:
+    """Record the Terms sheet a PDF / Print-view export was just taken with.
+
+    The unit of memory is the CaseForm row, which *is* one
+    (case, kind, side, version, two_stage) snapshot — so the sheet is
+    remembered per version exactly as asked, one sheet per version, and the
+    next version starts blank again. PDF and Print view deliberately share it:
+    they render the same terms page from the same editor, so "the last term
+    sheet used for this version" is one answer, not one per format.
+
+    ``update_fields`` is not an optimisation here, it is the whole point:
+    ``CaseForm.updated_at`` is ``auto_now`` and it is what
+    ``export_data.form_date_jalali`` prints as the document DATE. Saving the
+    whole row would move that date on every export, which would change what the
+    documents say. Naming the single column keeps ``auto_now`` from firing.
+
+    Never let a bookkeeping failure break an export the user already has.
+    """
+    if form is None or not isinstance(terms, dict):
+        return
+    try:
+        form.export_terms = terms
+        form.save(update_fields=["export_terms"])
+    except Exception:
+        logger.exception("Could not store export terms for form #%s",
+                         getattr(form, "pk", "?"))
+
+
 _EXPORT_FMT_LABELS = {
     "xlsx": "Excel", "grouped": "Grouped Excel", "pdf": "PDF", "html": "Print view",
 }
@@ -2686,6 +2818,7 @@ def export_form(request, pk, form_kind, fmt):
     if fmt in ("pdf", "html") and request.method == "GET":
         from .export_data import (
             client_name_only, default_terms_for, doc_no_export, form_date_jalali,
+            normalize_terms,
         )
         confirm_name = (
             "cases:export_form_pdf_confirm" if fmt == "pdf"
@@ -2699,11 +2832,21 @@ def export_form(request, pk, form_kind, fmt):
             _cparams["v"] = version
         if _cparams:
             confirm_url = f"{confirm_url}?{urlencode(_cparams)}"
+        # The sheet this version was last exported with, if it ever was; the
+        # kind's defaults otherwise. ``normalize_terms`` merges the stored blob
+        # over those same defaults, so a sheet saved before a default clause
+        # changed still opens as a complete, well-shaped sheet.
+        defaults = default_terms_for(form.kind)
+        saved = bool(form.has_export_terms)
         return render(request, "cases/export/terms_editor.html", {
             "case": case,
             "form": form,
             "side": side or form.side,
-            "terms": default_terms_for(form.kind),
+            "terms": normalize_terms(form.export_terms, form.kind) if saved else defaults,
+            # Rendered into the page as JSON so "Reset to default" can restore
+            # them without a round trip. See the note in the template.
+            "default_terms": defaults,
+            "has_saved_terms": saved,
             "doc_no": doc_no_export(case, form),
             "client": client_name_only(case, form),
             "form_date": form_date_jalali(form),
@@ -2735,6 +2878,8 @@ def export_form(request, pk, form_kind, fmt):
             from .pdf_export import render_print_view_html
             terms = _parse_terms_post(request, form.kind) if request.method == "POST" else None
             html_out, filename = render_print_view_html(case, form, terms=terms)
+            if terms is not None:
+                _remember_export_terms(form, terms)
             _log_export(case, form, request, fmt, side)
             resp = HttpResponse(html_out, content_type="text/html; charset=utf-8")
             resp["Content-Disposition"] = f'inline; filename="{filename}"'
@@ -2742,6 +2887,8 @@ def export_form(request, pk, form_kind, fmt):
         if fmt == "pdf":
             terms = _parse_terms_post(request, form.kind) if request.method == "POST" else None
             content, filename = exports.export_form_pdf(case, form, terms=terms)
+            if terms is not None:
+                _remember_export_terms(form, terms)
             _log_export(case, form, request, fmt, side)
             return _file_response(content, filename, "application/pdf")
     except Exception as exc:  # never surface a 500 to the user for an export
@@ -2805,6 +2952,9 @@ def export_form_pdf_confirm(request, pk, form_kind):
     try:
         terms = _parse_terms_post(request, form.kind)
         content, filename = exports.export_form_pdf(case, form, terms=terms)
+        # Only once the document actually exists: a sheet that failed to render
+        # is not "the last term sheet exported for this version".
+        _remember_export_terms(form, terms)
         _log_export(case, form, request, "pdf", side)
         # AJAX: return JSON+base64 so browser extensions (IDM) cannot intercept
         # application/pdf attachment responses and corrupt the download.
@@ -2876,6 +3026,7 @@ def export_form_html_confirm(request, pk, form_kind):
         from .pdf_export import render_print_view_html
         terms = _parse_terms_post(request, form.kind)
         html_out, filename = render_print_view_html(case, form, terms=terms)
+        _remember_export_terms(form, terms)
         _log_export(case, form, request, "html", side)
         if _is_ajax(request):
             import base64

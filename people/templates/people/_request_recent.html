@@ -31,14 +31,14 @@
         data-archive-status-filter="1"></select>
 {% endif %}
 
-<div class="card" style="margin-bottom:1rem;">
+<div class="card filter-card-fit" style="margin-bottom:1rem;">
   <div class="archive-filter-toolbar">
     <button type="button" class="btn btn-sm" data-filter-clear="{{ table_id }}" title="Reset all filters">
       <i class="fa-solid fa-eraser"></i> Clear filters
     </button>
     <span class="count"><span data-filter-count="{{ table_id }}">{{ rows|length }}</span> requests</span>
   </div>
-  <div class="grid archive-filter-grid">
+  <div class="grid archive-filter-grid rr-filter-grid">
     <div class="field">
       <label><i class="fa-solid fa-hashtag"></i> Request no.</label>
       <select data-combo data-placeholder="Search request no…"

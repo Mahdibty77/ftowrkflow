@@ -1380,7 +1380,9 @@ def save_form(case: Case, *, kind: str, columns: list, table: list, meta: dict,
 
     ``new_version`` True copies the current form into a new, higher version
     (00 -> 01 -> 02 …). Otherwise the current version's data is replaced.
-    ``is_edit`` records the timeline entry as an edit rather than a build.
+    ``is_edit`` True means this save only rewrites the CURRENT version in
+    place, and such a save is NOT written to the timeline at all (see the
+    logging block at the end of this function).
     """
     current = case.current_form(kind, side)
     # Commercial FX-only clones (e.g. TO 03 for unit conversion) are not work
@@ -1480,13 +1482,30 @@ def save_form(case: Case, *, kind: str, columns: list, table: list, meta: dict,
     if kind == FormKind.TO:
         freeze_technical_expert(case, actor)
 
-    # Record the save in the timeline. A brand-new version (or first build) is a
-    # BUILD; re-saving an existing version is an EDIT. Both carry the form kind
-    # and version so the reader sees exactly what was touched.
-    if is_edit:
-        log(case, actor, EventAction.EDIT, from_unit=_unit_of(actor),
-            form_kind=kind, form_version=version, side=side)
-    else:
+    # Record the save in the timeline — but ONLY when this save produced a
+    # VERSION. Building the first TO/PI, branching a new version, and the
+    # implicit new version a moved-on inquiry forces are all real case history
+    # and keep their BUILD_TO / BUILD_PI entry, carrying the form kind and
+    # version so the reader sees exactly what was written.
+    #
+    # Re-saving the CURRENT version in place is not. It used to log an
+    # ``EventAction.EDIT`` row; the owner asked for edits to stop being
+    # recorded, and the five-minute autosave in the coding tool made that
+    # urgent — every autosave saves in edit mode, so an hour of coding buried
+    # the timeline under a dozen identical "Edited TO form" lines that said
+    # nothing about the case. So an in-place edit now writes NO event.
+    #
+    # Nothing goes blind: the snapshot itself still carries who saved it last
+    # and when (``CaseForm.signed_by`` / ``CaseForm.updated_at``, both rewritten
+    # above on every save), which is the trace a "who touched this last"
+    # question actually needs.
+    #
+    # EventAction.EDIT itself stays — the choice stays in the model, the two
+    # OTHER writers of it (Proforma currency conversion, "Requested manager
+    # approval") are untouched, and every reader of it stays in place so the
+    # EDIT rows already in the production database keep rendering exactly as
+    # they do today.
+    if not is_edit:
         action = EventAction.BUILD_PI if kind == FormKind.PI else EventAction.BUILD_TO
         log(case, actor, action, from_unit=_unit_of(actor),
             form_kind=kind, form_version=version, side=side)
@@ -1494,108 +1513,251 @@ def save_form(case: Case, *, kind: str, columns: list, table: list, meta: dict,
 
 
 # ---------------------------------------------------------------------------
-# Permissions: which actions a user may take on a case right now
+# What a reader is TOLD a case's status is — one definition, and only one
 # ---------------------------------------------------------------------------
-def _collapse_rows(rows):
-    """If every row shows the same status, collapse to one unlabelled row."""
-    distinct = {(r[1], r[2]) for r in rows}
-    if len(distinct) == 1:
-        return [(None, rows[0][1], rows[0][2])]
-    return rows
+# Every surface that prints a status, counts one, groups by one or filters on
+# one now goes through :func:`status_view`. That is the whole point of this
+# section, and it is a repair, not a tidy-up: two separate defects came from
+# the same habit of working "the status" out twice.
+#
+#   * The inbox summary aggregated the whole-case ``status`` COLUMN in SQL
+#     while the rows printed beside it were rendered from the per-side
+#     statuses. On a split case the column is a FOSSIL — a leftover from before
+#     the sides began moving apart — so the chips counted a status no row
+#     showed. A supply expert holding six cases that were all With Supply on
+#     their side was told "Draft: 2, With Commercial: 2, With Technical: 2".
+#
+#   * The Archive derived its group names from ``case.sides`` in a separate
+#     comprehension from the pills it printed, and it never narrowed to the
+#     sides a reader is entitled to — so the one reader whose case page
+#     deliberately shows a single side, the supply expert, read "With Supply"
+#     on the case page and "Internal: With Supply / External: With Technical"
+#     in the Archive, filed under With Technical.
+#
+# Both are the same mistake. So there is now ONE function that decides which
+# sides a given reader sees and what status is on each, and the pills, the
+# de-duplicated labels the inbox summary counts, the archive group names, the
+# status filter value and the tab counts are all projections of that single
+# list. Nothing downstream re-reads ``case.status``, ``internal_status`` or
+# ``external_status``, so there is no second definition left to drift from.
+class StatusView:
+    """What one reader is shown for one case, and everything derived from it.
 
+    Built from ``entries`` — ``[(side label or None, status CODE)]``, already
+    narrowed to this reader and already collapsed. Every attribute below is a
+    projection of that one list, which is what makes them incapable of
+    disagreeing with each other:
 
-def _row_for_side(case, sc):
-    st = case.side_status(sc)
-    return (Side.LABELS.get(sc, sc),
-            CaseStatus.LABELS.get(st, st),
-            CaseStatus.COLORS.get(st, "#6b7280"))
-
-
-def archive_status_rows(case: Case):
-    """(rows, archive group names, sides_differ) for one Archive row.
-
-    The Archive is the record, so unlike the inbox and the case page it never
-    narrows to the sides a particular reader holds — every side is listed. What
-    it must not do is let a reader take one side's status for *the* status of the
-    case, which is what a bare pair of pills invites: a commercial expert whose
-    Internal side came back "Cannot supply" sees that word in their inbox (which
-    only ever shows the sides in their hands) and then reads the same case in the
-    Archive as "Returned to Technical", because that is genuinely where the other
-    side is. Both readings are true; only the Archive was silent about there
-    being two of them.
-
-    So: identical sides collapse to one unlabelled pill — a case that is Cannot
-    supply on both sides now reads exactly "Cannot supply" here, the same as it
-    does everywhere else — and when the sides really do differ the caller says so
-    in as many words. Nothing here changes a status; ``side_status`` is read, and
-    the whole-case ``status`` is still what a non-split case shows.
-
-    The group names come back alongside the rows because the row's status FILTER
-    value has to describe the very pills that are on screen; deriving them apart
-    from the rows is how the two drift.
+    ``rows``          the pills, exactly as the templates unpack them
+                      ``(side label or None, status label, colour)``
+    ``labels``        the distinct status labels a reader can READ off the row,
+                      in the order they appear — what the inbox summary counts
+    ``groups``        the collapsed Archive group names for those same codes —
+                      the status tabs, the tab counts and ``status_fval``
+    ``sides_differ``  whether the row is showing more than one pill
+    ``per_side``      whether these entries came from the SIDE columns at all.
+                      This is the answer to "is this case showing per-side
+                      statuses", and it is carried on the view rather than
+                      worked out again by whoever needs it — the case page asks
+                      for it by name (``status_per_side``) instead of testing
+                      ``is_split`` for itself, because a template that decides
+                      this on its own gate is how the page came to print the
+                      whole-case column while the inbox and the Archive printed
+                      the sides.
     """
-    if not case.is_split:
-        return ([(None, case.status_label, case.status_color)],
-                {CaseStatus.ARCHIVE_GROUP.get(case.status, case.status_label)},
-                False)
-    rows = [_row_for_side(case, sc) for sc in case.sides]
-    groups = {CaseStatus.ARCHIVE_GROUP.get(case.side_status(sc), case.status_label)
-              for sc in case.sides}
-    collapsed = _collapse_rows(rows)
-    return collapsed, groups, len(collapsed) > 1
+
+    __slots__ = ("rows", "codes", "labels", "groups", "sides_differ", "per_side")
+
+    def __init__(self, entries, *, per_side=False):
+        self.per_side = bool(per_side)
+        self.codes = [code for _side, code in entries]
+        self.rows = [(side,
+                      CaseStatus.LABELS.get(code, code),
+                      CaseStatus.COLORS.get(code, "#6b7280"))
+                     for side, code in entries]
+        self.labels = list(dict.fromkeys(row[1] for row in self.rows))
+        # The fallback is the label of the code that produced the PILL, never
+        # the whole-case fossil's label: a side status that is not one of the
+        # declared codes (legacy or hand-edited data) must still group under
+        # the words the reader can see on the row. It will not match a tab —
+        # the tab strip is built from ``ARCHIVE_TAB_ORDER`` — which is correct,
+        # because there is no tab for a status the system does not declare.
+        self.groups = {
+            CaseStatus.ARCHIVE_GROUP.get(code, CaseStatus.LABELS.get(code, code))
+            for code in self.codes
+        }
+        self.sides_differ = len(self.rows) > 1
 
 
-def detail_status_rows(case: Case, user):
-    """Status rows for the case-detail page.
+def _pill(code):
+    """The (label, colour) pair a status code renders as."""
+    return (CaseStatus.LABELS.get(code, code),
+            CaseStatus.COLORS.get(code, "#6b7280"))
 
-    * Non-split -> the single whole-case status.
-    * Split -> a supply EXPERT sees only the side they own; everyone else sees
-      both sides (collapsed to one row while the two sides are in the same
-      place, e.g. the manager is building both himself).
+
+def _collapse(entries):
+    """If every side renders the same pill, collapse to one unlabelled pill.
+
+    Dropping the side label is a claim: it says the one pill left describes the
+    whole case. That is only true when the pills being collapsed account for
+    every side of the case, so this is applied to the full side list and never
+    to a list that was narrowed to one reader — see :func:`_record_sides`.
+
+    Compared on the rendered pill and not on the raw code, so the two codes
+    that share the words "Cannot supply" still collapse into the single pill
+    they always did rather than printing the same word twice.
     """
-    if not case.is_split:
-        return [(None, case.status_label, case.status_color)]
+    if len({_pill(code) for _side, code in entries}) == 1:
+        return [(None, entries[0][1])]
+    return entries
+
+
+def _supply_expert_sides(case, user):
+    """The side(s) of a split case a supply EXPERT is personally assigned."""
+    out = []
+    for sc in case.sides:
+        owner = (case.supply_internal_assignee_id if sc == Side.INTERNAL
+                 else case.supply_external_assignee_id if sc == Side.EXTERNAL
+                 else None)
+        if owner == getattr(user, "id", None):
+            out.append(sc)
+    return out
+
+
+def _record_sides(case, user):
+    """``(sides, narrowed)`` for the RECORD surfaces — case page and Archive.
+
+    The record must not hide a side: everyone who may open the case sees where
+    both of them are. The one exception is the supply expert, who works a
+    single delegated side and whose case page has always shown only that side;
+    the Archive now agrees with it instead of contradicting it.
+
+    ``narrowed`` says which of those two happened, and it is what decides
+    whether the pills may be collapsed. When a reader is being shown THEIR
+    side(s) rather than the case's, the side label is the whole point of the
+    pill — it is what stops "With Supply" from being read as the state of a
+    case whose other side is somewhere else entirely — so a narrowed list keeps
+    its labels even when it happens to hold one entry, or two that agree. That
+    is exactly how the supply expert's case page has always read.
+
+    A supply expert with no delegated side has not been narrowed to anything:
+    they are reading the case as a viewer, so they get the full list on the
+    same terms as everybody else, and their Archive row and case page say the
+    same thing as every other seat's.
+    """
     profile = getattr(user, "profile", None)
     if (profile is not None and profile.unit == Unit.SUPPLY
             and profile.role == Role.EXPERT):
-        rows = []
-        for sc in case.sides:
-            owner = (case.supply_internal_assignee_id if sc == Side.INTERNAL
-                     else case.supply_external_assignee_id if sc == Side.EXTERNAL else None)
-            if owner == user.id:
-                rows.append(_row_for_side(case, sc))
-        return rows or [(None, case.status_label, case.status_color)]
-    return _collapse_rows([_row_for_side(case, sc) for sc in case.sides])
+        own = _supply_expert_sides(case, user)
+        if own:
+            return own, True
+    return list(case.sides), False
 
 
-def inbox_status_rows(case: Case, user):
-    """Status rows for the inbox: only the side(s) that are in this user's hands
-    (the reason the case is in their inbox). Supply experts see only their own
-    side; other units see whichever sides they currently hold."""
-    if not case.is_split:
-        return [(None, case.status_label, case.status_color)]
+def _held_sides(case, user):
+    """The sides currently in this reader's hands — what the INBOX shows.
+
+    The inbox answers "what is waiting for you", so it narrows to the side(s)
+    that put the case there. A reader who holds no side (the case reached them
+    another way) is shown all of them rather than nothing.
+    """
     profile = getattr(user, "profile", None)
-    sides = []
     if profile is None:
-        sides = list(case.sides)
-    elif profile.unit == Unit.SUPPLY:
+        return list(case.sides)
+    if profile.unit == Unit.SUPPLY:
         if profile.role == Role.EXPERT:
-            for sc in case.sides:
-                owner = (case.supply_internal_assignee_id if sc == Side.INTERNAL
-                         else case.supply_external_assignee_id if sc == Side.EXTERNAL else None)
-                if owner == user.id:
-                    sides.append(sc)
+            sides = _supply_expert_sides(case, user)
         else:
             sides = [sc for sc in case.sides if case.side_holder(sc) == Unit.SUPPLY]
-    elif profile.unit == Unit.COMMERCIAL:
-        sides = [sc for sc in case.sides if case.side_holder(sc) == Unit.COMMERCIAL]
-    elif profile.unit == Unit.TECHNICAL:
-        sides = [sc for sc in case.sides if case.side_holder(sc) == Unit.TECHNICAL]
+    elif profile.unit in (Unit.COMMERCIAL, Unit.TECHNICAL):
+        sides = [sc for sc in case.sides if case.side_holder(sc) == profile.unit]
     else:
         sides = list(case.sides)
-    if not sides:
-        sides = list(case.sides)
-    return [_row_for_side(case, sc) for sc in sides]
+    return sides or list(case.sides)
+
+
+def status_view(case: Case, user=None, *, surface: str = "record") -> StatusView:
+    """The one place a case's status is turned into what a reader is shown.
+
+    ``surface`` is "record" (the case page and the Archive) or "inbox". Every
+    surface reads the split gate, the narrowing and the collapse from here —
+    including the case page, which is handed ``per_side`` rather than deciding
+    for itself — so there is no second place left that can answer any of the
+    three questions differently.
+
+    The per-side statuses are read only while the split is live. ``split_active``
+    is the same gate :func:`inbox_filter_q` routes on — every branch of it pairs
+    ``Q(split_active=True)`` with the side columns and ``Q(split_active=False)``
+    with the whole-case one, and none of them consults ``price_type`` — so a case
+    cannot be put in someone's inbox by its sides and then labelled by the
+    whole-case column. While the split is off the side columns keep stale values:
+    :func:`sync_fresh_draft_price_type` turns ``split_active`` off for a
+    one-sided price type and writes ``DRAFT`` into that side's status column in
+    the same breath, and the whole-case status then moves on without it. That is
+    exactly why those columns must not be read while the split is off.
+
+    Nothing here changes a status: ``side_status`` is read, never written.
+    """
+    if not (case.split_active and case.sides):
+        return StatusView([(None, case.status)])
+    if surface == "inbox":
+        # Not collapsed: the inbox has always named the side on every pill, so
+        # a reader holding both sides sees both lines.
+        sides = _held_sides(case, user)
+        return StatusView([(Side.LABELS.get(sc, sc), case.side_status(sc))
+                           for sc in sides], per_side=True)
+    sides, narrowed = _record_sides(case, user)
+    entries = [(Side.LABELS.get(sc, sc), case.side_status(sc)) for sc in sides]
+    # Collapsing drops the side label, which asserts that the remaining pill is
+    # the whole case. Only the un-narrowed list can carry that assertion.
+    return StatusView(entries if narrowed else _collapse(entries), per_side=True)
+
+
+def archive_status_rows(case: Case, user=None):
+    """(rows, archive group names, sides_differ) for one Archive row.
+
+    A thin projection of :func:`status_view` kept because callers read well
+    with it. The group names come back beside the rows — rather than being
+    derived from ``case.sides`` all over again — because the row's status
+    FILTER value, the tab it is filed under and the tab's count all have to
+    describe the very pills that are on screen. Deriving them apart from the
+    rows is precisely how the Archive came to file a case under a unit it was
+    not with.
+    """
+    view = status_view(case, user, surface="record")
+    return view.rows, view.groups, view.sides_differ
+
+
+def detail_status_view(case: Case, user) -> StatusView:
+    """What the case-detail page shows, rows AND gate, from the one call.
+
+    * Split off -> the single whole-case status, ``per_side`` False.
+    * Split on  -> a supply EXPERT sees only the side(s) delegated to them, each
+      still named; everyone else sees every side, collapsed to one unlabelled
+      row while they are in the same place (e.g. the manager is building both
+      himself). ``per_side`` True.
+
+    Returns the whole view rather than just ``rows`` because the page needs both
+    halves of the same answer and must not derive the second one itself: the
+    template gated on ``is_split`` while this gated on ``split_active``, and on a
+    ``split_active`` case with a one-sided price type the two disagreed — the
+    Archive and the inbox printed the side, the case page printed the whole-case
+    fossil. One call, one answer, both surfaces.
+    """
+    return status_view(case, user, surface="record")
+
+
+def inbox_status_view(case: Case, user) -> StatusView:
+    """What one inbox row shows: only the side(s) that are in this user's hands
+    (the reason the case is in their inbox). Supply experts see only their own
+    side; other units see whichever sides they currently hold.
+
+    The whole view again, so the summary chips can count ``labels`` — the very
+    labels this row prints, de-duplicated — instead of re-deriving them from the
+    rows beside the chips. Same numbers either way; the difference is that there
+    is nothing left to re-derive them WRONG.
+    """
+    return status_view(case, user, surface="inbox")
 
 
 # ---------------------------------------------------------------------------
@@ -2077,18 +2239,29 @@ def archive_apply_column_filters(cases, params):
     return kept
 
 
-def archive_decorate(cases):
+def archive_decorate(cases, user=None):
     """Attach the status pills / filter value every archive row renders.
 
     Also what the status tab counts are built from, so a row is filtered under
     exactly the statuses a reader can see printed on it.
+
+    ``user`` is the reader, and it is not optional in spirit: the Archive shows
+    a supply expert the side they were delegated, the same one their case page
+    shows, and it cannot do that without knowing who is looking. Passing None
+    keeps the old reader-blind behaviour (every side listed) for any caller
+    that genuinely has no reader.
+
+    No query per row: every column this reads — the side statuses, the side
+    holders, the supply assignee ids — is already on the loaded ``Case``, and
+    the reader's profile is fetched once and cached on the user object.
     """
     for case in cases:
-        rows, groups, sides_differ = archive_status_rows(case)
-        case.status_rows = rows
-        case.status_sides_differ = sides_differ
-        case.status_fval = " ".join(sorted(groups))
-        case.status_groups = groups
+        view = status_view(case, user, surface="record")
+        case.status_view = view
+        case.status_rows = view.rows
+        case.status_sides_differ = view.sides_differ
+        case.status_groups = view.groups
+        case.status_fval = " ".join(sorted(view.groups))
     return cases
 
 
@@ -2685,45 +2858,6 @@ def _to_has_technical_problems(case, side: str = "") -> bool:
     return False
 
 
-def _all_forms_ready_for_client(case, side: str = "", *, pi_required: bool = True) -> bool:
-    """True when every required form is built AT the current inquiry version.
-
-    "Send to client" is only allowed once the offer is fully assembled for the
-    latest inquiry: the TO must exist at the inquiry's version AND the PI must
-    also exist at that version. A Proforma is part of EVERY client deliverable —
-    even a TO-only case must have its PI built before it can be sent to the
-    client (for a TO-only case the Proforma simply carries no prices; see the
-    price-stripping guard in save_form). This enforces that a new inquiry
-    version cannot be sent until Technical and Supply have produced their
-    matching new versions.
-
-    ``pi_required`` defaults to True (the send-to-client rule above). The
-    Internal/External two-stage *upgrade* gate passes
-    ``pi_required=case.needs_pricing`` to keep its original behaviour: that
-    conversion is about the pricing split, not about sending to the client, so
-    it must not start demanding a Proforma a TO-only case would not yet have.
-    """
-    def _ready(sd):
-        inq = case.current_form(FormKind.INQUIRY, sd)
-        if inq is None:
-            return False
-        to = case.current_form(FormKind.TO, sd)
-        if to is None or to.version < inq.version \
-           or bool(to.two_stage) != bool(inq.two_stage):
-            return False
-        if pi_required:
-            pi = case.current_form(FormKind.PI, sd)
-            if pi is None or pi.version < inq.version \
-               or bool(pi.two_stage) != bool(inq.two_stage):
-                return False
-        return True
-
-    if case.is_split and not side:
-        # Whole-case readiness: every active side must be ready.
-        return all(_ready(sc) for sc in case.sides)
-    return _ready(side or None)
-
-
 def _side_ready_to_send_client(case, side=None) -> bool:
     """One side (or a non-split case): ready to send to the client.
 
@@ -2994,6 +3128,9 @@ def _pi_rows_without_price(case, side: str = "") -> list:
     return out
 
 
+# ---------------------------------------------------------------------------
+# Permissions: which actions a user may take on a case right now
+# ---------------------------------------------------------------------------
 def allowed_actions(case: Case, user, *, role=None, work_user=None) -> set[str]:
     """Return the set of action keys the user may perform on this case now.
 
@@ -3136,14 +3273,26 @@ def allowed_actions(case: Case, user, *, role=None, work_user=None) -> set[str]:
         if can_new_version:
             actions.add("new_inquiry_version")
         # Two-stage conversion (Internal/External single side -> BOTH) is offered
-        # whenever the case is at Commercial with both required forms built for
-        # the current version — even before send-to-client. It does NOT need a new
+        # to the commercial owner of the case AT ANY TIME while the case is still
+        # alive — including while Technical or Supply is holding it. The two sides
+        # of an Internal & External case move independently, so adding the missing
+        # side is not a routing decision about the side that already exists: that
+        # side keeps its status, its holder, its assignee and its whole history,
+        # and the case itself does not come back to Commercial. Only the brand-new
+        # side is created, and it lands with Commercial so Commercial can send it
+        # on its own.
+        #
+        # What still rules it out: the case is already Internal & External, it has
+        # ended (final-closed / burned / cancelled / cannot-supply-closed), or it
+        # has no inquiry to copy the new side from. The earlier holder/status gate
+        # and the "TO and PI must be built at the current version" gate are gone —
+        # both only ever described a case that had come back to Commercial finished,
+        # which is exactly the precondition being lifted. It does NOT need a new
         # version, and disappears once the case is already split.
         if (not case.is_split
                 and case.price_type in {PriceType.INTERNAL, PriceType.EXTERNAL}
-                and status in {CaseStatus.WITH_COMMERCIAL,
-                               CaseStatus.RETURNED_TO_COMMERCIAL, CaseStatus.CLOSED}
-                and _all_forms_ready_for_client(case, pi_required=case.needs_pricing)):
+                and status not in CaseStatus.TERMINAL
+                and case.current_form(FormKind.INQUIRY) is not None):
             actions.add("upgrade_two_stage")
         actions.add("view")
         # Commercial may always update the four client contact fields on any
@@ -4501,9 +4650,33 @@ def _upgrade_price_to_two_stage(case: Case, actor):
     prior side's latest inquiry — taking the SAME version number (e.g. prior side
     at v04 -> new side starts at v04) — so it can be revised independently via
     "New version".
+
+    The invariant this function is written around: the side that ALREADY EXISTS
+    must come out of the split byte-identical, because the two sides are
+    independent and creating the missing one says nothing about the other. The
+    only columns it may write on the prior side are the per-side ``*_status`` /
+    ``*_holder`` pair that restates the whole-case status/holder it already had,
+    and the ``side`` tag on rows that were carrying a blank one. Its snapshots,
+    their version numbers, their ``sent`` / ``two_stage`` flags, which one is
+    current, its assignees and its timeline all stay exactly as they were.
     """
     prior_side = Side.INTERNAL if case.price_type == PriceType.INTERNAL else Side.EXTERNAL
     new_side = Side.EXTERNAL if prior_side == Side.INTERNAL else Side.INTERNAL
+
+    # 0) FIRST, before anything moves: write down which snapshot each form kind
+    #    resolves to on the side that already exists. This has to happen here,
+    #    ahead of step 2, because ``current_form`` falls back to the blank legacy
+    #    side only for the case's PRIMARY side — and ``primary_side`` is derived
+    #    from ``price_type``, which step 2 rewrites. Read after the flip, a
+    #    prior_side of External would stop seeing its own blank-side rows.
+    #    These pks are the definition of "how this side looked before the split",
+    #    and step 4 restores exactly them.
+    #    Driven off FormKind.CHOICES rather than a hand-written triple so a kind
+    #    added later cannot slip through the reconciliation in step 4 unnoticed.
+    keep_current = {
+        kind: getattr(case.current_form(kind, prior_side), "pk", None)
+        for kind, _label in FormKind.CHOICES
+    }
 
     # 1) Tag all existing (sideless) timeline events to the side that has run so
     #    far, so the combined timeline shows that history under the prior side.
@@ -4535,8 +4708,53 @@ def _upgrade_price_to_two_stage(case: Case, actor):
         case.internal_holder = Unit.COMMERCIAL
 
     # 4) Re-tag existing side-less form snapshots (inquiry/TO/PI) to the prior
-    #    side so they belong to that side's stream after the split.
+    #    side so they belong to that side's stream after the split. A split case
+    #    matches ``side`` exactly — the blank-side fallback in
+    #    :meth:`Case.current_form` is primary-side-only, and the per-side version
+    #    chips filter on ``side=`` — so a row left blank would drop out of the
+    #    side's history altogether.
+    #
+    #    Re-tagging on its own is destructive, though, because a live case can
+    #    hold BOTH blank-side and sided snapshots of the SAME kind: a "New
+    #    version" taken while the case was single-sided writes its snapshot on
+    #    one of the two, and ``make_current`` only clears siblings that share its
+    #    side, so the other stream keeps an ``is_current`` row of its own. That
+    #    is harmless while the case is unsplit — the sided row wins the lookup
+    #    and the blank one is simply never resolved — but merging the two streams
+    #    leaves TWO rows flagged current for one (kind, side), and
+    #    ``CaseForm.Meta.ordering`` (-version, -two_stage, -id) then hands
+    #    ``current_form`` whichever sorts first. On the one live case this
+    #    feature can be used on that is the blank row: an UNSENT snapshot with
+    #    different table content displaces the sent one the side is showing —
+    #    stale content published, and a version that was closed to editing
+    #    (sent=True) replaced by one that is not, which is a permission the
+    #    holder did not have a moment earlier.
+    #
+    #    So: re-tag, then restate the single fact that must not move — the
+    #    snapshot this side resolved to BEFORE the split (step 0) is still its
+    #    current one, and every other row of that kind on this side is history.
+    #    Nothing else is written: no ``version``, no ``sent``, no ``two_stage``,
+    #    no table, no event. Only the ``is_current`` flags that merging the two
+    #    streams made ambiguous, and only on the prior side.
+    #
+    #    Note this deliberately does NOT try to decide which snapshot "should"
+    #    have won. Whether a blank-side row that never superseded its sided
+    #    sibling was right is a pre-existing question about that case's history;
+    #    splitting it is not allowed to answer it in either direction.
     case.forms.filter(side="").update(side=prior_side)
+    for kind, keep_pk in keep_current.items():
+        if keep_pk is None:
+            # This side had no current snapshot of this kind before the split,
+            # and re-tagging cannot invent one: every blank-side row belonged to
+            # the primary side (= prior_side) already, so if none of them was
+            # current then none is current now either. Leave the stream alone.
+            continue
+        # Only the losers are written. The keeper needs no update of its own:
+        # ``current_form`` only ever returns an ``is_current`` row, and nothing
+        # between step 0 and here clears that flag — the re-tag above writes
+        # ``side`` alone, and the exclude() below skips the keeper.
+        (case.forms.filter(kind=kind, side=prior_side, is_current=True)
+             .exclude(pk=keep_pk).update(is_current=False))
 
     case.save(update_fields=[
         "price_type", "split_active", "price_upgraded_two_stage",
@@ -4553,7 +4771,14 @@ def _upgrade_price_to_two_stage(case: Case, actor):
     #    standalone closed case: its "New version" only bumps the number when the
     #    table actually changes (or stays put with a two-stage label). A single
     #    CREATE event tagged to the NEW side records the conversion.
-    prior_inq = case.current_form(FormKind.INQUIRY, prior_side)
+    # Seed from the snapshot pinned in step 0 — the one the prior side was
+    # showing before anything moved — rather than re-resolving here. Re-resolving
+    # would read a case whose ``price_type`` step 2 has already flipped to BOTH,
+    # so ``primary_side`` (and with it ``current_form``'s legacy blank-side
+    # fallback) no longer means what it meant when the side was measured. Same
+    # row in the ordinary case; immune to the ordering of the steps above.
+    prior_inq = (case.forms.filter(pk=keep_current[FormKind.INQUIRY]).first()
+                 if keep_current.get(FormKind.INQUIRY) else None)
     prior_table = [dict(r) for r in (prior_inq.table or [])] if prior_inq else []
     new_version = prior_inq.version if prior_inq else 0
     new_form = CaseForm(case=case, kind=FormKind.INQUIRY, side=new_side,
@@ -4587,15 +4812,32 @@ def _upgrade_price_to_two_stage(case: Case, actor):
 def upgrade_two_stage(case: Case, actor, comment: str = "", **_ignored):
     """Commercial action: convert a single-side case (Internal OR External) into a
     combined Internal & External two-stage split — WITHOUT creating a new inquiry
-    version. Only valid while the case is non-split, set to INTERNAL or EXTERNAL,
-    and both required forms (TO, and PI when pricing) exist at the current inquiry
-    version. The already-progressed side keeps its history; the other side starts
-    fresh and independent.
+    version, and WITHOUT moving the case.
+
+    Commercial may do this whenever it wants, whoever is currently holding the
+    case: the two sides of an Internal & External case are independent streams, so
+    creating the missing one says nothing about the one that already exists. The
+    already-progressed side keeps its status, its holder, its assignees and its
+    whole history (:func:`_upgrade_price_to_two_stage` seeds that side's per-side
+    columns from the case's current whole-case status/holder and never writes
+    ``status``/``holder_unit``/``assigned_to``); the new side starts fresh with
+    Commercial, so Commercial can send it on its own.
+
+    Refused — clearly, and without half-doing it — when the case is already
+    Internal & External, when it has ended, or when there is no inquiry to copy
+    the new side from.
     """
     if case.is_split or case.price_type not in (PriceType.INTERNAL, PriceType.EXTERNAL):
-        raise ValueError("This case can't be converted to two stage.")
-    if not _all_forms_ready_for_client(case, pi_required=case.needs_pricing):
-        raise ValueError("Build the TO (and PI) for the latest version before converting.")
+        raise ValueError("This case is already Internal & External.")
+    if case.status in CaseStatus.TERMINAL:
+        raise ValueError(
+            "This case has ended (final closed / burned / cancelled / cannot supply); "
+            "it can no longer be made Internal & External."
+        )
+    if case.current_form(FormKind.INQUIRY) is None:
+        raise ValueError(
+            "This case has no inquiry yet, so there is nothing to copy onto the new side."
+        )
     _upgrade_price_to_two_stage(case, actor)
 
 

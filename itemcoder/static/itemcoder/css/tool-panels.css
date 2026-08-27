@@ -2524,3 +2524,83 @@ body[data-hide-pricing="1"] td[data-col-name="TOTAL PRICE"] {
   font-weight: 700;
 }
 .pi-pricing-applied-badge i { font-size: .95rem; }
+
+/* ── Automatic-save message ────────────────────────────────────────────────
+   The transient strip tool_save.js shows when the tool saves the grid by
+   itself. It deliberately reuses the app's existing message colours — the
+   --ok / --rej / --info triplets base.html's .flash classes are built from
+   (static/css/theme-pack.css, which this page loads and which redefines all
+   three for dark mode) — so an automatic save looks like every other message
+   in the product instead of introducing a second visual language.
+
+   Two properties are load-bearing, not decoration:
+
+   * position:fixed — the strip appears and disappears twice per save, and an
+     in-flow banner would push a 380-row virtual-scroll grid down by its own
+     height and back again each time. Fixed, it takes part in no layout at
+     all: nothing on the page moves when it comes or goes.
+   * pointer-events:none — for the seconds it is on screen it sits over the
+     tool bar. Clicks pass straight through it to whatever is underneath, so
+     it cannot intercept a press on Save, Back to case or the language
+     toggle even if a narrow window makes it overlap one of them.
+
+   It is centred on the bar's flexible .spacer, which is the one strip at the
+   top of this page that never holds a control. Off-state is
+   visibility:hidden rather than display:none so the fade has something to
+   animate and the node's box is never recalculated. */
+.ft-autosave-toast {
+  position: fixed;
+  /* Vertically centred in the 59px-tall sticky .tool-bar, which starts at the
+     top of the viewport: (59 - 33) / 2 ≈ 13. */
+  top: 13px;
+  left: 50%;
+  z-index: 400;                 /* over .tool-bar (200), under the eject overlay */
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  max-width: min(30rem, calc(100vw - 2rem));
+  padding: .42rem .8rem;
+  border-radius: 9px;
+  border: 1px solid var(--okline, #bbe6cb);
+  background: var(--okbg, #e9f7ef);
+  color: var(--ok, #15803d);
+  font-size: .82rem;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .16);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-50%) translateY(-8px);
+  transition: opacity .18s ease, transform .18s ease, visibility 0s linear .18s;
+}
+.ft-autosave-toast.is-on {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+  transition: opacity .18s ease, transform .18s ease, visibility 0s;
+}
+.ft-autosave-toast i { font-size: .9rem; opacity: .85; flex: 0 0 auto; }
+/* Truncation has to live on the text node's own box, not on the flex
+   container, or a long message overflows the pill instead of ellipsising. */
+.ft-autosave-toast .ft-autosave-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ft-autosave-toast.is-error {
+  border-color: var(--rejline, #f6c5c5);
+  background: var(--rejbg, #fdecec);
+  color: var(--rej, #dc2626);
+  white-space: normal;          /* a failure must be readable in full */
+}
+.ft-autosave-toast.is-info {
+  border-color: var(--infoline, #c3d9fb);
+  background: var(--infobg, #eaf1fe);
+  color: var(--info, #2563eb);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ft-autosave-toast { transition: opacity .01s linear, visibility 0s linear .01s; }
+  .ft-autosave-toast.is-on { transition: opacity .01s linear, visibility 0s; }
+}

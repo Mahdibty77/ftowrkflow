@@ -386,7 +386,21 @@ html[data-theme="dark"] .shift-ot-link:hover{
   background-color:currentColor;
 }
 
-.content{padding:1.25rem 1.5rem 2.5rem;width:100%;max-width:1640px}
+/* The page body fills whatever width .main gives it, at every browser zoom
+   level. This used to carry `max-width:1640px`, which is a CSS-pixel cap and
+   therefore a *zoom-dependent* one: zooming out enlarges the layout viewport
+   (at 50% a 1280px window reports 2560 CSS px), so past 1876px of viewport —
+   the cap plus the 236px sidebar — the content stopped widening and the
+   right-hand side of the screen went blank: 2560 - 1876 = 684px of dead band at
+   50% zoom, while the topbar above it still spanned the full width. Nothing here needs a cap: .main already supplies the
+   available width, the sidebar keeps its own fixed track, and the individual
+   things that genuinely want to stay narrow set their own width instead —
+   .form-narrow (600px), .auth-card (400px), the profile menu, and the
+   .filter-card-fit cards, which shrink to the run of filter boxes they hold
+   rather than leaving a wide empty box around them. Text size is not handled here either
+   — real browser zoom rescales CSS pixels itself, so type shrinks and grows
+   with the page for free once the width is allowed to follow it. */
+.content{padding:1.25rem 1.5rem 2.5rem;width:100%;max-width:none}
 /* A page whose main subject is a scrolling list — the inbox, the archive — hands
    the leftover height to that list instead of growing past the fold. The list is
    then the only thing that scrolls, and it always ends exactly at the bottom of
@@ -417,6 +431,85 @@ html[data-theme="dark"] .shift-ot-link:hover{
 .grid-4{grid-template-columns:repeat(4,1fr)}
 @media (max-width:1100px){.grid-3,.grid-4{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:680px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}}
+/* New-case form grids: as many COLUMNS as it takes to fill the card, never a
+   frozen grid inside a wide one.
+   ---------------------------------------------------------------------------
+   The previous round capped these two grids with `.field-grid-cap{max-width:
+   1280px}` so a phone box would stop growing. That moved the owner's complaint
+   one box in instead of removing it: the card still filled the page while the
+   grid inside it stopped at 1280px, so every field row ended in a run of blank
+   card. A cap on a grid inside a full-width card cannot do anything else. The
+   four-field card was worse again, because three tracks do not divide four: its
+   second row held one field beside two empty ones.
+
+   Fill the width with columns instead. "Client information" holds six fields
+   and "Offer details" four; both counts have exact divisors, so a column count
+   can always be picked that leaves neither an empty track nor a ragged tail:
+
+     six fields  -> 3 columns (2 full rows) below 1737px, 6 columns (1 row) from
+                    1737px up; 2 columns at <=1100px and 1 at <=680px come free
+                    from the .grid-3 steps above.
+     four fields -> 4 columns (1 row); the .grid-4 steps give 2 columns at
+                    <=1100px and 1 at <=680px, both exact.
+
+   1737px is the crossover because it is the width at which six columns first
+   clear the longest LABEL on this card. Measured in Chrome at the 12.48px this
+   form sets its labels in, "Client commercial phone (optional)" is 221.64px on
+   one line, so six tracks and their five 16px gaps need
+   6*221.64 + 5*16 = 1409.84px of grid; the grid here is the viewport less the
+   sidebar and the padding around the card, a constant 326px (verified at 1280,
+   1600, 1722, 1920 and 2560), so that is a 1735.84px viewport and the step
+   lands just above it. Below the line the six columns would wrap that label to
+   two lines — at 1680px they are 212.3px each and it does — while above it
+   three columns would each be wider than any single-line box in this form has
+   any use for. Either side of the line the grid still ends flush with the
+   card. */
+@media (min-width:1737px){
+  .field-grid-6{grid-template-columns:repeat(6,minmax(0,1fr))}
+}
+.field-grid-6 > .field,
+.field-grid-4 > .field{min-width:0}
+
+/* A filter card that holds only one or two boxes.
+   ---------------------------------------------------------------------------
+   The inbox card was `.grid.grid-4` carrying at most TWO fields (one for a
+   SUPPLY seat), so two of its four tracks were always empty. With .content no
+   longer capped, the card is the full width and those empty tracks grow with
+   it: at a wide viewport the only row of filters ended a long way short of the
+   card's right edge, and for a SUPPLY seat — one filter in four tracks — it
+   ended three quarters of the way short.
+
+   Neither answer for a grid works here: keeping four tracks leaves the blank,
+   and collapsing to two stretches a document-number box to over half a metre.
+   A grid is the wrong tool when the fields will never fill a row — so use as
+   many boxes as there are fields, and let the CARD stop where they stop. This
+   is the same move .rr-filter-grid below makes, one level further out: shrink
+   the container to the controls instead of leaving a wide empty box around a
+   narrow group. The table underneath is untouched and still spans the page, so
+   the page itself has no dead band; only the small card is small.
+
+   The boxes still fill whatever width the card does have, so where the sidebar
+   squeezes the card below their natural size they shrink to meet its edge and
+   the card stays flush rather than gaining a second blank. */
+.filter-card-fit{width:fit-content;max-width:100%}
+.filter-fit-grid{
+  /* One track per field, each stopping at --ffg-max — the width the archive's
+     own filter boxes reach, so the identical control is the same size on both
+     pages. Measured: on /cases/archive/ at a 2560px viewport the eight-filter
+     card (a Commercial or Supply seat) lays its fields out in one row of
+     269.5px each. A fixed track list is what lets the card measure
+     itself: the max-content width of a grid with explicit tracks is the sum of
+     their maxima, whereas a flex line whose items can grow reports a width the
+     card cannot shrink to, and the fields wrap inside it. */
+  --ffg-max:270px;
+  display:grid;
+  gap:1rem;
+  grid-template-columns:minmax(0,var(--ffg-max));
+}
+.filter-fit-grid:has(> .field:nth-child(2)){
+  grid-template-columns:repeat(2,minmax(0,var(--ffg-max)));
+}
+.filter-fit-grid > .field{min-width:0;margin-bottom:0}
 
 /* stat tiles */
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1rem}
@@ -672,11 +765,13 @@ td .chips-row,th .chips-row{margin-top:0}
 .vscroll{border:1px solid var(--line);border-radius:var(--radius);background:var(--paper);box-shadow:var(--shadow);overflow:auto;max-height:62vh}
 /* No magic constant. This used to be max-height:calc(100vh - 240px), where 240
    was a guess at how tall the topbar, page heading, status tabs and filter card
-   are. Measured on the real archive at 1366x768 they come to 424px, so the box
-   was allowed to be ~184px taller than the space it had and pushed the page past
-   the fold — and zoom made it worse, because the stack above is text and padding
-   and grows while a constant does not. Taking the leftover height as a flex item
-   lets the layout engine measure it instead, at every zoom and every screen. */
+   are. On the real archive they come to considerably more than that, so the box
+   was allowed to be taller than the space it had and pushed the page past the
+   fold — and zoom made it worse, because the stack above is text and padding and
+   grows while a constant does not. Any number written here would be wrong again
+   the next time the filter card changes shape, which is exactly the point:
+   taking the leftover height as a flex item lets the layout engine measure it,
+   at every zoom and every screen. */
 /* Scoped to a list that IS the page — a direct child of .content, which the rule
    above has made a flex column. Elsewhere .vscroll-list is a panel inside some
    other card (the overtime inbox, the recent-requests strip); those are not the
@@ -946,14 +1041,51 @@ html[data-theme="dark"] .sb-item.is-dim:hover{opacity:.88}
 .dash-technical .dash-dot{background:#1f5f8b}
 .dash-supply{border-top:3px solid #1f7a5a}
 .dash-supply .dash-dot{background:#1f7a5a}
+/* The date-range strip at the top of each dashboard panel. It is a TOOLBAR,
+   like .archive-filter-toolbar: two date boxes at their natural 150px, laid out
+   by flex, with no track count and no cap to stretch or freeze. It therefore
+   leaves the rest of its line empty, and that is the same emptiness a toolbar
+   has always had — not a container that stopped following the page. The metrics
+   and charts under it do fill their panel. */
 .dash-filter{display:flex;gap:.7rem;align-items:flex-end;flex-wrap:wrap;
   padding:.8rem 1.1rem;border-bottom:1px solid var(--line-soft)}
 .dash-filter .field{margin:0}
 .dash-filter .field label{font-size:.7rem;color:var(--muted);display:block;margin-bottom:.2rem}
 .dash-filter .field input{width:150px}
-.dash-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+/* Person cards, laid out as a WRAPPING ROW that always ends flush.
+   ---------------------------------------------------------------------------
+   Two earlier shapes both left a blank inside the bordered .dash-unit section.
+   auto-fill sized its tracks from the container, so with .content no longer
+   stopping at 1640px the row claimed as many tracks as the screen allowed and
+   most of them were empty. Replacing that with a flex row capped at 360px a
+   card only made the same blank visible: measured on /reports/ as admin at a
+   2560px viewport, the Commercial and Technical rows (two experts each) ended
+   1508.6px short of their section's right edge, and Supply (three) 1135.8px
+   short — inside a box with a border and a coloured top rule, which is exactly
+   the "right-hand side stays empty" this round is about, one box in.
+
+   So the cards fill the row. flex:1 1 280px with no cap gives exactly as many
+   boxes as there are people and grows them into whatever is left, on the last
+   row as well as a full one, so the run of cards is flush at every width and
+   every headcount. What stops a filled card from being a stretched box with a
+   name in the corner is the metric grid below: it is pinned to a column count
+   that divides its tile count, and a container query gives it MORE columns as
+   the card gets wider, so the extra width buys another tile on the line rather
+   than fatter tiles. Measured: a two-expert Commercial card at a 2560px
+   viewport is 1105.5px wide and holds its five tiles in one row of five, and
+   the three-expert Supply cards are 732.7px wide with their four tiles in one
+   row; both rows end flush with the section.
+
+   The cap that used to sit here was justified with "4*84 + 3*7.2 = 357.6px of
+   track, so a wider card fits a FOURTH metric track" — which did not even
+   support 360px, since a card must clear 357.6 + 28.8 padding + 2 border =
+   388.4px before a fourth track appears. That whole argument is moot now the
+   tile columns are pinned rather than auto-fit. */
+.dash-cards{display:flex;flex-wrap:wrap;
   gap:.8rem;padding:1.1rem}
-.dash-card{display:block;border:1px solid var(--line);border-radius:10px;padding:.85rem .9rem;
+.dash-card{display:block;flex:1 1 280px;
+  container-type:inline-size;
+  border:1px solid var(--line);border-radius:10px;padding:.85rem .9rem;
   background:var(--paper);text-decoration:none;color:var(--ink);transition:border-color .12s,box-shadow .12s,transform .08s}
 .dash-card:hover{border-color:var(--accent);box-shadow:0 4px 14px rgba(0,0,0,.08);transform:translateY(-1px);text-decoration:none}
 .dash-commercial .dash-card:hover{border-color:#b07514}
@@ -969,7 +1101,37 @@ html[data-theme="dark"] .sb-item.is-dim:hover{opacity:.88}
 .dc-mgr{font-size:.62rem;background:var(--cloud);border:1px solid var(--line);
   border-radius:6px;padding:.05rem .35rem;color:var(--muted);font-weight:700;vertical-align:middle}
 .dc-code{font-size:.74rem;color:var(--muted);font-family:monospace}
-.dc-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:.45rem}
+/* Metric tiles inside a person card. The column count is PINNED per unit to a
+   number that divides that unit's tile count, because auto-fit picked its count
+   from the card's width and landed on ragged rows — at the 329.2px content box
+   a 360px card had, it chose three tracks for Supply's four tiles, so the last
+   row held one tile beside two empty ones.
+
+   Tiles per unit, from reports/dashboard.html: Commercial 5 (plus a grand-total
+   tile that spans the full row on its own, see .dc-m-money), Technical 3,
+   Supply 4. Five is prime, so Commercial is tidy at 5 columns or at nothing
+   else; below that width 3 (3+2) is the least ragged and costs one row.
+
+   The container query is on .dash-card (container-type:inline-size above), so
+   the step is the CARD's own content width, not the viewport — which is what
+   matters here, since a card's width depends on how many people share the row
+   as much as on the screen. The two thresholds are the track arithmetic at the
+   84px tile floor with the .45rem (7.2px) gap: five tracks need
+   5*84 + 4*7.2 = 448.8px, four need 4*84 + 3*7.2 = 357.6px. Measured, a card
+   crosses them where it should: at a 1280px viewport the Commercial card's
+   content box is 434.7px and it lays out 3 columns, at 1600px it is 594.7px and
+   lays out 5; the Supply card is 275.3px and 2 columns at 1280px, 382px and 4
+   at 1600px. Where the query is unsupported the pinned counts below stand on
+   their own — exact for Technical and Supply, 3+2 for Commercial — and the
+   cards are simply taller. */
+.dc-metrics{display:grid;gap:.45rem;grid-template-columns:repeat(3,minmax(0,1fr))}
+.dash-supply .dc-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+@container (min-width:358px){
+  .dash-supply .dc-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@container (min-width:449px){
+  .dash-commercial .dc-metrics{grid-template-columns:repeat(5,minmax(0,1fr))}
+}
 .dc-m{background:var(--cloud);border-radius:7px;padding:.5rem .45rem;text-align:center;min-width:0}
 .dc-v{display:block;font-weight:800;font-size:1.05rem;line-height:1.1}
 .dc-l{display:block;font-size:.68rem;color:var(--muted);margin-top:.2rem;line-height:1.25;
@@ -1188,6 +1350,55 @@ table.data td.client-no { font-weight: 650; opacity: .75; }
 #items-table td.row-no {
   font-variant-numeric: tabular-nums;
 }
+
+/* Inquiry-items table: every column scales with the page, none of them absorbs
+   it on its own.
+   ---------------------------------------------------------------------------
+   The columns carried hard pixel widths in the template (44 / 64 / auto / 140 /
+   90 / 110 / 40), so Description was the only elastic one and it took the whole
+   surplus: with .content no longer capped it grew past three quarters of the
+   table while # stayed 44px. The table did not scale with the zoom, it
+   distorted.
+
+   The owner asked for the opposite: "take the whole page and scale with the
+   zoom". Percentage columns do exactly that — a 2560px CSS viewport is a 1280px
+   window at 50% zoom, and with these shares the table renders there in the same
+   proportions it has at 1280px/100%, only smaller. The seven numbers ARE the
+   old pixel layout read back as percentages: measured on /cases/new/ at a
+   1280px viewport the table is 937px wide and the template's widths lay its
+   columns out at 44 / 64 / 434.7 / 140 / 90 / 110 / 54.3px, and each percentage
+   below is that number over 937 (the third takes the remainder, so the seven
+   sum to exactly 100). At 1280px the percentage layout therefore reproduces the
+   pixel one to a tenth of a pixel, and every wider viewport is the same picture
+   scaled up. table-layout:fixed is what makes the shares exact rather than
+   advisory; the cells hold width:100% inputs, so nothing depends on content
+   measurement.
+
+   Only from 1101px up. Below that the template's pixel widths stay in charge:
+   percentages of the much narrower table there would squeeze "Item No." and Qty
+   below their headings, while the pixel widths simply overflow into
+   .table-wrap's existing horizontal scroll. */
+/* Up to 1100px the column widths the template used to carry inline, kept
+   verbatim so the narrow end is unchanged: the table simply overflows into
+   .table-wrap's horizontal scroll exactly as it did before. */
+@media (max-width:1100px){
+  #items-table thead th:nth-child(1){width:44px}
+  #items-table thead th:nth-child(2){width:64px}
+  #items-table thead th:nth-child(4){width:140px}
+  #items-table thead th:nth-child(5){width:90px}
+  #items-table thead th:nth-child(6){width:110px}
+  #items-table thead th:nth-child(7){width:40px}
+}
+@media (min-width:1101px){
+  #items-table{table-layout:fixed}
+  #items-table thead th:nth-child(1){width:4.70%}   /* 44   / 937 */
+  #items-table thead th:nth-child(2){width:6.83%}   /* 64   / 937 */
+  #items-table thead th:nth-child(3){width:46.38%}  /* the remainder */
+  #items-table thead th:nth-child(4){width:14.94%}  /* 140  / 937 */
+  #items-table thead th:nth-child(5){width:9.61%}   /* 90   / 937 */
+  #items-table thead th:nth-child(6){width:11.74%}  /* 110  / 937 */
+  #items-table thead th:nth-child(7){width:5.80%}   /* 54.3 / 937 */
+}
 #items-table input.is-inq-error {
   border-color: #d11 !important;
   box-shadow: 0 0 0 2px rgba(209,17,17,.20);
@@ -1312,33 +1523,302 @@ table.data td.client-no { font-weight: 650; opacity: .75; }
   gap:.75rem; flex-wrap:wrap; margin-bottom:.65rem;
 }
 .archive-mine-toggle{ flex:0 1 auto; }
-/* Compact archive filters: denser columns so fields stay within ~2 rows. */
+/* Archive / task filter card.
+   ---------------------------------------------------------------------------
+   These filters were compact to the point of being hard to read: .7rem labels
+   sitting 2.9px above .8rem fields, so the text was small AND stuck to the box
+   under it. The fix spends WIDTH, not height: the type sizes at the foot of
+   this block are the whole point, and the card pays for them out of the
+   whitespace around them — its own padding, the toolbar gap above the grid, the
+   row gap and the field's vertical padding — rather than out of an extra row.
+   Measured on /cases/archive/ as admin (nine filters), against the same card
+   before any of this, at real viewport widths:
+
+     1280px  181.7 vs 179.8      1100px  181.7 vs 235.0
+     1000px  225.6 vs 235.0       780px  207.9 vs 235.0
+      700px  237.3 vs 235.0       560px  326.3 vs 345.5
+
+   Shorter everywhere except 1280 and 700, where it is 1.9px and 2.3px taller —
+   under one line of anything, and at 700px the cost of a label that now wraps
+   instead of being clipped.
+
+   --afc-col is the floor a column may not go under. The longest label on this
+   card, "Commercial expert", measures 125.2px on one line at the .78rem set
+   below (Chrome, icon included), so 140px is that width plus a little slack; a
+   track narrower than 125.2px clips the label, or wraps it under the narrow
+   steps at the end of this block, which let it wrap on purpose.
+
+   Three rules below pin an exact column COUNT over most of the range, so what
+   --afc-col still decides is the two ends. At the upper end it decides where
+   every field fits on ONE row: with an 11.2px gap, nine tracks need
+   9*140 + 8*11.2 = 1349.6px of grid and eight need 8*140 + 7*11.2 = 1198.4px,
+   and the grid here is the viewport less the sidebar (236px), the .content
+   padding (2 x 24px) and the card's own padding and border (2 x 20px + 2px) -
+   exactly 326px, measured unchanged at 1280, 1600, 1722, 1920 and 2560 - so
+   those are 1675.6px and 1524.4px of viewport. The lower end is the narrow
+   steps at the bottom of this block.
+
+   The template just below is a fallback, not the layout anyone sees: every card
+   that wears this class overrides it - #archiveFilterForm immediately after,
+   .rr-filter-grid further down, and accounts/seat_delegate.html, which pins its
+   own grid-template-columns in a page style block. Only the type sizes and the
+   narrow steps reach that last one. */
 .archive-filter-grid{
+  --afc-col:140px;
   display:grid;
-  grid-template-columns:repeat(5, minmax(0, 1fr));
-  gap:.45rem .55rem;
+  grid-template-columns:repeat(auto-fill, minmax(var(--afc-col), 1fr));
+  /* The row gap is the one the card had before (.45rem); the column gap is
+     wider (.7rem) because columns are what this card spends to buy the bigger
+     type, and a wider gutter costs no height at all. */
+  gap:.45rem .7rem;
   align-items:end;
+}
+/* The card around the grid is tighter than a general .card vertically - and
+   only vertically; see the note on the 326px constant below.
+   Vertical padding and the gap under the toolbar are pure whitespace — nothing
+   is read in them — so they are where the taller rows the bigger type needs get
+   paid for: .card's 1.1rem of vertical padding down to .8rem is 9.6px, and the
+   toolbar's .65rem bottom margin down to .5rem is 2.4px, 12px in all, which is
+   most of what the .78rem/.85rem type costs over two rows. The HORIZONTAL
+   padding is deliberately left at .card's own 1.25rem, at every width down to
+   601px, because the wall arithmetic above counts on it: 236px of sidebar +
+   48px of .content padding + 40px of card padding + 2px of card border is the
+   326px that turns a grid width into a viewport width. */
+#archiveFilterForm .card{ padding:.8rem 1.25rem; }
+#archiveFilterForm .archive-filter-toolbar{ margin-bottom:.5rem; }
+/* Only the ARCHIVE's own filter card drops the empty tracks that auto-fill
+   keeps. Now that .content no longer stops at 1640px this grid can be over two
+   thousand pixels wide, and auto-fill happily laid out half again as many
+   tracks as there are filters, so the row of fields ended well short of the
+   card's right edge: the very "empty right-hand side" this round is about, just
+   moved inside the card. auto-fit collapses the empty tracks and hands their
+   space back to the real ones, which then reach the edge.
+
+   Scoped to #archiveFilterForm on purpose - auto-fit is exactly wrong for the
+   four-field overtime card in people/_request_recent.html, which wants its
+   fields to stay narrow; that card gets its own .rr-filter-grid rule below
+   instead of leaning on auto-fill's empty tracks. This line is not what runs at
+   most widths either: the three rules below pin a column count from 769px to
+   1675px for the nine-field card and from 920px to 1524px for the eight-field
+   one, leaving auto-fit the wide end for both and the narrow end below those
+   bands, where it already picks a count that divides the fields. */
+#archiveFilterForm .archive-filter-grid{
+  grid-template-columns:repeat(auto-fit, minmax(var(--afc-col), 1fr));
+}
+/* auto-fit is right only where the tracks OUTNUMBER the filters; where they
+   fall one or two short it wraps the leftovers onto a row of their own and the
+   card gains a long blank line. This grid holds EIGHT or NINE fields - nine for
+   an admin or a Technical seat (Client + Commercial expert both shown), eight
+   for Supply (no Client) and for a Commercial seat (no Commercial expert); the
+   two conditionals in cases/archive.html cannot both be false, so seven never
+   happens. In the band between "one field per track" and "one row", auto-fit
+   lands on counts like eight tracks for nine fields, or six for eight, and the
+   leftovers sit alone on a mostly empty last row.
+
+   So pick a column count that divides the fields evenly instead: 5 for nine
+   (5 + 4), 4 for eight (4 + 4). Both keep the SAME number of rows the auto-fit
+   layout had, so the card is no taller, while the tail shrinks to one part-row
+   and the fields get wider rather than narrower.
+
+   The bands are the two walls, not eyeballed. Upper: the rule stops where
+   auto-fit can seat every field in one row - 9*140 + 8*11.2 = 1349.6px of grid
+   for nine fields (viewport 1675.6px), 8*140 + 7*11.2 = 1198.4px for eight
+   (viewport 1524.4px). Lower: it stops where the forced columns would fall
+   under the 140px --afc-col floor that keeps "Commercial expert" on one line -
+   five columns need 5*140 + 4*11.2 = 744.8px of grid (viewport 1070.8px), four
+   need 4*140 + 3*11.2 = 593.6px (viewport 919.6px). All four walls check out at
+   the pixel: measured, the nine-field card is one row of nine at 1676px and
+   five columns at 1675px; the eight-field card is one row of eight at 1525px
+   and four columns at 1524px; five columns are exactly 140.0px wide at 1071px,
+   and four exactly 140.1px at 920px.
+
+   Above the upper wall auto-fit is already right and is left alone. Below the
+   lower one it is right only for the eight-field card, which auto-fit gives
+   three tracks over three rows (3+3+2, one empty track at the end) - not tidy,
+   but tidier than the two columns and four rows that eight fields divide into,
+   and four columns no longer clear the floor down there. Nine fields in three
+   tracks divide exactly, so the block after this pins that for the nine-field
+   card down to 769px rather than letting auto-fit pick four.
+
+   :has() counts the fields, which is the only way CSS can tell the eight-field
+   card from the nine-field one; it is already used for .content:has(>
+   .vscroll-list) above. Where it is unsupported both rules simply drop and the
+   layout falls back to auto-fit. */
+@media (min-width:1071px) and (max-width:1675px){
+  #archiveFilterForm .archive-filter-grid:has(> .field:nth-child(9)){
+    grid-template-columns:repeat(5, minmax(0, 1fr));
+  }
+}
+@media (min-width:920px) and (max-width:1524px){
+  #archiveFilterForm .archive-filter-grid:not(:has(> .field:nth-child(9))){
+    grid-template-columns:repeat(4, minmax(0, 1fr));
+  }
+}
+/* The same rule one band lower, for the nine-field card only. Below 1071px
+   five columns would fall under the 140px floor, so auto-fit takes over - and
+   auto-fit is wrong here in exactly the way described above: it picks FOUR
+   tracks for nine fields, which is three rows whose last one holds a single
+   field beside three empty tracks of blank card. Nine divides by three, so
+   three columns fill every row exactly, keep the same three rows, and make the
+   fields wider rather than narrower. The band starts at 769px because that is
+   where three columns still clear the 140px floor
+   (3*140 + 2*11.2 = 442.4px of grid, grid = viewport - 326px), measured at
+   140.2px there; below that auto-fit already picks three tracks on its own,
+   because the 780px step further down has dropped the floor to 110px by then -
+   measured at 768px, three tracks of 139.9px. So the layout does not jump at
+   the boundary, only the rule that produces it does. */
+@media (min-width:769px) and (max-width:1070px){
+  #archiveFilterForm .archive-filter-grid:has(> .field:nth-child(9)){
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+  }
+}
+/* The OTHER card wearing .archive-filter-grid: the staff-request filters in
+   people/_request_recent.html. It has four fields (three when the requester
+   column is hidden), so it is the opposite problem from the archive's nine -
+   never too many fields for the row, always too few, and no column count can
+   fix that. Leaving empty tracks puts the blank inside the card; collapsing
+   them (auto-fit) stretches four filter boxes to well over half a metre each,
+   which is worse.
+
+   Neither answer works while the CARD is the full width, so the card stops
+   where the fields do: it carries .filter-card-fit (see the New-case block far
+   above), which is width:fit-content, and this grid gives it an exact width to
+   fit to - one track per field, each capped at --afc-max. Where the sidebar
+   squeezes it below that width it simply fills what it has and stays flush.
+
+   270px is not a guess - it is the width the same control reaches on the
+   ARCHIVE card, measured at 269.5px there for an eight-filter seat in one row
+   at a 2560px viewport; a filter box here should never be wider than the
+   identical box next door. This grid sets its own track widths, so --afc-col
+   does not reach it, but the type sizes, align-items:end, the gap and the
+   narrow spacing steps at the bottom of this block all do. */
+.rr-filter-grid{
+  --afc-max:270px;
+  /* Three fields when the requester column is hidden, four when it is shown;
+     :has() is the only way CSS can count them, and it is already used twice
+     above. One track per field, each capped at 270px — the width the same
+     control reaches on the ARCHIVE card next door, so a filter box on this
+     page is never wider than the identical box on that one. */
+  grid-template-columns:repeat(3,minmax(0,var(--afc-max)));
+}
+.rr-filter-grid:has(> .field:nth-child(4)){
+  grid-template-columns:repeat(4,minmax(0,var(--afc-max)));
+}
+/* Once the card is squeezed to the full content width its tracks shrink below
+   270px, and eventually they get too narrow to hold a filter; drop to two then,
+   and drop each card at its own width, because the two field counts run out of
+   room at different places. This card keeps .card's 1.25rem of horizontal
+   padding at every width (the archive's narrow steps are scoped to
+   #archiveFilterForm and do not reach it), so grid = viewport - 326px holds
+   throughout, and the column gap is .7rem/11.2px throughout too. Four tracks
+   are down to 140px - the same floor the archive card uses, and the width at
+   which "Commercial expert" stops fitting on one line there - when the grid is
+   4*140 + 3*11.2 = 593.6px, i.e. a 919.6px viewport. Three tracks reach 110px,
+   the archive's own narrow-end floor, at 3*110 + 2*11.2 = 352.4px of grid, i.e.
+   a 678.4px viewport; three fields can afford the narrower floor because their
+   labels are shorter. Two tracks are exact for four fields and leave one empty
+   track of two for three fields, which is the same ragged last row nine filters
+   have in two columns on the archive card and cannot be avoided with an odd
+   count. */
+@media (max-width:919px){
+  .rr-filter-grid:has(> .field:nth-child(4)){
+    grid-template-columns:repeat(2,minmax(0,var(--afc-max)));
+  }
+}
+@media (max-width:678px){
+  .rr-filter-grid{
+    grid-template-columns:repeat(2,minmax(0,var(--afc-max)));
+  }
 }
 .archive-filter-grid .field{
   margin-bottom:0; min-width:0;
 }
+/* The two type sizes are the point of this whole block and are the same at
+   every width; only the whitespace around them moves. .22rem under a .78rem
+   label is 3.5px, still more air than the 2.9px a .7rem label used to have. */
 .archive-filter-grid .field label{
-  font-size:.7rem; margin-bottom:.18rem;
+  font-size:.78rem; margin-bottom:.22rem;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
 .archive-filter-grid .field input,
 .archive-filter-grid .field select,
 .archive-filter-grid .combo-input{
-  font-size:.8rem; padding:.35rem .45rem;
+  font-size:.85rem; padding:.4rem .6rem;
 }
-@media (max-width:1100px){
-  .archive-filter-grid{ grid-template-columns:repeat(4, minmax(0, 1fr)); }
+/* Under 1071px the nine-filter card is three rows, not two, so every pixel of
+   vertical whitespace now costs three times over and the card gets one more
+   turn of the same screw: a little less row gap, a little less leading under
+   the label, a little less field padding, a little less card padding. What does
+   not change is the text — .78rem label, .85rem field, set above — because that
+   is the legibility the owner asked for, and the same owner asked that the card
+   not grow tall. The step lands on 1071px because the column count changes
+   there too (five columns over two rows above it, three over three below), so
+   nothing moves on spacing alone. Measured at 1000px: 225.6px, against 235.0px
+   for the same card before any of this. */
+@media (max-width:1070px){
+  #archiveFilterForm .card{ padding:.75rem 1.25rem; }
+  .archive-filter-grid{ gap:.4rem .7rem; }
+  .archive-filter-grid .field label{ margin-bottom:.18rem; line-height:1.25; }
+  .archive-filter-grid .field input,
+  .archive-filter-grid .field select,
+  .archive-filter-grid .combo-input{ padding:.36rem .6rem; }
 }
+/* Below 780px the sidebar has eaten most of the width, and a 140px column floor
+   would start dropping whole columns; 110px is the narrowest floor that still
+   seats two columns at the bottom of this band, and at 780px itself it lands on
+   the same three columns 140px does, so nothing is given up at the top of it.
+   At these column widths the longest label, "Commercial expert" at 125.2px, no
+   longer fits on one line, so let it wrap rather than be cut off.
+   align-items:end keeps every field bottom-aligned, so a second line pushes the
+   field down rather than leaving it stranded — but it does add a line to that
+   row, and two of the nine labels ("Commercial expert" and "From date
+   (Jalali)", 114.6px) wrap once the tracks are near the floor. That is the one
+   place where the owner's two asks pull against each other: a wrapped label is
+   taller than a clipped one. The last turn of the screw is spent here to cover
+   it — the whitespace steps down again on exactly the breakpoint where wrapping
+   starts, so the card ends up shorter than it was before this round rather than
+   taller almost everywhere in the band: 207.9px at 780 and 326.3 at 560 against
+   235.0 and 345.5 before, with 700px the one width that comes out 2.3px over
+   (237.3 vs 235.0). */
 @media (max-width:780px){
-  .archive-filter-grid{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
+  /* Row gap only. The COLUMN gap stays .7rem/11.2px at every width, and the
+     card's horizontal padding stays 1.25rem down to 601px, so "grid = viewport
+     - 326px" and the 11.2px gutter in the wall arithmetic above hold
+     everywhere those walls are (all five are at 769px or wider). */
+  .archive-filter-grid{ --afc-col:110px; gap:.35rem .7rem; }
+  .archive-filter-grid .field label{
+    white-space:normal; overflow:visible; text-overflow:clip;
+    margin-bottom:.12rem; line-height:1.18;
+  }
+  .archive-filter-grid .field input,
+  .archive-filter-grid .field select,
+  .archive-filter-grid .combo-input{ padding:.3rem .5rem; }
+  #archiveFilterForm .card{ padding:.6rem 1.25rem; }
 }
-@media (max-width:560px){
-  .archive-filter-grid{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+/* Two more steps at the very bottom, and only here.
+
+   The card's horizontal padding drops from 1.25rem to .75rem. Everywhere else
+   it is left alone so that "grid = viewport - 326px", which every wall in this
+   block is derived from, is exactly true — and it is, at 1280, 1100, 1000, 780,
+   700 and 560px, all measured. Down here 40px of padding is a sixth of the
+   grid, and spending it on the fields instead is worth more than the margin:
+   at 560px it takes the grid from 234px to 250px, which is one label fewer
+   wrapping and 15px off the card (341.0 -> 326.3px, against 345.5px for the
+   same card before this round, with bigger type and with the labels wrapping
+   instead of being cut off).
+
+   The --afc-col floor drops from 110px to 96px, which changes nothing at 560px
+   — two 110px columns and the 11.2px between them need 231.2px of grid, and
+   with the padding above that is a 541.2px viewport, so 560px clears it either
+   way. It is the screens below that cliff this is for: measured at 530px the
+   110px floor collapses the card to a SINGLE column and 518.8px tall, and 96px
+   keeps two columns and 341.0px. 96px moves the cliff to a 513.2px viewport.
+
+   Both bounded at 600px because from there up to 780px the 110px floor and the
+   wider padding already give the same column count. */
+@media (max-width:600px){
+  .archive-filter-grid{ --afc-col:96px; }
+  #archiveFilterForm .card{ padding:.6rem .75rem; }
 }
 [data-mode="dark"] .archive-status-tabs,
 [data-theme="dark"] .archive-status-tabs{

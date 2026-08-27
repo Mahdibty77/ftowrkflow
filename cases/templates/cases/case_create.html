@@ -33,7 +33,7 @@
 
   <div class="card">
     <div class="card-head"><h3><i class="fa-solid fa-building"></i> Client information</h3></div>
-    <div class="grid grid-3">
+    <div class="grid grid-3 field-grid-6">
       <div class="field">
         <label for="{{ form.client.id_for_label }}"><i class="fa-solid fa-building"></i> {{ form.client.label }}<span class="req" title="Required">*</span></label>
         {{ form.client }}
@@ -67,7 +67,7 @@
 
   <div class="card">
     <div class="card-head"><h3><i class="fa-solid fa-sliders"></i> Offer details</h3></div>
-    <div class="grid grid-3">
+    <div class="grid grid-4 field-grid-4">
       <div class="field">
         <label for="{{ form.kind.id_for_label }}"><i class="fa-solid fa-tag"></i> {{ form.kind.label }}<span class="req" title="Required">*</span></label>
         {{ form.kind }}
@@ -111,7 +111,7 @@
     <div class="table-wrap vscroll">
       <table class="data" id="items-table">
         <thead>
-          <tr><th class="inq-col-num" style="width:44px">#</th><th class="inq-col-num" style="width:64px">Item No.</th><th>Description</th><th style="width:140px">Size</th><th style="width:90px">Qty</th><th style="width:110px">Unit</th><th style="width:40px"></th></tr>
+          <tr><th class="inq-col-num">#</th><th class="inq-col-num">Item No.</th><th>Description</th><th>Size</th><th>Qty</th><th>Unit</th><th class="inq-col-act"></th></tr>
         </thead>
         <tbody id="items-body"></tbody>
       </table>

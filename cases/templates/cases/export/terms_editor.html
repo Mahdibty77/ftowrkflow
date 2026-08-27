@@ -14,6 +14,7 @@
   .te-cat { border: 1px solid #d0d7de; border-radius: 10px; margin-bottom: .9rem; overflow: hidden; background: #fff; }
   .te-cat-h { background: #1b3a4b; color: #fff; padding: .55rem .85rem; font-size: .85rem; font-weight: 700; }
   .te-cat-h .fa { display: block; font-size: .78rem; font-weight: 600; opacity: .9; margin-top: .15rem; }
+  .te-cat-h .fa:empty { display: none; }
   .te-cat-b { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; padding: .85rem; }
   .te-cat-b label { display: block; font-size: .72rem; font-weight: 700; color: #5a6a7a; margin-bottom: .2rem; text-transform: uppercase; }
   .te-cat-b input[type=text] { width: 100%; border: 1px solid #c9d2dc; border-radius: 6px; padding: .4rem .55rem; margin-bottom: .45rem; font: inherit; }
@@ -31,13 +32,20 @@
 <div class="terms-editor">
   <h1>{% if is_html == 'html' %}Print view{% else %}PDF Export{% endif %} — Terms &amp; Conditions</h1>
   <p class="lead">
-    Edit English and Persian terms for this export only. After you confirm,
+    Edit English and Persian terms for this export. After you confirm,
     {% if is_html == 'html' %}
-      the Print view opens in a new tab with these texts on the last page.
+      the Print view opens in a new tab with these texts on the last page
     {% else %}
-      the PDF opens in a new tab with these texts on the last page.
+      the PDF opens in a new tab with these texts on the last page
     {% endif %}
-    The next export starts from the default texts again.
+    and this sheet is kept as the term sheet of Version
+    {{ form.version|stringformat:"02d" }}{% if form.two_stage %} · Two Stage{% endif %}.
+    {% if has_saved_terms %}
+      The texts below are the ones this version was last exported with — change
+      them and export again to replace them, or use <b>Reset to default</b>.
+    {% else %}
+      The texts below are the standard {{ form.get_kind_display }} terms.
+    {% endif %}
   </p>
 
   <div class="te-meta">
@@ -66,10 +74,10 @@
     </div>
 
     {% for cat in terms.categories %}
-    <div class="te-cat">
+    <div class="te-cat" data-cat="{{ forloop.counter0 }}">
       <div class="te-cat-h">
-        {{ cat.title_en|default:"Section" }}
-        {% if cat.title_fa %}<span class="fa" dir="rtl">{{ cat.title_fa }}</span>{% endif %}
+        <span class="te-cat-en">{{ cat.title_en|default:"Section" }}</span>
+        <span class="fa" dir="rtl">{{ cat.title_fa }}</span>
       </div>
       <div class="te-cat-b">
         <div>
@@ -95,6 +103,17 @@
     <div class="te-actions">
       <span class="te-status" id="te-status" hidden></span>
       <a class="btn" href="{% url 'cases:case_detail' case.pk %}">Cancel</a>
+      {# "Reset to default" restores the fields in the browser rather than       #}
+      {# round-tripping. A round trip would have to be a GET back to this page,  #}
+      {# and this page now PRE-LOADS the saved sheet — so it could not express   #}
+      {# "give me the defaults" without a second way into the export flow, and   #}
+      {# it would throw away the rest of the user's typing on the way. Resetting #}
+      {# here also stores nothing: the defaults only become this version's       #}
+      {# remembered sheet if the user then actually exports, which is what       #}
+      {# "returns the sheet to its current default state" has to mean. The       #}
+      {# defaults come from default_terms_for(kind) on this page load, so they   #}
+      {# are always the CURRENT defaults, never a stale copy.                    #}
+      <button type="button" class="btn" id="te-reset"><i class="fa-solid fa-rotate-left"></i> Reset to default</button>
       {% if is_html == 'html' %}
       <button type="submit" class="btn btn-primary" id="te-submit"><i class="fa-solid fa-file-lines"></i> Confirm &amp; Open Print view</button>
       {% else %}
@@ -102,6 +121,7 @@
       {% endif %}
     </div>
   </form>
+  {{ default_terms|json_script:"te-defaults" }}
 </div>
 {% endwith %}
 <script>
@@ -114,6 +134,41 @@
   var isHtml = mode === "html";
   var defaultName = form.getAttribute("data-filename")
     || ((form.getAttribute("data-doc-no") || "document") + (isHtml ? ".html" : ".pdf"));
+
+  // Reset to default — put default_terms_for(kind) back into the fields. Same
+  // field names and same line-per-clause shape the view posts back, so a reset
+  // sheet posts identically to one that was never touched.
+  var resetBtn = document.getElementById("te-reset");
+  var defaultsNode = document.getElementById("te-defaults");
+  if (resetBtn && defaultsNode) {
+    resetBtn.addEventListener("click", function () {
+      var defs;
+      try { defs = JSON.parse(defaultsNode.textContent || "{}"); } catch (e) { return; }
+      function put(name, value) {
+        var el = form.elements[name];
+        if (el) el.value = value == null ? "" : value;
+      }
+      put("intro_en", defs.intro_en);
+      put("intro_fa", defs.intro_fa);
+      (defs.categories || []).forEach(function (cat, i) {
+        put("cat_" + i + "_title_en", cat.title_en);
+        put("cat_" + i + "_title_fa", cat.title_fa);
+        put("cat_" + i + "_items_en", (cat.items_en || []).join("\n"));
+        put("cat_" + i + "_items_fa", (cat.items_fa || []).join("\n"));
+        var head = form.querySelector('.te-cat[data-cat="' + i + '"] .te-cat-h');
+        if (head) {
+          var en = head.querySelector(".te-cat-en");
+          var fa = head.querySelector(".fa");
+          if (en) en.textContent = cat.title_en || "Section";
+          if (fa) fa.textContent = cat.title_fa || "";
+        }
+      });
+      if (status) {
+        status.hidden = false;
+        status.textContent = "Reset to the default texts. Nothing is saved until you export.";
+      }
+    });
+  }
 
   function cookieValue(name) {
     var parts = ("; " + document.cookie).split("; " + name + "=");

@@ -384,6 +384,18 @@ class CaseForm(models.Model):
     columns = models.JSONField(default=list, blank=True)   # ordered column titles
     table = models.JSONField(default=list, blank=True)     # list[dict] of rows
     meta = models.JSONField(default=dict, blank=True)       # header boxes + totals
+    # The Terms & Conditions sheet as it was LAST EXPORTED from this snapshot.
+    # Empty ({}) until someone takes a PDF / Print-view export of this version;
+    # rewritten by every later export of it. Because one CaseForm row *is* one
+    # (case, kind, side, version, generation), the sheet is remembered per case
+    # and per version exactly as asked, and a new version starts empty again.
+    #
+    # It gets its own column rather than a key inside ``meta`` on purpose:
+    # ``meta`` is the header payload — cases/templates/cases/_form_table.html
+    # prints every key it does not recognise as a badge, and the exporters read
+    # it for the header boxes — so a terms blob parked there would show up on
+    # screen and could travel into the documents themselves.
+    export_terms = models.JSONField(default=dict, blank=True)
     # True once this version has left its unit (sent/returned). A sent version
     # can no longer be edited — the owner must branch a new version instead.
     sent = models.BooleanField(default=False)
@@ -449,6 +461,12 @@ class CaseForm(models.Model):
         snapshot from the same-numbered version it supersedes).
         """
         return (int(self.version or 0), 1 if self.two_stage else 0, int(self.pk or 0))
+
+    @property
+    def has_export_terms(self) -> bool:
+        """True once a Terms sheet has actually been exported from this version."""
+        terms = self.export_terms
+        return bool(isinstance(terms, dict) and terms.get("categories"))
 
     def make_current(self):
         """Mark this snapshot as the current one for its kind and side."""

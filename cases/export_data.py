@@ -1443,7 +1443,15 @@ def default_terms_for(kind: str) -> dict:
 
 
 def normalize_terms(payload: dict | None, kind: str = "PI") -> dict:
-    """Merge posted terms with kind-specific defaults; never persist across exports."""
+    """Merge a terms payload over the kind-specific defaults.
+
+    The payload may come straight from the editor's POST or from the sheet
+    remembered on the version (``CaseForm.export_terms``) — both are shaped the
+    same and both are merged over ``default_terms_for(kind)``, so a stored sheet
+    can never widen or reshape what a document prints. Anything missing falls
+    back to the default clause, which is also what makes an untouched version
+    export exactly what it exported before this was remembered at all.
+    """
     defaults = default_terms_for(kind)
     base = {
         "intro_en": defaults["intro_en"],

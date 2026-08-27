@@ -10,12 +10,12 @@
       <span class="docno-line">
         <span class="docno"><span>{{ case.doc_no }}</span></span>{% if case.is_delegated %} <span class="pill pill-delegated">Delegated</span>{% endif %}
       </span>
-      {% if is_split %}
+      {% if status_per_side %}
         {% for s_label, s_status, s_color in status_rows %}
           <span class="status-tag" style="--sc:{{ s_color }}">{% if s_label %}{{ s_label }}: {% endif %}{{ s_status }}</span>
         {% endfor %}
       {% else %}
-        <span class="status-tag" style="--sc:{{ case.status_color }}">{{ case.status_label }}</span>
+        {% for s_label, s_status, s_color in status_rows %}<span class="status-tag" style="--sc:{{ s_color }}">{{ s_status }}</span>{% endfor %}
       {% endif %}
     </h1>
     {# dir="auto" wraps only the client's own name. A Persian name mixed with a #}
@@ -54,12 +54,12 @@
       <div class="box">
         <span class="bi"><i class="fa-solid fa-flag"></i></span>
         <div><div class="bl">Status</div><div class="bv">
-          {% if is_split %}
+          {% if status_per_side %}
             {% for s_label, s_status, s_color in status_rows %}
               <div style="margin-bottom:.25rem;"><span class="status-tag" style="--sc:{{ s_color }}">{% if s_label %}{{ s_label }}: {% endif %}{{ s_status }}</span></div>
             {% endfor %}
           {% else %}
-            <span class="status-tag" style="--sc:{{ case.status_color }}">{{ case.status_label }}</span>
+            {% for s_label, s_status, s_color in status_rows %}<span class="status-tag" style="--sc:{{ s_color }}">{{ s_status }}</span>{% endfor %}
           {% endif %}
         </div></div>
       </div>

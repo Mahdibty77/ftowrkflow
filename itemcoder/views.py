@@ -97,10 +97,19 @@ def _hash_cell_html(val, deleted=False, added=False):
     return f'<span class="client-no-text">{txt}</span>{marks}'
 
 
-def dataframe_to_html_with_ids(df, data_json=None):
+def dataframe_to_html_with_ids(df, data_json=None, editable_columns=None):
     """
     مبدل دیتافریم به ردیف‌های خالص HTML برای بدنه جدول جهت جلوگیری از تداخل با هدر فریز شده
+
+    ``editable_columns`` — extra CANONICAL column names to stamp with
+    ``data-editable="1"`` for this render, on top of the layout/calculation
+    columns that are always writable. The caller decides; it is how the Technical
+    Offer opens ``qty`` / ``unit`` for a Technical seat and nobody else. Passing
+    nothing keeps the previous behaviour exactly (every other caller does).
+    The attribute is only what lets the BROWSER open an editor — the value that
+    comes back is authorised again in ``itemcoder.bridge.save_from_tool``.
     """
+    editable_columns = {str(c) for c in (editable_columns or ())}
     display_to_canonical = df.attrs.get("display_to_canonical", {}) if hasattr(df, "attrs") else {}
     parts = [] # تگ‌های table و thead کاملاً از اینجا حذف شدند
 
@@ -113,6 +122,10 @@ def dataframe_to_html_with_ids(df, data_json=None):
         "_remark_ack",
         "_brand_split", "_prev_brand", "_brand_ack", "_brand_pending", "_brand_pf_text",
         "_brand_baseline", "_ftco_user_edited",
+        # Technical's per-row Qty / Unit override marks (bridge._QTY_OVERRIDE_KEY
+        # and _UNIT_OVERRIDE_KEY). Metadata carried through the snapshot, never a
+        # visible column.
+        "_qty_override", "_unit_override",
     )]
     records = df.to_dict("records")
 
@@ -270,6 +283,7 @@ def dataframe_to_html_with_ids(df, data_json=None):
                 writable_cell = (
                     is_writable_extra_column(str(canonical_col), row_group)
                     or is_writable_calculation_column(str(canonical_col))
+                    or str(canonical_col) in editable_columns
                 )
 
             td_extra_attrs = ' data-editable="1"' if writable_cell else ''

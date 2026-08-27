@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-15">
     <link rel="stylesheet" href="{% static 'itemcoder/css/tool-layout.css' %}?v=autosize-1">
     <link rel="stylesheet" href="{% static 'itemcoder/css/tool-cells-status.css' %}?v=to-brand-2">
-    <link rel="stylesheet" href="{% static 'itemcoder/css/tool-panels.css' %}?v=attach-brand-1">
+    <link rel="stylesheet" href="{% static 'itemcoder/css/tool-panels.css' %}?v=autosave-1">
     <link rel="stylesheet" href="{% static 'itemcoder/css/tool-icons.css' %}?v=reorg-1">
     <link rel="stylesheet" href="{% static 'itemcoder/css/tool-dark-mode.css' %}?v=reorg-1">
     {% if kind == 'TO' %}<link rel="stylesheet" href="{% static 'itemcoder/css/engineering_assistant.css' %}?v=ea-wrap-2">{% endif %}
@@ -118,6 +118,20 @@
         <button type="button" class="tb-btn primary" id="tool-save-btn">Save {{ kind }}</button>
         <a class="tb-btn" href="/cases/{{ case.pk }}/">Back to case</a>
         {% endif %}
+    {% if not read_only %}
+        {# The automatic-save message. It lives INSIDE the tool bar so it       #}
+        {# appears at the top of the page, centred over the flexible spacer —   #}
+        {# the only strip up here that holds no control — and it is fixed and   #}
+        {# pointer-events:none (see .ft-autosave-toast in tool-panels.css), so  #}
+        {# showing and hiding it moves nothing and it can never swallow a click.#}
+        {# Rendered only for a seat that can actually save: a viewer never      #}
+        {# posts, so a viewer has no message to show. Empty until tool_save.js  #}
+        {# fills it in.                                                         #}
+        <div id="tool-autosave-toast" class="ft-autosave-toast is-ok"
+             role="status" aria-live="polite">
+            <i class="fa-solid fa-circle-check" aria-hidden="true"></i><span class="ft-autosave-text"></span>
+        </div>
+    {% endif %}
     </div>
     <script>
     (function () {
@@ -443,11 +457,19 @@
     <script src="{% static 'itemcoder/js/item_flag.js' %}?v=tp-multi-2"></script>
     <script src="{% static 'itemcoder/js/row_processor.js' %}?v=ftco-edit-3"></script>
     <script src="{% static 'js/autogrow.js' %}?v=autogrow-1"></script>
-    <script src="{% static 'itemcoder/js/table_ui.js' %}?v=self-append-1"></script>
+    {# Bumped WITH the file: table_ui.js now opens a server-marked qty/unit    #}
+    {# cell on a single click. WhiteNoise serves /static/ with a long max-age, #}
+    {# and a browser caches per full URL — query string included — so a        #}
+    {# returning user with the previous file never even asks for the new one   #}
+    {# while this key stays the same, and the cell simply does not open for    #}
+    {# them. tool_save.js below was bumped for the same round; this one was    #}
+    {# missed. A file changed without its key changed is a change that only    #}
+    {# reaches people who have never opened the page.                          #}
+    <script src="{% static 'itemcoder/js/table_ui.js' %}?v=qty-unit-click-1"></script>
     <script src="{% static 'itemcoder/js/excel_paste.js' %}?v=pasteundo-5"></script>
     <script src="{% static 'itemcoder/js/calculation_controls.js' %}?v=fxboard-5"></script>
     <script src="{% static 'itemcoder/js/translator.js' %}?v=ftco-edit-3"></script>
-    <script src="{% static 'itemcoder/js/tool_save.js' %}?v=readonly-1"></script>
+    <script src="{% static 'itemcoder/js/tool_save.js' %}?v=autosave-9-verdict"></script>
     {% if kind == 'PI' %}<script src="{% static 'itemcoder/js/pi_pricing.js' %}?v=price-sep-1"></script>
     <script src="{% static 'itemcoder/js/pi_same_code_sync.js' %}?v=no-brand-remark-sync-1"></script>
     <script src="{% static 'itemcoder/js/service_price.js' %}?v=svcprice-5"></script>{% endif %}

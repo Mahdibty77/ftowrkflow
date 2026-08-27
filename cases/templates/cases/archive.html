@@ -102,9 +102,22 @@
       <span></span>
       {% endif %}
       <span class="row-flex" style="gap:.5rem;align-items:center;">
-        <button type="submit" class="btn btn-sm btn-primary archive-nojs-only">
-          <i class="fa-solid fa-filter"></i> Apply filters
-        </button>
+        {# There is no Apply button for a reader who has JavaScript: the        #}
+        {# filters are instant, because archive_stream.js calls form.submit()   #}
+        {# on every change (and 350ms after the last keystroke), and form.submit #}
+        {# needs no submit button. It used to be shown to everyone behind a     #}
+        {# class, archive-nojs-only, that no stylesheet ever defined, so it did #}
+        {# nothing and the button was visible to all — the owner asked for it   #}
+        {# to go. It cannot simply be deleted, though: with JavaScript off this #}
+        {# form IS the filter and there would be no way to submit it. <noscript> #}
+        {# is the honest home for it. Its contents are parsed as markup only    #}
+        {# when scripting is off, so the button is a real submit control for    #}
+        {# exactly those readers and is not in the DOM at all for anyone else.  #}
+        <noscript>
+          <button type="submit" class="btn btn-sm btn-primary">
+            <i class="fa-solid fa-filter"></i> Apply filters
+          </button>
+        </noscript>
         <button type="button" class="btn btn-sm" data-filter-clear="archiveTable" title="Reset all filters">
           <i class="fa-solid fa-eraser"></i> Clear filters
         </button>

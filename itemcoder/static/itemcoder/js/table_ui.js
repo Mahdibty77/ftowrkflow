@@ -8,9 +8,19 @@
 
     const ENABLE_BASIC_CELL_EDITING = true;
     const KIND = (window.FT_TOOL_SAVE && window.FT_TOOL_SAVE.kind) || '';
-    // size / qty / unit are reference fields in BOTH TO and PI — never inline-edited.
-    // (TO used to allow clicking them; that is intentionally locked now.)
+    // size / qty / unit are reference fields in BOTH TO and PI — never inline-edited
+    // BY COLUMN NAME. This set stays empty on purpose: a name in here would open
+    // the cell on every grid for every seat, which is what it used to do and why
+    // it was emptied. The one exception the owner asked for — qty and unit, TO
+    // only, Technical seat only — arrives per cell as a server-rendered
+    // data-editable="1" (itemcoder.views.dataframe_to_html_with_ids), decided by
+    // the same authorisation the save endpoint applies. SIZE is never opened.
     const BASIC_EDITABLE_COLUMNS = new Set();
+    // Server-opened columns that should also answer a SINGLE click, like the
+    // Proforma's value columns do. Double-click already works for any editable
+    // cell; this only saves the user the second click on the two the owner asked
+    // for, and only when the server actually marked that cell editable.
+    const TO_CLICK_EDIT_COLUMNS = new Set(['qty', 'unit']);
     const ROW_LIGHT_DEBOUNCE_MS = 220;
     const ROW_FULL_DEBOUNCE_MS = 700;
     // PI columns that have permanent always-on inputs — handled by pi_columns.js.
@@ -485,7 +495,8 @@
         // Single click opens a clean inline field for the value columns, so the
         // user doesn't need to double-click. Scoped to these columns only so it
         // never interferes with the Item Code flag box or text selection.
-        // TO: size/qty/unit stay locked like Client Description.
+        // TO: size and Client Description stay locked; qty/unit open only when
+        //     the server marked that cell data-editable="1" (Technical seat).
         // PI: only always-on commercial inputs.
         const FIELD_EDIT_COLUMNS = (KIND === 'PI')
             ? new Set(['UNIT PRICE', 'BRAND', 'TIME'])
@@ -505,7 +516,10 @@
                 return;
             }
 
-            if (!FIELD_EDIT_COLUMNS.has(col)) return;
+            const serverOpened = (KIND === 'TO'
+                && cell.dataset.editable === '1'
+                && TO_CLICK_EDIT_COLUMNS.has(col));
+            if (!FIELD_EDIT_COLUMNS.has(col) && !serverOpened) return;
             beginBasicCellEdit(cell);
         });
 
