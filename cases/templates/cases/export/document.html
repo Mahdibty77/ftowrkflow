@@ -327,6 +327,10 @@
       margin: 0; padding: 8px 12px; background: #042e77; color: #dce5f0;
       font-size: 13px; text-transform: uppercase; font-weight: 700;
     }
+    .terms-cont-mark {
+      display: inline-block; font-size: 9px; font-weight: 700;
+      text-transform: none; color: #b9c6dc; letter-spacing: .02em;
+    }
     .terms-intro {
       padding: 6px 12px; color: var(--muted); font-weight: 600;
       border-bottom: 1px solid var(--line); background: #eef1f6; font-size: 11px;
@@ -759,7 +763,8 @@
 </section>
 {% endfor %}
 
-<section class="document terms-page" id="terms">
+{% for terms_page in terms_pages %}
+<section class="document terms-page"{% if forloop.first %} id="terms"{% endif %}>
   <header class="doc-head">
     <div class="logo-block">
       <svg class="logo-svg" viewBox="0 0 740 150" xmlns="http://www.w3.org/2000/svg">
@@ -770,14 +775,18 @@
         <path d="M18 116H520" stroke="#8a9bb0" stroke-width="4" stroke-linecap="round"/>
         {% else %}
         <defs>
-          <linearGradient id="silverLogoTerms" x1="0" y1="0" x2="0" y2="1">
+          {% comment %}
+            Gradient ids carry the page number: this sheet can now span several
+            pages, and two defs with the same id in one document is invalid.
+          {% endcomment %}
+          <linearGradient id="silverLogoTerms{{ terms_page.page_no }}" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stop-color="#ffffff"/><stop offset=".32" stop-color="#c8d1dc"/>
             <stop offset=".62" stop-color="#e4e9f0"/><stop offset="1" stop-color="#8a9bb0"/>
           </linearGradient>
         </defs>
-        <rect x="425" y="28" width="312" height="27" fill="url(#silverLogoTerms)" rx="1"/>
-        <path d="M588 82 H737 V109 H615 V163 H588 Z" fill="url(#silverLogoTerms)"/>
-        <text x="18" y="101" font-family="Constantia, serif" font-size="55" font-weight="800" letter-spacing="-2" fill="url(#silverLogoTerms)">FOOLAD TABAR</text>
+        <rect x="425" y="28" width="312" height="27" fill="url(#silverLogoTerms{{ terms_page.page_no }})" rx="1"/>
+        <path d="M588 82 H737 V109 H615 V163 H588 Z" fill="url(#silverLogoTerms{{ terms_page.page_no }})"/>
+        <text x="18" y="101" font-family="Constantia, serif" font-size="55" font-weight="800" letter-spacing="-2" fill="url(#silverLogoTerms{{ terms_page.page_no }})">FOOLAD TABAR</text>
         <path d="M18 116H520" stroke="#8a9bb0" stroke-width="4" stroke-linecap="round"/>
         {% endif %}
       </svg>
@@ -796,11 +805,13 @@
 
   <div class="terms-wrap">
     <div class="terms-card">
-      <h2>Terms &amp; Conditions / شرایط و ضوابط</h2>
+      <h2>Terms &amp; Conditions / شرایط و ضوابط{% if terms_page.is_continuation %} <span class="terms-cont-mark">(continued)</span>{% endif %}</h2>
+      {% if not terms_page.is_continuation %}
       <div class="terms-intro">
         <div>{{ terms_page.terms.intro_en }}</div>
         <div class="fa">{{ terms_page.terms.intro_fa }}</div>
       </div>
+      {% endif %}
       <div class="terms-categories">
         {% for cat in terms_page.terms.categories %}
         <section class="term-category{% if cat.full %} full{% endif %}">
@@ -821,6 +832,7 @@
 
   {% include "cases/export/_sign_and_footer.html" %}
 </section>
+{% endfor %}
 
 {% if print_toolbar %}
 <script>

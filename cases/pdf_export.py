@@ -629,6 +629,292 @@ def paginate_rows(rows: list[dict], columns: list[tuple[str, str]], *, is_pi: bo
     return pages
 
 
+# ---------------------------------------------------------------------------
+# Term sheet pagination.
+#
+# The terms sheet used to be exactly one physical page: ``.terms-card`` and
+# every box inside it (``.terms-categories``, ``.term-category``) are
+# ``overflow: hidden`` on the same fixed-height ``.document`` every other page
+# uses — so a clause list that outgrew that one sheet was not wrapped onto a
+# second page, it was cut away mid-line with nothing to show it happened.
+# Confirmed by rendering an over-full sheet and looking at the printed pixels
+# rather than trusting either the CSS or a text-extraction tool: PDF text
+# extractors read the glyphs a page's content stream still carries even past a
+# clip rectangle, so "the text is still in the PDF" proved nothing about
+# whether a reader could see it — only a rendered screenshot showed the same
+# clause the owner reported, sliced clean at the card's bottom edge.
+#
+# The term sheet became user-editable and remembered per version not long
+# before this was found, which is what turned "a long default clause list"
+# from a design assumption into a real user action: someone adds a category,
+# or a clause, and the sheet outgrows one page.
+#
+# This mirrors ``paginate_rows`` deliberately rather than inventing a second
+# way to paginate: measure a natural height for every printable unit — here a
+# *category card*, not a table row — greedy-pack units into pages, and split
+# any single unit that is, by itself, taller than an entire empty page. A
+# term category has its own quirk the row engine does not: it renders two
+# language columns side by side (English / Persian) and CSS gives them
+# ``align-items: stretch``, so a short column never overflows next to a tall
+# one, it just carries blank space — the category's own height is the TALLER
+# of its two columns, exactly like ``_row_needed_height`` already takes the
+# tallest of a row's cells.
+# ---------------------------------------------------------------------------
+_PX_MM = 25.4 / 96
+
+_TERMS_DOC_PAD_H_MM = 5.5              # .document side padding (left = right)
+_TERMS_WRAP_PAD_V_MM = 16 * _PX_MM     # .terms-wrap { padding: 8px 0 } (top+bottom)
+_TERMS_CARD_BORDER_MM = 2 * _PX_MM     # .terms-card border, 1px each side (either axis)
+_TERMS_H2_H_MM = 33 * _PX_MM           # .terms-card h2: 16px v-padding + a 13px title line
+_TERMS_INTRO_PAD_V_MM = 12 * _PX_MM    # .terms-intro { padding: 6px 12px } (top+bottom)
+_TERMS_INTRO_PAD_H_MM = 24 * _PX_MM    # .terms-intro { padding: 6px 12px } (left+right)
+_TERMS_INTRO_BORDER_MM = 1 * _PX_MM    # .terms-intro border-bottom
+_TERMS_INTRO_GAP_MM = 2 * _PX_MM       # .terms-intro .fa { margin-top: 2px }
+_TERMS_INTRO_LINE_MM = 11 * 1.3 * _PX_MM   # font-size 11px, generous line-height
+_TERMS_CATS_PAD_MM = 16 * _PX_MM       # .terms-categories { padding: 8px } (either axis)
+_TERMS_ROW_GAP_MM = 8 * _PX_MM         # .terms-categories { gap: 8px } — between rows
+_TERMS_COL_GAP_MM = 8 * _PX_MM         # .terms-categories { gap: 8px } — between the 2 columns
+_TERMS_CAT_BORDER_MM = 2 * _PX_MM      # .term-category border, 1px each side (either axis)
+_TERMS_CAT_H3_H_MM = 22 * _PX_MM       # .term-category h3: 6px v-padding + a 10px title line
+_TERMS_OL_PAD_MM = 12 * _PX_MM         # .term-bilingual ol { padding: 6px ... } (top+bottom)
+_TERMS_OL_SIDE_MM = 28 * _PX_MM        # .term-bilingual ol[.fa] side padding (20px + 8px)
+_TERMS_ITEM_LINE_MM = 9.5 * 1.35 * _PX_MM  # ol { font-size: 9.5px; line-height: 1.35 }
+_TERMS_ITEM_GAP_MM = 3 * _PX_MM        # li { margin-bottom: 3px }
+_TERMS_FONT_PT = 9.5                   # matches .term-bilingual ol's font-size
+
+# Persian glyphs in Tahoma run visibly wider than the Latin metrics
+# ``_chars_per_line`` is tuned against (Segoe UI); trusting the same average
+# glyph width for both scripts would UNDER-estimate the Persian line count,
+# which is the dangerous direction here. Narrowing the width fed into the
+# estimator for Persian text biases its line count up, never down.
+_TERMS_FA_WIDTH_FACTOR = 0.80
+
+_TERMS_CARD_W_MM = (
+    297.0 - 2 * _TERMS_DOC_PAD_H_MM - _TERMS_CARD_BORDER_MM
+)
+_TERMS_GRID_W_MM = _TERMS_CARD_W_MM - _TERMS_CATS_PAD_MM
+
+# The body available to (intro + categories) together on the FIRST terms
+# sheet, and to categories alone on every continuation sheet — everything
+# above it (``.doc-head``) and below it (the signature/footer strip) is the
+# same fixed chrome every other page type already budgets with
+# ``_available_body_mm``; the terms sheet carries no info-grid and no table,
+# so neither ``_INFO_H`` nor the table constants belong here.
+_TERMS_BODY_MM = (
+    _PAGE_H - _HEADER_H - _SIGN_H - _FOOTER_H - _SAFETY_MM - _PAGE_INSET_V_MM
+    - _TERMS_WRAP_PAD_V_MM - _TERMS_CARD_BORDER_MM - _TERMS_H2_H_MM - _TERMS_CATS_PAD_MM
+)
+
+
+def _terms_col_text_width_mm(is_full: bool) -> float:
+    """Wrapping width available to ONE language column of a category card."""
+    outer = (
+        _TERMS_GRID_W_MM if is_full
+        else (_TERMS_GRID_W_MM - _TERMS_COL_GAP_MM) / 2
+    )
+    card_inner = outer - _TERMS_CAT_BORDER_MM
+    lang_col = card_inner / 2
+    return max(20.0, lang_col - _TERMS_OL_SIDE_MM)
+
+
+def _terms_item_lines(text: str, width_mm: float, *, fa: bool) -> int:
+    w = width_mm * _TERMS_FA_WIDTH_FACTOR if fa else width_mm
+    return _estimate_lines(text, w, font_pt=_TERMS_FONT_PT)
+
+
+def _terms_column_h_mm(items: list, width_mm: float, *, fa: bool) -> float:
+    """Natural height of one language column holding ``items``."""
+    if not items:
+        return 0.0
+    total = 0.0
+    for it in items:
+        lines = _terms_item_lines(str(it or ""), width_mm, fa=fa)
+        total += lines * _TERMS_ITEM_LINE_MM + _TERMS_ITEM_GAP_MM
+    return _TERMS_OL_PAD_MM + total
+
+
+def _category_height_mm(cat: dict) -> float:
+    """Natural height of one category card, EN/FA columns taken at the taller."""
+    is_full = bool(cat.get("full"))
+    w = _terms_col_text_width_mm(is_full)
+    en_h = _terms_column_h_mm(cat.get("items_en") or [], w, fa=False)
+    fa_h = _terms_column_h_mm(cat.get("items_fa") or [], w, fa=True)
+    body = max(en_h, fa_h, _TERMS_OL_PAD_MM)
+    return _TERMS_CAT_BORDER_MM + _TERMS_CAT_H3_H_MM + body
+
+
+def _terms_intro_height_mm(intro_en: str, intro_fa: str) -> float:
+    """Natural height of the intro paragraph pair, stacked EN over FA."""
+    width = _TERMS_CARD_W_MM - _TERMS_INTRO_PAD_H_MM
+    en_lines = _estimate_lines(intro_en or "", width, font_pt=11.0)
+    fa_lines = _estimate_lines(intro_fa or "", width * _TERMS_FA_WIDTH_FACTOR, font_pt=11.0)
+    return (
+        _TERMS_INTRO_PAD_V_MM + _TERMS_INTRO_BORDER_MM + _TERMS_INTRO_GAP_MM
+        + (en_lines + fa_lines) * _TERMS_INTRO_LINE_MM
+    )
+
+
+def _terms_expand_oversized(items: list, col_w_mm: float, page_budget_mm: float,
+                            *, fa: bool) -> list[str]:
+    """Split any SINGLE item too tall for an entire empty page's own column.
+
+    Everything else in this module packs whole units (rows, categories) and
+    only ever falls back to cutting text inside one when the unit does not fit
+    ANYWHERE — this is that fallback for a term. Reuses ``_split_cell_text``,
+    the same character-guaranteed splitter the item table uses for an
+    over-tall cell, so a clause this large is broken over more sheets rather
+    than losing a single character of it.
+    """
+    w = col_w_mm * _TERMS_FA_WIDTH_FACTOR if fa else col_w_mm
+    max_lines = _split_max_lines(page_budget_mm - _TERMS_OL_PAD_MM - _TERMS_ITEM_GAP_MM)
+    out: list[str] = []
+    for it in items:
+        text = str(it or "")
+        h = _terms_item_lines(text, col_w_mm, fa=fa) * _TERMS_ITEM_LINE_MM + _TERMS_ITEM_GAP_MM
+        if h <= page_budget_mm + 0.05:
+            out.append(text)
+            continue
+        out.extend(_split_cell_text(text, w, max_lines))
+    return out
+
+
+def _terms_pack_column(items: list, width_mm: float, page_budget_mm: float,
+                       *, fa: bool) -> list[list[str]]:
+    """Greedy-pack one language column's items into page-sized chunks."""
+    chunks: list[list[str]] = []
+    cur: list[str] = []
+    cur_h = _TERMS_OL_PAD_MM
+    for it in items:
+        h = _terms_item_lines(it, width_mm, fa=fa) * _TERMS_ITEM_LINE_MM + _TERMS_ITEM_GAP_MM
+        if cur and cur_h + h > page_budget_mm + 0.05:
+            chunks.append(cur)
+            cur, cur_h = [], _TERMS_OL_PAD_MM
+        cur.append(it)
+        cur_h += h
+    if cur or not chunks:
+        chunks.append(cur)
+    return chunks
+
+
+def _split_category(cat: dict, avail_mm: float) -> list[dict]:
+    """Break one category whose full item list outgrows a fresh empty page.
+
+    Not a case the shipped defaults reach — it exists because a term sheet is
+    user-edited free text now, and nothing here may assume a size a reader
+    could not exceed by adding one more clause. English and Persian are
+    chunked independently (one language can legitimately run longer than its
+    translation); the shorter side just leaves its column blank on a part
+    that still carries the other language, which is the same "stretch, don't
+    overflow" behaviour a category's two columns already have.
+    """
+    is_full = bool(cat.get("full"))
+    col_w = _terms_col_text_width_mm(is_full)
+    fixed = _TERMS_CAT_BORDER_MM + _TERMS_CAT_H3_H_MM
+    fresh_budget = max(10.0, avail_mm - fixed)
+
+    items_en = _terms_expand_oversized(list(cat.get("items_en") or []), col_w, fresh_budget, fa=False)
+    items_fa = _terms_expand_oversized(list(cat.get("items_fa") or []), col_w, fresh_budget, fa=True)
+
+    en_chunks = _terms_pack_column(items_en, col_w, fresh_budget, fa=False)
+    fa_chunks = _terms_pack_column(items_fa, col_w, fresh_budget, fa=True)
+
+    n = max(len(en_chunks), len(fa_chunks))
+    title_en = str(cat.get("title_en", "") or "")
+    title_fa = str(cat.get("title_fa", "") or "")
+    parts: list[dict] = []
+    for i in range(n):
+        parts.append({
+            "title_en": title_en if i == 0 else f"{title_en} (cont.)",
+            "title_fa": title_fa if i == 0 else f"{title_fa} (ادامه)",
+            "full": is_full,
+            "items_en": en_chunks[i] if i < len(en_chunks) else [],
+            "items_fa": fa_chunks[i] if i < len(fa_chunks) else [],
+            "continued": i > 0,
+        })
+    return parts or [cat]
+
+
+def _terms_build_rows(cats: list[dict]) -> list[dict]:
+    """Group categories into rows exactly as CSS grid auto-flow already would:
+    a ``full`` category alone in its own row, two ordinary ones side by side
+    in document order otherwise. Page breaks below only ever fall between
+    rows, never inside a pair, so each page's own ``.terms-categories`` grid —
+    started fresh — lays its slice out identically to what this predicted.
+    """
+    rows: list[dict] = []
+    i, n = 0, len(cats)
+    while i < n:
+        cat = cats[i]
+        if cat.get("full"):
+            rows.append({"cats": [cat], "h": _category_height_mm(cat)})
+            i += 1
+            continue
+        if i + 1 < n and not cats[i + 1].get("full"):
+            pair = [cat, cats[i + 1]]
+            rows.append({"cats": pair, "h": max(_category_height_mm(c) for c in pair)})
+            i += 2
+        else:
+            rows.append({"cats": [cat], "h": _category_height_mm(cat)})
+            i += 1
+    return rows
+
+
+def paginate_terms(terms: dict) -> list[dict]:
+    """Pack a normalised terms dict into one or more physical A4 sheets.
+
+    Every sheet keeps the intro's shape (`intro_en`/`intro_fa`) so the
+    template need not branch, but only the FIRST sheet's intro is non-empty —
+    the caller decides whether to print the intro block at all via
+    ``is_continuation``, which is what keeps the intro from being repeated on
+    every continuation page and from eating into their (larger) budget.
+    """
+    cats = list(terms.get("categories") or [])
+    intro_en = str(terms.get("intro_en", "") or "")
+    intro_fa = str(terms.get("intro_fa", "") or "")
+    intro_h = _terms_intro_height_mm(intro_en, intro_fa)
+
+    # PASS 1 — no category may exceed what it could ever be given, even on a
+    # fresh continuation page with no intro competing for room.
+    fresh: list[dict] = []
+    for cat in cats:
+        if _category_height_mm(cat) > _TERMS_BODY_MM + 0.05:
+            fresh.extend(_split_category(cat, _TERMS_BODY_MM))
+        else:
+            fresh.append(cat)
+
+    # PASS 2 — greedy-pack whole rows onto pages; page 1's budget is smaller
+    # by whatever the intro needs, every later page gets the full body.
+    rows = _terms_build_rows(fresh)
+    pages: list[list[dict]] = []
+    cur: list[dict] = []
+    used = 0.0
+    for row in rows:
+        is_first_page = not pages
+        budget = max(20.0, _TERMS_BODY_MM - (intro_h if is_first_page else 0.0))
+        gap = _TERMS_ROW_GAP_MM if cur else 0.0
+        if cur and used + gap + row["h"] > budget + 0.05:
+            pages.append(cur)
+            cur, used = [], 0.0
+            budget = _TERMS_BODY_MM
+            gap = 0.0
+        cur.append(row)
+        used += gap + row["h"]
+    pages.append(cur)
+
+    out: list[dict] = []
+    for page_idx, page_rows in enumerate(pages):
+        page_cats = [c for r in page_rows for c in r["cats"]]
+        out.append({
+            "terms": {
+                "intro_en": intro_en if page_idx == 0 else "",
+                "intro_fa": intro_fa if page_idx == 0 else "",
+                "categories": page_cats,
+            },
+            "is_continuation": page_idx > 0,
+        })
+    return out
+
+
 def _chrome_path() -> str | None:
     """Locate a Chromium-based browser on the host or inside Docker."""
     env = (os.environ.get("CHROME_PATH") or os.environ.get("CHROMIUM_PATH") or "").strip()
@@ -1159,11 +1445,18 @@ def build_document_context(case, form, terms: dict | None = None, *, pdf_lite: b
         service_rows, _SERVICE_COLUMNS, is_pi=False,
         widths=_SERVICE_WIDTHS, extra_mm=_BANNER_H,
     ) if service_rows else []
-    # Counted *after* pagination, so a row that had to be split across sheets is
-    # already reflected in ``len(pages)``. Every page the paginator returns is
-    # exactly one physical sheet, so this total is the sheet count of the
-    # printed PDF and "Page N of M" cannot disagree with it.
-    total_pages = len(pages) + len(issues_pages) + len(services_pages) + 1  # + issues? + services? + terms
+    # A clause list this document's own editor lets a user grow does not fit
+    # any better than an item table does — paginated the same way, and for the
+    # same reason: everything past one fixed 210mm sheet used to be clipped by
+    # ``.terms-categories``'s own ``overflow: hidden`` with nothing to show it
+    # happened.
+    terms_pages = paginate_terms(normalize_terms(terms, kind=kind))
+    # Counted *after* pagination, so a row (or a term category) that had to be
+    # split across sheets is already reflected in the page counts above. Every
+    # page any paginator returns is exactly one physical sheet, so this total
+    # is the sheet count of the printed PDF and "Page N of M" cannot disagree
+    # with it.
+    total_pages = len(pages) + len(issues_pages) + len(services_pages) + len(terms_pages)
 
     for idx, page in enumerate(pages, start=1):
         page["page_no"] = idx
@@ -1180,11 +1473,10 @@ def build_document_context(case, form, terms: dict | None = None, *, pdf_lite: b
         page["page_label"] = f"{next_no} of {total_pages}"
         next_no += 1
 
-    terms_page = {
-        "page_no": next_no,
-        "page_label": f"{next_no} of {total_pages}",
-        "terms": normalize_terms(terms, kind=kind),
-    }
+    for page in terms_pages:
+        page["page_no"] = next_no
+        page["page_label"] = f"{next_no} of {total_pages}"
+        next_no += 1
 
     side = getattr(form, "side", "") or ""
     is_external = (
@@ -1217,7 +1509,7 @@ def build_document_context(case, form, terms: dict | None = None, *, pdf_lite: b
         "pages": pages,
         "issues_pages": issues_pages,
         "services_pages": services_pages,
-        "terms_page": terms_page,
+        "terms_pages": terms_pages,
         "totals": totals,
         "currency_suffix": (totals or {}).get("currency_suffix", " IRR"),
         "vendor_name": vendor_last_name(form),
