@@ -137,14 +137,19 @@
           <span class="nv-toggle-state" id="two-stage-caption" data-off="{{ case.price_type_label }}" data-on="Convert to Internal &amp; External (two-stage)">{{ case.price_type_label }}</span>
         </div>
       </div>
-      <form method="post" action="{% url 'cases:transition' case.pk %}" id="two-stage-form" style="display:none;margin-top:.5rem;">
-        {% csrf_token %}<input type="hidden" name="action" value="upgrade_two_stage">
+      {# Same shape as the "new inquiry version" form above: a GET that NAVIGATES #}
+      {# INTO the items editor carrying its option as a query parameter. Nothing  #}
+      {# is converted by pressing this — the new side's first version and its     #}
+      {# mandatory deadline are created when the user confirms in the editor, so  #}
+      {# leaving the editor leaves the case unconverted.                          #}
+      <form method="get" action="{% url 'cases:edit_items' case.pk %}" id="two-stage-form" style="display:none;margin-top:.5rem;">
+        <input type="hidden" name="convert_two_stage" value="1">
         <div class="alert-inline alert-warn" style="margin-bottom:.5rem;">
           <i class="fa-solid fa-triangle-exclamation"></i>
-          <span>This permanently splits the case into independent <strong>Internal</strong> and <strong>External</strong> streams. The side that already exists stays exactly as it is — same status, same holder, same expert, same history — and the case does not come back to you. Only the other side is created, and it starts fresh in your hands. This can't be undone.</span>
+          <span>This permanently splits the case into independent <strong>Internal</strong> and <strong>External</strong> streams. The side that already exists stays exactly as it is — same status, same holder, same expert, same history — and the case does not come back to you. Only the other side is created: you set its items and its deadline in the editor, and confirming there creates its first version as a <strong>Draft</strong> in your hands. This can't be undone.</span>
         </div>
         <div class="btn-row">
-          <button class="btn btn-sm btn-primary" type="submit"><i class="fa-solid fa-layer-group"></i> Confirm conversion</button>
+          <button class="btn btn-sm btn-primary" type="submit"><i class="fa-solid fa-layer-group"></i> Open editor</button>
           <button class="btn btn-sm btn-ghost" type="button" id="two-stage-cancel">Cancel</button>
         </div>
       </form>

@@ -3933,14 +3933,51 @@ def burn_side(case: Case, actor, side: str, comment: str = ""):
     _finalize_split_if_all_terminal(case)
 
 
+def case_is_fresh_draft(case: Case) -> bool:
+    """True while the whole case is still an unsubmitted draft.
+
+    This is what decides whether "Edit information" opens the FULL case screen
+    (client, order no., kind, offer type, price type, deadline, items) or only
+    the contacts box: a case may be edited wholesale right up until its inquiry
+    first leaves Commercial, and never again.
+
+    It lives here because it is asked in two places — the case page, to choose
+    which link to render, and ``edit_items``, to decide whether to serve that
+    screen at all — and those two had drifted apart. The page's copy was missing
+    the ``sent`` term, so an Internal & External conversion (whose new side is
+    created DRAFT, carrying an inquiry that is already ``sent=True``) made the
+    page offer the full editor while the screen itself refused it: a control that
+    renders and is then bounced, with the working contacts link gone from the
+    page entirely. One definition, asked twice, cannot do that.
+
+    ``sent`` is the load-bearing term, not the status — a converted side is DRAFT
+    yet has a sent inquiry, which is exactly the case that separated the two.
+    """
+    cur = case.current_form(FormKind.INQUIRY)
+    if case.status != CaseStatus.DRAFT:
+        return False
+    if cur is not None and cur.version > 1:
+        # Versions are 1-based, so the first inquiry is v01; past it the case has
+        # a history and is no longer "fresh".
+        return False
+    if case.forms.filter(kind=FormKind.INQUIRY, sent=True).exists():
+        return False
+    if case.split_active and case.sides:
+        return all(case.side_status(sc) == CaseStatus.DRAFT for sc in case.sides)
+    return True
+
+
 def _is_fresh_converted_side(case: Case, side: str) -> bool:
     """True for the brand-new side created by an Internal & External two-stage
     conversion that has not been worked yet.
 
-    Such a side carries a full inquiry (copied from the prior side, marked sent)
-    but no TO/PI of its own, sits at RETURNED_TO_COMMERCIAL with Commercial, and
-    must be revised through "New version" only. Once it builds its own TO it
-    behaves like any other side (New version only after CLOSED).
+    Such a side carries a full inquiry (authored in the items editor as the
+    conversion was confirmed, or copied from the prior side) marked sent, but no
+    TO/PI of its own; it sits with Commercial at DRAFT — the status a
+    just-created side is born in — and must be revised through "New version"
+    only. RETURNED_TO_COMMERCIAL is accepted alongside it because that is what
+    sides converted before this read, and they must keep working. Once it builds
+    its own TO it behaves like any other side (New version only after CLOSED).
     """
     if not (case.is_split and case.price_upgraded_two_stage):
         return False
@@ -4641,15 +4678,25 @@ def burn_case(case: Case, actor, comment: str = ""):
     log(case, actor, EventAction.BURN, comment=comment, from_unit=Unit.COMMERCIAL)
 
 
-def _upgrade_price_to_two_stage(case: Case, actor):
+def _upgrade_price_to_two_stage(case: Case, actor, *,
+                                new_table=None, new_comments=None):
     """Convert a single-side (Internal OR External) case into a combined
     Internal & External (BOTH) split case.
 
     The progressed side keeps its status/holder and full history (events tagged
-    to that side). The new side starts fresh, with its inquiry copied from the
+    to that side). The new side starts fresh, with its inquiry seeded from the
     prior side's latest inquiry — taking the SAME version number (e.g. prior side
     at v04 -> new side starts at v04) — so it can be revised independently via
     "New version".
+
+    ``new_table`` / ``new_comments`` are what the items editor collected for the
+    NEW side before confirming the conversion (see :func:`upgrade_two_stage`).
+    When given they replace the copied rows / row notes on the new side's first
+    inquiry — the conversion is authored, not merely mirrored. They are the only
+    thing they change: the version number, the flags and every write on the
+    PRIOR side are identical either way, because what the user typed for the new
+    side says nothing about the side that already existed. ``None`` (the
+    programmatic caller in ``commit_inquiry_version``) keeps the plain copy.
 
     The invariant this function is written around: the side that ALREADY EXISTS
     must come out of the split byte-identical, because the two sides are
@@ -4688,14 +4735,34 @@ def _upgrade_price_to_two_stage(case: Case, actor):
     case.price_upgraded_two_stage = True
 
     # 3) The progressed side keeps the case's current status/holder. The new side
-    #    is seeded as a fresh-but-closed-like stream sitting with Commercial: it
-    #    is NOT a blank draft (it carries a full inquiry copied from the prior
-    #    side). It therefore starts at RETURNED_TO_COMMERCIAL so the inquiry can
-    #    only be revised through "New version" (exactly like a closed standalone),
-    #    never by editing the current version in place.
+    #    is created here and has never been anywhere, so it starts at DRAFT with
+    #    Commercial — the same state every side of a brand-new Internal & External
+    #    case is born in (see ``create_case`` / ``sync_fresh_draft_price_type``,
+    #    which write DRAFT into both side columns). RETURNED_TO_COMMERCIAL, which
+    #    this used to be, said the opposite: that the side had been sent out and
+    #    handed back, which never happened.
+    #
+    #    What the old value was protecting, and how it is still protected:
+    #    the reasoning was "the new side is NOT a blank draft (it carries a full
+    #    inquiry), so it must be revised through New version, never by editing
+    #    the current version in place". That rule is enforced by ``sent=True`` on
+    #    the seeded inquiry below, not by the status — ``can_do_side_action``'s
+    #    ``edit_inquiry`` gate is ``not (cur and cur.sent)`` and never looks at
+    #    the side's status, and the editor's own per-side gate reads the same
+    #    flag. Nothing else in the per-side machinery separates the two codes:
+    #    ``can_do_side_action`` gates Commercial actions on holder + owner +
+    #    "not terminal / not CLOSED / not FINAL_APPROVED", DRAFT and
+    #    RETURNED_TO_COMMERCIAL being neither; the inbox rule
+    #    (``inbox_filter_q``) asks only "held by Commercial and not terminal";
+    #    and ``_is_fresh_converted_side`` — the gate that keeps "New version"
+    #    on offer for this very side — already accepts DRAFT alongside
+    #    RETURNED_TO_COMMERCIAL. The one visible difference is the pill and the
+    #    Archive tab, which is exactly the defect being fixed: "Draft" instead of
+    #    "Returned to Commercial", and the Draft tab instead of With Commercial.
+    #    Both surfaces read it through ``status_view``, so they cannot disagree.
     cur_status = case.status
     cur_holder = case.holder_unit
-    NEW_SIDE_STATUS = CaseStatus.RETURNED_TO_COMMERCIAL
+    NEW_SIDE_STATUS = CaseStatus.DRAFT
     if prior_side == Side.INTERNAL:
         case.internal_status = cur_status
         case.internal_holder = cur_holder
@@ -4786,8 +4853,29 @@ def _upgrade_price_to_two_stage(case: Case, actor):
                         unit_at_creation=Unit.COMMERCIAL)
     new_form.columns = (prior_inq.columns if prior_inq else
                         ["#", "Item", "Description", "Size", "Qty", "Unit"])
-    new_form.table = prior_table
-    new_form.meta = (prior_inq.meta if prior_inq else {})
+    # The rows the editor authored for the new side, when there are any;
+    # otherwise the plain copy this function has always made.
+    new_form.table = ([dict(r) for r in new_table] if new_table is not None
+                      else prior_table)
+    # ``dict(...)`` and not the prior form's own mapping: the notes below are
+    # written into it, and sharing the object would edit the prior side's
+    # in-memory meta as well.
+    seed_meta = dict((prior_inq.meta if prior_inq else {}) or {})
+    if new_comments is not None:
+        # Commercial's row notes for the NEW side, replacing (never merging
+        # with) whatever the prior side happened to be carrying — the editor's
+        # map is the whole of what was said about these rows.
+        clean = {str(k): str(v or "").strip()
+                 for k, v in (new_comments or {}).items() if str(v or "").strip()}
+        if clean:
+            seed_meta["_comm_comments"] = clean
+        else:
+            seed_meta.pop("_comm_comments", None)
+        # …and the prior side's record of which notes its timeline already read
+        # says nothing about these ones, so it must not suppress announcing them
+        # on the new side's first handoff.
+        seed_meta.pop("_comm_comments_sent", None)
+    new_form.meta = seed_meta
     # Carry the TO & PI two-stage generation onto the copied inquiry: if the case
     # was upgraded to two-stage before the Internal & External split, the new
     # side's inquiry must keep the "· Two Stage" label and the "TO & PI (Two
@@ -4809,10 +4897,27 @@ def _upgrade_price_to_two_stage(case: Case, actor):
 
 
 @transaction.atomic
-def upgrade_two_stage(case: Case, actor, comment: str = "", **_ignored):
+def upgrade_two_stage(case: Case, actor, comment: str = "", *,
+                      new_table=None, comments=None, deadline=None, **_ignored):
     """Commercial action: convert a single-side case (Internal OR External) into a
     combined Internal & External two-stage split — WITHOUT creating a new inquiry
-    version, and WITHOUT moving the case.
+    version on the existing side, and WITHOUT moving the case.
+
+    ``new_table`` / ``comments`` are the rows and Commercial row notes the items
+    editor collected for the NEW side; ``deadline`` is the value the editor
+    demanded before it would confirm. The editor is the only route the UI
+    offers, so in practice all three arrive together — the conversion is
+    confirmed by saving the new side's first version, exactly the way every
+    other version in this product is created, rather than by a button that acted
+    on its own. They are optional so the programmatic caller in
+    ``commit_inquiry_version`` keeps working unchanged.
+
+    ``deadline`` is written on the CASE, because that is where a deadline lives
+    in this model — there is no per-side column — so it is the same field the
+    New-version editor writes from the same box. It is written only after the
+    conversion has gone through, inside this transaction: a refused conversion
+    leaves the case exactly as it was, deadline included. ``None`` leaves it
+    alone.
 
     Commercial may do this whenever it wants, whoever is currently holding the
     case: the two sides of an Internal & External case are independent streams, so
@@ -4838,7 +4943,14 @@ def upgrade_two_stage(case: Case, actor, comment: str = "", **_ignored):
         raise ValueError(
             "This case has no inquiry yet, so there is nothing to copy onto the new side."
         )
-    _upgrade_price_to_two_stage(case, actor)
+    _upgrade_price_to_two_stage(case, actor,
+                                new_table=new_table, new_comments=comments)
+    if deadline is not None and deadline != case.deadline:
+        # ``update_fields`` keeps this to the one column: the conversion has
+        # just written the case row, and nothing still held in memory here may
+        # be pushed back over it.
+        case.deadline = deadline
+        case.save(update_fields=["deadline", "updated_at"])
 
 
 class InquiryUnchanged(Exception):

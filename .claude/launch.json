@@ -1,0 +1,16 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "quv-probe",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "C:/Users/Asus/AppData/Local/Temp/claude/C--personal-work-ftworkflow/b1eb4115-fb0c-49a8-bcb2-31c71111a9ef/scratchpad/quv/quv_manage.py",
+        "runserver",
+        "127.0.0.1:8844",
+        "--noreload"
+      ],
+      "port": 8844
+    }
+  ]
+}

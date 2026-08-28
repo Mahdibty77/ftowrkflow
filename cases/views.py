@@ -1520,14 +1520,12 @@ def case_detail(request, pk):
         hide_combined = True
     multi_side = len(sides_data) > 1
 
-    # Full case-information editing is only meaningful on a never-submitted draft.
-    _cur_inq = case.current_form(FormKind.INQUIRY)
-    # Form versions are 1-based, so the very first inquiry is v01. A "fresh draft"
-    # is that first version while the case is still a draft.
-    is_fresh_draft = case.status == CaseStatus.DRAFT and (_cur_inq is None or _cur_inq.version <= 1)
-    if case.is_split:
-        is_fresh_draft = is_fresh_draft and all(
-            case.side_status(sc) == CaseStatus.DRAFT for sc in case.sides)
+    # Full case-information editing is only meaningful on a never-submitted
+    # draft. The same question decides whether ``edit_items`` will actually SERVE
+    # that screen, so both ask services.case_is_fresh_draft rather than each
+    # keeping its own copy — see the note on that function for what went wrong
+    # when they drifted.
+    is_fresh_draft = services.case_is_fresh_draft(case)
 
     from django.conf import settings as _dj_settings
 
@@ -1663,14 +1661,68 @@ def _event_visible_to(event, unit) -> bool:
     return actor_unit == unit
 
 
+def _inquiry_table_from_grid(rows):
+    """Turn the editor's submitted grid into ``(inquiry table, row notes)``.
+
+    ``#`` is taken from each surviving row's ``data-client`` (so a deletion
+    leaves a visible gap); ``Item`` reflows 1..N.
+
+    The Commercial row notes ride in with the grid, one per row, but they do NOT
+    go into the table. They are what Commercial says about this version when
+    handing it over, not a property of the product on the line, so they come
+    back as a separate ``{# -> note}`` map and are stored on the version
+    (``CaseForm.meta``) instead — see ``services._inquiry_comment_map``. Every
+    export and every price/detail table renders from ``CaseForm.table``, so a
+    note that never enters the table can never surface on a row or in a sheet.
+
+    One reader for both moments the editor creates a version: "New version" and
+    the Internal & External conversion, which must not be able to disagree about
+    what the same grid means.
+    """
+    new_table, new_comments = [], {}
+    for idx, row in enumerate(rows or [], start=1):
+        row = row or {}
+        try:
+            cr = int(str(row.get("client_row", "")).strip() or idx)
+        except (ValueError, TypeError):
+            cr = idx
+        entry = {
+            "#": cr,
+            "Item": idx,
+            "Description": str(row.get("description", "")).strip(),
+            "Size": str(row.get("size", "")).strip(),
+            "Qty": str(row.get("quantity", "")).strip(),
+            "Unit": str(row.get("unit", "")).strip(),
+        }
+        if str(row.get("deleted", "") or "") == "1":
+            entry["_deleted"] = "1"
+        if str(row.get("added", "") or "") == "1":
+            entry["_added"] = "1"
+        note = str(row.get("comment", "") or "").strip()
+        if note:
+            new_comments[str(cr)] = note
+        new_table.append(entry)
+    return new_table, new_comments
+
+
 def _newver_context(case, rows, side, offer_type, price_type, seeded=False,
                     currency_conversion=False, update_price=False,
-                    deadline_input=""):
+                    deadline_input="", convert=False, convert_side="",
+                    convert_version=None):
     """Build the edit_items render context for "New version" mode.
 
     ``rows`` is a list of dicts with keys client_row/description/size/quantity/
     unit (seed format). Canonical inquiry keys (#/Description/…) are also
     accepted so a refused save can re-render without wiping the grid.
+
+    ``convert`` marks the Internal & External conversion, which is the same
+    screen doing the same job: the user authors the first version of a stream
+    and a deadline, and confirming is what creates it. It therefore keeps
+    ``newver_mode`` — that flag is what draws the version editor's chrome (the
+    row-comment panel, the required-deadline star, the grid's add/delete marks)
+    — and adds ``convert_mode`` beside it, which is all the template needs to
+    post to the right place and name what is about to happen. ``convert_side``
+    is the side being created, for the wording only.
     """
     line_items = []
     for idx, r in enumerate(rows or [], start=1):
@@ -1705,6 +1757,15 @@ def _newver_context(case, rows, side, offer_type, price_type, seeded=False,
         "deadline_input": deadline_input,
         "edit_side": side,
         "newver_mode": True,
+        "convert_mode": bool(convert),
+        "convert_side": convert_side,
+        "convert_side_label": Side.LABELS.get(convert_side, convert_side),
+        # The number the new side's first inquiry will take. It is the version
+        # the existing side is on (unchanged rule — a case at v00, which is
+        # every case this can be used on today, gives the new side 00), and it
+        # is passed in rather than written into the wording so the screen can
+        # never promise a number the save will not produce.
+        "convert_version": convert_version,
         "nv_offer": offer_type,
         "nv_price": price_type,
         "nv_currency": bool(currency_conversion),
@@ -1726,6 +1787,145 @@ def edit_items(request, pk):
         (ctx.role and ctx.role.unit == Unit.COMMERCIAL)
         or (profile and profile.unit == Unit.COMMERCIAL)
     )
+
+    # ------------------------------------------------------------------
+    # Internal & External conversion mode. Reached from the case page's "Open
+    # editor" button (GET) and its own submit (POST) — deliberately the same
+    # shape as "New version" below, because it is the same act: the user
+    # authors the first version of a stream and its deadline, and CONFIRMING IN
+    # THE EDITOR is what creates it. It used to happen instantly on a button
+    # press, with no editor and no deadline.
+    #
+    # Nothing at all is written on the GET. The conversion, the new side's
+    # first version and the deadline are one atomic POST, so walking away from the
+    # editor — Cancel, Back, a closed tab — leaves the case exactly as it was:
+    # still one-sided, same status, same holder, no orphan side.
+    # ------------------------------------------------------------------
+    convert = (request.GET.get("convert_two_stage", "")
+               or request.POST.get("convert_two_stage", "")).strip() == "1"
+    if convert:
+        # The very permission the button was drawn from, read through the same
+        # seat-aware call the case page used: Commercial, the case's creator,
+        # case still alive, still single-sided, and carrying an inquiry. Whether
+        # Commercial is HOLDING the case is deliberately not part of it — the
+        # two sides are independent, so creating the missing one is not a
+        # routing decision about the one that exists.
+        if "upgrade_two_stage" not in services.allowed_actions_for_request(case, request):
+            messages.error(request, "This case can't be made Internal & External right now.")
+            return redirect("cases:case_detail", pk=pk)
+        cv_prior_side = (Side.INTERNAL if case.price_type == PriceType.INTERNAL
+                         else Side.EXTERNAL)
+        cv_new_side = (Side.EXTERNAL if cv_prior_side == Side.INTERNAL
+                       else Side.INTERNAL)
+        cv_new_label = Side.LABELS.get(cv_new_side, cv_new_side)
+        # The case is still single-sided while this screen is open, so the
+        # baseline the grid's +/− marks are measured against is the case's own
+        # v00 — exactly what "New version" uses on a non-split case.
+        cv_v00 = services.v00_client_row_set(case, "")
+        # The version the new side will be created at: the one the existing
+        # side is on. Read before anything moves, so the screen and the save
+        # cannot name different numbers.
+        _cv_cur = case.current_form(FormKind.INQUIRY)
+        cv_version = _cv_cur.version if _cv_cur else 0
+
+        if request.method == "POST":
+            try:
+                rows = json.loads(request.POST.get("rows", "[]"))
+            except ValueError:
+                rows = []
+            inq_errs = validate_inquiry_rows(rows)
+            # The deadline is mandatory here for the reason it is mandatory on
+            # New Case and on New version: this save CREATES a commercial
+            # stream, and one may not exist without a date. It is read by the
+            # same validator those two screens use (``_read_typed_deadline`` ->
+            # ``CaseCreateForm.clean_deadline``), so a value that cannot be
+            # read, a Jalali date that does not exist (12-30 of a common year)
+            # and a date already gone by are refused here in the same words. No
+            # second parser: there is one definition of what a typed deadline
+            # means. Every refusal rides the same path as a bad inquiry row, so
+            # the grid comes back untouched with the date still in the box.
+            cv_deadline_raw = (request.POST.get("deadline", "") or "").strip()
+            cv_deadline = None
+            if not cv_deadline_raw:
+                inq_errs = [f"Set the deadline before creating the {cv_new_label} side."] \
+                    + list(inq_errs)
+            else:
+                cv_deadline, cv_deadline_err = _read_typed_deadline(
+                    cv_deadline_raw, current=case.deadline)
+                if cv_deadline_err:
+                    inq_errs = [cv_deadline_err] + list(inq_errs)
+            new_table, new_comments = _inquiry_table_from_grid(rows)
+            if inq_errs:
+                for err in inq_errs:
+                    messages.error(request, err)
+                # Nothing was written. Put each note back beside its row purely
+                # so the grid re-renders the way the user left it; these dicts
+                # die with the response.
+                shown = [dict(r, comment=new_comments.get(str(r.get("#", "")), ""))
+                         for r in new_table]
+                return render(request, "cases/edit_items.html",
+                              _newver_context(
+                                  case,
+                                  services.apply_inquiry_row_marks_vs_v00(shown, cv_v00),
+                                  "", "", "", deadline_input=cv_deadline_raw,
+                                  convert=True, convert_side=cv_new_side,
+                                  convert_version=cv_version))
+            try:
+                # Same one-at-a-time guard the workflow buttons take: the row is
+                # locked, the case re-read under the lock and the permission put
+                # again to what it has actually become, so a double submit meets
+                # the first one's result instead of half-converting a case that
+                # is already split.
+                with transaction.atomic():
+                    _lock_case_row(case.pk)
+                    case.refresh_from_db()
+                    if "upgrade_two_stage" not in services.allowed_actions_for_request(case, request):
+                        raise _TransitionRaceLost
+                    services.upgrade_two_stage(
+                        case, request.user,
+                        new_table=new_table, comments=new_comments,
+                        deadline=cv_deadline)
+            except _TransitionRaceLost:
+                messages.error(request, "This case can't be made Internal & External right now.")
+                return redirect("cases:case_detail", pk=pk)
+            except ValueError as exc:
+                # The service refused (already split / ended / no inquiry) and
+                # wrote nothing — its own transaction rolled back.
+                messages.error(request, str(exc))
+                return redirect("cases:case_detail", pk=pk)
+            _made = case.current_form(FormKind.INQUIRY, cv_new_side)
+            messages.success(
+                request,
+                f"Converted to Internal & External. The {cv_new_label} side was "
+                f"created at version {(_made.version if _made else cv_version):02d} "
+                "and is a Draft in your hands.")
+            return redirect(
+                f"{reverse('cases:case_detail', args=[pk])}?side={cv_new_side}")
+
+        # GET: the editor, seeded with the rows the new side starts from (the
+        # case's current inquiry) and the row notes recorded on that version.
+        cv_cur = case.current_form(FormKind.INQUIRY)
+        cv_rows = list(cv_cur.table or []) if cv_cur else []
+        cv_comments = services._inquiry_comment_map(
+            cv_rows, cv_cur.meta if cv_cur else None)
+        cv_seed = []
+        for r in cv_rows:
+            cr = r.get("#", r.get("client_row", ""))
+            cv_seed.append({
+                "client_row": cr,
+                "description": r.get("Description", r.get("description", "")),
+                "size": r.get("Size", r.get("size", "")),
+                "quantity": r.get("Qty", r.get("quantity", "")),
+                "unit": r.get("Unit", r.get("unit", "")),
+                "_deleted": r.get("_deleted", ""),
+                "_added": r.get("_added", ""),
+                "comment": cv_comments.get(str(cr).strip(), ""),
+            })
+        cv_seed = services.apply_inquiry_row_marks_vs_v00(cv_seed, cv_v00)
+        return render(request, "cases/edit_items.html",
+                      _newver_context(case, cv_seed, "", "", "", seeded=True,
+                                      convert=True, convert_side=cv_new_side,
+                                      convert_version=cv_version))
 
     # ------------------------------------------------------------------
     # "New version" mode. Reached from the New-version button (GET) and its
@@ -1805,39 +2005,10 @@ def edit_items(request, pk):
                                               currency_conversion=nv_currency,
                                               update_price=nv_update_price,
                                               deadline_input=nv_deadline_raw))
-            # Build the canonical inquiry table from the submitted grid. # is
-            # taken from each surviving row's data-client (so deletions leave a
-            # visible gap); Item reflows 1..N.
-            #
-            # The Commercial row notes ride in with the grid, one per row, but
-            # they do NOT go into the table. They are what Commercial says about
-            # this version when handing it over, not a property of the product on
-            # the line, so they are collected into a {# -> note} map and stored on
-            # the version (CaseForm.meta) instead. Every export and every
-            # price/detail table renders from CaseForm.table, so a note that never
-            # enters the table can never surface on a row or in a sheet.
-            new_table, new_comments = [], {}
-            for idx, row in enumerate(rows, start=1):
-                try:
-                    cr = int(str(row.get("client_row", "")).strip() or idx)
-                except (ValueError, TypeError):
-                    cr = idx
-                entry = {
-                    "#": cr,
-                    "Item": idx,
-                    "Description": str(row.get("description", "")).strip(),
-                    "Size": str(row.get("size", "")).strip(),
-                    "Qty": str(row.get("quantity", "")).strip(),
-                    "Unit": str(row.get("unit", "")).strip(),
-                }
-                if str(row.get("deleted", "") or "") == "1":
-                    entry["_deleted"] = "1"
-                if str(row.get("added", "") or "") == "1":
-                    entry["_added"] = "1"
-                note = str(row.get("comment", "") or "").strip()
-                if note:
-                    new_comments[str(cr)] = note
-                new_table.append(entry)
+            # Build the canonical inquiry table from the submitted grid — the
+            # same reader the conversion editor uses (see the helper's note on
+            # why the row comments come back separately).
+            new_table, new_comments = _inquiry_table_from_grid(rows)
             try:
                 version = services.commit_inquiry_version(
                     case, request.user, new_table=new_table, side=nv_side,
@@ -1986,12 +2157,9 @@ def edit_items(request, pk):
                           and not side_inq_sent
                           and (cur_inq is None or cur_inq.version <= 1))
     else:
-        inquiry_ever_sent = case.forms.filter(kind=FormKind.INQUIRY, sent=True).exists()
-        is_fresh_draft = (case.status == CaseStatus.DRAFT and not inquiry_ever_sent
-                          and (cur_inq is None or cur_inq.version <= 1))
-        if case.is_split:
-            is_fresh_draft = is_fresh_draft and all(
-                case.side_status(sc) == CaseStatus.DRAFT for sc in case.sides)
+        # Same question the case page asks to decide which link to render, so it
+        # is asked in one place — services.case_is_fresh_draft.
+        is_fresh_draft = services.case_is_fresh_draft(case)
     # Deadline may be (re)set while the case is a draft, or for an editable side.
     deadline_editable = (case.status == CaseStatus.DRAFT) or side_edit
 
@@ -2474,9 +2642,18 @@ def transition(request, pk):
                 messages.info(request, "Edit the items — a new version is saved only if you change the table.")
                 return redirect(f"{reverse('cases:edit_items', args=[pk])}?{qs}")
             elif action == "upgrade_two_stage":
-                services.upgrade_two_stage(case, actor, comment)
-                messages.success(request, "Converted to Internal & External two stage.")
-                return redirect("cases:case_detail", pk=pk)
+                # The conversion is NOT performed here any more. Like "New
+                # version" above it, the button only opens the inquiry editor;
+                # the new side's version 00 — and the deadline it insists on —
+                # are created when the user confirms there. Nothing is written
+                # on the way through, so this stays safe for an old bookmark or
+                # a replayed POST: it lands on the editor rather than splitting
+                # a case behind the user's back without a deadline.
+                messages.info(request,
+                              "Edit the items and set the deadline — the new "
+                              "side is created when you confirm.")
+                return redirect(
+                    f"{reverse('cases:edit_items', args=[pk])}?convert_two_stage=1")
             elif action == "comment":
                 if comment:
                     ev = services.add_comment(case, actor, comment,
