@@ -320,6 +320,7 @@
     .terms-page .doc-head { height: 95px; }
     .terms-wrap { padding: 8px 0; flex: 1; display: flex; min-height: 0; }
     .terms-card {
+      --terms-scale: 1;
       border: 1px solid var(--line); background: #fff; overflow: hidden;
       border-radius: 8px; width: 100%; display: flex; flex-direction: column;
     }
@@ -331,11 +332,21 @@
       display: inline-block; font-size: 9px; font-weight: 700;
       text-transform: none; color: #b9c6dc; letter-spacing: .02em;
     }
+    {# EN / FA side by side (not stacked): one row's height instead of two, #}
+    {# which is where most of a single-page sheet's spare room comes from — #}
+    {# see fit_terms_single_page in cases/pdf_export.py. Font size scales   #}
+    {# with the clause text below it so the intro is never the odd one out #}
+    {# once a grown sheet has shrunk everything else to fit.               #}
     .terms-intro {
       padding: 6px 12px; color: var(--muted); font-weight: 600;
-      border-bottom: 1px solid var(--line); background: #eef1f6; font-size: 11px;
+      border-bottom: 1px solid var(--line); background: #eef1f6;
+      font-size: calc(11px * var(--terms-scale));
+      display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; align-items: start;
     }
-    .terms-intro .fa { direction: rtl; font-family: Tahoma, "Segoe UI", sans-serif; margin-top: 2px; }
+    .terms-intro .fa {
+      direction: rtl; font-family: Tahoma, "Segoe UI", sans-serif;
+      border-right: 1px solid #dbe1ea; padding-right: 10px;
+    }
     .terms-categories {
       padding: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
       flex: 1; align-content: start; overflow: hidden;
@@ -356,8 +367,14 @@
       direction: rtl; white-space: nowrap;
     }
     .term-bilingual { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+    {# Only the clause text shrinks with --terms-scale — not the padding    #}
+    {# around it, and not the category header above it. cases/pdf_export.py #}
+    {# ::fit_terms_single_page measures this exact font-size/line-height    #}
+    {# pair when it decides how far to shrink, so the two must not drift.   #}
     .term-bilingual ol {
-      margin: 0; padding: 6px 8px 6px 20px; font-size: 9.5px; line-height: 1.35; color: #0a1629;
+      margin: 0; padding: 6px 8px 6px 20px; color: #0a1629;
+      font-size: calc(9.5px * var(--terms-scale));
+      line-height: 1.35;
     }
     .term-bilingual ol.fa {
       direction: rtl; font-family: Tahoma, "Segoe UI", sans-serif; border-right: 1px solid #e0e5eb;
@@ -804,7 +821,10 @@
   </header>
 
   <div class="terms-wrap">
-    <div class="terms-card">
+    {# --terms-scale shrinks the CLAUSE TEXT only (see fit_terms_single_page   #}
+    {# in cases/pdf_export.py) so a grown sheet still fits the one physical   #}
+    {# page every other export page gets, without paginating. 1 = full size.  #}
+    <div class="terms-card" style="--terms-scale:{{ terms_page.scale|default:1 }}">
       <h2>Terms &amp; Conditions / شرایط و ضوابط{% if terms_page.is_continuation %} <span class="terms-cont-mark">(continued)</span>{% endif %}</h2>
       {% if not terms_page.is_continuation %}
       <div class="terms-intro">

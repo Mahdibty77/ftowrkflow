@@ -669,7 +669,7 @@ _TERMS_H2_H_MM = 33 * _PX_MM           # .terms-card h2: 16px v-padding + a 13px
 _TERMS_INTRO_PAD_V_MM = 12 * _PX_MM    # .terms-intro { padding: 6px 12px } (top+bottom)
 _TERMS_INTRO_PAD_H_MM = 24 * _PX_MM    # .terms-intro { padding: 6px 12px } (left+right)
 _TERMS_INTRO_BORDER_MM = 1 * _PX_MM    # .terms-intro border-bottom
-_TERMS_INTRO_GAP_MM = 2 * _PX_MM       # .terms-intro .fa { margin-top: 2px }
+_TERMS_INTRO_GAP_MM = 10 * _PX_MM      # .terms-intro { gap: 2px 10px } — the COLUMN gap
 _TERMS_INTRO_LINE_MM = 11 * 1.3 * _PX_MM   # font-size 11px, generous line-height
 _TERMS_CATS_PAD_MM = 16 * _PX_MM       # .terms-categories { padding: 8px } (either axis)
 _TERMS_ROW_GAP_MM = 8 * _PX_MM         # .terms-categories { gap: 8px } — between rows
@@ -717,40 +717,54 @@ def _terms_col_text_width_mm(is_full: bool) -> float:
     return max(20.0, lang_col - _TERMS_OL_SIDE_MM)
 
 
-def _terms_item_lines(text: str, width_mm: float, *, fa: bool) -> int:
+def _terms_item_lines(text: str, width_mm: float, *, fa: bool, scale: float = 1.0) -> int:
     w = width_mm * _TERMS_FA_WIDTH_FACTOR if fa else width_mm
-    return _estimate_lines(text, w, font_pt=_TERMS_FONT_PT)
+    return _estimate_lines(text, w, font_pt=_TERMS_FONT_PT * scale)
 
 
-def _terms_column_h_mm(items: list, width_mm: float, *, fa: bool) -> float:
-    """Natural height of one language column holding ``items``."""
+def _terms_column_h_mm(items: list, width_mm: float, *, fa: bool, scale: float = 1.0) -> float:
+    """Natural height of one language column holding ``items``.
+
+    ``scale`` shrinks only the BODY TEXT metrics (line height, and the font
+    size fed to the line-wrap estimator) — never the padding around it. That
+    keeps a scaled-down sheet reading as the same layout with smaller type,
+    not a cramped one; see ``fit_terms_single_page``, the only real caller.
+    """
     if not items:
         return 0.0
     total = 0.0
+    line_mm = _TERMS_ITEM_LINE_MM * scale
     for it in items:
-        lines = _terms_item_lines(str(it or ""), width_mm, fa=fa)
-        total += lines * _TERMS_ITEM_LINE_MM + _TERMS_ITEM_GAP_MM
+        lines = _terms_item_lines(str(it or ""), width_mm, fa=fa, scale=scale)
+        total += lines * line_mm + _TERMS_ITEM_GAP_MM
     return _TERMS_OL_PAD_MM + total
 
 
-def _category_height_mm(cat: dict) -> float:
+def _category_height_mm(cat: dict, scale: float = 1.0) -> float:
     """Natural height of one category card, EN/FA columns taken at the taller."""
     is_full = bool(cat.get("full"))
     w = _terms_col_text_width_mm(is_full)
-    en_h = _terms_column_h_mm(cat.get("items_en") or [], w, fa=False)
-    fa_h = _terms_column_h_mm(cat.get("items_fa") or [], w, fa=True)
+    en_h = _terms_column_h_mm(cat.get("items_en") or [], w, fa=False, scale=scale)
+    fa_h = _terms_column_h_mm(cat.get("items_fa") or [], w, fa=True, scale=scale)
     body = max(en_h, fa_h, _TERMS_OL_PAD_MM)
     return _TERMS_CAT_BORDER_MM + _TERMS_CAT_H3_H_MM + body
 
 
-def _terms_intro_height_mm(intro_en: str, intro_fa: str) -> float:
-    """Natural height of the intro paragraph pair, stacked EN over FA."""
-    width = _TERMS_CARD_W_MM - _TERMS_INTRO_PAD_H_MM
-    en_lines = _estimate_lines(intro_en or "", width, font_pt=11.0)
-    fa_lines = _estimate_lines(intro_fa or "", width * _TERMS_FA_WIDTH_FACTOR, font_pt=11.0)
+def _terms_intro_height_mm(intro_en: str, intro_fa: str, scale: float = 1.0) -> float:
+    """Natural height of the intro paragraph pair.
+
+    Laid out SIDE BY SIDE (EN | FA), not stacked — see the ``.terms-intro``
+    CSS and ``fit_terms_single_page``'s docstring for why: a two-language
+    paragraph in one row costs one row's height instead of two, which is
+    where most of a single-page sheet's spare room actually comes from.
+    """
+    width = (_TERMS_CARD_W_MM - _TERMS_INTRO_PAD_H_MM - _TERMS_INTRO_GAP_MM) / 2
+    en_lines = _estimate_lines(intro_en or "", width, font_pt=11.0 * scale)
+    fa_lines = _estimate_lines(intro_fa or "", width * _TERMS_FA_WIDTH_FACTOR, font_pt=11.0 * scale)
+    lines = max(en_lines, fa_lines, 1)
     return (
-        _TERMS_INTRO_PAD_V_MM + _TERMS_INTRO_BORDER_MM + _TERMS_INTRO_GAP_MM
-        + (en_lines + fa_lines) * _TERMS_INTRO_LINE_MM
+        _TERMS_INTRO_PAD_V_MM + _TERMS_INTRO_BORDER_MM
+        + lines * _TERMS_INTRO_LINE_MM * scale
     )
 
 
@@ -834,7 +848,7 @@ def _split_category(cat: dict, avail_mm: float) -> list[dict]:
     return parts or [cat]
 
 
-def _terms_build_rows(cats: list[dict]) -> list[dict]:
+def _terms_build_rows(cats: list[dict], scale: float = 1.0) -> list[dict]:
     """Group categories into rows exactly as CSS grid auto-flow already would:
     a ``full`` category alone in its own row, two ordinary ones side by side
     in document order otherwise. Page breaks below only ever fall between
@@ -846,15 +860,15 @@ def _terms_build_rows(cats: list[dict]) -> list[dict]:
     while i < n:
         cat = cats[i]
         if cat.get("full"):
-            rows.append({"cats": [cat], "h": _category_height_mm(cat)})
+            rows.append({"cats": [cat], "h": _category_height_mm(cat, scale=scale)})
             i += 1
             continue
         if i + 1 < n and not cats[i + 1].get("full"):
             pair = [cat, cats[i + 1]]
-            rows.append({"cats": pair, "h": max(_category_height_mm(c) for c in pair)})
+            rows.append({"cats": pair, "h": max(_category_height_mm(c, scale=scale) for c in pair)})
             i += 2
         else:
-            rows.append({"cats": [cat], "h": _category_height_mm(cat)})
+            rows.append({"cats": [cat], "h": _category_height_mm(cat, scale=scale)})
             i += 1
     return rows
 
@@ -913,6 +927,74 @@ def paginate_terms(terms: dict) -> list[dict]:
             "is_continuation": page_idx > 0,
         })
     return out
+
+
+# The floor exists because the two things the owner asked for can conflict:
+# ONE page, always, and text small enough to still be legible. Between them,
+# one page wins — a clause quietly lost to an overflowing card is worse than
+# a dense one, which is why paginate_terms above (now unused, kept for
+# reference) existed in the first place. 9.5pt * 0.40 ~= 3.8pt: small, on the
+# order of a purchase order's fine print, not a size to print a whole page at
+# by choice — but it is what a category grid this size can hold on one A4
+# landscape sheet if a reader adds several clauses to every category, which
+# the shipped defaults alone already come close to the full-size budget
+# without (0.75-0.76 at the default clause count). Below this floor the
+# search stops and prints at the floor rather than going smaller still.
+_TERMS_MIN_SCALE = 0.40
+_TERMS_SCALE_STEP = 0.05
+
+
+def fit_terms_single_page(terms: dict) -> dict:
+    """Shrink a terms sheet's TYPE — never its content — until the whole thing
+    fits on the one physical A4 sheet every other export page gets, and return
+    that one page. Replaces ``paginate_terms`` at the render call site: the
+    owner's explicit instruction is that a term sheet is always ONE page, so
+    nothing here may ever hand back more than one.
+
+    Nothing is dropped, split or moved to a second page — the search only
+    ever returns a SCALE, never a slice, so there is no second page for it to
+    put anything on. Every category and every clause the caller passed in
+    comes back exactly as it was written, just measured (and printed)
+    smaller when the full-size layout would not fit — the same category
+    grid, the same two-column English/Persian card, at a font size
+    ``_estimate_lines`` (the same line-wrap estimator every other export
+    page already trusts) predicts will fit.
+
+    Search, not arithmetic: shrinking is not linear (padding, borders and
+    the category header bar stay a fixed size — only body text and its line
+    height scale), so there is no formula from "how much this overflows by"
+    to "the scale that fixes it". 100% down to ``_TERMS_MIN_SCALE`` in
+    ``_TERMS_SCALE_STEP`` steps is a handful of cheap in-memory measurements
+    (no rendering, no I/O) — the same technique ``paginate_terms`` above
+    already uses to decide where a page breaks, aimed at a scale instead of a
+    break point.
+    """
+    cats = list(terms.get("categories") or [])
+    intro_en = str(terms.get("intro_en", "") or "")
+    intro_fa = str(terms.get("intro_fa", "") or "")
+
+    def _needed_mm(scale: float) -> float:
+        intro_h = _terms_intro_height_mm(intro_en, intro_fa, scale=scale)
+        rows = _terms_build_rows(cats, scale=scale)
+        body = sum(r["h"] for r in rows)
+        if len(rows) > 1:
+            body += (len(rows) - 1) * _TERMS_ROW_GAP_MM
+        return intro_h + body
+
+    scale = 1.0
+    while scale > _TERMS_MIN_SCALE + 1e-9 and _needed_mm(scale) > _TERMS_BODY_MM + 0.05:
+        scale = round(scale - _TERMS_SCALE_STEP, 2)
+    scale = max(scale, _TERMS_MIN_SCALE)
+
+    return {
+        "terms": {
+            "intro_en": intro_en,
+            "intro_fa": intro_fa,
+            "categories": cats,
+        },
+        "is_continuation": False,
+        "scale": scale,
+    }
 
 
 def _chrome_path() -> str | None:
@@ -1445,12 +1527,15 @@ def build_document_context(case, form, terms: dict | None = None, *, pdf_lite: b
         service_rows, _SERVICE_COLUMNS, is_pi=False,
         widths=_SERVICE_WIDTHS, extra_mm=_BANNER_H,
     ) if service_rows else []
-    # A clause list this document's own editor lets a user grow does not fit
-    # any better than an item table does — paginated the same way, and for the
-    # same reason: everything past one fixed 210mm sheet used to be clipped by
-    # ``.terms-categories``'s own ``overflow: hidden`` with nothing to show it
-    # happened.
-    terms_pages = paginate_terms(normalize_terms(terms, kind=kind))
+    # A clause list this document's own editor lets a user grow used to be
+    # clipped by ``.terms-categories``'s own ``overflow: hidden`` past one
+    # fixed 210mm sheet, with nothing to show it happened. This document
+    # ALWAYS carries exactly one terms sheet — the owner's explicit
+    # instruction — so growth shrinks the type to fit instead of paginating;
+    # see fit_terms_single_page's docstring for why that is a search, not a
+    # formula. (paginate_terms/_split_category above are unused now — kept
+    # rather than deleted in case the one-page constraint is ever relaxed.)
+    terms_pages = [fit_terms_single_page(normalize_terms(terms, kind=kind))]
     # Counted *after* pagination, so a row (or a term category) that had to be
     # split across sheets is already reflected in the page counts above. Every
     # page any paginator returns is exactly one physical sheet, so this total
