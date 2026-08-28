@@ -12,4 +12,9 @@ app_name = "marketing"
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("entities/search/", views.entity_search, name="entity_search"),
+    path("entities/create/", views.entity_create, name="entity_create"),
+    path("entities/link/", views.entity_link, name="entity_link"),
+    path("entities/unlink/", views.entity_unlink, name="entity_unlink"),
+    path("entities/connections/", views.entity_connections, name="entity_connections"),
 ]

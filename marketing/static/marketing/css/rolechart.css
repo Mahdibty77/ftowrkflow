@@ -65,10 +65,16 @@
 .rc-canvas.is-actual > svg{ width:1300px; min-width:1300px; }
 
 /* ---- Colour families -----------------------------------------------------
-   A role family reads as a colour — the mockup's idea, kept. The VALUES are
-   not the mockup's sixteen: each one below is a colour this platform already
-   owns, so the chart speaks the same colour language as the rest of the UI.
-   Eight families, because eight is what fifteen slots collapse to:
+   A role family still reads as a colour — the mockup's idea, kept — but only
+   as a thin ACCENT now, not as the fill of the whole box. The first version of
+   this chart gave every filled slot a full saturated fill in one of eight
+   different hues, and on a chart with most slots filled that read as exactly
+   what the owner called it: "خیلی رنگارنگ" (too colourful), with the boxes
+   competing against the lines meant to connect them rather than framing them.
+   The values below are unchanged — each is still a colour this platform
+   already owns — only WHERE they are spent has changed: a filled box is now a
+   plain card in --rc-card, and the family colour is carried by its border and
+   by the small abbreviation label alone.
 
      principal  slate indigo   core/theming.py — the administration accent
      mgmt       steel          the --slate / --muted neutral of app.css
@@ -83,46 +89,55 @@
 
    NOT var(--accent). --accent on this platform is the viewer's chosen colour
    SKIN (blue / rose / teal, static/css/theme-pack.css), not their unit colour,
-   and it is free to be a light pink or a bright teal. These fills carry text,
-   and white on rose --accent is 3.5:1, on dark teal 2.5:1 — so binding a
-   text-bearing fill to the skin would make the most important box in the chart
-   the least legible one, on a preference the chart cannot see. The unit accent
-   is taken by value instead, and it is checked: see the ratios below.
+   and it is free to be a light pink or a bright teal — binding a meaningful
+   family colour to it would make the chart's own colour-coding a matter of
+   the reader's preference. The unit accent is taken by value instead.
 
-   TWO SETS OF VALUES, one per theme, and this is what the theme switch needs
-   rather than a nicety. The light set is mid-dark ink-like colour carrying
-   WHITE text (5.0–8.8:1). Reused unchanged in dark mode those same fills sit
-   at 1.4–2.5:1 against any dark ground this platform has — a coloured box that
-   is no longer a box. The dark set is therefore the same eight HUES lightened
-   and carrying DARK text: 6.9–9.5:1 on the label, and never below 6.7:1
-   against the ground, which is how a chart is normally inverted. The hue, and
-   so the meaning of each colour, is the thing that stays constant. */
+   TWO SETS OF VALUES, one per theme. The light set is a mid-dark ink-like
+   colour, read here as TEXT on --rc-card (near white) — the same values that
+   used to carry white text on themselves are exactly as legible carrying
+   themselves as text on white, contrast being symmetric. The dark set is the
+   same eight hues lightened, read as light text on the dark --rc-card. The
+   hue, and so the meaning of each colour, is the thing that stays constant
+   between the two — see the measured ratios kept beside each value. */
 .rc-chart{
-  /* light: fill carries white text */
-  --rc-principal:#454091;   /* white 8.77:1 */
-  --rc-mgmt:#4a5b70;        /* white 6.95:1 */
-  --rc-design:#1f5f8b;      /* white 6.84:1 */
-  --rc-contract:#8a5a0f;    /* white 5.92:1 */
-  --rc-supply:#1f7a5a;      /* white 5.26:1 */
-  --rc-inspect:#b45309;     /* white 5.02:1 */
-  --rc-us:#8c3f63;          /* white 6.99:1 — core/theming.py MARKETING accent */
-  --rc-rival:#64748b;       /* white 4.76:1 */
-  --rc-on-fill:#ffffff;
+  /* light: family colour used as small accent text/border, on --rc-card.
+     Every value is unchanged from the first version of this chart — contrast
+     is symmetric, so a colour once tuned to carry white text at N:1 carries
+     itself as text on white at that same N:1, and each one already clears
+     4.5:1, the AA floor for the 9.5px abbreviation, the smallest text here. */
+  --rc-principal:#454091;   /* on --rc-card(#fff) 8.77:1 */
+  --rc-mgmt:#4a5b70;        /* on --rc-card(#fff) 6.95:1 */
+  --rc-design:#1f5f8b;      /* on --rc-card(#fff) 6.84:1 */
+  --rc-contract:#8a5a0f;    /* on --rc-card(#fff) 5.92:1 */
+  --rc-supply:#1f7a5a;      /* on --rc-card(#fff) 5.26:1 */
+  --rc-inspect:#b45309;     /* on --rc-card(#fff) 5.02:1 */
+  --rc-us:#8c3f63;          /* on --rc-card(#fff) 6.99:1 — core/theming.py
+                                MARKETING accent */
+  --rc-rival:#64748b;       /* on --rc-card(#fff) 4.76:1 */
+  /* --rc-card is not redefined per theme, like --rc-influence below: --paper
+     itself already flips from near-white to a dark card surface, so one
+     definition here is correct in both. */
+  --rc-card:var(--paper);
 
   --rc-ground:var(--cloud);
-  --rc-hair:rgba(15,23,42,.18);
+  --rc-hair:var(--line);
   --rc-empty-fill:var(--paper);
   /* NOT var(--line). --line is a hairline drawn on --paper, where it has all
      the contrast it needs; here the same stroke is drawn on --rc-ground, and
      measured against that ground it comes out at 1.08:1 — an empty slot then
-     has no edge at all. Eight of the fifteen slots are empty on a young
+     has no edge at all. Eight of the seventeen slots are empty on a young
      project, and "not identified" is a state the chart exists to show, so the
      outline is given a value of its own: 3.51:1 against the ground and 4.37:1
      against the white it encloses, both clear of the 3:1 floor for a shape
      that carries meaning. Same slate family as --rc-rival, one step darker. */
   --rc-empty-line:#6b7a90;
-  --rc-edge:color-mix(in srgb, var(--ink) 45%, transparent);
-  --rc-edge-pending:color-mix(in srgb, var(--ink) 16%, transparent);
+  /* Edges are the thing the redesign asks to make CLEARER, so a live edge is
+     drawn a shade darker and a touch thicker than before (was 45%/1.5) — now
+     that boxes are calm cards instead of eight competing hues, the edge is
+     free to be the most confident line on the chart. */
+  --rc-edge:color-mix(in srgb, var(--ink) 62%, transparent);
+  --rc-edge-pending:color-mix(in srgb, var(--ink) 20%, transparent);
   --rc-influence:var(--warn);
 }
 /* Both selectors, because base.html sets data-mode on every render and adds
@@ -130,40 +145,49 @@
    changes on one side only. */
 [data-mode="dark"] .rc-chart,
 [data-theme="dark"] .rc-chart{
-  /* dark: same eight hues, lightened, fill carries dark text */
-  --rc-principal:#9d98e8;   /* ink 6.88:1 */
-  --rc-mgmt:#a7b8cc;        /* ink 8.82:1 */
-  --rc-design:#7cbde8;      /* ink 8.76:1 */
-  --rc-contract:#e0b464;    /* ink 9.25:1 */
-  --rc-supply:#62c9a2;      /* ink 8.84:1 */
-  --rc-inspect:#f2b06a;     /* ink 9.52:1 */
-  --rc-us:#e096b8;          /* ink 7.84:1 — the mulberry above, lightened */
-  --rc-rival:#aab6c6;       /* ink 8.68:1 */
-  --rc-on-fill:#0f172a;
+  /* dark: same eight hues, lightened, read as text/border on the dark card */
+  --rc-principal:#9d98e8;   /* on --rc-card(#171c25) 6.58:1 */
+  --rc-mgmt:#a7b8cc;        /* on --rc-card(#171c25) 8.44:1 */
+  --rc-design:#7cbde8;      /* on --rc-card(#171c25) 8.38:1 */
+  --rc-contract:#e0b464;    /* on --rc-card(#171c25) 8.85:1 */
+  --rc-supply:#62c9a2;      /* on --rc-card(#171c25) 8.46:1 */
+  --rc-inspect:#f2b06a;     /* on --rc-card(#171c25) 9.11:1 */
+  --rc-us:#e096b8;          /* on --rc-card(#171c25) 7.50:1 — the mulberry
+                                above, lightened */
+  --rc-rival:#aab6c6;       /* on --rc-card(#171c25) 8.31:1 */
 
   --rc-ground:var(--mist);
-  --rc-hair:rgba(255,255,255,.28);
+  --rc-hair:var(--line);
   /* The empty slot needs its own value in dark for a second reason as well as
      the first: --paper and --mist are two near neighbours down here (1.11:1),
      so the plate alone does not read as a box and the outline is carrying the
      whole shape. At 5.49:1 against the ground and 4.99:1 against its own fill
      it does. Inherited from the light block, it would have been 1.44:1. */
   --rc-empty-line:#7d8b9e;
-  --rc-edge:color-mix(in srgb, var(--ink) 55%, transparent);
-  --rc-edge-pending:color-mix(in srgb, var(--ink) 22%, transparent);
+  --rc-edge:color-mix(in srgb, var(--ink) 68%, transparent);
+  --rc-edge-pending:color-mix(in srgb, var(--ink) 26%, transparent);
 }
 
-.rc-f-principal .rc-box{ fill:var(--rc-principal); }
-.rc-f-mgmt      .rc-box{ fill:var(--rc-mgmt); }
-.rc-f-design    .rc-box{ fill:var(--rc-design); }
-.rc-f-contract  .rc-box{ fill:var(--rc-contract); }
-.rc-f-supply    .rc-box{ fill:var(--rc-supply); }
-.rc-f-inspect   .rc-box{ fill:var(--rc-inspect); }
-.rc-f-us        .rc-box{ fill:var(--rc-us); }
-.rc-f-rival     .rc-box{ fill:var(--rc-rival); }
+.rc-f-principal .rc-box{ stroke:var(--rc-principal); }
+.rc-f-mgmt      .rc-box{ stroke:var(--rc-mgmt); }
+.rc-f-design    .rc-box{ stroke:var(--rc-design); }
+.rc-f-contract  .rc-box{ stroke:var(--rc-contract); }
+.rc-f-supply    .rc-box{ stroke:var(--rc-supply); }
+.rc-f-inspect   .rc-box{ stroke:var(--rc-inspect); }
+.rc-f-us        .rc-box{ stroke:var(--rc-us); }
+.rc-f-rival     .rc-box{ stroke:var(--rc-rival); }
+.rc-f-principal .rc-abbr{ fill:var(--rc-principal); }
+.rc-f-mgmt      .rc-abbr{ fill:var(--rc-mgmt); }
+.rc-f-design    .rc-abbr{ fill:var(--rc-design); }
+.rc-f-contract  .rc-abbr{ fill:var(--rc-contract); }
+.rc-f-supply    .rc-abbr{ fill:var(--rc-supply); }
+.rc-f-inspect   .rc-abbr{ fill:var(--rc-inspect); }
+.rc-f-us        .rc-abbr{ fill:var(--rc-us); }
+.rc-f-rival     .rc-abbr{ fill:var(--rc-rival); }
 
 /* ---- Nodes --------------------------------------------------------------- */
 .rc-box{ stroke:var(--rc-hair); stroke-width:1; }
+.rc-node.is-filled .rc-box{ fill:var(--rc-card); stroke-width:1.6; }
 .rc-node.is-empty .rc-box{
   fill:var(--rc-empty-fill);
   stroke:var(--rc-empty-line); stroke-width:1.4; stroke-dasharray:5 4;
@@ -188,16 +212,14 @@
   /* Latin contract shorthand, always left to right whatever sits above it. */
   direction:ltr; unicode-bidi:normal;
 }
-/* All three lines on a filled box are at FULL strength, and the hierarchy
-   between them is size and weight instead. Fading the role and the
-   abbreviation reads as hierarchy on the indigo box and as a legibility
-   failure on the amber one — the eight fills span 5.0:1 to 8.8:1 against
-   their label, so any opacity that flatters the darkest pushes the lightest
-   under 4.5:1. At full strength the worst of the eight is 4.76:1 in light and
-   6.88:1 in dark, and the abbreviation is the smallest text on the chart. */
-.rc-node.is-filled .rc-role,
-.rc-node.is-filled .rc-name,
-.rc-node.is-filled .rc-abbr{ fill:var(--rc-on-fill); }
+/* A filled box is a plain card now: the role name and the organisation carry
+   the chart's own ink/muted pair, exactly like text anywhere else in the app,
+   and only the small abbreviation carries the family's colour — a coloured
+   tag rather than a coloured box. That one line is what still lets a reader
+   sort the chart by family at a glance, without every box shouting the same
+   way at once. */
+.rc-node.is-filled .rc-role{ fill:var(--ink); fill-opacity:.82; }
+.rc-node.is-filled .rc-name{ fill:var(--ink); }
 .rc-node.is-empty  .rc-role{ fill:var(--ink); fill-opacity:.78; }
 .rc-node.is-empty  .rc-name{ fill:var(--muted); font-weight:600; font-size:12.5px; }
 .rc-node.is-empty  .rc-abbr{ fill:var(--muted); }

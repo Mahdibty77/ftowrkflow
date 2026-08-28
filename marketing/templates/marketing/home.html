@@ -20,6 +20,7 @@
 {% block topbar %}Marketing{% endblock %}
 {% block head_extra %}
 <link rel="stylesheet" href="{% static 'marketing/css/rolechart.css' %}">
+<link rel="stylesheet" href="{% static 'marketing/css/directory.css' %}">
 {% endblock %}
 {% block content %}
 
@@ -60,6 +61,13 @@
 
   {% include "marketing/_role_chart.html" %}
 </div>
+{% elif active_tab == 'directory' %}
+<div class="panel">
+  <div class="panel-h">
+    <h3>Entity directory · every field, its own list</h3>
+  </div>
+  {% include "marketing/_directory.html" %}
+</div>
 {% endif %}
 
 {% endblock %}
@@ -83,4 +91,30 @@
     });
   })();
 </script>
+{% if active_tab == 'directory' %}
+<div hidden>{% csrf_token %}</div>
+<script>
+  window.FT_MARKETING_DIR = {
+    searchUrl: "{% url 'marketing:entity_search' %}",
+    createUrl: "{% url 'marketing:entity_create' %}",
+    linkUrl: "{% url 'marketing:entity_link' %}",
+    unlinkUrl: "{% url 'marketing:entity_unlink' %}",
+    connectionsUrl: "{% url 'marketing:entity_connections' %}"
+  };
+  // A live read of the CSRF cookie rather than a baked template value — the
+  // same reasoning as itemcoder/templates/itemcoder/tool_case.html: it stays
+  // correct even if the session is rotated (e.g. "Log in as") while this tab
+  // is open.
+  Object.defineProperty(window.FT_MARKETING_DIR, "csrfToken", {
+    get: function () {
+      var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+      if (m) return decodeURIComponent(m[1]);
+      var inp = document.querySelector('input[name=csrfmiddlewaretoken]');
+      return (inp && inp.value) || "";
+    },
+    enumerable: true
+  });
+</script>
+<script src="{% static 'marketing/js/directory.js' %}"></script>
+{% endif %}
 {% endblock %}

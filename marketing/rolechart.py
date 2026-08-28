@@ -2,13 +2,14 @@
 
 WHAT THIS DRAWS. One project, and every outside party that stands between the
 money and the metal: who pays for the plant, who owns it, who manages it, who
-designs it, who is contracted to build or to buy it, who inspects it — and,
-at the bottom of that graph, where WE stand as the vendor. Fifteen slots, plus
-the project box itself and our own position, which are not slots because they
-are never empty: the project is the subject of the chart and we are always on
-it.
+designs it, who is contracted to build or to buy it, who inspects it, and who
+certifies what it tests — and, at the bottom of that graph, where WE stand as
+the vendor. Seventeen slots, plus the project box itself and our own position,
+which are not slots because they are never empty: the project is the subject
+of the chart and we are always on it.
 
-    SLOTS                       -- the fifteen, in reading order
+    SLOTS                       -- the seventeen, in reading order
+    ALL_FIELDS                  -- SLOTS plus the project and us, in chart order
     build(...)                  -- slots + assignments -> a drawable chart
     sample_assignments()        -- the placeholder data this step ships with
 
@@ -63,12 +64,14 @@ _GAP = 92
 R1 = 18                         # sponsor
 R2 = R1 + _GAP                  # owner
 R3 = R2 + _GAP                  # the project
-R4 = R3 + _GAP                  # PMT / MC
+R3B = R3 + _GAP                 # phase
+R4 = R3B + _GAP                 # PMT / MC
 R5 = R4 + _GAP                  # licensor / design / supervision
 R6 = R5 + _GAP                  # the four contract types
 R7 = R6 + _GAP                  # subcontractors
 R8 = R7 + _GAP                  # third-party inspectors
-R9 = R8 + _GAP + 30             # us
+R8B = R8 + _GAP + 30            # laboratory
+R9 = R8B + _GAP                 # us
 R10 = R9 + _GAP + 26            # sub-supplier / competitor
 VIEW_H = R10 + NODE_H + 26
 
@@ -115,6 +118,7 @@ FAMILIES = (
 SLOTS = (
     ("sponsor",     "سرمایه‌گذار",                 "SPONSOR / INVESTOR",            "principal"),
     ("owner",       "کارفرمای اصلی",               "OWNER / CLIENT",                "principal"),
+    ("phase",       "فاز پروژه",                   "PROJECT PHASE",                 "principal"),
     ("pmt",         "مجری طرح",                    "PMT — PROJECT MGMT TEAM",       "mgmt"),
     ("mc",          "مدیریت طرح",                  "MC / PMC — MGMT CONTRACTOR",    "mgmt"),
     ("licensor",    "لیسانسور",                    "LICENSOR",                      "design"),
@@ -126,17 +130,42 @@ SLOTS = (
     ("epc",         "پیمانکار طرح، خرید و اجرا",   "EPC — ENG. PROC. CONSTRUCTION", "contract"),
     ("sub",         "پیمانکار جزء",                "SUBCONTRACTOR",                 "supply"),
     ("tpi",         "بازرس ثالث",                  "TPI — THIRD PARTY INSP.",       "inspect"),
+    ("laboratory",  "آزمایشگاه",                   "LABORATORY",                    "inspect"),
     ("supplier",    "تأمین‌کننده",                 "SUB-SUPPLIER",                  "supply"),
     ("rival",       "رقیب احتمالی",                "COMPETITOR",                    "rival"),
 )
 SLOT_COUNT = len(SLOTS)
 _SLOT_BY_KEY = {s[0]: s for s in SLOTS}
 
-# The two boxes that are not slots.
+# The two boxes that are not slots — see the module docstring for why not.
 PROJECT_ROLE = "نام پروژه"
 PROJECT_ABBR = "PROJECT"
 US_ROLE = "موقعیت ما"
 US_ABBR = "VENDOR / SUPPLIER"
+
+# Every field on the chart, project and us included, in reading order — the
+# one list the Marketing entity directory (marketing/models.py) walks to know
+# what fields exist and what to call them. Built from SLOTS and the two
+# constants above rather than repeated as fresh literals, so the Persian label
+# a person sees on the chart and the one they see in the directory can never
+# drift apart.
+_FIELD_ORDER = (
+    "sponsor", "owner", "project", "phase", "pmt", "mc", "licensor", "design",
+    "supervision", "c", "p", "pc", "epc", "sub", "tpi", "laboratory", "us",
+    "supplier", "rival",
+)
+
+
+def _field_entry(key):
+    if key == "project":
+        return (key, PROJECT_ROLE, PROJECT_ABBR)
+    if key == "us":
+        return (key, US_ROLE, US_ABBR)
+    _k, fa, ab, _fam = _SLOT_BY_KEY[key]
+    return (key, fa, ab)
+
+
+ALL_FIELDS = tuple(_field_entry(k) for k in _FIELD_ORDER)
 
 # The dashed edge that is not a contract: the design consultant writes the
 # specification our offer has to meet, whoever ends up placing the order.
@@ -308,10 +337,13 @@ def build(assignments=None, *, project_name="", contract_model=""):
     nodes.append(_node("project", PROJECT_ROLE, PROJECT_ABBR, "principal",
                        CEN, R3, project_name, "is-project"))
 
-    # -- the owner's own arm, then the management contractor it engages ----- #
+    # -- the project's own phase, then the owner's arm to the management
+    # contractor it engages -------------------------------------------------- #
+    edges.append(_v(CEN, R3 + NODE_H, R3B, has["owner"]))
+    slot("phase", CEN, R3B)
     b4 = R4 - 22
-    edges.append(_v(CEN, R3 + NODE_H, b4, has["owner"]))
-    edges.append(_h(COL[1], CEN, b4, has["owner"]))
+    edges.append(_v(CEN, R3B + NODE_H, b4, has["phase"]))
+    edges.append(_h(COL[1], CEN, b4, has["phase"]))
     edges.append(_v(COL[1], b4, R4, has["pmt"]))
     slot("pmt", COL[1], R4)
     edges.append(_h(COL[1] + NODE_W // 2, COL[2] - NODE_W // 2, R4 + NODE_H // 2,
@@ -356,12 +388,15 @@ def build(assignments=None, *, project_name="", contract_model=""):
         edges.append(_h(rim, corridor, y_side, bool(tpi_name)))
         slot("tpi", x, R8, org_name=tpi_name)
 
-    # -- every chain converges on us --------------------------------------- #
+    # -- every chain converges on the laboratory, then on us ----------------- #
     for (x, lane, y), (chain_key, _x, _c, _s) in zip(_CONVERGE, _CHAINS):
         live = bool(chain_org("tpi", chain_key))
         edges.append(_v(x, R8 + NODE_H, y, live))
         edges.append(_h(lane, x, y, live))
-        edges.append(_v(lane, y, R9, live))
+        edges.append(_v(lane, y, R8B, live))
+
+    slot("laboratory", CEN, R8B)
+    edges.append(_v(CEN, R8B + NODE_H, R9, has["laboratory"]))
 
     nodes.append(_node("us", US_ROLE, US_ABBR, "us", CEN, R9,
                        given.get("us", ""), "is-us"))
@@ -428,7 +463,7 @@ def build(assignments=None, *, project_name="", contract_model=""):
 # Everything below this line is scaffolding for THIS step and is meant to be
 # deleted, not extended. It exists so the screen can be judged as a design —
 # an all-empty chart would never show a family colour, and a chart with every
-# slot filled would never show an empty one. Seven of the fifteen are filled,
+# slot filled would never show an empty one. Nine of the seventeen are filled,
 # which shows both, and both edge states with them.
 #
 # The names are visibly placeholders ("شرکت نمونه …" is "Sample Company …") and
@@ -449,10 +484,12 @@ def sample_assignments():
     return {
         "sponsor": "شرکت نمونه الف",
         "owner": "شرکت نمونه ب",
+        "phase": "فاز ۱ — طراحی پایه",
         "pmt": "شرکت نمونه پ",
         "design": "شرکت نمونه ت",
         "epc": "شرکت نمونه ث",
         "tpi": "شرکت نمونه ج",
+        "laboratory": "آزمایشگاه نمونه",
         "supplier": "شرکت نمونه چ",
         "us": _OUR_ORG,
     }

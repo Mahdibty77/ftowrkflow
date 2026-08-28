@@ -1,0 +1,151 @@
+/* ===========================================================================
+   Marketing — the entity directory: one card per field, search/create, and
+   the "light up" report a selection produces on every other card.
+
+   KEEP THIS FILE UTF-8, for the same reason as rolechart.css.
+
+   Scoped under .dir, loaded only by marketing/home.html on the Entities &
+   Links tab. Reuses rolechart.css's .rc-chip / .rc-note (already loaded on
+   this page, already themed) rather than redefining a chip and a note style
+   a second time — the two tabs are one screen and should look like it.
+   =========================================================================== */
+
+.dir{ margin:0; }
+
+/* ---- The focused-entity banner -------------------------------------------
+   Shown only once something is selected (see directory.js). Built from the
+   same --dir-accent this file defines below, so the one thing every card on
+   the chart already agreed to call "us" — the Marketing accent — is also the
+   colour of "this is what you're looking at" here. */
+.dir-focus{
+  display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;
+  margin:0 0 .8rem; padding:.5rem .7rem;
+  border:1px solid var(--dir-accent-line); border-radius:var(--radius-sm);
+  background:var(--dir-accent-soft);
+}
+/* Setting `display` on the class overrides the UA stylesheet's low-specificity
+   [hidden]{display:none} — without this, the "hidden" attribute JS toggles on
+   this element and on .dir-lit below would stop hiding anything. */
+.dir-focus[hidden], .dir-lit[hidden]{ display:none; }
+.dir-focus-tag{
+  font-size:.66rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--dir-accent);
+}
+.dir-focus-field{ font-size:.76rem; color:var(--muted); }
+.dir-focus-name{ font-size:.9rem; font-weight:700; color:var(--ink); }
+.dir-focus .btn{ margin-inline-start:auto; }
+
+/* ---- The grid -------------------------------------------------------------
+   The same leave-one-out philosophy as the archive filter grid: a responsive
+   auto-fill so the same markup reads fine at three columns or at seven,
+   rather than a fixed ladder of breakpoints. */
+.dir-wrap{ position:relative; }
+.dir-lines{
+  position:absolute; inset:0; width:100%; height:100%;
+  z-index:0; pointer-events:none;
+}
+.dir-grid{
+  position:relative; z-index:1;
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr));
+  gap:.6rem;
+}
+@media (max-width:780px){
+  .dir-grid{ grid-template-columns:repeat(auto-fill, minmax(165px, 1fr)); }
+}
+
+.dir-card{
+  /* position+z-index on every card, not just the dim ones, so all nineteen
+     sit in one explicit stacking order instead of some being pulled into
+     their own context by opacity (below) and others staying in normal flow.
+     Without this, a card's own is-dim opacity traps its z-index:5 dropdown
+     inside that context, and a LATER card in the grid — dim or not — paints
+     over it regardless of the dropdown's own z-index; a search typed into a
+     dimmed card (the exact moment someone is about to light it back up)
+     would then open a dropdown no click could ever reach. */
+  position:relative; z-index:0;
+  border:1px solid var(--line); border-radius:var(--radius-sm);
+  background:var(--paper); padding:.55rem .6rem .6rem;
+  display:flex; flex-direction:column; gap:.4rem;
+  transition:opacity .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+/* The card currently being searched always wins, however its neighbours are
+   stacked — this is what actually fixes the trap above, not just the shared
+   z-index:0 baseline. */
+.dir-card:focus-within{ z-index:20; }
+.dir-card-h{ display:flex; align-items:center; justify-content:space-between; gap:.4rem; }
+.dir-card-label{ font-size:.78rem; font-weight:700; color:var(--ink); }
+.dir-card-count{
+  font-size:.66rem; font-weight:700; color:var(--muted);
+  background:var(--cloud); border:1px solid var(--line);
+  border-radius:100px; padding:.05rem .4rem; min-width:1.2em; text-align:center;
+}
+
+.dir-search{ position:relative; }
+.dir-input{ font-size:.8rem !important; padding:.4rem .55rem !important; }
+.dir-dropdown{
+  position:absolute; left:0; right:0; top:calc(100% + 2px); z-index:5;
+  background:var(--paper); border:1px solid var(--line); border-radius:var(--radius-sm);
+  box-shadow:0 6px 18px rgba(15,23,42,.14);
+  max-height:220px; overflow-y:auto; padding:.25rem;
+}
+.dir-opt{
+  display:flex; align-items:center; justify-content:space-between; gap:.4rem;
+  padding:.35rem .5rem; border-radius:6px; cursor:pointer;
+  font-size:.8rem; color:var(--ink);
+}
+.dir-opt:hover, .dir-opt.is-active{ background:var(--cloud); }
+.dir-opt.is-new{ color:var(--dir-accent); font-weight:600; }
+.dir-opt-empty{ padding:.4rem .5rem; font-size:.76rem; color:var(--muted); }
+
+/* ---- The "lit" list of connected entities --------------------------------- */
+.dir-lit{ display:flex; flex-direction:column; gap:.3rem; }
+.dir-lit-count{ font-size:.68rem; font-weight:700; color:var(--dir-accent); }
+.dir-lit-chips{ display:flex; flex-wrap:wrap; gap:.3rem; }
+.dir-chip{
+  display:inline-flex; align-items:center; gap:.3rem;
+  font-size:.74rem; color:var(--ink);
+  background:var(--dir-accent-soft); border:1px solid var(--dir-accent-line);
+  border-radius:100px; padding:.1rem .3rem .1rem .55rem;
+}
+.dir-chip-name{ cursor:pointer; }
+.dir-chip-name:hover{ text-decoration:underline; }
+.dir-chip-x{
+  border:0; background:transparent; color:var(--muted); cursor:pointer;
+  font-size:.85rem; line-height:1; padding:.1rem .2rem; border-radius:100px;
+}
+.dir-chip-x:hover{ color:var(--danger, #b3261e); background:rgba(179,38,30,.1); }
+
+/* ---- Card states -----------------------------------------------------------
+   Three, and only three: the card that is the current focus, a card that is
+   lit because it holds something directly connected to the focus, and every
+   other card, dimmed so the lit ones read at a glance. Before anything is
+   focused every card is plain — see .dir-root:not(.has-focus). */
+.dir-card.is-focused{
+  border-color:var(--dir-accent); box-shadow:0 0 0 2px var(--dir-accent-soft);
+}
+.dir-card.is-lit{ border-color:var(--dir-accent-line); background:var(--dir-accent-soft); }
+.dir-card.is-dim{ opacity:.45; }
+
+.dir-line{ stroke:var(--dir-accent); stroke-width:1.6; fill:none; }
+.dir-line-dot{ fill:var(--dir-accent); }
+
+/* ---- The one accent this tab uses -----------------------------------------
+   The Marketing unit's own accent (core/theming.py), the same value rolechart
+   .css uses for --rc-us — "this is the thing you selected" is the one idea
+   this whole tab exists to show, so it gets the unit's own colour and nothing
+   competes with it: every OTHER colour on this tab is a neutral. */
+.dir{
+  --dir-accent:#8c3f63;
+  --dir-accent-line:color-mix(in srgb, var(--dir-accent) 45%, transparent);
+  --dir-accent-soft:color-mix(in srgb, var(--dir-accent) 10%, var(--paper));
+}
+[data-mode="dark"] .dir,
+[data-theme="dark"] .dir{
+  --dir-accent:#e096b8;
+  --dir-accent-line:color-mix(in srgb, var(--dir-accent) 45%, transparent);
+  --dir-accent-soft:color-mix(in srgb, var(--dir-accent) 14%, var(--paper));
+}
+
+@media (max-width:640px){
+  .dir-grid{ gap:.45rem; }
+}

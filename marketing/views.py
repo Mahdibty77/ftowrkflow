@@ -37,23 +37,26 @@ this unit" is the honest answer to give.
 from __future__ import annotations
 
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.shortcuts import render
+from django.views.decorators.http import require_POST
 
 from accounts.constants import Unit
 
-from . import rolechart
+from . import rolechart, services
+from .models import Entity
 
 # The tab strip on the Marketing Expert workspace.
 #
-# ONE ENTRY, on purpose. The strip itself is here — the markup, the active
-# state, the ``?tab=`` handling — because the owner asked for a tabbed screen
-# and because a strip added later is a bigger change than a strip added now.
-# What is NOT here is invented company: no second tab is listed, because no
-# second tab has been specified, and a "Campaigns — coming soon" placeholder
-# would be this app promising a screen nobody has asked for. Adding the real
-# second tab is one tuple below and one {% if %} in the template.
+# TWO ENTRIES: the static chart from step one, and the entity directory that
+# backs every field on it — the owner's own next step, requested in the same
+# breath as "connect the fields to cases later." The strip itself, the active
+# state and the ``?tab=`` handling were already here from the one-tab version;
+# this is the tuple and the {% if %} that version's docstring said would be
+# the whole cost of a real second tab.
 TABS = (
     ("roles", "Projects & Roles"),
+    ("directory", "Entities & Links"),
 )
 DEFAULT_TAB = TABS[0][0]
 
@@ -111,9 +114,127 @@ def home(request):
     if active not in dict(TABS):
         active = DEFAULT_TAB
 
-    return render(request, "marketing/home.html", {
+    context = {
         "tabs": [{"key": k, "label": lb, "is_active": k == active}
                  for k, lb in TABS],
         "active_tab": active,
         "chart": rolechart.sample_chart(),
+    }
+    if active == "directory":
+        counts = services.field_counts()
+        context["directory_fields"] = [
+            {"key": key, "label": label, "count": counts[key]}
+            for key, label, _abbr in rolechart.ALL_FIELDS
+        ]
+    return render(request, "marketing/home.html", context)
+
+
+# --------------------------------------------------------------------------- #
+# The entity directory: search, register, link, and the "what is connected"
+# report a selection produces. Every route below is JSON-only, reached from
+# marketing/static/marketing/js/directory.js on the Entities & Links tab, and
+# gated by the same _marketing_only rule as the page itself — a seat that
+# cannot open the tab cannot read or write through these either.
+# --------------------------------------------------------------------------- #
+def _field_or_400(request, key_param="field"):
+    field = (request.GET.get(key_param) or request.POST.get(key_param) or "").strip()
+    if not services.is_field(field):
+        return None, JsonResponse({"ok": False, "error": "Unknown field."}, status=400)
+    return field, None
+
+
+def _entity_json(entity: Entity) -> dict:
+    return {"id": entity.pk, "field": entity.field, "name": entity.name}
+
+
+@login_required
+def entity_search(request):
+    refusal = _marketing_only(request)
+    if refusal is not None:
+        return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
+    field, err = _field_or_400(request)
+    if err is not None:
+        return err
+    query = request.GET.get("q") or ""
+    entities = services.search_entities(field, query)
+    return JsonResponse({"ok": True, "entities": [_entity_json(e) for e in entities]})
+
+
+@login_required
+@require_POST
+def entity_create(request):
+    refusal = _marketing_only(request)
+    if refusal is not None:
+        return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
+    field, err = _field_or_400(request)
+    if err is not None:
+        return err
+    name = (request.POST.get("name") or "").strip()
+    if not name:
+        return JsonResponse({"ok": False, "error": "A name is required."}, status=400)
+    entity = services.get_or_create_entity(field, name, request.user)
+    return JsonResponse({"ok": True, "entity": _entity_json(entity)})
+
+
+def _entity_from_post(request, param):
+    pk = request.POST.get(param)
+    try:
+        pk = int(pk)
+    except (TypeError, ValueError):
+        return None
+    return Entity.objects.filter(pk=pk).first()
+
+
+@login_required
+@require_POST
+def entity_link(request):
+    refusal = _marketing_only(request)
+    if refusal is not None:
+        return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
+    a = _entity_from_post(request, "a_id")
+    b = _entity_from_post(request, "b_id")
+    if a is None or b is None:
+        return JsonResponse({"ok": False, "error": "Unknown entity."}, status=400)
+    if a.pk == b.pk:
+        return JsonResponse({"ok": False, "error": "An entity cannot be linked to itself."}, status=400)
+    services.link_entities(a, b, request.user)
+    return JsonResponse({"ok": True})
+
+
+@login_required
+@require_POST
+def entity_unlink(request):
+    refusal = _marketing_only(request)
+    if refusal is not None:
+        return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
+    a = _entity_from_post(request, "a_id")
+    b = _entity_from_post(request, "b_id")
+    if a is None or b is None:
+        return JsonResponse({"ok": False, "error": "Unknown entity."}, status=400)
+    services.unlink_entities(a, b)
+    return JsonResponse({"ok": True})
+
+
+@login_required
+def entity_connections(request):
+    refusal = _marketing_only(request)
+    if refusal is not None:
+        return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
+    pk = request.GET.get("entity_id")
+    try:
+        pk = int(pk)
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "Unknown entity."}, status=400)
+    entity = Entity.objects.filter(pk=pk).first()
+    if entity is None:
+        return JsonResponse({"ok": False, "error": "Unknown entity."}, status=400)
+    groups = services.connections_of(entity)
+    return JsonResponse({
+        "ok": True,
+        "entity": _entity_json(entity),
+        "connections": [
+            {"field": g["field"], "label": g["label"],
+             "entities": [_entity_json(e) for e in g["entities"]]}
+            for g in groups
+        ],
     })
