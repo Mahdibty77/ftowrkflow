@@ -3282,16 +3282,21 @@ def allowed_actions(case: Case, user, *, role=None, work_user=None) -> set[str]:
         # side is created, and it lands with Commercial so Commercial can send it
         # on its own.
         #
-        # What still rules it out: the case is already Internal & External, it has
-        # ended (final-closed / burned / cancelled / cannot-supply-closed), or it
-        # has no inquiry to copy the new side from. The earlier holder/status gate
-        # and the "TO and PI must be built at the current version" gate are gone —
-        # both only ever described a case that had come back to Commercial finished,
-        # which is exactly the precondition being lifted. It does NOT need a new
-        # version, and disappears once the case is already split.
+        # What still rules it out: the case is already Internal & External, it
+        # has ended (final-closed / burned / cancelled / cannot-supply-closed)
+        # or been marked FINAL_APPROVED (still technically open, but the owner
+        # has decided this side is done — creating a second, independent stream
+        # off a side awaiting shutdown is exactly the half-finished state this
+        # feature must not create), or it has no inquiry to copy the new side
+        # from. The earlier holder/status gate and the "TO and PI must be built
+        # at the current version" gate are gone — both only ever described a
+        # case that had come back to Commercial finished, which is exactly the
+        # precondition being lifted. It does NOT need a new version, and
+        # disappears once the case is already split.
         if (not case.is_split
                 and case.price_type in {PriceType.INTERNAL, PriceType.EXTERNAL}
                 and status not in CaseStatus.TERMINAL
+                and status != CaseStatus.FINAL_APPROVED
                 and case.current_form(FormKind.INQUIRY) is not None):
             actions.add("upgrade_two_stage")
         actions.add("view")
@@ -4929,15 +4934,15 @@ def upgrade_two_stage(case: Case, actor, comment: str = "", *,
     Commercial, so Commercial can send it on its own.
 
     Refused — clearly, and without half-doing it — when the case is already
-    Internal & External, when it has ended, or when there is no inquiry to copy
-    the new side from.
+    Internal & External, when it has ended or been marked FINAL_APPROVED, or
+    when there is no inquiry to copy the new side from.
     """
     if case.is_split or case.price_type not in (PriceType.INTERNAL, PriceType.EXTERNAL):
         raise ValueError("This case is already Internal & External.")
-    if case.status in CaseStatus.TERMINAL:
+    if case.status in CaseStatus.TERMINAL or case.status == CaseStatus.FINAL_APPROVED:
         raise ValueError(
-            "This case has ended (final closed / burned / cancelled / cannot supply); "
-            "it can no longer be made Internal & External."
+            "This case has ended (final approved / final closed / burned / "
+            "cancelled / cannot supply); it can no longer be made Internal & External."
         )
     if case.current_form(FormKind.INQUIRY) is None:
         raise ValueError(
