@@ -452,32 +452,39 @@ def archive(request):
     # pages cannot tell one reader two different stories about the same case.
     services.archive_decorate(cases_list, request.user)
 
-    # Filter dropdown choices, over the WHOLE filtered set.
+    # Filter dropdown choices — CASCADING: each field's list is built from the
+    # rows every OTHER active filter leaves, not from the whole scope. Pick a
+    # client with two matching rows that are both price_type Internal, and the
+    # Price type dropdown offers only Internal — the same "leave one out"
+    # faceting a shopping-site filter panel does. A field never narrows against
+    # its OWN value (that would trap a reader who wants to switch it), and
+    # WHICH tabs/values exist is never hidden — only reachable via ``services
+    # .archive_apply_column_filters`` with that one field's own param removed,
+    # so clearing a filter always restores every other field's full list.
     #
     # These were six ``values_list(...).distinct()`` round trips, written that way
-    # back when this page was paginated and "the whole filtered set" was more than
-    # the rows on screen. It is not any more: ``cases_list`` immediately above IS
-    # the whole filtered set, and ``client`` and ``created_by`` are already
-    # select_related onto it, so every value the six queries returned is sitting
-    # in memory. Deriving them here is the same set of strings — each of the six
-    # was collected into a Python ``set`` and sorted, so neither the duplicates
-    # the database happened to return nor the order it returned them in ever
-    # reached the page — at six fewer queries. That mattered: each of those
-    # queries re-ran the viewer's whole archive scope, which for a Technical or
-    # Supply seat measured 47-60 ms a piece (≈330 ms of the page) because the
-    # scope joined the forms and events tables.
-    #
-    # They are built from every match and NOT from the filtered subset: narrowing
-    # the lists as filters are applied would hide values the reader is trying to
-    # switch to, which is not what the page did before.
+    # back when this page was paginated. They still cost no query: ``cases_list``
+    # is the whole scoped set already in memory (``client`` and ``created_by``
+    # are select_related onto it), and each leave-one-out pass is a Python filter
+    # over that same in-memory list — six more passes over rows already loaded,
+    # not six more database round trips.
     #
     # ``created_by`` is nullable, so the empty-user tuple below stands in for the
     # LEFT JOIN's NULLs and is fed to the very same expression, keeping whatever
     # that expression did with them unchanged.
+    params = services.archive_filter_params(
+        request, unit=scope.unit, is_admin=scope.is_admin)
+
+    def _cases_excluding(field):
+        others = {k: v for k, v in params.items() if k != field}
+        if not others:
+            return cases_list
+        return services.archive_apply_column_filters(cases_list, others)
+
     _no_user = ("", "", "")
     f_clients = sorted({
         f"{name} ({code})"
-        for name, code in {(c.client.name, c.client.code) for c in cases_list}
+        for name, code in {(c.client.name, c.client.code) for c in _cases_excluding("client")}
         if name
     })
     f_experts = sorted({
@@ -485,31 +492,31 @@ def archive(request):
         for first, last, username, ecode in {
             ((c.created_by.first_name, c.created_by.last_name, c.created_by.username)
              if c.created_by_id else _no_user) + (c.expert_code,)
-            for c in cases_list
+            for c in _cases_excluding("expert")
         }
     })
     f_prices = sorted({
         PriceType.LABELS.get(pt, "")
-        for pt in {c.price_type for c in cases_list} if pt
+        for pt in {c.price_type for c in _cases_excluding("price")} if pt
     })
     f_offers = sorted({
         _offer_label(ot, up)
-        for ot, up in {(c.offer_type, c.upgraded_two_stage) for c in cases_list}
+        for ot, up in {(c.offer_type, c.upgraded_two_stage) for c in _cases_excluding("offer")}
     })
     f_kinds = sorted({
         dict(DocKind.CHOICES).get(k, k)
-        for k in {c.kind for c in cases_list} if k
+        for k in {c.kind for c in _cases_excluding("kind")} if k
     })
     f_orders = sorted({
-        ono for ono in {c.order_no for c in cases_list}
+        ono for ono in {c.order_no for c in _cases_excluding("order")}
         if (ono or "").strip()
     })
 
     # Column filters: the same predicate the browser used to run over the
     # rendered table, run here instead — because a filter that can only see the
-    # rows that were sent would silently hide the rest.
-    params = services.archive_filter_params(
-        request, unit=scope.unit, is_admin=scope.is_admin)
+    # rows that were sent would silently hide the rest. (``params`` was already
+    # read above, before the dropdown lists, so their leave-one-out passes and
+    # this one row-window pass agree on exactly the same filter values.)
 
     # The status tabs are themselves a filter — they drive the hidden ``fstatus``
     # control — so they are applied LAST, over the set every other filter has
@@ -519,38 +526,17 @@ def archive(request):
     # sets are the same set, and with one chosen that tab's number is exactly the
     # rows on screen. Splitting the pass this way also costs nothing when no tab
     # is active — the second call has no terms and hands the list straight back.
-    status_params = {k: v for k, v in params.items() if k == "status"}
-    other_params = {k: v for k, v in params.items() if k != "status"}
-    in_range = services.archive_apply_column_filters(cases_list, other_params)
-    filtered = services.archive_apply_column_filters(in_range, status_params)
-    filtered_count = len(filtered)
-
-    tab_counts = {label: 0 for label in CaseStatus.ARCHIVE_TAB_ORDER}
-    for c in in_range:
-        for g in c.status_groups:
-            if g in tab_counts:
-                tab_counts[g] += 1
-
     # WHICH tabs are on the strip still comes from the whole archive, and only
-    # the numbers printed on them move with the filters. That is deliberate, and
-    # the same reason the dropdown option lists above are not narrowed either: a
-    # tab that disappeared the moment a date range emptied it would take the
-    # reader's way back out of that range with it, and the hidden <select> is
-    # built from this same list, so the tab a request has active must stay in it.
-    tabs_present = set()
-    for c in cases_list:
-        tabs_present.update(c.status_groups)
-
-    status_tabs = [
-        {
-            "label": label,
-            "count": tab_counts.get(label, 0),
-            "color": CaseStatus.ARCHIVE_TAB_COLORS.get(label, "#64748b"),
-            "words": label.split(),
-        }
-        for label in CaseStatus.ARCHIVE_TAB_ORDER
-        if label in tabs_present
-    ]
+    # the numbers printed on them move with the filters — a tab that disappeared
+    # the moment a date range emptied it would take the reader's way back out of
+    # that range with it, and the hidden <select> is built from this same list,
+    # so the tab a request has active must stay in it. Dropdown OPTION lists are
+    # the opposite on purpose: those cascade (see the leave-one-out lists above),
+    # because a search field narrowing to what is actually reachable is the
+    # point of a search field, while the tab strip is navigation and must not
+    # shift under the reader.
+    in_range, filtered, filtered_count, status_tabs = services.archive_tab_counts(
+        cases_list, params)
 
     # PI grand totals (VAT-inclusive) for every match + drill-down sum. Both stay
     # over the whole set: the banner's "Grand total (all PI)" means all of them,
@@ -665,7 +651,23 @@ def archive_slice(request):
 
     params = services.archive_filter_params(
         request, unit=scope.unit, is_admin=scope.is_admin)
-    if params:
+    # ``tabs=1`` additionally asks for the status-tab counts in a response
+    # header — the live Document No. search (no page reload) needs the tab
+    # strip to stay honest exactly the way a full reload keeps it honest. Only
+    # that one caller sends it; a scroll-triggered "load more" never does, so
+    # the extra decorate-the-whole-scope pass below never runs on the path
+    # that fires on every scroll tick — this branch costs that path nothing,
+    # unchanged from before ``tabs`` existed.
+    want_tabs = str(request.GET.get("tabs") or "").strip() in ("1", "true", "yes")
+    tabs_payload = None
+    if want_tabs:
+        cases_list = list(scope.qs)
+        services.archive_decorate(cases_list, request.user)
+        in_range, matched, total, status_tabs = services.archive_tab_counts(
+            cases_list, params)
+        window = matched[offset:offset + limit]
+        tabs_payload = {"all": len(in_range), "tabs": status_tabs}
+    elif params:
         # A column filter compares the text a cell PRINTS, so the rows have to
         # exist as objects before they can be judged; there is no SQL for
         # "the Jalali stamp this row would render". The status pills are only
@@ -702,6 +704,10 @@ def archive_slice(request):
     response["X-Archive-Count"] = str(len(window))
     response["X-Archive-Next-Offset"] = str(offset + len(window))
     response["X-Archive-Has-More"] = "1" if offset + len(window) < total else "0"
+    if tabs_payload is not None:
+        # ASCII-safe: a header value is Latin-1 in Django/WSGI, and a client or
+        # order number can carry Persian text if a future tab label ever did.
+        response["X-Archive-Tabs"] = json.dumps(tabs_payload, ensure_ascii=True)
     return response
 
 

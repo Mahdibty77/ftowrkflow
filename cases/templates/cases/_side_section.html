@@ -358,7 +358,7 @@
           {# See the long note at the end of static/css/app.css. The date next #}
           {# to the name is ours and stays left-to-right, which is why only    #}
           {# the name is wrapped and not the whole meta line.                  #}
-          <div class="tl-meta"><span dir="auto">{{ ev.actor_display_name }}</span>{% if ev.actor_is_substitute %} <span class="tl-sub-tag">Substitute</span>{% endif %} · {{ ev.created_at|jalali:"Y.m.d H:i" }}</div>
+          <div class="tl-meta">{% if ev.actor_is_substitute %}<span class="tl-sub-tag">Substitute</span> {% endif %}<span dir="auto">{{ ev.actor_display_name }}</span> · {{ ev.created_at|jalali:"Y.m.d H:i" }}</div>
           {% if ev.comment %}<div class="tl-comment" dir="auto">{{ ev.comment }}</div>{% endif %}
         </li>
       {% empty %}

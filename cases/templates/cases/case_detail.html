@@ -415,7 +415,7 @@
                 · <span class="tl-route"><span class="unit u-{{ ev.from_unit }}">{{ ev.from_unit }}</span><i class="fa-solid fa-arrow-right-long arrow"></i><span class="unit u-{{ ev.to_unit }}">{{ ev.to_unit }}</span></span>
               {% endif %}
             </div>
-            <div class="tl-meta"><span dir="auto">{{ ev.actor_display_name }}</span>{% if ev.actor_is_substitute %} <span class="tl-sub-tag">Substitute</span>{% endif %} · {{ ev.created_at|jalali:"Y.m.d H:i" }}</div>
+            <div class="tl-meta">{% if ev.actor_is_substitute %}<span class="tl-sub-tag">Substitute</span> {% endif %}<span dir="auto">{{ ev.actor_display_name }}</span> · {{ ev.created_at|jalali:"Y.m.d H:i" }}</div>
             {% if ev.comment %}<div class="tl-comment" dir="auto">{{ ev.comment }}</div>{% endif %}
           </li>
         {% empty %}
@@ -508,14 +508,9 @@
                 + '<div class="tl-comment" dir="auto"></div>';
               var meta = li.querySelector('.tl-meta');
               var actorLabel = (data.actor || form.dataset.userName || 'You');
-              // Only the name gets its own direction, exactly as the
-              // server-rendered .tl-meta above does — the "· just now" that
-              // follows is ours and stays left-to-right.
-              var actorEl = document.createElement('span');
-              actorEl.setAttribute('dir', 'auto');
-              actorEl.textContent = actorLabel;
-              meta.appendChild(actorEl);
-              meta.appendChild(document.createTextNode(' '));
+              // Tag before name, name before the timestamp — the same order
+              // the server-rendered .tl-meta above uses, so a comment posted
+              // live and the same row after a reload never disagree.
               if (data.substitute) {
                 var tag = document.createElement('span');
                 tag.className = 'tl-sub-tag';
@@ -523,6 +518,13 @@
                 meta.appendChild(tag);
                 meta.appendChild(document.createTextNode(' '));
               }
+              // Only the name gets its own direction — the "· just now" that
+              // follows is ours and stays left-to-right.
+              var actorEl = document.createElement('span');
+              actorEl.setAttribute('dir', 'auto');
+              actorEl.textContent = actorLabel;
+              meta.appendChild(actorEl);
+              meta.appendChild(document.createTextNode(' '));
               meta.appendChild(document.createTextNode('· just now'));
               li.querySelector('.tl-comment').textContent = data.comment || text;
               ul.insertBefore(li, ul.firstChild);

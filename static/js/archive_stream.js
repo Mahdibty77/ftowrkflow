@@ -123,6 +123,15 @@
     // be judged by exactly the same ones or a scrolled-in row could be a case
     // the current filter excludes.
     var params = new URLSearchParams(window.location.search);
+    // Document No. is a live search (see liveSearchDoc() below): typing it
+    // never touches the URL, so window.location.search can be stale the
+    // moment the reader scrolls without having submitted anything else.
+    // docInput (declared further down, in scope for this whole IIFE by the
+    // time this actually runs) is the one place its current value lives.
+    if (docInput) {
+      if (docInput.value) params.set("fdoc", docInput.value);
+      else params.delete("fdoc");
+    }
     params.set("offset", String(nextOffset));
     params.set("limit", String(windowSize));
     return sliceUrl + (sliceUrl.indexOf("?") >= 0 ? "&" : "?") + params.toString();
@@ -228,12 +237,22 @@
   }
 
   /* ------------------------------------------------- filters and the tabs */
-  /* The filters are answered by the server now — they have to be, because a
-     filter that only searched the loaded rows could not find a case further
-     down the list, and would hide it without saying so. Each control therefore
-     re-submits the form, and the server returns the first window of the new
-     result set. */
+  /* Every OTHER filter is answered by the server through a real page reload —
+     it has to be, because a filter that only searched the loaded rows could
+     not find a case further down the list, and would hide it without saying
+     so. Each control re-submits the form and the server returns the first
+     window of the new result set, one URL per choice. That is fine for a
+     dropdown: picking a value is a single, deliberate moment.
+
+     Document No. is different: it is typed character by character, and a URL
+     navigation per keystroke is exactly the "brings the whole page down"
+     complaint a live search must not have. It gets its own path below —
+     liveSearchDoc() — that asks the SAME server predicate (archive_slice,
+     the SAME endpoint the scroll-in window already uses) over fetch(), with
+     no page reload and no URL change, the way the inbox search already
+     works. Every other field is untouched. */
   var form = document.getElementById("archiveFilterForm");
+  var docInput = form ? form.querySelector('input[name="fdoc"]') : null;
 
   function submitFilters() {
     if (!form) return;
@@ -250,6 +269,7 @@
     form.addEventListener("input", function (e) {
       var el = e.target;
       if (!el || !el.name || el.name.charAt(0) !== "f") return;
+      if (el === docInput) return; // liveSearchDoc() owns this field.
       if (el.tagName !== "INPUT" || el.type === "checkbox" || el.type === "radio") return;
       // Typing: wait until they stop, so one search is not eight requests.
       window.clearTimeout(pending);
@@ -257,6 +277,101 @@
     });
     form.addEventListener("submit", function () {
       window.clearTimeout(pending);
+    });
+  }
+
+  /* ---------------------------------------------- live Document No. search */
+  if (form && docInput && sliceUrl && body) {
+    var docPending = null;
+    var docGen = 0; // bumped per request; a late reply from a stale keystroke is dropped.
+
+    function liveSearchDoc() {
+      var myGen = ++docGen;
+      var params = new URLSearchParams(new FormData(form));
+      params.set("offset", "0");
+      params.set("limit", String(windowSize));
+      params.set("tabs", "1");
+      var url = sliceUrl + (sliceUrl.indexOf("?") >= 0 ? "&" : "?") + params.toString();
+
+      fetch(url, {
+        credentials: "same-origin",
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+      }).then(function (res) {
+        if (!res.ok) throw new Error("slice " + res.status);
+        return res.text().then(function (html) {
+          return {
+            html: html,
+            next: parseInt(res.headers.get("X-Archive-Next-Offset") || "", 10),
+            more: res.headers.get("X-Archive-Has-More") === "1",
+            total: parseInt(res.headers.get("X-Archive-Total") || "", 10),
+            tabsRaw: res.headers.get("X-Archive-Tabs") || "",
+          };
+        });
+      }).then(function (data) {
+        if (myGen !== docGen) return; // a newer keystroke already answered this.
+
+        // A fresh RESULT SET, not another window of the same one: replace, not
+        // append — the same table the scroll-in path appends to, so a row
+        // already scrolled in from a stale search does not linger underneath.
+        var host = document.createElement("tbody");
+        host.innerHTML = data.html;
+        body.innerHTML = "";
+        while (host.firstElementChild) body.appendChild(host.firstElementChild);
+
+        nextOffset = isNaN(data.next) ? 0 : data.next;
+        total = isNaN(data.total) ? total : data.total;
+        hasMore = !!data.more;
+        table.setAttribute("data-next-offset", String(nextOffset));
+        table.setAttribute("data-total", String(total));
+        failed = false;
+        setFootState(hasMore ? "idle" : "done");
+
+        var counter = document.querySelector('[data-filter-count="archiveTable"]');
+        if (counter) counter.textContent = String(total);
+
+        if (data.tabsRaw) {
+          try {
+            var payload = JSON.parse(data.tabsRaw);
+            (payload.tabs || []).forEach(function (t) {
+              var btn = document.querySelector(
+                '#archiveStatusTabs .archive-status-tab[data-status="' + t.label + '"]');
+              var countEl = btn ? btn.querySelector(".ast-count") : null;
+              if (countEl) countEl.textContent = String(t.count);
+            });
+            var allBtn = document.querySelector(
+              "#archiveStatusTabs .archive-status-tab-all .ast-count");
+            if (allBtn && typeof payload.all === "number") {
+              allBtn.textContent = String(payload.all);
+            }
+          } catch (_e) { /* malformed header: leave the tab strip as it was */ }
+        }
+
+        if (selectMode) paintSelection();
+        // A row that has just arrived has never been through ui.js's other
+        // column filters (dropdowns picked alongside this search). The server
+        // already applied every filter in the query, so this normally hides
+        // nothing — it only matters in the instant between typing and this
+        // reply landing.
+        if (typeof table.ftApplyFilters === "function") {
+          try { table.ftApplyFilters(); } catch (_e2) {}
+        }
+        // The window that just landed may not fill the viewport.
+        if (hasMore) window.setTimeout(maybeLoad, 0);
+      }).catch(function () {
+        if (myGen !== docGen) return;
+        failed = true;
+        setFootState("error");
+      });
+    }
+
+    docInput.addEventListener("input", function () {
+      window.clearTimeout(docPending);
+      // Shorter than the other fields' 350ms: nothing here leaves this page,
+      // so there is no navigation cost to amortise by waiting longer.
+      docPending = window.setTimeout(liveSearchDoc, 200);
+    });
+    form.addEventListener("submit", function () {
+      window.clearTimeout(docPending);
     });
   }
 

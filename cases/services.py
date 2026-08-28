@@ -2239,6 +2239,53 @@ def archive_apply_column_filters(cases, params):
     return kept
 
 
+def archive_tab_counts(cases, params):
+    """(in_range, filtered, filtered_count, status_tabs) for one archive request.
+
+    The one definition of what the status-tab strip shows, shared by the full
+    page and the live-search slice endpoint — so a Document No. search typed
+    without a page reload can never print a tab count the full page would not
+    have agreed with.
+
+    ``cases`` must already be ``archive_decorate``-d (the pills/status_groups
+    this reads come from that). The status tab is itself a filter — it drives
+    the hidden ``fstatus`` control — so it is applied LAST, over what every
+    OTHER filter already narrowed: ``in_range``. Counting the tab numbers over
+    ``in_range`` (not ``filtered``) is what keeps them agreeing with the list
+    beneath — with no tab chosen the two sets are the same set, and with one
+    chosen that tab's own number is exactly the rows on screen.
+    """
+    status_params = {k: v for k, v in params.items() if k == "status"}
+    other_params = {k: v for k, v in params.items() if k != "status"}
+    in_range = archive_apply_column_filters(cases, other_params)
+    filtered = archive_apply_column_filters(in_range, status_params)
+
+    tab_counts = {label: 0 for label in CaseStatus.ARCHIVE_TAB_ORDER}
+    for c in in_range:
+        for g in c.status_groups:
+            if g in tab_counts:
+                tab_counts[g] += 1
+
+    # WHICH tabs are on the strip comes from the WHOLE set (cases), never from
+    # in_range — see archive_tab_counts' docstring / the call site's comment for
+    # why the strip itself must not shift under the reader.
+    tabs_present = set()
+    for c in cases:
+        tabs_present.update(c.status_groups)
+
+    status_tabs = [
+        {
+            "label": label,
+            "count": tab_counts.get(label, 0),
+            "color": CaseStatus.ARCHIVE_TAB_COLORS.get(label, "#64748b"),
+            "words": label.split(),
+        }
+        for label in CaseStatus.ARCHIVE_TAB_ORDER
+        if label in tabs_present
+    ]
+    return in_range, filtered, len(filtered), status_tabs
+
+
 def archive_decorate(cases, user=None):
     """Attach the status pills / filter value every archive row renders.
 
