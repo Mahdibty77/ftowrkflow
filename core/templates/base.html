@@ -227,7 +227,25 @@
                   <i class="fa-solid fa-chevron-down sb-role-chev"></i>
                 </summary>
                 <div class="sb-role-body">
-                  {% if nr.is_active %}
+                  {% if nr.unit == 'MARKETING' %}{% comment %}
+                    The accordion's counterpart of the no-accordion Marketing
+                    branch further down: a Marketing seat held as a PersonRole
+                    gets the same one real destination, and none of the case
+                    entries that would bounce. Written as the FIRST branch of
+                    the existing if/else so it adds no whitespace to any other
+                    seat's sidebar. Inactive roles keep the accordion's own
+                    idiom of routing through activate_role with ?next=.
+                  {% endcomment %}
+                    {% if nr.is_active %}
+                    <a href="{% url 'marketing:home' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-bullhorn"></i></span>Workspace
+                    </a>
+                    {% else %}
+                    <a href="{% url 'people:activate_role' nr.id %}?next={% url 'marketing:home' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-bullhorn"></i></span>Workspace
+                    </a>
+                    {% endif %}
+                  {% elif nr.is_active %}
                   <a href="{% url 'cases:inbox' %}" class="sb-item">
                     <span class="ic"><i class="fa-solid fa-inbox"></i></span>Inbox
                     {% if nav_inbox_count %}<span class="nav-badge">{{ nav_inbox_count }}</span>{% elif nr.inbox_count %}<span class="nav-badge">{{ nr.inbox_count }}</span>{% endif %}
@@ -307,7 +325,29 @@
               </details>
             {% endfor %}
           {% elif not nav_is_general_manager %}
-            {% if p.unit %}
+            {% if p.unit == 'MARKETING' %}{% comment %}
+              Marketing sits outside the TO/PI workflow, so none of the entries
+              the branch below draws would work for it: inbox_filter_q gives a
+              Marketing seat no inbox, archive_scope gives it no archive, and
+              reports.dashboard bounces it. Drawing them anyway would be the
+              same bug the must-change-password branch above documents —
+              offering a control the server will not honour — so this branch
+              draws the one destination that IS real for them instead.
+
+              This is a THIRD branch on the existing if/else rather than an
+              extra block beside it, deliberately: an added block would emit
+              its own whitespace into every other seat's sidebar, and these
+              renders are diffed byte for byte. As a branch it contributes
+              nothing at all unless it is the one taken.
+
+              The url is marketing:home, the Marketing app's own workspace —
+              the tabbed screen in marketing/views.py. It is one entry and not
+              one per tab: the tabs are ?tab= on that screen, and the sidebar
+              names sections, not the panels inside them.
+            {% endcomment %}
+            <div class="sb-group">{{ p.unit_label }}</div>
+            <a href="{% url 'marketing:home' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-bullhorn"></i></span>Workspace</a>
+            {% elif p.unit %}
             <div class="sb-group">{{ p.unit_label }}</div>
             <a href="{% url 'cases:inbox' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-inbox"></i></span>Inbox{% if nav_inbox_count %}<span class="nav-badge">{{ nav_inbox_count }}</span>{% endif %}</a>
             {% if p.can_create_case %}

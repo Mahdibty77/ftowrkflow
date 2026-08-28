@@ -1,9 +1,19 @@
 """Organisational units and roles used across the platform.
 
-There are exactly three units. Each unit may have any combination of a manager,
-a supervisor and one or more experts. A unit can also exist with only some of
-those roles populated (for example a Technical unit with only a manager and no
-supervisor) - the user accounts are still defined, they are simply not assigned.
+An organisation is modelled as UNIT x ROLE. Each unit may have any combination
+of a manager, a supervisor and one or more experts. A unit can also exist with
+only some of those roles populated (for example a Technical unit with only a
+manager and no supervisor) - the user accounts are still defined, they are
+simply not assigned.
+
+Three of the four units - Commercial, Technical, Supply - are the ones the
+TO/PI case workflow routes between. MARKETING is the fourth, and it is
+deliberately outside that workflow: it holds no case, appears in no routing
+rule, and has neither an inbox nor a case archive. "Marketing Supervisor" and
+"Marketing Expert" are therefore not new roles at all - they are this new unit
+paired with the two roles that already exist, which is why nothing had to be
+added to Role. (Adding them to Role instead would have handed every other unit
+a "Marketing Expert" seat it should never have.)
 """
 
 
@@ -11,11 +21,20 @@ class Unit:
     COMMERCIAL = "COMMERCIAL"
     TECHNICAL = "TECHNICAL"
     SUPPLY = "SUPPLY"
+    # Outside the TO/PI workflow - see the module docstring.
+    MARKETING = "MARKETING"
+
+    # The three units a case can actually be routed to. Named on its own so a
+    # routing/archive/report rule can ask "is this a workflow unit" without
+    # spelling the three out again, and so that adding a fifth non-workflow
+    # unit later cannot silently widen any of them.
+    WORKFLOW = (COMMERCIAL, TECHNICAL, SUPPLY)
 
     CHOICES = [
         (COMMERCIAL, "Commercial"),
         (TECHNICAL, "Technical"),
         (SUPPLY, "Supply"),
+        (MARKETING, "Marketing"),
     ]
 
     LABELS = dict(CHOICES)

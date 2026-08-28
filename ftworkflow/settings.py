@@ -10,6 +10,7 @@ app you need:
     itemcoder - item coding / pricing engine (Tool Data + Build TO/PI)
     reports   - management dashboards and reporting (read-only over `cases`)
     people    - personnel records, work shifts and staff requests
+    marketing - the Marketing unit's own section, outside the case workflow
     licensing - offline RSA licence activation and the request gate
 
 The URL map that mounts them all is ftworkflow/urls.py; it is the other half of
@@ -103,6 +104,10 @@ INSTALLED_APPS = [
     "cases.apps.CasesConfig",
     "reports.apps.ReportsConfig",
     "people.apps.PeopleConfig",
+    # The Marketing unit's own section. Outside the TO/PI case workflow by
+    # design (see the accounts.constants docstring): it holds no case and
+    # touches no routing rule.
+    "marketing.apps.MarketingConfig",
     # Item-coding / pricing engine (Build TO/PI + Tool Data)
     "itemcoder.apps.ItemcoderConfig",
     # Offline RSA license enforcement.

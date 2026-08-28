@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  The Marketing Expert workspace.
+
+  The tab strip is the platform's own .tabs / .tab idiom from static/css/app.css
+  — the one the case page uses for the sections of a single screen — rendered as
+  links to ?tab=… rather than as divs driven by JavaScript. Two reasons for the
+  change of element and no others: the tab a person is on then survives a
+  reload, and the server decides which panel exists rather than shipping every
+  panel to the browser and hiding all but one. The look is entirely app.css's;
+  the app's own stylesheet only removes the underline a link would otherwise
+  carry.
+
+  Only the active panel is rendered, so there is no .tab-panel/.active
+  display-toggling here — the case page needs that because it ships every
+  panel at once, and this page does not.
+{% endcomment %}
+{% block title %}Marketing · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Marketing{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'marketing/css/rolechart.css' %}">
+{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1>Marketing</h1>
+    <div class="sub">{{ user.profile.title_line }}</div>
+  </div>
+</div>
+
+<nav class="tabs rc-tabs" aria-label="Marketing sections">
+  {% for t in tabs %}
+  <a class="tab{% if t.is_active %} active{% endif %}"
+     href="?tab={{ t.key }}"{% if t.is_active %} aria-current="page"{% endif %}>{{ t.label }}</a>
+  {% endfor %}
+</nav>
+
+{% if active_tab == 'roles' %}
+<div class="panel">
+  <div class="panel-h">
+    <h3>Project role chart · state today</h3>
+    <div class="rc-head-actions">
+      {% if chart.project_name %}<span class="rc-chip" dir="auto">{{ chart.project_name }}</span>{% endif %}
+      {% if chart.contract_model %}<span class="rc-chip is-model">Contract model {{ chart.contract_model }}</span>{% endif %}
+      <span class="rc-chip is-sample">Sample layout</span>
+      <button type="button" class="btn btn-sm btn-ghost" id="rcZoom" aria-pressed="false">
+        <i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
+        <span data-rc-zoom-label>Actual size</span>
+      </button>
+    </div>
+  </div>
+
+  <p class="rc-note">
+    Every party on a project, from the sponsor down to where we stand as vendor.
+    The organisations below are placeholders shown so the layout can be judged —
+    no project data is connected to this chart yet.
+  </p>
+
+  {% include "marketing/_role_chart.html" %}
+</div>
+{% endif %}
+
+{% endblock %}
+{% block scripts %}
+<script>
+  // Fit-to-width (default) <-> actual size. The chart is 1300 units wide and
+  // this column is not, so one of the two has to give: fit scales the drawing
+  // down to the column, actual keeps it at full size and scrolls it inside its
+  // own box. Neither state lets the page itself scroll sideways — see
+  // .rc-canvas in the app's stylesheet.
+  (function () {
+    var btn = document.getElementById('rcZoom');
+    var canvas = document.getElementById('rcCanvas');
+    if (!btn || !canvas) { return; }
+    var label = btn.querySelector('[data-rc-zoom-label]');
+    btn.addEventListener('click', function () {
+      var actual = canvas.classList.toggle('is-actual');
+      btn.setAttribute('aria-pressed', actual ? 'true' : 'false');
+      if (label) { label.textContent = actual ? 'Fit to width' : 'Actual size'; }
+      if (!actual) { canvas.scrollLeft = 0; }
+    });
+  })();
+</script>
+{% endblock %}

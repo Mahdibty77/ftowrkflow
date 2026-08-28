@@ -578,6 +578,15 @@ def _own_report(request, profile):
             Unit.COMMERCIAL, Unit.TECHNICAL, Unit.SUPPLY):
         # No expert seat resolves — an unassigned account, or a seat whose role
         # this page has nothing to say about. Same destination as before.
+        #
+        # Unit.MARKETING is one of the units that falls in here, deliberately
+        # and with no code change: this page is built entirely from case
+        # figures and Marketing holds no case, so there is nothing to report on
+        # yet. The redirect still lands correctly — cases.views.inbox sends a
+        # Marketing seat on to its own workspace — and the same is true of the
+        # dispatcher's closing redirect below, which is where a Marketing
+        # SUPERVISOR arrives. Keep this list and core.context_processors
+        # ._OWN_REPORT_UNITS saying the same three; see the note there.
         return redirect("cases:inbox")
 
     f, t, rf, rt = _range_from_request(request)

@@ -1,7 +1,8 @@
 """The two site-wide views that belong to no single app.
 
     home()            the landing router: decides which app a signed-in user
-                      actually starts in (admin console / dashboard / inbox)
+                      actually starts in (admin console / dashboard / inbox /
+                      Marketing workspace)
     protected_media() every file under MEDIA_ROOT, served behind a login and a
                       per-prefix access rule
 
@@ -21,7 +22,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, Http404
 from django.shortcuts import redirect
 
-from accounts.constants import Role
+from accounts.constants import Role, Unit
 
 logger = logging.getLogger(__name__)
 
@@ -31,11 +32,18 @@ def home(request):
     """Send the user to their primary workspace.
 
     Admins go to the Django admin-style management console; unit members go to
-    their kartabl (inbox).
+    their kartabl (inbox); Marketing goes to its own workspace.
     """
     profile = getattr(request.user, "profile", None)
     if profile is None or profile.is_admin:
         return redirect("accounts:admin_console")
+    # A unit outside the TO/PI workflow has no inbox and no dashboard, so it is
+    # answered before either of the tests below — a Marketing supervisor is a
+    # supervisor of Marketing, not a report-only seat over cases, and the
+    # dashboard would only bounce them straight back. The destination is the
+    # marketing app's own screen; core no longer serves a page at that path.
+    if getattr(profile, "unit", "") == Unit.MARKETING:
+        return redirect("marketing:home")
     # General managers and unit supervisors are report-only -> dashboard home.
     if profile.is_general_manager or getattr(profile, "role", "") == Role.SUPERVISOR:
         return redirect("reports:dashboard")

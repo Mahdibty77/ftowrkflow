@@ -1847,7 +1847,9 @@ def _archive_scope_date(raw):
 def archive_scope(request):
     """The archive queryset for this request, plus how the request was framed.
 
-    Returns ``None`` when the user has no profile (the caller redirects).
+    Returns ``None`` when the user has no profile, and for a unit outside the
+    TO/PI workflow (Marketing), which has no case history at all — the caller
+    redirects.
 
     Scope:
       admin / general manager     -> the entire archive
@@ -1870,6 +1872,17 @@ def archive_scope(request):
 
     profile = getattr(request.user, "profile", None)
     if profile is None:
+        return None
+    # A unit outside the TO/PI workflow (Marketing) has no case history to
+    # scope, so it gets the same "there is no archive for you" answer a request
+    # with no profile gets, and every caller inherits it: archive() redirects
+    # and archive_slice() answers 403. Left to fall through it would instead
+    # build the "cases you personally participated in" queryset at the bottom,
+    # which is empty today only by accident — nobody in Marketing has touched a
+    # case — and would start returning rows the moment one of them ever did.
+    # As above, a BLANK unit is deliberately not covered: that is a general
+    # manager or an unassigned seat, both of which already have an answer here.
+    if profile.unit and profile.unit not in Unit.WORKFLOW:
         return None
 
     select_mode = str(request.GET.get("select") or "").strip() in ("1", "true", "yes")
@@ -2336,7 +2349,9 @@ def inbox_filter_q(user, *, role=None, work_user=None):
     several of these into one aggregate so a dashboard drawing a card per expert
     does not pay for a separate inbox query per card. Returning ``None`` means
     "this person has no inbox at all" (admins, general managers, anyone without
-    a resolvable profile) — the caller turns that into an empty result rather
+    a resolvable profile, and any unit outside the TO/PI workflow such as
+    Marketing, which reaches the bare ``return None`` at the bottom because no
+    unit branch claims it) — the caller turns that into an empty result rather
     than a filter, exactly as before.
 
     Every branch below only ever touches columns on ``Case`` itself, never a
@@ -3205,6 +3220,24 @@ def allowed_actions(case: Case, user, *, role=None, work_user=None) -> set[str]:
             supply_kind=role.supply_kind or "",
         )
     if profile is None or profile.is_admin:
+        return set()
+    # A unit outside the TO/PI workflow (Marketing) has no action on any case,
+    # and says so here rather than by falling through. Without this the fall
+    # through is not empty: none of the unit branches below match, so nothing
+    # is added and nothing returns early — and then the "export is available to
+    # every unit" line at the very bottom, which sits OUTSIDE all of them, hands
+    # back {"export"} for a seat that has no business with the case at all.
+    # (Nothing could be downloaded with it — every export route also asks
+    # user_can_view_case, which refuses — but a set that says "you may export"
+    # is the wrong answer to give, and the case page draws its buttons from
+    # exactly this set.)
+    #
+    # The ``profile.unit and`` half is load-bearing and must stay: a BLANK unit
+    # is not a non-workflow unit, it is an existing seat kind (a general
+    # manager, an account not yet assigned) whose answer here is already
+    # settled and must not move. This narrows nothing that exists today — no
+    # seat carries a unit outside the three — it only decides the new one.
+    if profile.unit and profile.unit not in Unit.WORKFLOW:
         return set()
 
     actions: set[str] = set()

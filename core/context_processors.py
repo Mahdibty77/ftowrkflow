@@ -24,6 +24,14 @@ from .theming import theme_for_unit
 # than imported from reports.views because that module pulls in the case
 # models, and this one is loaded for every template render. reports._own_report
 # tests the same three; add a unit to one and it goes in the other.
+#
+# Unit.MARKETING is NOT one of them, and its absence is a decision rather than
+# an oversight. The report a card would be built from is entirely made of case
+# figures — cases created, offers built, turnaround — and Marketing holds no
+# case, so every one of those would read zero. It is spelled out as the three
+# names instead of Unit.WORKFLOW because these are the units this page can
+# REPORT on, which is a different question from which units a case routes
+# between; the two happen to have the same answer today and need not later.
 _OWN_REPORT_UNITS = (Unit.COMMERCIAL, Unit.TECHNICAL, Unit.SUPPLY)
 
 

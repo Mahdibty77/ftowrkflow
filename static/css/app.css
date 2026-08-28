@@ -1855,6 +1855,10 @@ table.data td.client-no { font-weight: 650; opacity: .75; }
 body.unit-commercial .unit-dot{ background:#b8860b; }
 body.unit-technical  .unit-dot{ background:#1f5f8b; }
 body.unit-supply     .unit-dot{ background:#1f7a5a; }
+/* Marketing: core.theming's mulberry. Every unit needs a line here — the dot
+   has a size but no default background, so a unit with no rule renders an
+   invisible hole in the sidebar footer rather than an accent. */
+body.unit-marketing  .unit-dot{ background:#8c3f63; }
 body.unit-admin      .unit-dot{ background:var(--accent); }
 
 /* ---- In-card theme switcher (profile dropdown): colour skins + light/dark ---- */

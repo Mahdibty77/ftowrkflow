@@ -293,6 +293,14 @@ def inbox(request):
         return redirect("accounts:admin_console")
     if profile.is_general_manager:
         return redirect("reports:dashboard")
+    # A unit outside the TO/PI workflow (Marketing) has no inbox — the shared
+    # membership rule, services.inbox_filter_q, returns None for it — so this
+    # page could only ever render an empty kartabl with a status strip and a
+    # "New case" button that is not theirs. Send them to their own workspace
+    # instead, which is also where reports.dashboard's own redirect for a
+    # non-workflow unit ends up (it redirects here, and here redirects on).
+    if profile.unit == Unit.MARKETING:
+        return redirect("marketing:home")
 
     from people.role_nav import work_context
     ctx = work_context(request)
@@ -433,6 +441,15 @@ def archive(request):
     dropdown option lists, the status tab counts, ``total_count``, and the money
     column plus the drill-down grand total.
     """
+    profile = _profile(request.user)
+    # Answered before archive_scope, which also says "no archive" for a unit
+    # outside the TO/PI workflow but says it by returning None — and the None
+    # the line below already handles means "not signed in", so a Marketing seat
+    # would be bounced to the sign-in screen while signed in. Same refusal,
+    # sent somewhere that makes sense. archive_slice keeps the plain 403.
+    if profile is not None and profile.unit == Unit.MARKETING:
+        return redirect("marketing:home")
+
     scope = services.archive_scope(request)
     if scope is None:
         return redirect("accounts:login")

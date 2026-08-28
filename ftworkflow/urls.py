@@ -14,6 +14,10 @@ rather than here:
     cases/      the workflow itself: cases, clients, forms, exports
     reports/    role-aware management dashboards (read-only over cases)
     people/     personnel records, work shifts, staff requests
+    marketing/  the Marketing unit's own section. Mounted here rather than
+                inside core because it is a section of its own; the placeholder
+                core once served at this path has been removed, as the note in
+                the view it replaced asked
     tool/       itemcoder: the item-coding / pricing tool and the Build TO/PI
                 bridge back into a case
 
@@ -40,6 +44,7 @@ urlpatterns = [
     path("cases/", include("cases.urls")),
     path("reports/", include("reports.urls")),
     path("people/", include("people.urls")),
+    path("marketing/", include("marketing.urls")),
     # Item coding / pricing tool + case Build TO/PI bridge.
     path("tool/", include("itemcoder.urls")),
     # Root aliases for the item-coding tool.
