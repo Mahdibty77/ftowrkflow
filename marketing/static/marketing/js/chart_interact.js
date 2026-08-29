@@ -2,7 +2,8 @@
  * its own clickable card, opening one reusable modal that runs in one of two
  * modes (plain search/select, or multi-select while an attach wizard is
  * armed), plus the attach wizard's own floating status bar and the query
- * (Inquiry) highlight overlay, plus pan/zoom over the SVG.
+ * (Inquiry) highlight overlay, plus zoom over the SVG (no drag-to-pan — see
+ * the zoom section below for why).
  *
  * There is no per-field state kept here beyond what is open right now — the
  * chart itself (the count badge on each card) only ever changes on a fresh
@@ -23,7 +24,6 @@
 
   var canvas = document.getElementById('rcCanvas');
   var viewport = document.getElementById('rcViewport');
-  var zoomLayer = document.getElementById('rcZoomLayer');
   var svg = document.getElementById('rcSvg');
   var queryLinesG = document.getElementById('rcQueryLines');
 
@@ -47,17 +47,30 @@
   }
 
   // ------------------------------------------------------------------------
-  // Pan & zoom — a CSS transform on the layer wrapping the SVG, never the
-  // viewBox itself, so nothing here has to redo the chart's own arithmetic.
+  // Zoom only — no drag-to-pan. The owner does not want the chart moved
+  // around by dragging: a bounded region, only zoom in/out (buttons + mouse
+  // wheel), and its default state unchanged ("clear and organized... like
+  // before"). Once zoomed past the canvas's own fixed-size box, that box's
+  // own native scrollbars (see .rc-canvas/.rc-viewport in rolechart.css) are
+  // how the rest becomes reachable — never a custom drag gesture.
+  //
+  // Zoom changes the SVG ELEMENT's own rendered pixel size
+  // (style.width/style.height), computed from the fixed viewBox size times
+  // the current scale — the viewBox attribute itself never changes. This is
+  // what fixes the blur a CSS `transform:scale()` on a wrapping layer used
+  // to cause: that approach rasterizes the SVG once and stretches the
+  // bitmap, while resizing the element itself asks the SVG to re-render its
+  // vector content crisply at every size.
   // ------------------------------------------------------------------------
   var MIN_SCALE = 0.35, MAX_SCALE = 2.5;
   var viewBoxParts = svg.getAttribute('viewBox').split(' ');
   var VIEW_W = parseFloat(viewBoxParts[2]);
   var VIEW_H = parseFloat(viewBoxParts[3]);
-  var view = { scale: 1, x: 0, y: 0 };
+  var scale = 1;
 
-  function applyTransform() {
-    zoomLayer.style.transform = 'translate(' + view.x + 'px,' + view.y + 'px) scale(' + view.scale + ')';
+  function applySize() {
+    svg.style.width = (VIEW_W * scale) + 'px';
+    svg.style.height = (VIEW_H * scale) + 'px';
   }
 
   function fitScale() {
@@ -67,76 +80,26 @@
   }
 
   function resetView() {
-    view.scale = fitScale();
-    view.x = 0;
-    view.y = 0;
-    applyTransform();
+    scale = fitScale();
+    applySize();
   }
 
-  function zoomBy(factor, atX, atY) {
-    var next = Math.max(MIN_SCALE, Math.min(MAX_SCALE, view.scale * factor));
-    if (atX === undefined) {
-      var r = viewport.getBoundingClientRect();
-      atX = r.width / 2;
-      atY = r.height / 2;
-    }
-    // Keep the point under the cursor (or the viewport centre) fixed while
-    // the scale changes, otherwise every zoom click recentres the drawing.
-    view.x = atX - (atX - view.x) * (next / view.scale);
-    view.y = atY - (atY - view.y) * (next / view.scale);
-    view.scale = next;
-    applyTransform();
+  function zoomBy(factor) {
+    scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * factor));
+    applySize();
   }
 
   document.getElementById('rcZoomIn').addEventListener('click', function () { zoomBy(1.2); });
   document.getElementById('rcZoomOut').addEventListener('click', function () { zoomBy(1 / 1.2); });
   document.getElementById('rcZoomReset').addEventListener('click', resetView);
 
+  // A plain scale in/out — there is no pan offset left to keep a cursor
+  // point fixed under, so this does not try to preserve the old
+  // cursor-relative recentring math.
   viewport.addEventListener('wheel', function (ev) {
     ev.preventDefault();
-    var r = viewport.getBoundingClientRect();
-    zoomBy(ev.deltaY < 0 ? 1.1 : 1 / 1.1, ev.clientX - r.left, ev.clientY - r.top);
+    zoomBy(ev.deltaY < 0 ? 1.1 : 1 / 1.1);
   }, { passive: false });
-
-  // Plain mousedown/mousemove/mouseup with a drag threshold: below it, the
-  // gesture is a click and a node's own listener handles it; at or past it,
-  // this is a pan and the click that would otherwise fire on mouseup is
-  // swallowed by ``justDragged`` below.
-  var justDragged = false;
-  var panning = false, moved = false, dragStartX = 0, dragStartY = 0, panStartX = 0, panStartY = 0;
-
-  viewport.addEventListener('mousedown', function (ev) {
-    if (ev.button !== 0) { return; }
-    panning = true;
-    moved = false;
-    dragStartX = ev.clientX;
-    dragStartY = ev.clientY;
-    panStartX = view.x;
-    panStartY = view.y;
-  });
-  window.addEventListener('mousemove', function (ev) {
-    if (!panning) { return; }
-    var dx = ev.clientX - dragStartX;
-    var dy = ev.clientY - dragStartY;
-    if (!moved && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
-      moved = true;
-      viewport.classList.add('is-panning');
-    }
-    if (moved) {
-      view.x = panStartX + dx;
-      view.y = panStartY + dy;
-      applyTransform();
-    }
-  });
-  window.addEventListener('mouseup', function () {
-    if (moved) {
-      justDragged = true;
-      window.setTimeout(function () { justDragged = false; }, 0);
-    }
-    panning = false;
-    moved = false;
-    viewport.classList.remove('is-panning');
-  });
 
   resetView();
   window.addEventListener('resize', resetView);
@@ -191,11 +154,14 @@
   var queryName = document.getElementById('rcQueryName');
   var queryClearBtn = document.getElementById('rcQueryClear');
 
-  function nodeCenter(field) {
+  function nodeRect(field) {
     var g = nodesByField[field];
     if (!g) { return null; }
     var box = g.querySelector('.rc-box').getBBox();
-    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    return {
+      x: box.x, y: box.y, w: box.width, h: box.height,
+      cx: box.x + box.width / 2, cy: box.y + box.height / 2
+    };
   }
 
   function clearQueryMarks() {
@@ -205,23 +171,104 @@
     queryLinesG.innerHTML = '';
   }
 
+  // The chart's own vertical centre lane. rolechart.py fixes this at its
+  // module-level CEN = 650 and always places "project" on it; reading it
+  // from that node's own on-screen centre means this file never has to
+  // duplicate rolechart.py's constant or assume it stays 650.
+  function centerLaneX() {
+    var r = nodeRect('project');
+    return r ? r.cx : VIEW_W / 2;
+  }
+
+  // The point on a node's own edge closest to the centre lane, at the
+  // node's own centre-y — where a query line touches the box instead of
+  // floating into its middle. A node already sitting on the lane
+  // (cx === cen) has no "nearest edge toward the lane" to speak of, so this
+  // returns the lane point itself; dedupePoints() below then collapses that
+  // into its neighbour and the segment leading to it is simply never drawn.
+  function laneEdgePoint(rect, cen) {
+    if (rect.cx === cen) { return { x: cen, y: rect.cy }; }
+    return { x: rect.cx < cen ? rect.x + rect.w : rect.x, y: rect.cy };
+  }
+
+  function dedupePoints(pts) {
+    var out = [];
+    pts.forEach(function (p) {
+      var last = out[out.length - 1];
+      if (!last || Math.abs(last.x - p.x) > 0.5 || Math.abs(last.y - p.y) > 0.5) {
+        out.push(p);
+      }
+    });
+    return out;
+  }
+
+  var ELBOW_R = 16; // same corner radius rolechart.py's own _route() uses
+
+  // A path string through every point in ``pts``, straight on each segment
+  // except that every interior corner is pulled back by (at most) ``r`` on
+  // each side and bridged with a quadratic curve through the corner point —
+  // the same "modern rounded elbow" language rolechart.py's _route() draws
+  // for the chart's own edges, replicated here from plain on-screen points
+  // rather than imported from it.
+  function elbowPath(pts, r) {
+    if (pts.length < 2) { return ''; }
+    var d = 'M' + pts[0].x + ' ' + pts[0].y;
+    for (var i = 1; i < pts.length; i++) {
+      var prev = pts[i - 1], cur = pts[i], next = pts[i + 1];
+      if (!next) { d += ' L' + cur.x + ' ' + cur.y; continue; }
+      var len1 = Math.hypot(cur.x - prev.x, cur.y - prev.y) || 1;
+      var len2 = Math.hypot(next.x - cur.x, next.y - cur.y) || 1;
+      var rr = Math.max(0, Math.min(r, len1 / 2, len2 / 2));
+      var inX = cur.x - (cur.x - prev.x) / len1 * rr;
+      var inY = cur.y - (cur.y - prev.y) / len1 * rr;
+      var outX = cur.x + (next.x - cur.x) / len2 * rr;
+      var outY = cur.y + (next.y - cur.y) / len2 * rr;
+      d += ' L' + inX + ' ' + inY + ' Q' + cur.x + ' ' + cur.y + ' ' + outX + ' ' + outY;
+    }
+    return d;
+  }
+
+  var QUERY_FILL_MS = 600;
+
+  // "As if a fluid filled it": draw the full path immediately, then animate
+  // its own stroke-dashoffset from full length down to zero — a single
+  // one-shot fill-in, not a loop or pulse, since the owner explicitly wants
+  // this light and subtle, not flashy.
+  function animateFill(path) {
+    var len = path.getTotalLength();
+    path.style.strokeDasharray = String(len);
+    path.style.strokeDashoffset = String(len);
+    path.getBoundingClientRect(); // force layout before starting the transition
+    path.style.transition = 'stroke-dashoffset ' + QUERY_FILL_MS + 'ms ease-out';
+    window.requestAnimationFrame(function () {
+      path.style.strokeDashoffset = '0';
+    });
+  }
+
   function drawQueryLines(focusField, litFields) {
     queryLinesG.innerHTML = '';
-    var c0 = nodeCenter(focusField);
-    if (!c0) { return; }
+    var focusRect = nodeRect(focusField);
+    if (!focusRect) { return; }
+    var cen = centerLaneX();
     var ns = 'http://www.w3.org/2000/svg';
     litFields.forEach(function (field) {
-      var c1 = nodeCenter(field);
-      if (!c1) { return; }
-      var dx = c1.x - c0.x, dy = c1.y - c0.y;
-      var len = Math.sqrt(dx * dx + dy * dy) || 1;
-      var nx = -dy / len, ny = dx / len, bow = 26;
-      var mx = (c0.x + c1.x) / 2 + nx * bow;
-      var my = (c0.y + c1.y) / 2 + ny * bow;
+      var litRect = nodeRect(field);
+      if (!litRect) { return; }
+      // Always the same three-segment orthogonal elbow — out to the centre
+      // lane, along it, back out to the target — rather than an independent
+      // diagonal that could cross over other nodes and edges.
+      var pts = dedupePoints([
+        laneEdgePoint(focusRect, cen),
+        { x: cen, y: focusRect.cy },
+        { x: cen, y: litRect.cy },
+        laneEdgePoint(litRect, cen)
+      ]);
+      if (pts.length < 2) { return; }
       var path = document.createElementNS(ns, 'path');
       path.setAttribute('class', 'rc-query-line');
-      path.setAttribute('d', 'M' + c0.x + ' ' + c0.y + ' Q' + mx + ' ' + my + ' ' + c1.x + ' ' + c1.y);
+      path.setAttribute('d', elbowPath(pts, ELBOW_R));
       queryLinesG.appendChild(path);
+      animateFill(path);
     });
   }
 
@@ -439,7 +486,6 @@
   // ------------------------------------------------------------------------
   Array.prototype.forEach.call(svg.querySelectorAll('.rc-node'), function (g) {
     function open() {
-      if (justDragged) { return; }
       openModalForField(g.getAttribute('data-field'), g.getAttribute('data-role'), g.getAttribute('data-abbr'));
     }
     g.addEventListener('click', open);

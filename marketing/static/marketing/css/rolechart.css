@@ -33,32 +33,29 @@
   position:relative;
   --rc-ground:var(--cloud);
   --rc-card:var(--paper);
-  --rc-edge:color-mix(in srgb, var(--ink) 40%, transparent);
+  --rc-edge:var(--line);
 }
 
-/* ---- The canvas: pan + zoom, not fit-to-width -----------------------------
-   The shell does not scroll (see .shell in app.css), and neither does this
-   panel: .rc-canvas clips its own content so panning/zooming the chart can
-   never push a scrollbar onto the page. A wrapping .rc-zoom-layer carries a
-   CSS transform (translate + scale); the SVG's own viewBox never changes —
-   see chart_interact.js. */
+/* ---- The canvas: a bounded box, zoom only, no drag-to-pan -----------------
+   The owner does not want the chart moved around by dragging: a bounded
+   region, only zoom in/out. .rc-canvas is that bounded region — its height
+   never changes. .rc-viewport fills it and is the thing that actually
+   scrolls: chart_interact.js resizes the SVG element itself (not a wrapping
+   CSS transform — that used to be the cause of the zoom blur, see the JS)
+   to its current zoomed pixel size, and once that is bigger than the box,
+   .rc-viewport's own native scrollbars are how the rest is reached — never a
+   custom drag gesture. */
 .rc-canvas{
   position:relative;
   height:600px;
-  overflow:hidden;
+  overflow:auto;
   border:1px solid var(--line); border-radius:var(--radius-sm);
   background:var(--rc-ground);
 }
 .rc-viewport{
-  position:absolute; inset:0; overflow:hidden;
-  cursor:grab;
+  position:absolute; inset:0; overflow:auto;
 }
-.rc-viewport.is-panning{ cursor:grabbing; }
-.rc-zoom-layer{
-  transform-origin:0 0;
-  will-change:transform;
-}
-.rc-zoom-layer svg{ display:block; user-select:none; }
+.rc-viewport svg{ display:block; user-select:none; }
 
 .rc-zoom-controls{
   position:absolute; top:.6rem; right:.6rem; z-index:6;
@@ -128,14 +125,18 @@
 }
 
 /* ---- Edges -----------------------------------------------------------------
-   One state, one style: a solid line with rounded joins, the shape itself
-   already routed with a rounded elbow in rolechart.py. A faint drop-shadow
-   is what keeps this from reading as the old flat, engraved look without
-   resorting to a second colour. */
+   A pale, empty channel, not a confident dark line — the owner's own words:
+   "like a place that's been carved/chiselled out" (a groove/track metaphor),
+   and explicitly light/subtle. --rc-edge is the platform's own --line
+   divider token (already pale in both themes, already flips with them, so
+   nothing here needs its own dark-mode block) rather than the old
+   ink-mix(40%); wide (3px) and flat reads as an empty pipe waiting to be
+   filled — see the query-mode fill-in animation below for what fills it —
+   rather than a thin bold rule, so the drop-shadow that used to sell "line"
+   is dropped too. */
 .rc-edge{
-  fill:none; stroke:var(--rc-edge); stroke-width:1.6;
+  fill:none; stroke:var(--rc-edge); stroke-width:3;
   stroke-linecap:round; stroke-linejoin:round;
-  filter:drop-shadow(0 1px 1px rgba(0,0,0,.06));
 }
 
 /* ---- Query mode ------------------------------------------------------------
@@ -144,7 +145,7 @@
    rather than a family colour, because "this is what you selected" is a
    state, not a category. Light and dark read differently on purpose — see
    the dark block below. */
-.rc-chart.is-query .rc-node{ opacity:.35; transition:opacity .18s ease; }
+.rc-chart.is-query .rc-node{ opacity:.12; transition:opacity .18s ease; }
 .rc-chart.is-query .rc-node.is-focus,
 .rc-chart.is-query .rc-node.is-lit{ opacity:1; }
 .rc-chart.is-query .rc-node.is-focus .rc-box,
@@ -160,8 +161,13 @@
 .rc-chart.is-query .rc-node.is-lit .rc-box{
   filter:drop-shadow(0 3px 9px color-mix(in srgb, var(--accent) 32%, transparent));
 }
+/* The path shape itself (a rounded orthogonal elbow through the chart's own
+   centre lane, not a diagonal) and its one-shot "fluid filling it"
+   stroke-dashoffset animation are both built in chart_interact.js — this is
+   only the line's resting colour/weight, unchanged from before. */
 .rc-query-line{
-  fill:none; stroke:var(--accent); stroke-width:1.8; stroke-linecap:round;
+  fill:none; stroke:var(--accent); stroke-width:1.8;
+  stroke-linecap:round; stroke-linejoin:round;
   opacity:.7;
 }
 /* Dark: an actual glow — "نئونی پررنگ‌تر" (a stronger neon) on the cards,
