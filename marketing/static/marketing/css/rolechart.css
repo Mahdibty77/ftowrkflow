@@ -26,49 +26,32 @@
 .rc-tabs .tab{ display:inline-block; }
 
 /* ---- Chart tokens ---------------------------------------------------------
-   --rc-ground / --rc-card lean on --cloud/--mist and --paper, which already
-   flip per theme (see static/css/app.css), so nothing here needs its own
-   dark-mode block just to follow the theme. */
+   --rc-card leans on --paper, which already flips per theme (see
+   static/css/app.css), so nothing here needs its own dark-mode block just to
+   follow the theme. */
 .rc-chart{
   position:relative;
-  --rc-ground:var(--cloud);
   --rc-card:var(--paper);
   --rc-edge:var(--line);
 }
 
-/* ---- The canvas: a bounded box, zoom only, no drag-to-pan -----------------
-   The owner does not want the chart moved around by dragging: a bounded
-   region, only zoom in/out. .rc-canvas is that bounded region — its height
-   never changes. .rc-viewport fills it and is the thing that actually
-   scrolls: chart_interact.js resizes the SVG element itself (not a wrapping
-   CSS transform — that used to be the cause of the zoom blur, see the JS)
-   to its current zoomed pixel size, and once that is bigger than the box,
-   .rc-viewport's own native scrollbars are how the rest is reached — never a
-   custom drag gesture. */
+/* ---- The canvas: no frame, no scroll, no zoom — it just scales -----------
+   The owner explicitly asked for the opposite of a boxed, zoomable canvas:
+   no border, no background plate, no fixed height, no zoom controls. The
+   chart is a plain, responsive SVG that grows and shrinks with the page's
+   own width and stays centred — `width:100%` on the SVG combined with its
+   own viewBox (never touched here or in JS) is what makes it scale;
+   `max-width` keeps it from turning into an ungainly, over-stretched banner
+   on a very wide monitor while still using "as much of the page as it can"
+   short of that. `margin:0 auto` centres it on any row wider than that cap. */
 .rc-canvas{
   position:relative;
-  height:600px;
-  overflow:auto;
-  border:1px solid var(--line); border-radius:var(--radius-sm);
-  background:var(--rc-ground);
+  max-width:1600px; margin:0 auto;
 }
-.rc-viewport{
-  position:absolute; inset:0; overflow:auto;
+.rc-canvas svg{
+  display:block; width:100%; height:auto;
+  user-select:none;
 }
-.rc-viewport svg{ display:block; user-select:none; }
-
-.rc-zoom-controls{
-  position:absolute; top:.6rem; right:.6rem; z-index:6;
-  display:flex; flex-direction:column; gap:.25rem;
-}
-.rc-zoom-btn{
-  width:30px; height:30px; padding:0; display:grid; place-items:center;
-  border:1px solid var(--line); border-radius:8px;
-  background:var(--paper); color:var(--ink);
-  box-shadow:var(--shadow-lg); cursor:pointer;
-  transition:border-color .12s, color .12s, background .12s;
-}
-.rc-zoom-btn:hover{ border-color:var(--accent); color:var(--accent); background:var(--cloud); }
 
 /* ---- Nodes -----------------------------------------------------------------
    Every field is a clickable card now. Two default states only, neither of
@@ -272,6 +255,5 @@
 
 /* ---- Narrow screens -------------------------------------------------------- */
 @media (max-width:640px){
-  .rc-canvas{ height:440px; }
   .rc-modal{ max-width:none; }
 }

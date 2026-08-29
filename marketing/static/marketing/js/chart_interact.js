@@ -2,8 +2,9 @@
  * its own clickable card, opening one reusable modal that runs in one of two
  * modes (plain search/select, or multi-select while an attach wizard is
  * armed), plus the attach wizard's own floating status bar and the query
- * (Inquiry) highlight overlay, plus zoom over the SVG (no drag-to-pan — see
- * the zoom section below for why).
+ * (Inquiry) highlight overlay. The chart itself is a plain responsive SVG
+ * now (see rolechart.css's `.rc-canvas svg{width:100%}`) — no zoom, no pan,
+ * nothing here computes or changes its size at all.
  *
  * There is no per-field state kept here beyond what is open right now — the
  * chart itself (the count badge on each card) only ever changes on a fresh
@@ -22,8 +23,6 @@
 
   var CAN_EDIT = !!CFG.canEdit;
 
-  var canvas = document.getElementById('rcCanvas');
-  var viewport = document.getElementById('rcViewport');
   var svg = document.getElementById('rcSvg');
   var queryLinesG = document.getElementById('rcQueryLines');
 
@@ -45,64 +44,6 @@
     Object.keys(params).forEach(function (k) { u.searchParams.set(k, params[k]); });
     return fetch(u.toString()).then(function (r) { return r.json(); });
   }
-
-  // ------------------------------------------------------------------------
-  // Zoom only — no drag-to-pan. The owner does not want the chart moved
-  // around by dragging: a bounded region, only zoom in/out (buttons + mouse
-  // wheel), and its default state unchanged ("clear and organized... like
-  // before"). Once zoomed past the canvas's own fixed-size box, that box's
-  // own native scrollbars (see .rc-canvas/.rc-viewport in rolechart.css) are
-  // how the rest becomes reachable — never a custom drag gesture.
-  //
-  // Zoom changes the SVG ELEMENT's own rendered pixel size
-  // (style.width/style.height), computed from the fixed viewBox size times
-  // the current scale — the viewBox attribute itself never changes. This is
-  // what fixes the blur a CSS `transform:scale()` on a wrapping layer used
-  // to cause: that approach rasterizes the SVG once and stretches the
-  // bitmap, while resizing the element itself asks the SVG to re-render its
-  // vector content crisply at every size.
-  // ------------------------------------------------------------------------
-  var MIN_SCALE = 0.35, MAX_SCALE = 2.5;
-  var viewBoxParts = svg.getAttribute('viewBox').split(' ');
-  var VIEW_W = parseFloat(viewBoxParts[2]);
-  var VIEW_H = parseFloat(viewBoxParts[3]);
-  var scale = 1;
-
-  function applySize() {
-    svg.style.width = (VIEW_W * scale) + 'px';
-    svg.style.height = (VIEW_H * scale) + 'px';
-  }
-
-  function fitScale() {
-    var w = viewport.clientWidth || 900;
-    var h = viewport.clientHeight || 600;
-    return Math.max(MIN_SCALE, Math.min(1, w / VIEW_W, h / VIEW_H));
-  }
-
-  function resetView() {
-    scale = fitScale();
-    applySize();
-  }
-
-  function zoomBy(factor) {
-    scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * factor));
-    applySize();
-  }
-
-  document.getElementById('rcZoomIn').addEventListener('click', function () { zoomBy(1.2); });
-  document.getElementById('rcZoomOut').addEventListener('click', function () { zoomBy(1 / 1.2); });
-  document.getElementById('rcZoomReset').addEventListener('click', resetView);
-
-  // A plain scale in/out — there is no pan offset left to keep a cursor
-  // point fixed under, so this does not try to preserve the old
-  // cursor-relative recentring math.
-  viewport.addEventListener('wheel', function (ev) {
-    ev.preventDefault();
-    zoomBy(ev.deltaY < 0 ? 1.1 : 1 / 1.1);
-  }, { passive: false });
-
-  resetView();
-  window.addEventListener('resize', resetView);
 
   // ------------------------------------------------------------------------
   // The attach wizard's floating status bar — survives the modal opening and
@@ -177,7 +118,9 @@
   // duplicate rolechart.py's constant or assume it stays 650.
   function centerLaneX() {
     var r = nodeRect('project');
-    return r ? r.cx : VIEW_W / 2;
+    if (r) { return r.cx; }
+    var viewBoxParts = svg.getAttribute('viewBox').split(' ');
+    return parseFloat(viewBoxParts[2]) / 2;
   }
 
   // The point on a node's own edge closest to the centre lane, at the

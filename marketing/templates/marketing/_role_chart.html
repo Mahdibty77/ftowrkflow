@@ -1,9 +1,18 @@
 {% comment %}
   The project role chart — every field is its own clickable card now, so this
-  partial is the whole interface: one inline SVG (pan/zoom controls over it),
-  one reusable modal for search/add/attach/inquiry, one floating status bar
-  for an attach session in progress, and one floating pill for an active
-  query. There is no separate directory tab any more — see marketing/views.py.
+  partial is the whole interface: one inline SVG, one reusable modal for
+  search/add/attach/inquiry, one floating status bar for an attach session in
+  progress, and one floating pill for an active query. There is no separate
+  directory tab any more — see marketing/views.py.
+
+  NOT boxed and not zoomable. It used to sit in a bordered, fixed-height,
+  scrollable canvas with its own zoom controls; the owner asked for exactly
+  the opposite — no frame at all, no zoom buttons, the chart itself simply
+  scales up and down with the page's own width and stays centred, using as
+  much of the page as it can. So the SVG below carries no width/height
+  attributes of its own beyond the viewBox — see rolechart.css's `.rc-canvas
+  svg{width:100%}` for how that scaling actually happens; nothing here or in
+  chart_interact.js computes a scale any more.
 
   KEEP THIS FILE UTF-8: the Persian role names arrive from marketing/rolechart.py
   rather than being written here, but a literal added later would flatten to
@@ -12,57 +21,45 @@
   THIS TEMPLATE DOES NO ARITHMETIC. Every coordinate, every path and every
   count badge is computed in marketing/rolechart.py and arrives on ``chart``.
   All the interaction — clicking a node, the modal, the attach wizard, the
-  query highlight, panning and zooming — lives in
-  marketing/static/marketing/js/chart_interact.js, wired from the data-*
-  attributes each node carries and from window.FT_MARKETING_CHART (set in
-  home.html).
+  query highlight — lives in marketing/static/marketing/js/chart_interact.js,
+  wired from the data-* attributes each node carries and from
+  window.FT_MARKETING_CHART (set in home.html).
 {% endcomment %}
 <div class="rc-chart" id="rcChart">
 
   <div class="rc-canvas" id="rcCanvas">
-
-    <div class="rc-zoom-controls">
-      <button type="button" class="rc-zoom-btn" id="rcZoomIn" aria-label="Zoom in"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
-      <button type="button" class="rc-zoom-btn" id="rcZoomOut" aria-label="Zoom out"><i class="fa-solid fa-minus" aria-hidden="true"></i></button>
-      <button type="button" class="rc-zoom-btn" id="rcZoomReset" aria-label="Reset view"><i class="fa-solid fa-compress" aria-hidden="true"></i></button>
-    </div>
 
     <div class="rc-query-pill" id="rcQueryPill" hidden>
       <span class="rc-query-name" id="rcQueryName" dir="auto"></span>
       <button type="button" class="btn btn-sm btn-ghost" id="rcQueryClear">Clear</button>
     </div>
 
-    <div class="rc-viewport" id="rcViewport">
-      <div class="rc-zoom-layer" id="rcZoomLayer">
-        <svg id="rcSvg" viewBox="0 0 {{ chart.view_w }} {{ chart.view_h }}"
-             width="{{ chart.view_w }}" height="{{ chart.view_h }}"
-             role="img" aria-labelledby="rcSvgTitle">
-          <title id="rcSvgTitle">Project role chart — every field is its own entity directory; click one to open it.</title>
+    <svg id="rcSvg" viewBox="0 0 {{ chart.view_w }} {{ chart.view_h }}"
+         role="img" aria-labelledby="rcSvgTitle">
+      <title id="rcSvgTitle">Project role chart — every field is its own entity directory; click one to open it.</title>
 
-          <g class="rc-edges" aria-hidden="true">
-            {% for e in chart.edges %}<path d="{{ e.d }}" class="rc-edge"/>
-            {% endfor %}
-          </g>
+      <g class="rc-edges" aria-hidden="true">
+        {% for e in chart.edges %}<path d="{{ e.d }}" class="rc-edge"/>
+        {% endfor %}
+      </g>
 
-          <g class="rc-query-lines" id="rcQueryLines" aria-hidden="true"></g>
+      <g class="rc-query-lines" id="rcQueryLines" aria-hidden="true"></g>
 
-          <g class="rc-nodes">
-            {% for n in chart.nodes %}
-            <g class="{{ n.cls }}" tabindex="0" role="button"
-               data-field="{{ n.key }}" data-role="{{ n.role_fa }}" data-abbr="{{ n.abbr }}"
-               aria-label="{{ n.role_fa }} ({{ n.abbr }})">
-              <title>{{ n.title }}</title>
-              <rect class="rc-box" x="{{ n.x }}" y="{{ n.y }}" width="{{ n.w }}" height="{{ n.h }}" rx="10"/>
-              <text class="rc-role" x="{{ n.cx }}" y="{{ n.y_role }}" text-anchor="middle">{{ n.role_fa }}</text>
-              <text class="rc-abbr" x="{{ n.cx }}" y="{{ n.y_abbr }}" text-anchor="middle">{{ n.abbr }}</text>
-              <rect class="rc-badge" x="{{ n.badge.x }}" y="{{ n.badge.y }}" width="{{ n.badge.w }}" height="{{ n.badge.h }}" rx="9"/>
-              <text class="rc-badge-text" x="{{ n.badge.cx }}" y="{{ n.badge.text_y }}" text-anchor="middle">{{ n.badge.text }}</text>
-            </g>
-            {% endfor %}
-          </g>
-        </svg>
-      </div>
-    </div>
+      <g class="rc-nodes">
+        {% for n in chart.nodes %}
+        <g class="{{ n.cls }}" tabindex="0" role="button"
+           data-field="{{ n.key }}" data-role="{{ n.role_fa }}" data-abbr="{{ n.abbr }}"
+           aria-label="{{ n.role_fa }} ({{ n.abbr }})">
+          <title>{{ n.title }}</title>
+          <rect class="rc-box" x="{{ n.x }}" y="{{ n.y }}" width="{{ n.w }}" height="{{ n.h }}" rx="10"/>
+          <text class="rc-role" x="{{ n.cx }}" y="{{ n.y_role }}" text-anchor="middle">{{ n.role_fa }}</text>
+          <text class="rc-abbr" x="{{ n.cx }}" y="{{ n.y_abbr }}" text-anchor="middle">{{ n.abbr }}</text>
+          <rect class="rc-badge" x="{{ n.badge.x }}" y="{{ n.badge.y }}" width="{{ n.badge.w }}" height="{{ n.badge.h }}" rx="9"/>
+          <text class="rc-badge-text" x="{{ n.badge.cx }}" y="{{ n.badge.text_y }}" text-anchor="middle">{{ n.badge.text }}</text>
+        </g>
+        {% endfor %}
+      </g>
+    </svg>
   </div>
 
   <div class="rc-wizard-bar" id="rcWizardBar" hidden>
