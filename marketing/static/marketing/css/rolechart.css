@@ -33,20 +33,29 @@
   position:relative;
   --rc-card:var(--paper);
   --rc-edge:var(--line);
+  --rc-ground:var(--cloud);
 }
 
 /* ---- The canvas: no frame, no scroll, no zoom — it just scales -----------
-   The owner explicitly asked for the opposite of a boxed, zoomable canvas:
-   no border, no background plate, no fixed height, no zoom controls. The
-   chart is a plain, responsive SVG that grows and shrinks with the page's
-   own width and stays centred — `width:100%` on the SVG combined with its
-   own viewBox (never touched here or in JS) is what makes it scale;
-   `max-width` keeps it from turning into an ungainly, over-stretched banner
-   on a very wide monitor while still using "as much of the page as it can"
-   short of that. `margin:0 auto` centres it on any row wider than that cap. */
+   No border, no fixed height, no zoom controls — the owner explicitly asked
+   for the opposite of a boxed, zoomable canvas. It DOES still carry a
+   background: without one, the panel's own --paper (near-white in light
+   mode) showed straight through every gap between cards, so the whole area
+   read as one flat white expanse regardless of theme. --rc-ground is the
+   platform's own --cloud token (a step below --paper, already flips with
+   the theme), giving the space between cards a faint, theme-correct plate
+   without a border or padding making it read as a boxed frame again.
+   The chart is a plain, responsive SVG that grows and shrinks with the
+   page's own width and stays centred — `width:100%` on the SVG combined
+   with its own viewBox (never touched here or in JS) is what makes it
+   scale; `max-width` keeps it from turning into an ungainly, over-stretched
+   banner on a very wide monitor while still using "as much of the page as
+   it can" short of that. `margin:0 auto` centres it on any row wider than
+   that cap. */
 .rc-canvas{
   position:relative;
   max-width:1600px; margin:0 auto;
+  background:var(--rc-ground); border-radius:var(--radius-sm);
 }
 .rc-canvas svg{
   display:block; width:100%; height:auto;
@@ -131,6 +140,11 @@
 .rc-chart.is-query .rc-node{ opacity:.12; transition:opacity .18s ease; }
 .rc-chart.is-query .rc-node.is-focus,
 .rc-chart.is-query .rc-node.is-lit{ opacity:1; }
+/* The chart's own default edges are unrelated to a query's own path (drawn
+   separately, in .rc-query-lines) and were staying at full strength while
+   every card around them dimmed, which competed with the highlighted path
+   instead of getting out of its way. They dim exactly as far as the nodes. */
+.rc-chart.is-query .rc-edge{ opacity:.12; transition:opacity .18s ease; }
 .rc-chart.is-query .rc-node.is-focus .rc-box,
 .rc-chart.is-query .rc-node.is-lit .rc-box{
   stroke:var(--accent); stroke-width:2;
