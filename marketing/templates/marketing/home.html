@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 {% comment %}
-  The Marketing Expert workspace.
+  The Marketing workspace.
 
   The tab strip is the platform's own .tabs / .tab idiom from static/css/app.css
   — the one the case page uses for the sections of a single screen — rendered as
@@ -20,7 +20,6 @@
 {% block topbar %}Marketing{% endblock %}
 {% block head_extra %}
 <link rel="stylesheet" href="{% static 'marketing/css/rolechart.css' %}">
-<link rel="stylesheet" href="{% static 'marketing/css/directory.css' %}">
 {% endblock %}
 {% block content %}
 
@@ -41,71 +40,30 @@
 {% if active_tab == 'roles' %}
 <div class="panel">
   <div class="panel-h">
-    <h3>Project role chart · state today</h3>
-    <div class="rc-head-actions">
-      {% if chart.project_name %}<span class="rc-chip" dir="auto">{{ chart.project_name }}</span>{% endif %}
-      {% if chart.contract_model %}<span class="rc-chip is-model">Contract model {{ chart.contract_model }}</span>{% endif %}
-      <span class="rc-chip is-sample">Sample layout</span>
-      <button type="button" class="btn btn-sm btn-ghost" id="rcZoom" aria-pressed="false">
-        <i class="fa-solid fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
-        <span data-rc-zoom-label>Actual size</span>
-      </button>
-    </div>
+    <h3 dir="auto">نقشه ارتباطات پروژه</h3>
   </div>
-
-  <p class="rc-note">
-    Every party on a project, from the sponsor down to where we stand as vendor.
-    The organisations below are placeholders shown so the layout can be judged —
-    no project data is connected to this chart yet.
-  </p>
 
   {% include "marketing/_role_chart.html" %}
-</div>
-{% elif active_tab == 'directory' %}
-<div class="panel">
-  <div class="panel-h">
-    <h3>Entity directory · every field, its own list</h3>
-  </div>
-  {% include "marketing/_directory.html" %}
 </div>
 {% endif %}
 
 {% endblock %}
 {% block scripts %}
-<script>
-  // Fit-to-width (default) <-> actual size. The chart is 1300 units wide and
-  // this column is not, so one of the two has to give: fit scales the drawing
-  // down to the column, actual keeps it at full size and scrolls it inside its
-  // own box. Neither state lets the page itself scroll sideways — see
-  // .rc-canvas in the app's stylesheet.
-  (function () {
-    var btn = document.getElementById('rcZoom');
-    var canvas = document.getElementById('rcCanvas');
-    if (!btn || !canvas) { return; }
-    var label = btn.querySelector('[data-rc-zoom-label]');
-    btn.addEventListener('click', function () {
-      var actual = canvas.classList.toggle('is-actual');
-      btn.setAttribute('aria-pressed', actual ? 'true' : 'false');
-      if (label) { label.textContent = actual ? 'Fit to width' : 'Actual size'; }
-      if (!actual) { canvas.scrollLeft = 0; }
-    });
-  })();
-</script>
-{% if active_tab == 'directory' %}
 <div hidden>{% csrf_token %}</div>
 <script>
-  window.FT_MARKETING_DIR = {
+  window.FT_MARKETING_CHART = {
     searchUrl: "{% url 'marketing:entity_search' %}",
     createUrl: "{% url 'marketing:entity_create' %}",
     linkUrl: "{% url 'marketing:entity_link' %}",
     unlinkUrl: "{% url 'marketing:entity_unlink' %}",
-    connectionsUrl: "{% url 'marketing:entity_connections' %}"
+    connectionsUrl: "{% url 'marketing:entity_connections' %}",
+    canEdit: {{ can_edit|yesno:"true,false" }}
   };
   // A live read of the CSRF cookie rather than a baked template value — the
   // same reasoning as itemcoder/templates/itemcoder/tool_case.html: it stays
-  // correct even if the session is rotated (e.g. "Log in as") while this tab
+  // correct even if the session is rotated (e.g. "Log in as") while this page
   // is open.
-  Object.defineProperty(window.FT_MARKETING_DIR, "csrfToken", {
+  Object.defineProperty(window.FT_MARKETING_CHART, "csrfToken", {
     get: function () {
       var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
       if (m) return decodeURIComponent(m[1]);
@@ -115,6 +73,5 @@
     enumerable: true
   });
 </script>
-<script src="{% static 'marketing/js/directory.js' %}"></script>
-{% endif %}
+<script src="{% static 'marketing/js/chart_interact.js' %}"></script>
 {% endblock %}

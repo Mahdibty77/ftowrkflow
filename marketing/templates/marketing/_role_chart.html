@@ -1,98 +1,102 @@
 {% comment %}
-  The project role chart — one inline SVG, one legend, one footer line.
+  The project role chart — every field is its own clickable card now, so this
+  partial is the whole interface: one inline SVG (pan/zoom controls over it),
+  one reusable modal for search/add/attach/inquiry, one floating status bar
+  for an attach session in progress, and one floating pill for an active
+  query. There is no separate directory tab any more — see marketing/views.py.
 
   KEEP THIS FILE UTF-8: the Persian role names arrive from marketing/rolechart.py
-  rather than being written here, but the influence label and anything added
-  later would be literals, and a save through a non-UTF-8 codepage flattens
-  them to "?" (the same warning static/css/app.css carries).
+  rather than being written here, but a literal added later would flatten to
+  "?" under a non-UTF-8 codepage (the same warning static/css/app.css carries).
 
-  THIS TEMPLATE DOES NO ARITHMETIC. Every coordinate, every path, every class
-  name and both counts are computed in marketing/rolechart.py and arrive on
-  ``chart``. That is what lets the real model replace the placeholder data
-  without a line of this file moving — see that module's docstring for the
-  seam. If you find yourself reaching for {{ x|add:"-5" }} here, the value
-  belongs in the builder instead.
-
-  Multi-line notes in this file use {% templatetag openblock %} comment
-  {% templatetag closeblock %}; the {% templatetag openbrace %}# … #{% templatetag closebrace %}
-  form is single-line only and a multi-line one renders as visible text.
+  THIS TEMPLATE DOES NO ARITHMETIC. Every coordinate, every path and every
+  count badge is computed in marketing/rolechart.py and arrives on ``chart``.
+  All the interaction — clicking a node, the modal, the attach wizard, the
+  query highlight, panning and zooming — lives in
+  marketing/static/marketing/js/chart_interact.js, wired from the data-*
+  attributes each node carries and from window.FT_MARKETING_CHART (set in
+  home.html).
 {% endcomment %}
-<div class="rc-chart">
+<div class="rc-chart" id="rcChart">
 
   <div class="rc-canvas" id="rcCanvas">
-    <svg viewBox="0 0 {{ chart.view_w }} {{ chart.view_h }}"
-         preserveAspectRatio="xMidYMin meet"
-         role="img" aria-labelledby="rcSvgTitle rcSvgDesc">
-      <title id="rcSvgTitle">Project role chart</title>
-      <desc id="rcSvgDesc">Every party on the project, from the sponsor down to
-        our own position as vendor. {{ chart.filled }} of {{ chart.total }} roles
-        are identified; the rest are drawn as empty slots.</desc>
 
-      <defs>
-        <marker id="rcArrowLive" viewBox="0 0 8 8" refX="7" refY="4"
-                markerWidth="7" markerHeight="7" orient="auto">
-          <path d="M1 1L7 4L1 7" class="rc-arrow-head is-live"/>
-        </marker>
-        <marker id="rcArrowPending" viewBox="0 0 8 8" refX="7" refY="4"
-                markerWidth="7" markerHeight="7" orient="auto">
-          <path d="M1 1L7 4L1 7" class="rc-arrow-head is-pending"/>
-        </marker>
-      </defs>
-
-      <g class="rc-edges" aria-hidden="true">
-        {% for e in chart.edges %}<path d="{{ e.d }}" class="{{ e.cls }}"{% if e.marker %} marker-end="{{ e.marker }}"{% endif %}/>
-        {% endfor %}
-      </g>
-
-      {% if chart.influence_label %}
-      <g class="rc-influence-label">
-        <title>{{ chart.influence_label.en }}</title>
-        <rect class="rc-pill" x="{{ chart.influence_label.x }}" y="{{ chart.influence_label.y }}"
-              width="{{ chart.influence_label.w }}" height="{{ chart.influence_label.h }}" rx="12"/>
-        <text class="rc-pill-text" x="{{ chart.influence_label.cx }}"
-              y="{{ chart.influence_label.text_y }}" text-anchor="middle">{{ chart.influence_label.fa }}</text>
-      </g>
-      {% endif %}
-
-      <g class="rc-nodes">
-        {% for n in chart.nodes %}
-        <g class="{{ n.cls }}">
-          <title>{{ n.title }}</title>
-          {% if n.ring %}<rect class="rc-ring" x="{{ n.ring_x }}" y="{{ n.ring_y }}" width="{{ n.ring_w }}" height="{{ n.ring_h }}" rx="14"/>{% endif %}
-          <rect class="rc-box" x="{{ n.x }}" y="{{ n.y }}" width="{{ n.w }}" height="{{ n.h }}" rx="10"/>
-          <text class="rc-role" x="{{ n.cx }}" y="{{ n.y_role }}" text-anchor="middle">{{ n.role_fa }}</text>
-          <text class="rc-name" x="{{ n.cx }}" y="{{ n.y_name }}" text-anchor="middle">{% if n.filled %}{{ n.org_clipped }}{% else %}Not identified{% endif %}</text>
-          <text class="rc-abbr" x="{{ n.cx }}" y="{{ n.y_abbr }}" text-anchor="middle">{{ n.abbr }}</text>
-        </g>
-        {% endfor %}
-      </g>
-    </svg>
-  </div>
-
-  <div class="rc-legend">
-    <div class="rc-legend-group">
-      <span class="rc-legend-title">Lines</span>
-      <span class="rc-key"><span class="ln" aria-hidden="true"></span>Contractual</span>
-      <span class="rc-key"><span class="ln influence" aria-hidden="true"></span>Influencing — sets the technical specification</span>
-      <span class="rc-key"><span class="ln pending" aria-hidden="true"></span>Not identified yet</span>
+    <div class="rc-zoom-controls">
+      <button type="button" class="rc-zoom-btn" id="rcZoomIn" aria-label="Zoom in"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
+      <button type="button" class="rc-zoom-btn" id="rcZoomOut" aria-label="Zoom out"><i class="fa-solid fa-minus" aria-hidden="true"></i></button>
+      <button type="button" class="rc-zoom-btn" id="rcZoomReset" aria-label="Reset view"><i class="fa-solid fa-compress" aria-hidden="true"></i></button>
     </div>
-    <div class="rc-legend-group">
-      <span class="rc-legend-title">Role family</span>
-      {% for f in chart.families %}<span class="rc-key"><span class="sw f-{{ f.key }}" aria-hidden="true"></span>{{ f.label }}</span>
-      {% endfor %}
+
+    <div class="rc-query-pill" id="rcQueryPill" hidden>
+      <span class="rc-query-name" id="rcQueryName" dir="auto"></span>
+      <button type="button" class="btn btn-sm btn-ghost" id="rcQueryClear">Clear</button>
+    </div>
+
+    <div class="rc-viewport" id="rcViewport">
+      <div class="rc-zoom-layer" id="rcZoomLayer">
+        <svg id="rcSvg" viewBox="0 0 {{ chart.view_w }} {{ chart.view_h }}"
+             width="{{ chart.view_w }}" height="{{ chart.view_h }}"
+             role="img" aria-labelledby="rcSvgTitle">
+          <title id="rcSvgTitle">Project role chart — every field is its own entity directory; click one to open it.</title>
+
+          <g class="rc-edges" aria-hidden="true">
+            {% for e in chart.edges %}<path d="{{ e.d }}" class="rc-edge"/>
+            {% endfor %}
+          </g>
+
+          <g class="rc-query-lines" id="rcQueryLines" aria-hidden="true"></g>
+
+          <g class="rc-nodes">
+            {% for n in chart.nodes %}
+            <g class="{{ n.cls }}" tabindex="0" role="button"
+               data-field="{{ n.key }}" data-role="{{ n.role_fa }}" data-abbr="{{ n.abbr }}"
+               aria-label="{{ n.role_fa }} ({{ n.abbr }})">
+              <title>{{ n.title }}</title>
+              <rect class="rc-box" x="{{ n.x }}" y="{{ n.y }}" width="{{ n.w }}" height="{{ n.h }}" rx="10"/>
+              <text class="rc-role" x="{{ n.cx }}" y="{{ n.y_role }}" text-anchor="middle">{{ n.role_fa }}</text>
+              <text class="rc-abbr" x="{{ n.cx }}" y="{{ n.y_abbr }}" text-anchor="middle">{{ n.abbr }}</text>
+              <rect class="rc-badge" x="{{ n.badge.x }}" y="{{ n.badge.y }}" width="{{ n.badge.w }}" height="{{ n.badge.h }}" rx="9"/>
+              <text class="rc-badge-text" x="{{ n.badge.cx }}" y="{{ n.badge.text_y }}" text-anchor="middle">{{ n.badge.text }}</text>
+            </g>
+            {% endfor %}
+          </g>
+        </svg>
+      </div>
     </div>
   </div>
 
-  <p class="rc-foot">
-    <b>{{ chart.filled }} of {{ chart.total }}</b> roles on this project are identified.
-    {% if chart.filled < chart.total %}The white slots are still empty — each one becomes a
-    coloured box carrying the organisation's name as soon as that organisation is recorded.{% endif %}
-    {% if chart.contract_model %}The contract model for this package is
-    <b>{{ chart.contract_model }}</b>.{% else %}The contract model for this package is not
-    recorded.{% endif %}
-    {% if chart.buyer %}An order can reach us from the {{ chart.buyer }} contractor itself or
-    from its subcontractor.{% else %}Material is the client's own purchase, so no order path is
-    drawn on the chart.{% endif %}
-  </p>
+  <div class="rc-wizard-bar" id="rcWizardBar" hidden>
+    <span class="rc-wizard-label">Attach</span>
+    <span class="rc-wizard-source" id="rcWizardSource" dir="auto"></span>
+    <span class="rc-wizard-count" id="rcWizardCount"></span>
+    <button type="button" class="btn btn-sm btn-primary" id="rcWizardConfirm">Final Confirm</button>
+    <button type="button" class="btn btn-sm btn-ghost" id="rcWizardCancel">Cancel</button>
+  </div>
+
+  <div class="rc-modal-overlay" id="rcModalOverlay" hidden>
+    <div class="rc-modal" role="dialog" aria-modal="true" aria-labelledby="rcModalTitle">
+      <div class="rc-modal-head">
+        <button type="button" class="btn btn-sm btn-primary rc-modal-add" id="rcModalAdd">
+          <i class="fa-solid fa-plus" aria-hidden="true"></i> Add
+        </button>
+        <h3 class="rc-modal-title" id="rcModalTitle" dir="auto"></h3>
+        <button type="button" class="rc-modal-x" id="rcModalClose" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      </div>
+      <div class="rc-modal-search">
+        <input type="text" id="rcModalSearch" class="rc-modal-search-input"
+               placeholder="Search…" autocomplete="off" dir="auto">
+      </div>
+      <div class="rc-modal-list" id="rcModalList"></div>
+      <div class="rc-modal-actions" id="rcModalActionsDefault">
+        <button type="button" class="btn btn-sm rc-modal-attach" id="rcModalAttach">Attach · چسباندن</button>
+        <button type="button" class="btn btn-sm" id="rcModalInquiry">Inquiry · استعلام</button>
+        <button type="button" class="btn btn-sm btn-ghost" id="rcModalCloseBtn">Close</button>
+      </div>
+      <div class="rc-modal-actions" id="rcModalActionsPicking" hidden>
+        <button type="button" class="btn btn-sm btn-primary" id="rcModalConfirmCard">Confirm this card</button>
+        <button type="button" class="btn btn-sm btn-ghost" id="rcModalCloseCard">Close</button>
+      </div>
+    </div>
+  </div>
 
 </div>

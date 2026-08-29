@@ -17,9 +17,10 @@ WHAT THIS DELIBERATELY IS NOT, yet. No project, no assignment of a value to a
 project's own slot, and no connection to ``cases`` at all — the owner asked
 for exactly this step ("دیتابیس مستقل" — its own, independent database) and
 said explicitly that wiring it to a project or to a case is a later,
-separately-requested step. The chart on the Roles tab still draws from
-``rolechart.sample_chart()``, unchanged; this directory is reachable from its
-own tab and touches nothing there.
+separately-requested step. The chart itself IS the directory now — each field
+is a clickable card backed by this model, with no separate tab and no
+placeholder organisation name; see ``marketing/rolechart.py``'s module
+docstring for that redesign.
 """
 from __future__ import annotations
 
@@ -32,13 +33,21 @@ FIELD_CHOICES = [(key, label) for key, label, _abbr in ALL_FIELDS]
 
 
 class Entity(models.Model):
-    """One named value inside one field's directory (e.g. one sponsor)."""
+    """One named value inside one field's directory (e.g. one sponsor).
+
+    ``created_by`` is who REGISTERED the value, and it is required — visibility
+    is scoped by it (see ``marketing/views.py``'s access function and
+    ``marketing/services.py``'s scoped queries), not merely an audit trail like
+    it is on ``EntityLink``. That is also why uniqueness is per-owner: two
+    Marketing Experts who both register "Foolad Sanat" as a sponsor are not the
+    same row, because each expert's directory is their own until a supervisor
+    or the GM looks at the union of everyone's.
+    """
 
     field = models.CharField(max_length=32, choices=FIELD_CHOICES, db_index=True)
     name = models.CharField(max_length=200)
     created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, null=True, blank=True,
-        on_delete=models.SET_NULL, related_name="+",
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="marketing_entities",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -46,7 +55,8 @@ class Entity(models.Model):
         ordering = ["field", "name"]
         constraints = [
             models.UniqueConstraint(
-                fields=["field", "name"], name="marketing_entity_unique_field_name",
+                fields=["field", "name", "created_by"],
+                name="marketing_entity_unique_field_name_owner",
             ),
         ]
 

@@ -216,6 +216,17 @@
             <span class="ic"><i class="fa-solid fa-clipboard-check"></i></span>Requests
             {% if nav_staff_request_count %}<span class="nav-badge">{{ nav_staff_request_count }}</span>{% endif %}
           </a>
+          {% comment %}
+            Marketing holds no case and has no dashboard card of its own, so
+            the GM's landing page stays reports.dashboard (core.views.home is
+            unchanged) — this is only an extra door into marketing:home, not a
+            new destination after login. marketing.access.access_for grants
+            the GM can_view and NOT can_edit there: this link opens the same
+            union-of-everyone's-directory a Marketing Supervisor sees, with
+            every add/link/unlink control the template would otherwise draw
+            left off because can_edit is False.
+          {% endcomment %}
+          <a href="{% url 'marketing:home' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-bullhorn"></i></span>Marketing (read-only)</a>
           {% endif %}
           {% if nav_roles %}
             {% for nr in nav_roles %}

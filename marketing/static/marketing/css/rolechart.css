@@ -8,301 +8,264 @@
    cannot reach a single element on any other screen; it is loaded only by
    marketing/home.html, through {% block head_extra %}.
 
-   No colour is invented. The neutrals, the surfaces and the accent are the
-   platform's own tokens from static/css/app.css, which is what makes the chart
-   follow the Marketing unit's mulberry accent and flip with the light/dark
-   theme like every other component. The eight family colours are the platform's
-   palette too — see the block that defines them.
+   NO PER-FIELD COLOUR. The first version of this chart gave every field a
+   colour family; once every field became its own clickable card too, a fully
+   coloured chart read as "خیلی رنگارنگ" (too colourful) — see rolechart.py's
+   module docstring. Every colour below is a plain neutral from the
+   platform's own tokens (static/css/app.css) EXCEPT the query-mode highlight,
+   which uses the viewer's own --accent — see that section for why.
    =========================================================================== */
 
 /* ---- The tab strip -------------------------------------------------------
    The house idiom (.tabs / .tab / .tab-panel in app.css, as used by the case
-   page) rendered as links instead of divs, so the active tab survives a reload
-   and can be linked to. Only the two things a link needs that a div does not
-   are set here; the look is entirely app.css's. */
+   page) rendered as links instead of divs, so the active tab survives a
+   reload and can be linked to. Only the two things a link needs that a div
+   does not are set here; the look is entirely app.css's. */
 .rc-tabs .tab,
 .rc-tabs .tab:hover{ text-decoration:none; }
 .rc-tabs .tab{ display:inline-block; }
 
-/* ---- Panel chrome -------------------------------------------------------- */
-.rc-head-actions{ display:flex; align-items:center; gap:.45rem; flex-wrap:wrap; }
-.rc-chip{
-  display:inline-flex; align-items:center; gap:.3rem;
-  font-size:.72rem; font-weight:700; letter-spacing:.02em;
-  padding:.18rem .55rem; border-radius:100px;
-  background:var(--cloud); color:var(--muted); border:1px solid var(--line);
-  white-space:nowrap;
-}
-.rc-chip.is-model{ color:var(--ink); }
-.rc-chip.is-sample{
-  background:var(--warnbg); color:var(--warn); border-color:var(--warnline);
-}
-.rc-note{
-  margin:0 0 .7rem; font-size:.78rem; color:var(--muted);
-}
-
-/* ---- The canvas ----------------------------------------------------------
-   The shell does not scroll (see .shell in app.css), so a chart wider than the
-   column has to be handled here or it pushes a scrollbar onto the whole page.
-   Two states, one button:
-     fit (default)  the svg is 100% of the column and scales down with it. A
-                    floor of 860px stops the text scaling into illegibility on
-                    a phone; below that this box scrolls sideways, not the page.
-     actual         the svg is its natural 1300px and this box scrolls. */
-.rc-canvas{
-  overflow-x:auto; overflow-y:hidden;
-  -webkit-overflow-scrolling:touch; scrollbar-width:thin;
-  border:1px solid var(--line); border-radius:var(--radius-sm);
-  /* A GROUND, not the panel colour. The drawing needs to sit on something the
-     panel is not, for two reasons that both matter: an empty slot is a white
-     outlined box, and a white box on a white panel is only its own border; and
-     in dark mode a recessed ground is what lets a coloured box read as a box.
-     --rc-ground is defined with the family colours below, per theme. */
-  background:var(--rc-ground);
-  padding:.5rem;
-}
-.rc-canvas > svg{ display:block; width:100%; min-width:860px; height:auto; }
-.rc-canvas.is-actual > svg{ width:1300px; min-width:1300px; }
-
-/* ---- Colour families -----------------------------------------------------
-   A role family still reads as a colour — the mockup's idea, kept — but only
-   as a thin ACCENT now, not as the fill of the whole box. The first version of
-   this chart gave every filled slot a full saturated fill in one of eight
-   different hues, and on a chart with most slots filled that read as exactly
-   what the owner called it: "خیلی رنگارنگ" (too colourful), with the boxes
-   competing against the lines meant to connect them rather than framing them.
-   The values below are unchanged — each is still a colour this platform
-   already owns — only WHERE they are spent has changed: a filled box is now a
-   plain card in --rc-card, and the family colour is carried by its border and
-   by the small abbreviation label alone.
-
-     principal  slate indigo   core/theming.py — the administration accent
-     mgmt       steel          the --slate / --muted neutral of app.css
-     design     engineer blue  core/theming.py — the Technical unit accent
-     contract   bronze         core/theming.py — the Commercial unit accent
-     supply     teal-green     core/theming.py — the Supply unit accent
-     inspect    amber          --warn in app.css
-     us         mulberry       core/theming.py — the MARKETING unit accent, so
-                               the box that is US carries this unit's own
-                               colour wherever the chart is shown
-     rival      slate, light   --muted, deliberately the quietest of the eight
-
-   NOT var(--accent). --accent on this platform is the viewer's chosen colour
-   SKIN (blue / rose / teal, static/css/theme-pack.css), not their unit colour,
-   and it is free to be a light pink or a bright teal — binding a meaningful
-   family colour to it would make the chart's own colour-coding a matter of
-   the reader's preference. The unit accent is taken by value instead.
-
-   TWO SETS OF VALUES, one per theme. The light set is a mid-dark ink-like
-   colour, read here as TEXT on --rc-card (near white) — the same values that
-   used to carry white text on themselves are exactly as legible carrying
-   themselves as text on white, contrast being symmetric. The dark set is the
-   same eight hues lightened, read as light text on the dark --rc-card. The
-   hue, and so the meaning of each colour, is the thing that stays constant
-   between the two — see the measured ratios kept beside each value. */
+/* ---- Chart tokens ---------------------------------------------------------
+   --rc-ground / --rc-card lean on --cloud/--mist and --paper, which already
+   flip per theme (see static/css/app.css), so nothing here needs its own
+   dark-mode block just to follow the theme. */
 .rc-chart{
-  /* light: family colour used as small accent text/border, on --rc-card.
-     Every value is unchanged from the first version of this chart — contrast
-     is symmetric, so a colour once tuned to carry white text at N:1 carries
-     itself as text on white at that same N:1, and each one already clears
-     4.5:1, the AA floor for the 9.5px abbreviation, the smallest text here. */
-  --rc-principal:#454091;   /* on --rc-card(#fff) 8.77:1 */
-  --rc-mgmt:#4a5b70;        /* on --rc-card(#fff) 6.95:1 */
-  --rc-design:#1f5f8b;      /* on --rc-card(#fff) 6.84:1 */
-  --rc-contract:#8a5a0f;    /* on --rc-card(#fff) 5.92:1 */
-  --rc-supply:#1f7a5a;      /* on --rc-card(#fff) 5.26:1 */
-  --rc-inspect:#b45309;     /* on --rc-card(#fff) 5.02:1 */
-  --rc-us:#8c3f63;          /* on --rc-card(#fff) 6.99:1 — core/theming.py
-                                MARKETING accent */
-  --rc-rival:#64748b;       /* on --rc-card(#fff) 4.76:1 */
-  /* --rc-card is not redefined per theme, like --rc-influence below: --paper
-     itself already flips from near-white to a dark card surface, so one
-     definition here is correct in both. */
-  --rc-card:var(--paper);
-
+  position:relative;
   --rc-ground:var(--cloud);
-  --rc-hair:var(--line);
-  --rc-empty-fill:var(--paper);
-  /* NOT var(--line). --line is a hairline drawn on --paper, where it has all
-     the contrast it needs; here the same stroke is drawn on --rc-ground, and
-     measured against that ground it comes out at 1.08:1 — an empty slot then
-     has no edge at all. Eight of the seventeen slots are empty on a young
-     project, and "not identified" is a state the chart exists to show, so the
-     outline is given a value of its own: 3.51:1 against the ground and 4.37:1
-     against the white it encloses, both clear of the 3:1 floor for a shape
-     that carries meaning. Same slate family as --rc-rival, one step darker. */
-  --rc-empty-line:#6b7a90;
-  /* Edges are the thing the redesign asks to make CLEARER, so a live edge is
-     drawn a shade darker and a touch thicker than before (was 45%/1.5) — now
-     that boxes are calm cards instead of eight competing hues, the edge is
-     free to be the most confident line on the chart. */
-  --rc-edge:color-mix(in srgb, var(--ink) 62%, transparent);
-  --rc-edge-pending:color-mix(in srgb, var(--ink) 20%, transparent);
-  --rc-influence:var(--warn);
-}
-/* Both selectors, because base.html sets data-mode on every render and adds
-   data-theme only in dark; matching either keeps this correct if that ever
-   changes on one side only. */
-[data-mode="dark"] .rc-chart,
-[data-theme="dark"] .rc-chart{
-  /* dark: same eight hues, lightened, read as text/border on the dark card */
-  --rc-principal:#9d98e8;   /* on --rc-card(#171c25) 6.58:1 */
-  --rc-mgmt:#a7b8cc;        /* on --rc-card(#171c25) 8.44:1 */
-  --rc-design:#7cbde8;      /* on --rc-card(#171c25) 8.38:1 */
-  --rc-contract:#e0b464;    /* on --rc-card(#171c25) 8.85:1 */
-  --rc-supply:#62c9a2;      /* on --rc-card(#171c25) 8.46:1 */
-  --rc-inspect:#f2b06a;     /* on --rc-card(#171c25) 9.11:1 */
-  --rc-us:#e096b8;          /* on --rc-card(#171c25) 7.50:1 — the mulberry
-                                above, lightened */
-  --rc-rival:#aab6c6;       /* on --rc-card(#171c25) 8.31:1 */
-
-  --rc-ground:var(--mist);
-  --rc-hair:var(--line);
-  /* The empty slot needs its own value in dark for a second reason as well as
-     the first: --paper and --mist are two near neighbours down here (1.11:1),
-     so the plate alone does not read as a box and the outline is carrying the
-     whole shape. At 5.49:1 against the ground and 4.99:1 against its own fill
-     it does. Inherited from the light block, it would have been 1.44:1. */
-  --rc-empty-line:#7d8b9e;
-  --rc-edge:color-mix(in srgb, var(--ink) 68%, transparent);
-  --rc-edge-pending:color-mix(in srgb, var(--ink) 26%, transparent);
+  --rc-card:var(--paper);
+  --rc-edge:color-mix(in srgb, var(--ink) 40%, transparent);
 }
 
-.rc-f-principal .rc-box{ stroke:var(--rc-principal); }
-.rc-f-mgmt      .rc-box{ stroke:var(--rc-mgmt); }
-.rc-f-design    .rc-box{ stroke:var(--rc-design); }
-.rc-f-contract  .rc-box{ stroke:var(--rc-contract); }
-.rc-f-supply    .rc-box{ stroke:var(--rc-supply); }
-.rc-f-inspect   .rc-box{ stroke:var(--rc-inspect); }
-.rc-f-us        .rc-box{ stroke:var(--rc-us); }
-.rc-f-rival     .rc-box{ stroke:var(--rc-rival); }
-.rc-f-principal .rc-abbr{ fill:var(--rc-principal); }
-.rc-f-mgmt      .rc-abbr{ fill:var(--rc-mgmt); }
-.rc-f-design    .rc-abbr{ fill:var(--rc-design); }
-.rc-f-contract  .rc-abbr{ fill:var(--rc-contract); }
-.rc-f-supply    .rc-abbr{ fill:var(--rc-supply); }
-.rc-f-inspect   .rc-abbr{ fill:var(--rc-inspect); }
-.rc-f-us        .rc-abbr{ fill:var(--rc-us); }
-.rc-f-rival     .rc-abbr{ fill:var(--rc-rival); }
-
-/* ---- Nodes --------------------------------------------------------------- */
-.rc-box{ stroke:var(--rc-hair); stroke-width:1; }
-.rc-node.is-filled .rc-box{ fill:var(--rc-card); stroke-width:1.6; }
-.rc-node.is-empty .rc-box{
-  fill:var(--rc-empty-fill);
-  stroke:var(--rc-empty-line); stroke-width:1.4; stroke-dasharray:5 4;
+/* ---- The canvas: pan + zoom, not fit-to-width -----------------------------
+   The shell does not scroll (see .shell in app.css), and neither does this
+   panel: .rc-canvas clips its own content so panning/zooming the chart can
+   never push a scrollbar onto the page. A wrapping .rc-zoom-layer carries a
+   CSS transform (translate + scale); the SVG's own viewBox never changes —
+   see chart_interact.js. */
+.rc-canvas{
+  position:relative;
+  height:600px;
+  overflow:hidden;
+  border:1px solid var(--line); border-radius:var(--radius-sm);
+  background:var(--rc-ground);
 }
+.rc-viewport{
+  position:absolute; inset:0; overflow:hidden;
+  cursor:grab;
+}
+.rc-viewport.is-panning{ cursor:grabbing; }
+.rc-zoom-layer{
+  transform-origin:0 0;
+  will-change:transform;
+}
+.rc-zoom-layer svg{ display:block; user-select:none; }
+
+.rc-zoom-controls{
+  position:absolute; top:.6rem; right:.6rem; z-index:6;
+  display:flex; flex-direction:column; gap:.25rem;
+}
+.rc-zoom-btn{
+  width:30px; height:30px; padding:0; display:grid; place-items:center;
+  border:1px solid var(--line); border-radius:8px;
+  background:var(--paper); color:var(--ink);
+  box-shadow:var(--shadow-lg); cursor:pointer;
+  transition:border-color .12s, color .12s, background .12s;
+}
+.rc-zoom-btn:hover{ border-color:var(--accent); color:var(--accent); background:var(--cloud); }
+
+/* ---- Nodes -----------------------------------------------------------------
+   Every field is a clickable card now. Two default states only, neither of
+   them a colour: an empty field is a dashed, muted outline; a field with at
+   least one entity is a solid, ink-bordered card. */
+.rc-node{ cursor:pointer; }
+.rc-node .rc-box{
+  fill:var(--rc-card); stroke-width:1.4;
+  transition:stroke .12s ease, filter .12s ease;
+}
+.rc-node.is-empty .rc-box{ stroke:var(--muted); stroke-dasharray:5 4; }
+.rc-node.has-entries .rc-box{ stroke:var(--line); stroke-width:1.6; }
+
 .rc-node text{ font-family:var(--sans); }
 .rc-role{
-  font-size:13px; font-weight:600;
+  font-size:12.5px; font-weight:650;
   /* Persian role names. plaintext derives the base direction from the first
-     strong character of each line, which is the convention app.css sets out
-     for mixed Persian/Latin text; direction:rtl is the fallback for a renderer
-     that does not honour plaintext, and is correct for these fixed strings. */
+     strong character of each line, the convention app.css sets out for mixed
+     Persian/Latin text; direction:rtl is the fallback for a renderer that
+     does not honour plaintext, and is correct for these fixed strings. */
   direction:rtl; unicode-bidi:plaintext;
-}
-.rc-name{
-  font-size:14px; font-weight:750;
-  /* The organisation name is user data and may be Persian or Latin, so its
-     base direction has to come from the text itself and from nothing else. */
-  unicode-bidi:plaintext;
 }
 .rc-abbr{
-  font-size:9.5px; font-weight:700; letter-spacing:.04em;
-  /* Latin contract shorthand, always left to right whatever sits above it. */
+  font-size:9px; font-weight:700; letter-spacing:.04em;
   direction:ltr; unicode-bidi:normal;
 }
-/* A filled box is a plain card now: the role name and the organisation carry
-   the chart's own ink/muted pair, exactly like text anywhere else in the app,
-   and only the small abbreviation carries the family's colour — a coloured
-   tag rather than a coloured box. That one line is what still lets a reader
-   sort the chart by family at a glance, without every box shouting the same
-   way at once. */
-.rc-node.is-filled .rc-role{ fill:var(--ink); fill-opacity:.82; }
-.rc-node.is-filled .rc-name{ fill:var(--ink); }
-.rc-node.is-empty  .rc-role{ fill:var(--ink); fill-opacity:.78; }
-.rc-node.is-empty  .rc-name{ fill:var(--muted); font-weight:600; font-size:12.5px; }
-.rc-node.is-empty  .rc-abbr{ fill:var(--muted); }
+.rc-node.is-empty .rc-role{ fill:var(--muted); }
+.rc-node.is-empty .rc-abbr{ fill:var(--muted); }
+.rc-node.has-entries .rc-role{ fill:var(--ink); }
+.rc-node.has-entries .rc-abbr{ fill:var(--ink); fill-opacity:.72; }
 
-/* The two boxes the eye should find first: the project the chart is about,
-   and where we stand on it. A ring outside the box rather than a heavier
-   border, so neither of them changes size or colour family. */
-.rc-ring{ fill:none; stroke-width:1.6; stroke-opacity:.55; }
-.rc-node.is-us .rc-ring{ stroke:var(--rc-us); stroke-opacity:.8; }
-.rc-node.is-project .rc-ring{ stroke:var(--rc-principal); }
-.rc-node.is-model .rc-ring{ stroke:var(--rc-contract); stroke-dasharray:6 4; }
-
-/* ---- Edges ---------------------------------------------------------------
-   Three states, and the difference between them has to survive being printed
-   in grey, so each one differs in dash pattern as well as in colour.
-     is-live      a contract that exists between two identified parties
-     is-pending   the same line where one end is still an empty slot
-     rc-influence not a contract at all — see the label on it */
-.rc-edge{ fill:none; stroke-linecap:round; stroke-linejoin:round; }
-.rc-link.is-live, .rc-arrow.is-live{ stroke:var(--rc-edge); stroke-width:1.5; }
-.rc-link.is-pending, .rc-arrow.is-pending{
-  stroke:var(--rc-edge-pending); stroke-width:1.4; stroke-dasharray:3 5;
+/* The count badge — a plain neutral pill, not a status colour: how many
+   entities a viewer can see, nothing more. */
+.rc-badge{ fill:var(--cloud); stroke:var(--line); stroke-width:1; }
+.rc-badge-text{
+  font-family:var(--sans); font-size:10px; font-weight:700; fill:var(--muted);
+  direction:ltr; unicode-bidi:normal;
 }
-.rc-influence{
-  stroke:var(--rc-influence); stroke-width:1.6; stroke-dasharray:7 5;
-  stroke-opacity:.9;
-}
-/* Drawn under each influence segment in the GROUND colour — the colour of the
-   canvas it is drawn on, not the panel around it — so where the dashed line
-   crosses a contractual one the crossing reads as an overpass instead of a
-   junction. */
-.rc-halo{ stroke:var(--rc-ground); stroke-width:6; }
-.rc-arrow-head{ fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
-.rc-arrow-head.is-live{ stroke:var(--rc-edge); }
-.rc-arrow-head.is-pending{ stroke:var(--rc-edge-pending); }
+.rc-node.has-entries .rc-badge-text{ fill:var(--ink); }
 
-/* ---- The influence label ------------------------------------------------- */
-.rc-pill{ fill:var(--warnbg); stroke:var(--warnline); stroke-width:1; }
-.rc-pill-text{
-  font-family:var(--sans); font-size:11.5px; font-weight:650; fill:var(--warn);
-  direction:rtl; unicode-bidi:plaintext;
+/* Hover / keyboard focus — the same "clickable option card" the rest of the
+   platform uses (people.css's .md-hub-card:hover), translated into SVG
+   terms: a stroke recolour plus a drop-shadow filter stand in for
+   border-color + box-shadow, and a small translateY stands in for the lift.
+   transform-box:fill-box makes that translate behave sanely on a <g>. */
+.rc-node{ transform-box:fill-box; transform-origin:center; }
+.rc-node:hover, .rc-node:focus-visible{
+  outline:none;
+  transform:translateY(-2px);
+}
+.rc-node:hover .rc-box, .rc-node:focus-visible .rc-box{
+  stroke:var(--accent);
+  filter:drop-shadow(0 4px 14px rgba(0,0,0,.14));
 }
 
-/* ---- Legend and footer --------------------------------------------------- */
-.rc-legend{
-  display:flex; flex-wrap:wrap; align-items:center; gap:.35rem .9rem;
-  margin-top:.75rem; padding-top:.7rem; border-top:1px solid var(--line-soft);
+/* ---- Edges -----------------------------------------------------------------
+   One state, one style: a solid line with rounded joins, the shape itself
+   already routed with a rounded elbow in rolechart.py. A faint drop-shadow
+   is what keeps this from reading as the old flat, engraved look without
+   resorting to a second colour. */
+.rc-edge{
+  fill:none; stroke:var(--rc-edge); stroke-width:1.6;
+  stroke-linecap:round; stroke-linejoin:round;
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,.06));
 }
-.rc-legend-group{ display:flex; flex-wrap:wrap; align-items:center; gap:.3rem .8rem; }
-.rc-legend-title{
-  font-size:.68rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase;
-  color:var(--muted); margin-right:.15rem;
-}
-.rc-key{
-  display:inline-flex; align-items:center; gap:.35rem;
-  font-size:.75rem; font-weight:600; color:var(--ink); white-space:nowrap;
-}
-.rc-key .sw{
-  width:13px; height:13px; border-radius:4px; flex:0 0 auto;
-  border:1px solid var(--rc-hair);
-}
-.rc-key .sw.f-principal{ background:var(--rc-principal); }
-.rc-key .sw.f-mgmt{ background:var(--rc-mgmt); }
-.rc-key .sw.f-design{ background:var(--rc-design); }
-.rc-key .sw.f-contract{ background:var(--rc-contract); }
-.rc-key .sw.f-supply{ background:var(--rc-supply); }
-.rc-key .sw.f-inspect{ background:var(--rc-inspect); }
-.rc-key .sw.f-us{ background:var(--rc-us); }
-.rc-key .sw.f-rival{ background:var(--rc-rival); }
-.rc-key .ln{
-  width:22px; height:0; flex:0 0 auto;
-  border-top:2px solid var(--rc-edge);
-}
-.rc-key .ln.pending{ border-top-style:dashed; border-top-color:var(--muted); }
-.rc-key .ln.influence{ border-top-style:dashed; border-top-color:var(--warn); }
-.rc-foot{
-  margin:.6rem 0 0; font-size:.78rem; color:var(--muted); line-height:1.5;
-}
-.rc-foot b{ color:var(--ink); font-weight:750; }
 
-/* ---- Narrow screens ------------------------------------------------------ */
+/* ---- Query mode ------------------------------------------------------------
+   Only while an Inquiry is active. Every node dims except the focused one and
+   whatever is directly connected to it; those get the platform's own accent
+   rather than a family colour, because "this is what you selected" is a
+   state, not a category. Light and dark read differently on purpose — see
+   the dark block below. */
+.rc-chart.is-query .rc-node{ opacity:.35; transition:opacity .18s ease; }
+.rc-chart.is-query .rc-node.is-focus,
+.rc-chart.is-query .rc-node.is-lit{ opacity:1; }
+.rc-chart.is-query .rc-node.is-focus .rc-box,
+.rc-chart.is-query .rc-node.is-lit .rc-box{
+  stroke:var(--accent); stroke-width:2;
+}
+/* Light: a solid accent border and a soft accent-tinted shadow, the same
+   weight as .md-hub-card:hover — a true neon glow does not read on a white
+   background, and the owner's own "نئونی" (neon) language is tied to dark. */
+.rc-chart.is-query .rc-node.is-focus .rc-box{
+  filter:drop-shadow(0 4px 12px color-mix(in srgb, var(--accent) 45%, transparent));
+}
+.rc-chart.is-query .rc-node.is-lit .rc-box{
+  filter:drop-shadow(0 3px 9px color-mix(in srgb, var(--accent) 32%, transparent));
+}
+.rc-query-line{
+  fill:none; stroke:var(--accent); stroke-width:1.8; stroke-linecap:round;
+  opacity:.7;
+}
+/* Dark: an actual glow — "نئونی پررنگ‌تر" (a stronger neon) on the cards,
+   "نئونی کم‌رنگ" (a faint neon) on the lines, restrained enough not to
+   "چشم را بزنه" (not eye-searing): a modest blur, no saturated bloom. */
+[data-mode="dark"] .rc-chart.is-query .rc-node.is-focus .rc-box,
+[data-theme="dark"] .rc-chart.is-query .rc-node.is-focus .rc-box{
+  filter:drop-shadow(0 0 9px var(--accent));
+}
+[data-mode="dark"] .rc-chart.is-query .rc-node.is-lit .rc-box,
+[data-theme="dark"] .rc-chart.is-query .rc-node.is-lit .rc-box{
+  filter:drop-shadow(0 0 6px var(--accent));
+}
+[data-mode="dark"] .rc-query-line,
+[data-theme="dark"] .rc-query-line{
+  filter:drop-shadow(0 0 3px var(--accent));
+  opacity:.5;
+}
+
+/* ---- The query status pill -------------------------------------------------
+   Floats over the canvas, opposite corner from the zoom controls. */
+.rc-query-pill{
+  position:absolute; top:.6rem; left:.6rem; z-index:6;
+  display:flex; align-items:center; gap:.5rem;
+  background:var(--paper); border:1px solid var(--accent); border-radius:100px;
+  padding:.3rem .35rem .3rem .7rem; box-shadow:var(--shadow-lg);
+}
+.rc-query-pill[hidden]{ display:none; }
+.rc-query-name{ font-size:.78rem; font-weight:700; color:var(--ink); }
+
+/* ---- The attach wizard's floating status bar -------------------------------
+   Fixed to the viewport, not the panel, so it survives scrolling and every
+   modal open/close while a wizard session is armed. */
+.rc-wizard-bar{
+  position:fixed; left:50%; bottom:1.4rem; transform:translateX(-50%);
+  z-index:150; display:flex; align-items:center; gap:.6rem;
+  background:var(--paper); border:1px solid var(--line); border-radius:100px;
+  padding:.5rem .5rem .5rem 1rem; box-shadow:var(--shadow-lg);
+}
+.rc-wizard-bar[hidden]{ display:none; }
+.rc-wizard-label{ font-size:.72rem; font-weight:800; letter-spacing:.04em; color:var(--accent); text-transform:uppercase; }
+.rc-wizard-source{ font-size:.84rem; font-weight:700; color:var(--ink); }
+.rc-wizard-count{ font-size:.76rem; color:var(--muted); white-space:nowrap; }
+
+/* ---- The modal --------------------------------------------------------------
+   One shell, reused for every field and for both of its modes — see
+   chart_interact.js. Modelled on the same overlay/dialog shape as
+   itemcoder's pipe-tools modal (static/itemcoder/js/pipe_tools.js): a
+   translucent backdrop, a centred card, no page scroll behind it. */
+.rc-modal-overlay{
+  position:fixed; inset:0; z-index:200;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(15,23,42,.45); padding:1rem;
+}
+.rc-modal-overlay[hidden]{ display:none; }
+.rc-modal{
+  width:100%; max-width:400px; max-height:82vh;
+  display:flex; flex-direction:column;
+  background:var(--paper); border:1px solid var(--line); border-radius:var(--radius);
+  box-shadow:var(--shadow-lg); overflow:hidden;
+}
+.rc-modal-head{
+  display:flex; align-items:center; gap:.5rem;
+  padding:.6rem .7rem; border-bottom:1px solid var(--line-soft);
+}
+.rc-modal-title{ flex:1; margin:0; font-size:.92rem; text-align:center; }
+.rc-modal-add[hidden],
+.rc-modal-attach[hidden]{ display:none; }
+.rc-modal-x{
+  border:0; background:transparent; color:var(--muted);
+  font-size:1rem; line-height:1; cursor:pointer; padding:.25rem .4rem; border-radius:6px;
+}
+.rc-modal-x:hover{ background:var(--cloud); color:var(--ink); }
+
+.rc-modal-search{ padding:.6rem .7rem 0; }
+.rc-modal-search-input{
+  width:100%; box-sizing:border-box; font-size:.84rem;
+  padding:.5rem .6rem; border:1px solid var(--line); border-radius:var(--radius-sm);
+  background:var(--paper); color:var(--ink);
+}
+
+.rc-modal-list{
+  flex:1; min-height:140px; overflow-y:auto;
+  padding:.5rem; display:flex; flex-direction:column; gap:.1rem;
+}
+.rc-row{
+  display:flex; align-items:center; gap:.55rem;
+  padding:.45rem .55rem; border-radius:8px; cursor:pointer;
+  font-size:.84rem; color:var(--ink);
+  border:1px solid transparent;
+}
+.rc-row:hover{ background:var(--cloud); }
+.rc-row.is-selected{ background:var(--accent-soft); border-color:var(--accent); }
+.rc-row-name{ flex:1; }
+.rc-row-empty{ padding:1rem .5rem; text-align:center; font-size:.8rem; color:var(--muted); }
+
+.rc-modal-actions{
+  display:flex; gap:.4rem; padding:.6rem .7rem; border-top:1px solid var(--line-soft);
+}
+.rc-modal-actions[hidden]{ display:none; }
+.rc-modal-actions .btn{ flex:1; justify-content:center; }
+
+/* ---- Narrow screens -------------------------------------------------------- */
 @media (max-width:640px){
-  .rc-canvas{ padding:.3rem; }
-  .rc-legend{ gap:.3rem .6rem; }
-  .rc-key{ font-size:.72rem; }
+  .rc-canvas{ height:440px; }
+  .rc-modal{ max-width:none; }
 }
