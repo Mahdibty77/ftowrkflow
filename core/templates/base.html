@@ -763,7 +763,22 @@
   // Display countdown is local & monotonic; server ping only ends the shift
   // or re-anchors when drift is large (avoids second-jumps every ping).
   (function () {
-    var secondsLeft = {{ shift_seconds_left|default_if_none:'null' }};
+    {% comment %}
+      NOT |default_if_none. During an impersonated session
+      people.context_processors.work_shift_banner deliberately returns an
+      EMPTY context (the countdown belongs to the person really at the
+      keyboard) — so shift_seconds_left is not merely None, it is ABSENT.
+      {{ }} interpolation of a missing variable renders '' (Django's
+      string_if_invalid), and default_if_none only substitutes on an actual
+      None, so it let that '' straight through: "var secondsLeft = ;", a
+      syntax error that aborted every statement AFTER it in this shared inline
+      script — including the profile menu's light/dark buttons further down,
+      which is why switching theme while impersonating silently did nothing.
+      {% if %} resolves a missing variable to None (ignore_failures=True),
+      unlike {{ }} interpolation, so this reads the same variable safely in
+      both the normal case and the missing-context impersonation case.
+    {% endcomment %}
+    var secondsLeft = {% if shift_seconds_left is not None %}{{ shift_seconds_left }}{% else %}null{% endif %};
     var pingUrl = "{{ shift_ping_url|default:'' }}";
     var endName = "{% filter escapejs %}{{ shift_end_name|default:'colleague' }}{% endfilter %}";
     var loginUrl = "{% url 'accounts:login' %}";
