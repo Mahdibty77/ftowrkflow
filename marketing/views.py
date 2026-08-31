@@ -23,11 +23,14 @@ actual decision (``access_for``) — this is the plain-language version of it:
   sees that same union, but VIEW ONLY: every mutating endpoint below refuses
   them independently of whatever the page hides, because a GM who can browse
   is not the same grant as a GM who can edit someone else's directory.
-* Commercial / Technical / Supply, at every rank, and an administrator — no.
-  A hidden nav link is not a permission; this is enforced here, on the URL,
-  and answers 403 to a direct GET. An admin who needs this screen can be given
-  a Marketing seat, the platform's own answer for "somebody needs to see
-  another unit's screen," which leaves a trace that they did.
+* The platform admin — now gets that SAME view-only, union-of-everyone scope
+  as the General Manager (``access.Access.is_gm_or_admin`` covers both).
+  Reachable via a new button in the cases archive page (built elsewhere, a
+  separate parallel phase), not via a hidden nav link in this app's own
+  sidebar. That distinction still matters: a hidden nav link would not be a
+  permission on its own, so the grant is still enforced here, on the URL, and
+  still answers 403 to a direct GET from anyone this decision does not cover.
+* Commercial / Technical / Supply, at every rank — no.
 
 Case-derived facts (which clients have which cases, and each case's
 effective label) are never gated by ``scope`` at all — see
@@ -106,16 +109,38 @@ def home(request):
         "active_tab": active,
         "chart": rolechart.build(counts),
         "can_edit": access.can_edit,
+        "is_admin_tier": access.is_gm_or_admin,
     }
+    # An optional "jump straight into this case's marketing connections" deep
+    # link (?case=123), the entry point a new button on the cases archive
+    # page (built in a later phase) will use. Only the param is wired through
+    # here — the frontend consumes it and gracefully handles a case id that
+    # doesn't exist or doesn't parse, so no lookup happens on this end.
+    deep_link_case_id = None
+    raw_case = request.GET.get("case")
+    if raw_case is not None:
+        try:
+            deep_link_case_id = int(raw_case)
+        except (TypeError, ValueError):
+            deep_link_case_id = None
+    if deep_link_case_id is not None:
+        context["deep_link_case_id"] = deep_link_case_id
     if active == "companies":
         # Just the label text for the tab strip and the per-company editing
         # panel — the company list itself is never fetched here (see the
         # module docstring's pointer to companies.js): every list this tab
         # shows comes from the same JSON endpoints the chart already uses.
+        # "count" reuses the exact same per-label ``counts`` dict already
+        # computed above for the chart's own badges (no second query) — a
+        # later phase adds count badges to the Companies tab's tab strip,
+        # matching how the case archive page's own status tabs show counts.
         context["labels"] = [
-            {"key": k, "label_fa": _LABEL_TEXT[k][0], "abbr": _LABEL_TEXT[k][1]}
+            {"key": k, "label_fa": _LABEL_TEXT[k][0], "abbr": _LABEL_TEXT[k][1],
+             "count": counts.get(k, 0)}
             for k in rolechart.LABEL_KEYS
         ]
+        # The count for that same tab strip's own "All" entry.
+        context["all_companies_count"] = Client.objects.count()
     return render(request, "marketing/home.html", context)
 
 
@@ -241,3 +266,26 @@ def us_connections(request):
         return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
     companies = services.us_connections(request.user)
     return JsonResponse({"ok": True, "companies": companies})
+
+
+@login_required
+def all_cases_search(request):
+    """GET ?q=&case_id= -> every case matching, by doc no. or client name.
+
+    Unlike every other endpoint in this file, ``access.can_view`` alone is
+    NOT enough here — this is deliberately admin/GM-only (the renamed "us"
+    card's all-cases search, and the deep link a later phase wires into it),
+    so an ordinary Marketing Expert/Supervisor who can view this page at all
+    must still be refused THIS endpoint. See ``access.Access.is_gm_or_admin``.
+    """
+    access = access_for(request)
+    if not access.can_view or not access.is_gm_or_admin:
+        return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
+    query = request.GET.get("q") or ""
+    case_id = request.GET.get("case_id")
+    try:
+        case_id = int(case_id) if case_id is not None else None
+    except (TypeError, ValueError):
+        case_id = None
+    cases = services.search_all_cases(query=query, case_id=case_id)
+    return JsonResponse({"ok": True, "cases": cases})

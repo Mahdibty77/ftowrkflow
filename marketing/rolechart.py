@@ -6,9 +6,10 @@ project itself, its phase, project management, the design chain, the four
 contract types (drawn unconditionally now — there is no contract-model
 gating any more; see the module's own git history if that phrase means
 nothing to you), a subcontractor and a third-party inspector, the
-laboratory, our own position, and finally the supply/rival pair. Nineteen
-fields in total — ``SLOTS`` plus "project" and "us" — and every one of them
-appears EXACTLY ONCE, unconditionally, as its own clickable card.
+laboratory, our own position, and finally supplier and rival, stacked
+together in the chart's bottom-left corner. Nineteen fields in total —
+``SLOTS`` plus "project" and "us" — and every one of them appears EXACTLY
+ONCE, unconditionally, as its own clickable card.
 
     SLOTS       -- the seventeen, in reading order
     ALL_FIELDS  -- SLOTS plus the project and us, in chart order
@@ -34,8 +35,9 @@ apart — the same base grid the previous version of this chart used. Every row
 transition is drawn by ``_connect``: one point to one point is a line, one to
 many (or many to one) fans from that single point, and many to many converge
 on the centre lane and fan back out — there is no bus bar and no per-chain
-special case, with one deliberate exception: the final row (supplier, rival)
-gets no incoming edge at all — see ``_NO_INCOMING_EDGE`` in ``build()``. The
+special case, with one deliberate exception: the final two rows (rival, then
+supplier, stacked in the bottom-left corner) get no incoming edge at all —
+see ``_NO_INCOMING_EDGE`` in ``build()``. The
 template receives finished coordinates and path data and makes no arithmetic
 decision of its own.
 """
@@ -53,6 +55,7 @@ CEN = 650                       # the centre lane
 PAIR = (COL[1], COL[2])         # the two columns a side-by-side pair sits on
 
 _GAP = 92
+_GAP_STACK = 26    # the tight breathing gap between rival and supplier below it
 R1 = 18            # sponsor
 R2 = R1 + _GAP     # owner
 R3 = R2 + _GAP     # the project
@@ -63,8 +66,9 @@ R6 = R5 + _GAP     # the four contract types
 R7 = R6 + _GAP     # sub / tpi
 R8 = R7 + _GAP     # laboratory
 R9 = R8 + _GAP     # us
-R10 = R9 + _GAP    # supplier / rival
-VIEW_H = R10 + NODE_H + 26
+R10 = R9 + _GAP           # rival
+R11 = R10 + NODE_H + _GAP_STACK   # supplier, close beneath rival
+VIEW_H = R11 + NODE_H + 26
 
 Y_ROLE = 26        # the Persian role name's baseline, from the box's top edge
 Y_ABBR = 45        # the English abbreviation's baseline
@@ -108,7 +112,7 @@ _SLOT_BY_KEY = {s[0]: s for s in SLOTS}
 # a label at all.
 PROJECT_ROLE = "نام پروژه"
 PROJECT_ABBR = "PROJECT"
-US_ROLE = "موقعیت ما"
+US_ROLE = "فولاد تبار"
 US_ABBR = "VENDOR / SUPPLIER"
 
 # Every field on the chart, in reading order — the one list marketing/views.py
@@ -166,10 +170,14 @@ def _kind_of(key):
 # needs; ``build`` walks this once for the nodes and once more, pairwise,
 # for the connectors between one row and the next.
 #
-# supplier/rival sit in the chart's OWN bottom corners (COL[0]/COL[3], the
-# outermost established columns — not a new constant) rather than centred
-# beside each other: the owner asked for them detached, with no edge tying
-# them to anything else on the default chart. See ``_NO_INCOMING_EDGE``.
+# rival and supplier sit stacked in the chart's OWN bottom-left corner
+# (COL[0], the outermost established column — not a new constant), rival at
+# R10 directly above supplier at R11, _GAP_STACK apart rather than the
+# standard _GAP: the owner asked for them detached, with no edge tying them
+# to anything else on the default chart. See ``_NO_INCOMING_EDGE``. The
+# bottom-right corner (COL[3], where rival used to sit alone) is left
+# deliberately empty here — a later phase grows a panel there in the chart's
+# own JS/CSS, so nothing else should be placed at COL[3] on this row.
 _ROWS = (
     (R1,  (("sponsor", CEN),)),
     (R2,  (("owner", CEN),)),
@@ -181,7 +189,8 @@ _ROWS = (
     (R7,  (("sub", PAIR[0]), ("tpi", PAIR[1]))),
     (R8,  (("laboratory", CEN),)),
     (R9,  (("us", CEN),)),
-    (R10, (("supplier", COL[0]), ("rival", COL[3]))),
+    (R10, (("rival", COL[0]),)),
+    (R11, (("supplier", COL[0]),)),
 )
 
 # The one row transition ``build()`` deliberately does NOT draw an edge into.

@@ -294,6 +294,72 @@ def us_connections(user) -> list:
     ]
 
 
+def _case_search_row(case: Case) -> dict:
+    """The one dict shape ``search_all_cases`` returns, for one case."""
+    label = _effective_label(case)
+    return {
+        "case_id": case.pk,
+        "doc_no": case.doc_no,
+        "client_id": case.client_id,
+        "client_name": case.client.name,
+        "client_code": case.client.code,
+        "label": label,
+        "label_fa": FIELD_LABELS[label],
+    }
+
+
+def search_all_cases(query: str = "", limit: int = 500, case_id=None) -> list:
+    """Every case matching ``query`` (by doc no. OR client name), newest
+    first — or, when ``case_id`` is given, exactly that one case. This is the
+    admin/GM-only "us" card search behind
+    ``marketing/views.py::all_cases_search``; ordinary Marketing viewers never
+    reach it (see ``access.Access.is_gm_or_admin``).
+
+    UNSCOPED, like ``us_connections`` above and for the identical reason:
+    case data is shared truth owned by Commercial/Technical/Supply, not
+    Marketing, so this reads every case regardless of who created it — there
+    is no ``(user, scope)`` pair to narrow by here, unlike the manual-tag
+    functions further up this file.
+
+    ``case_id`` takes priority over ``query`` and short-circuits to an exact
+    lookup — at most one result, an empty list if that case doesn't exist.
+    Otherwise an empty ``query`` returns the newest ``limit`` cases
+    unfiltered; a non-empty one narrows to cases whose ``doc_no`` OR client
+    name contains it, using the identical Persian/Arabic letter-variant
+    normalization ``search_clients`` above already uses (same
+    ``normalize_persian`` helper, same Python-side substring approach, not
+    reinvented here) so a query typed with Arabic-style ke/ye still matches a
+    client name stored with the Persian keheh/ye, and vice versa.
+
+    Returns dicts, not model instances, e.g.::
+
+        [{"case_id": 41, "doc_no": "IN-2601-007-KA", "client_id": 3,
+          "client_name": "Foolad Sanat Co.", "client_code": "014",
+          "label": "sub", "label_fa": "پیمانکار جزء — SUBCONTRACTOR"}]
+
+    ``label``/``label_fa`` use the same ``_effective_label`` /
+    ``FIELD_LABELS`` this file already uses elsewhere (e.g.
+    ``connections_of_client``), not case.marketing_label read directly, so
+    the blank-defaults-to-owner rule applies here too.
+    """
+    if case_id is not None:
+        case = Case.objects.select_related("client").filter(pk=case_id).first()
+        return [] if case is None else [_case_search_row(case)]
+
+    cases_qs = Case.objects.select_related("client").order_by("-created_at")
+    query = (query or "").strip()
+    if not query:
+        return [_case_search_row(c) for c in cases_qs[:limit]]
+
+    needle = normalize_persian(query).lower()
+    matches = [
+        c for c in cases_qs
+        if needle in normalize_persian(c.doc_no).lower()
+        or needle in normalize_persian(c.client.name).lower()
+    ]
+    return [_case_search_row(c) for c in matches[:limit]]
+
+
 # --------------------------------------------------------------------------- #
 # Merged reports (manual + case-derived together)
 # --------------------------------------------------------------------------- #

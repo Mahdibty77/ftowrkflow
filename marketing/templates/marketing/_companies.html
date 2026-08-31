@@ -21,15 +21,29 @@
            placeholder="Search companies…" autocomplete="off" dir="auto">
   </div>
 
+  {% comment %}
+    Change 3: the exact same button structure as the case archive page's own
+    .archive-status-tabs strip (cases/templates/cases/archive.html) — reused
+    wholesale rather than duplicated, since .archive-status-tab and friends
+    already live in static/css/app.css, loaded on every page. Every button
+    keeps its own mc-tab / mc-tab-all / data-label attribute too, so
+    companies.js's existing .mc-tab / .mc-tab[data-label] queries and
+    is-active toggling need no changes. No .ast-dot on any button here —
+    unlike the archive page's per-status colours, this chart deliberately
+    has no per-field colour of its own (see rolechart.py's own docstring),
+    the same reason the archive page's own "All" tab already omits it.
+  {% endcomment %}
   <nav class="mc-tabs" id="mcTabs" role="tablist" aria-label="Filter companies by role">
-    <button type="button" class="mc-tab mc-tab-all is-active" role="tab"
+    <button type="button" class="mc-tab mc-tab-all archive-status-tab archive-status-tab-all is-active" role="tab"
             data-label="" aria-selected="true" title="Every company">
-      <span class="mc-tab-label">All</span>
+      <span class="ast-label"><span class="ast-w">All</span></span>
+      <span class="ast-count">{{ all_companies_count }}</span>
     </button>
     {% for l in labels %}
-    <button type="button" class="mc-tab" role="tab" data-label="{{ l.key }}"
+    <button type="button" class="mc-tab archive-status-tab" role="tab" data-label="{{ l.key }}"
             aria-selected="false" title="{{ l.abbr }}">
-      <span class="mc-tab-label">{{ l.label_fa }}</span>
+      <span class="ast-label"><span class="ast-w">{{ l.label_fa }}</span></span>
+      <span class="ast-count">{{ l.count }}</span>
     </button>
     {% endfor %}
   </nav>
@@ -47,6 +61,13 @@
 {# unchecked+clickable for anything else. Reuses the chart modal's own #}
 {# overlay/card shell (.rc-modal-overlay / .rc-modal / .rc-modal-head, #}
 {# already in rolechart.css) so the two tabs' popovers read as one design. #}
+{# Change 4: a click here only stages a local intent now — #mcPanelActions #}
+{# is this panel's own "Confirm changes" / "Cancel" footer, hidden by #}
+{# default and shown only once there is at least one staged change #}
+{# (companies.js's updatePanelFooter), the same conceptual staged-then- #}
+{# confirm pattern chart_interact.js's own attach wizard (#rcWizardBar) #}
+{# already uses for its own picking-mode checkbox, though this footer lives #}
+{# inside the panel itself rather than floating over the whole page. #}
 <div class="rc-modal-overlay" id="mcPanelOverlay" hidden>
   <div class="rc-modal mc-panel" role="dialog" aria-modal="true" aria-labelledby="mcPanelTitle">
     <div class="rc-modal-head">
@@ -54,6 +75,11 @@
       <button type="button" class="rc-modal-x" id="mcPanelClose" aria-label="Close">✕</button>
     </div>
     <div class="mc-panel-list" id="mcPanelList"></div>
+    <div class="mc-panel-actions" id="mcPanelActions" hidden>
+      <span class="mc-panel-actions-count" id="mcPanelActionsCount"></span>
+      <button type="button" class="btn btn-sm btn-ghost" id="mcPanelCancel">Cancel</button>
+      <button type="button" class="btn btn-sm btn-primary" id="mcPanelConfirm">Confirm changes</button>
+    </div>
   </div>
 </div>
 

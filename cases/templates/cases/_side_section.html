@@ -338,6 +338,17 @@
 </div>
 
 <div class="tab-panel" id="panel-tl-{{ sd.code }}">
+  {% if is_admin_view %}
+  {# The per-side timeline (this one) is what a reader actually lands on first -   #}
+  {# the "Combined timeline" toggle above only exists for a multi_side case and is #}
+  {# never the default view, so the same deep-link the combined panel's own       #}
+  {# card-head carries (see case_detail.html) is repeated here, sibling to the    #}
+  {# .tl-layout grid rather than inside it, so it cannot disturb that grid's two  #}
+  {# columns (1fr 300px — an extra direct child would misalign both). #}
+  <div style="display:flex;justify-content:flex-end;margin-bottom:.5rem;">
+    <a href="{% url 'marketing:home' %}?case={{ case.pk }}" class="btn btn-sm"><i class="fa-solid fa-share-nodes"></i> View in marketing chart</a>
+  </div>
+  {% endif %}
   <div class="tl-layout">
     <ul class="timeline" id="tl-list-{{ sd.code }}">
       {% for ev in sd.events %}

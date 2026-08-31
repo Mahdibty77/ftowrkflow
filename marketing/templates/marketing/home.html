@@ -64,7 +64,10 @@
     labelToggleUrl: "{% url 'marketing:label_toggle' %}",
     clientConnectionsUrl: "{% url 'marketing:client_connections' %}",
     usConnectionsUrl: "{% url 'marketing:us_connections' %}",
-    canEdit: {{ can_edit|yesno:"true,false" }}
+    canEdit: {{ can_edit|yesno:"true,false" }},
+    isAdminTier: {{ is_admin_tier|yesno:"true,false" }},
+    allCasesSearchUrl: "{% url 'marketing:all_cases_search' %}",
+    deepLinkCaseId: {% if deep_link_case_id %}{{ deep_link_case_id }}{% else %}null{% endif %}
   };
   // A live read of the CSRF cookie rather than a baked template value — the
   // same reasoning as itemcoder/templates/itemcoder/tool_case.html: it stays
@@ -86,7 +89,9 @@
     labelCompaniesUrl: "{% url 'marketing:label_companies' %}",
     labelToggleUrl: "{% url 'marketing:label_toggle' %}",
     clientConnectionsUrl: "{% url 'marketing:client_connections' %}",
-    canEdit: {{ can_edit|yesno:"true,false" }}
+    canEdit: {{ can_edit|yesno:"true,false" }},
+    isAdminTier: {{ is_admin_tier|yesno:"true,false" }},
+    archiveUrl: "{% url 'cases:archive' %}"
   };
   // Same live cookie read as FT_MARKETING_CHART.csrfToken above, copied
   // character for character rather than shared, so this object keeps

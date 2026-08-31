@@ -63,10 +63,14 @@
     epc: 'EPC',
     sub: 'Subcontractor'
   };
+  // The visible label text now lives in the .ast-w span (change 3's reuse of
+  // the archive page's own .archive-status-tab markup — .ast-label wraps one
+  // .ast-w per word, and a tab title here is always one word) rather than
+  // the old bespoke .mc-tab-label.
   Array.prototype.forEach.call(tabsEl.querySelectorAll('.mc-tab[data-label]'), function (btn) {
     var key = btn.getAttribute('data-label');
     if (!key) { return; } // "All" already reads "All"
-    var span = btn.querySelector('.mc-tab-label');
+    var span = btn.querySelector('.ast-w');
     if (span) { span.textContent = SHORT_TAB_TEXT[key] || LABEL_TEXT[key] || key; }
   });
 
@@ -74,6 +78,10 @@
   var panelTitle = document.getElementById('mcPanelTitle');
   var panelClose = document.getElementById('mcPanelClose');
   var panelList = document.getElementById('mcPanelList');
+  var panelActions = document.getElementById('mcPanelActions');
+  var panelActionsCount = document.getElementById('mcPanelActionsCount');
+  var panelConfirmBtn = document.getElementById('mcPanelConfirm');
+  var panelCancelBtn = document.getElementById('mcPanelCancel');
 
   // ---- fetch helpers — identical shape to chart_interact.js's own -------- //
   function headers() {
@@ -174,7 +182,16 @@
 
   function buildRow(company) {
     var row = document.createElement('div');
-    row.className = 'rc-row mc-row';
+    // The All tab (client_search's ``labels``-array shape) gets the real
+    // two-column table (change 1): .mc-row-all switches the row from the
+    // label tab's flex split to a CSS grid whose column widths are set once
+    // on the row CLASS rather than derived per-row from that row's own
+    // content, so the name column and tags column line up at the same x
+    // across every row regardless of how many labels any one company holds.
+    // A label tab's own row (company.source truthy) is a different, already-
+    // correct layout and keeps the plain flex split untouched.
+    var isAllTab = !company.source;
+    row.className = 'rc-row mc-row' + (isAllTab ? ' mc-row-all' : '');
 
     // Two explicit zones, not one flowing line of chips/badges next to the
     // name (change 1): the company NAME (often Persian, RTL) gets its own
@@ -266,6 +283,18 @@
 
     row.addEventListener('click', function (ev) {
       if (ev.target.closest && ev.target.closest('.rc-row-remove')) { return; }
+      // Change 5: an admin/GM viewer never gets the label-editing panel from
+      // this list — a click instead drops them straight into the case
+      // archive, pre-filtered to this one company. Everyone else keeps
+      // today's behaviour unchanged. The "Name (CODE)" format has to match
+      // cases/views.py::archive's own f_clients option text character for
+      // character, since that page filters by matching this string against
+      // the options it built for its own dropdown, not by client id.
+      if (CFG.isAdminTier) {
+        window.location.href = CFG.archiveUrl + '?fclient=' +
+          encodeURIComponent(company.name + ' (' + company.code + ')');
+        return;
+      }
       openPanel(company);
     });
     return row;
@@ -319,21 +348,79 @@
 
   // ------------------------------------------------------------------------
   // The label-editing panel — one company, all twelve labels, at a glance.
+  //
+  // Change 4: clicking an editable row no longer commits straight to the
+  // server — it only stages a local intent. ``panelStaged`` is that intent,
+  // {labelKey: true|false} (the desired end state), keyed off this ONE
+  // load/open cycle the same way chart_interact.js's own attach wizard keys
+  // its own ``wizard.staged`` off one armed session: reset to {} whenever the
+  // panel opens for a (possibly new) company, whenever it closes, and
+  // whenever Cancel discards it — never carried across those boundaries.
+  // ``panelActiveLabels`` is the last server answer loadPanel saw, kept
+  // around only so Cancel can redraw the panel back to it without a second
+  // round trip.
   // ------------------------------------------------------------------------
   var panelSeq = 0;
   var panelClient = null;
+  var panelStaged = {};
+  var panelActiveLabels = [];
+
+  function updatePanelFooter() {
+    var n = Object.keys(panelStaged).length;
+    panelActions.hidden = n === 0;
+    panelActionsCount.textContent = n + (n === 1 ? ' change' : ' changes');
+  }
 
   function closePanel() {
     panelOverlay.hidden = true;
     panelClient = null;
+    panelStaged = {};
   }
   panelClose.addEventListener('click', closePanel);
   panelOverlay.addEventListener('click', function (ev) { if (ev.target === panelOverlay) { closePanel(); } });
   document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && !panelOverlay.hidden) { closePanel(); } });
 
+  panelCancelBtn.addEventListener('click', function () {
+    // Discard every staged intent and redraw from the last server answer —
+    // nothing was ever sent, so there is nothing to undo server-side.
+    panelStaged = {};
+    updatePanelFooter();
+    renderPanel(panelActiveLabels);
+  });
+
+  panelConfirmBtn.addEventListener('click', function () {
+    var keys = Object.keys(panelStaged);
+    if (!keys.length) { return; }
+    var client = panelClient;
+    var seq = panelSeq;
+    var staged = panelStaged;
+    panelConfirmBtn.disabled = true;
+    panelCancelBtn.disabled = true;
+    // One fetch per staged label, run concurrently — post() already returns
+    // a promise (see its .then() usage in toggleLabel above) — then commit
+    // exactly once every one of them has answered.
+    var requests = keys.map(function (key) {
+      return post(CFG.labelToggleUrl, { client_id: client.id, label: key, add: staged[key] ? 1 : 0 });
+    });
+    Promise.all(requests).then(function () {
+      panelConfirmBtn.disabled = false;
+      panelCancelBtn.disabled = false;
+      if (seq !== panelSeq || panelClient !== client) { return; }
+      // Same refresh toggleLabel's own instant-commit callback always did —
+      // then, only once the server matches what was just staged, drop the
+      // staged tracking for this load cycle.
+      refreshCurrentList();
+      loadPanel();
+      panelStaged = {};
+      updatePanelFooter();
+    });
+  });
+
   function openPanel(company) {
     panelSeq += 1;
     panelClient = { id: company.id, name: company.name, code: company.code };
+    panelStaged = {};
+    updatePanelFooter();
     panelTitle.textContent = company.name;
     panelTitle.setAttribute('dir', 'auto');
     panelList.innerHTML = '';
@@ -351,6 +438,7 @@
   }
 
   function renderPanel(activeLabels) {
+    panelActiveLabels = activeLabels;
     var byKey = {};
     activeLabels.forEach(function (l) { byKey[l.label] = l; });
     panelList.innerHTML = '';
@@ -375,7 +463,6 @@
     else if (entry.source === 'case') { locked = true; }
     else { locked = !entry.removable; }
     var clickable = CAN_EDIT && !locked;
-    var pending = false;
 
     // No more <input type="checkbox"> — the row itself is the clickable
     // target (a plain div now, not a <label>, since there is no native
@@ -400,38 +487,40 @@
     text.textContent = labelDef.label_fa;
     row.appendChild(text);
 
-    if (entry && entry.source === 'case') {
+    // No case-NUMBER text in this panel any more (change 2) — the row's own
+    // is-locked/is-checked look (a tinted row + tick glyph, both above)
+    // already communicates "fixed, not editable here" for a case-derived
+    // label on its own; the actual case number belonged to Commercial's own
+    // view of the case, not this popover.
+    if (entry && entry.source !== 'case' && !entry.removable) {
       var note = document.createElement('span');
       note.className = 'rc-row-badge';
-      note.textContent = 'via case ' + (entry.case_numbers || []).join(', ');
+      note.textContent = 'tagged by another user';
       row.appendChild(note);
-    } else if (entry && !entry.removable) {
-      var note2 = document.createElement('span');
-      note2.className = 'rc-row-badge';
-      note2.textContent = 'tagged by another user';
-      row.appendChild(note2);
     }
 
     if (clickable) {
+      // Change 4: a click only flips this row's own LOCAL tick state and
+      // records the resulting intent on panelStaged — nothing reaches the
+      // server until Confirm changes fires (see panelConfirmBtn above). If
+      // the click lands back on the server's own current state (an add then
+      // an un-add, say), the entry is dropped from panelStaged entirely
+      // rather than kept as a no-op stage, the same rule chart_interact.js's
+      // wizard.staged already follows for its own picking-mode checkbox —
+      // so the footer's own change count only ever reflects real changes.
       var toggle = function () {
-        if (pending) { return; }
-        pending = true;
-        var add = !checked;
-        var client = panelClient;
-        var seq = panelSeq;
-        row.classList.add('is-busy');
-        // Always re-ask the server for both views rather than hand-patch
-        // this row's state locally — the same "never trust a
-        // locally-guessed diff" rule chart_interact.js's own × handler
-        // follows (it calls fetchLabelCompanies() again rather than
-        // removing the row itself), and it means a failed toggle just shows
-        // back its own unchanged truth instead of needing its own
-        // revert/error path.
-        toggleLabel(client.id, labelDef.key, add, function () {
-          if (seq !== panelSeq || panelClient !== client) { return; }
-          refreshCurrentList();
-          loadPanel();
-        });
+        var already = Object.prototype.hasOwnProperty.call(panelStaged, labelDef.key);
+        var effectiveChecked = already ? panelStaged[labelDef.key] : checked;
+        var next = !effectiveChecked;
+        if (next === checked) { delete panelStaged[labelDef.key]; }
+        else { panelStaged[labelDef.key] = next; }
+        var stagedNow = Object.prototype.hasOwnProperty.call(panelStaged, labelDef.key);
+        var nowChecked = stagedNow ? panelStaged[labelDef.key] : checked;
+        row.classList.toggle('is-checked', nowChecked);
+        row.classList.toggle('is-pending', stagedNow);
+        row.setAttribute('aria-checked', nowChecked ? 'true' : 'false');
+        check.textContent = nowChecked ? '✓' : '';
+        updatePanelFooter();
       };
       row.addEventListener('click', toggle);
       row.addEventListener('keydown', function (ev) {

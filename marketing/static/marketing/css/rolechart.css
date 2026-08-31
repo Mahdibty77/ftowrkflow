@@ -190,6 +190,20 @@
   filter:drop-shadow(0 0 3px var(--accent));
   opacity:.5;
 }
+/* The "us" cases panel's own per-case-group branch lines (drawn in
+   drawUsCasesConnector, chart_interact.js) — one light, thin flourish per
+   group heading fanning out from the trunk .rc-query-line into the panel,
+   deliberately fainter/thinner than that trunk so it reads as a detail, not
+   a second competing line. */
+.rc-us-cases-branch{
+  fill:none; stroke:var(--accent); stroke-width:1;
+  stroke-linecap:round; opacity:.35;
+}
+[data-mode="dark"] .rc-us-cases-branch,
+[data-theme="dark"] .rc-us-cases-branch{
+  filter:drop-shadow(0 0 2px var(--accent));
+  opacity:.25;
+}
 
 /* ---- The query status pill -------------------------------------------------
    Floats over the canvas, opposite corner from the zoom controls. */
@@ -214,7 +228,7 @@
    the "us" node's centre-y at any responsive width). */
 .rc-us-cases-panel{
   position:absolute; right:.6rem; z-index:6; transform:translateY(-50%);
-  width:230px; max-width:calc(100% - 1.2rem); box-sizing:border-box;
+  width:360px; max-width:calc(100% - 1.2rem); box-sizing:border-box;
   background:var(--paper); border:1px solid var(--accent); border-radius:var(--radius-sm);
   box-shadow:var(--shadow-lg); padding:.55rem .6rem;
 }
@@ -227,7 +241,7 @@
    cases never grows the panel past a sane size or reflows anything else on
    the chart; a plain scrollbar, no virtual scrolling or pagination. */
 .rc-us-cases-list{
-  max-height:220px; overflow-y:auto;
+  max-height:440px; overflow-y:auto;
   display:flex; flex-direction:column; gap:.5rem;
 }
 .rc-us-cases-group{ display:flex; flex-direction:column; gap:.2rem; }
@@ -243,7 +257,7 @@
   direction:ltr; unicode-bidi:normal;
 }
 @media (max-width:640px){
-  .rc-us-cases-panel{ width:190px; }
+  .rc-us-cases-panel{ width:300px; }
 }
 
 /* ---- The attach wizard's floating status bar -------------------------------
@@ -338,9 +352,11 @@
 .rc-row-picking{ cursor:default; }
 .rc-row-picking:hover{ background:transparent; }
 
-/* The "us" card's own read-only list — a plain row per connected company,
-   its case annotations stacked underneath rather than crowding the name on
-   one line. Never clickable: case links are never editable from the chart. */
+/* The read-only "name plus stacked case badges" row shape — used by the
+   mid-query contextual view (renderContextualQueryRow, chart_interact.js)
+   for a lit/focused card's own filtered slice while an Inquiry is active.
+   Never clickable: it is a read-out of the already-running query, not a
+   new selection. */
 .rc-row-static{ flex-direction:column; align-items:flex-start; gap:.25rem; cursor:default; }
 .rc-row-static:hover{ background:transparent; }
 .rc-row-cases{ display:flex; flex-direction:column; align-items:flex-start; gap:.2rem; }
@@ -382,44 +398,27 @@
 .mc-search-input:focus{ outline:none; border-color:var(--accent); }
 
 /* ---- The filter tabs -------------------------------------------------------
-   Same visual weight/spacing as the archive page's own .archive-status-tabs
-   / .archive-status-tab (static/css/app.css) — a pill-tray of buttons — with
-   the per-status colour dropped: there is only one accent here, not eight
-   statuses each with their own hue, so every tab (including "All") is
-   styled identically off --accent rather than a --tab-sc set per button.
-   flex-wrap (not the horizontal-scroll row this used to be) so all thirteen
-   tabs use the panel's own full width and wrap onto a second line instead of
-   clipping past its right edge; a real gap reads them as separate pills
-   rather than one crowded run. */
+   Change 3: every button here now carries .archive-status-tab (and "All"
+   also .archive-status-tab-all) alongside its own .mc-tab / .mc-tab-all, so
+   the button-level shape/spacing/count-badge is the case archive page's own
+   .archive-status-tab CSS (static/css/app.css, loaded on every page) —
+   nothing below duplicates it. .mc-tab / .mc-tab-all still exist, on the
+   template and in companies.js's own selectors, purely as hooks (the
+   data-label querying, the is-active toggling) — see companies.js. All
+   that's left to style here is what's genuinely different about THIS strip:
+   the container's own flex-wrap (not the archive page's horizontal-scroll
+   row — thirteen tabs read better wrapped onto the panel's own full width
+   than clipped past its right edge), and no per-field colour at all — every
+   button here simply leaves --tab-sc at .archive-status-tab's own inherited
+   --accent default rather than setting one of its own, the same reason the
+   archive page's own "All" tab has no .ast-dot either. */
 .mc-tabs{
   display:flex; flex-wrap:wrap; align-items:stretch;
   gap:.4rem .5rem; margin:0 0 .8rem; padding:.4rem;
   background:var(--cloud); border:1px solid var(--line);
   border-radius:14px; box-shadow:var(--shadow-sm, 0 1px 2px rgba(15,23,42,.04));
 }
-.mc-tab{
-  appearance:none; border:1px solid transparent;
-  background:transparent; color:var(--muted);
-  display:flex; align-items:center; justify-content:center;
-  flex:0 0 auto; max-width:14rem;
-  padding:.42rem .75rem; border-radius:10px;
-  font-size:.76rem; font-weight:650; line-height:1.2;
-  cursor:pointer; white-space:nowrap; text-align:center;
-  transition:background .14s ease, color .14s ease, border-color .14s ease, box-shadow .14s ease;
-}
-.mc-tab:hover{ color:var(--ink); background:var(--paper); border-color:var(--line); }
-.mc-tab.is-active{
-  color:var(--ink); background:var(--paper);
-  border-color:color-mix(in srgb, var(--accent) 55%, var(--line));
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent),
-    0 4px 12px color-mix(in srgb, var(--accent) 16%, transparent);
-  font-weight:750;
-}
-.mc-tab-all.is-active{
-  background:var(--accent-soft, color-mix(in srgb, var(--accent) 14%, transparent));
-  border-color:var(--accent); color:var(--accent-strong, var(--accent));
-}
+.mc-tabs .archive-status-tab{ flex:1 1 8rem; }
 /* The tab strip's own text is English-only now (companies.js swaps in each
    tab's short English form on load) — no more Persian/rtl override here.
    Every OTHER Persian spot in this tab (company names, the chips'/panel's
@@ -452,6 +451,22 @@
   display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end;
   gap:.3rem;
 }
+/* ---- The All tab's own real two-column table (change 1) -------------------
+   The flex split above sizes each row's own .mc-row-tags off THAT row's own
+   content (up to 55% of it), so two rows with different label counts never
+   share a column boundary — nothing here actually lines up as a table. A
+   grid on the row container instead fixes both columns' widths once, for
+   the whole list, so every row's name starts at the same x and every row's
+   tags start at the same x too. Tags stay DOM-first/name second (same ltr
+   placement reasoning as above — tags on the left, name on the right), so
+   the tags column is the flexible 1fr track and the name gets the
+   consistent-width one. Label-tab rows (no .mc-row-all) are untouched. */
+.mc-row.mc-row-all{
+  display:grid; grid-template-columns:1fr minmax(160px,260px);
+  align-items:start; gap:.6rem;
+}
+.mc-row-all .mc-row-tags{ max-width:none; }
+.mc-row-all .mc-row-name{ min-width:0; }
 .mc-row-add{
   color:var(--accent-strong, var(--accent)); font-weight:650;
   border-style:dashed; border-color:color-mix(in srgb, var(--accent) 45%, transparent);
@@ -503,7 +518,18 @@
    toggle this," not as its own separate checked/unchecked look. */
 .mc-panel-row.is-locked{ cursor:not-allowed; opacity:.65; }
 .mc-panel-row.is-locked:hover{ background:var(--accent-soft); }
-.mc-panel-row.is-busy{ pointer-events:none; opacity:.8; }
+/* Change 4: a click here only stages a local intent (companies.js's own
+   buildPanelRow toggle) — is-pending marks that row's tick as NOT saved yet,
+   deliberately a different colour language from is-checked's plain
+   --accent-soft tint (the --warn/--warnbg pair the platform already uses for
+   "not final" elsewhere, e.g. .flash-warning in app.css) so a reader can
+   tell the two apart at a glance, whichever way the pending tick is headed
+   (a fresh check or an un-check). Wins over is-checked's own background by
+   coming after it here, since a row can carry both classes at once. */
+.mc-panel-row.is-pending{
+  background:var(--warnbg); border:1px dashed var(--warn); border-radius:var(--radius-sm);
+}
+.mc-panel-row.is-pending .mc-panel-check{ color:var(--warn); }
 .mc-panel-check{
   flex:0 0 auto; width:1.1rem; text-align:center;
   font-size:.86rem; font-weight:800; line-height:1;
@@ -512,6 +538,17 @@
 .mc-panel-text{
   flex:1; direction:rtl; unicode-bidi:plaintext; font-size:.84rem; color:var(--ink);
 }
+/* The panel's own "Confirm changes" / "Cancel" footer (change 4) — hidden
+   until there is at least one staged change (companies.js's
+   updatePanelFooter). Same .btn family the rest of the app already uses,
+   the same reuse chart_interact.js's own #rcWizardBar makes of it, rather
+   than a bespoke button style just for this footer. */
+.mc-panel-actions{
+  display:flex; align-items:center; gap:.5rem;
+  padding:.55rem .7rem; border-top:1px solid var(--line-soft);
+}
+.mc-panel-actions[hidden]{ display:none; }
+.mc-panel-actions-count{ margin-right:auto; font-size:.76rem; color:var(--muted); }
 
 @media (max-width:640px){
   .mc-panel{ max-width:none; }

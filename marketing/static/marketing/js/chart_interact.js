@@ -9,11 +9,19 @@
  *            select one to Attach (tag it under other label cards too, via
  *            the wizard below) or Inquiry (light up everywhere else it is
  *            tagged).
- *   "us"     the single "our own position" card. A read-only report of every
- *            client connected through a case (services.us_connections) —
- *            no Add, no Attach: case links are never editable from the
- *            chart. Its own Inquiry button just marks "us" as the query
- *            subject — see runInquiryForUs() for why it goes no further.
+ *   "us"     the single "our own position" card, "Foolad Tabar" on the
+ *            chart. No Add, no Attach: case links are never editable from
+ *            the chart. Its own DIRECT click is no longer the same for
+ *            every viewer — an ordinary viewer gets the same plain empty
+ *            shell an "inert" card shows; an admin/GM viewer instead gets a
+ *            flat, live-searchable list of every case in the system
+ *            (services.search_all_cases via CFG.allCasesSearchUrl — see
+ *            fetchAllCasesSearch/renderAllCasesRows), and picking a row
+ *            there runs an Inquiry for that case's client with "us" as the
+ *            origin field, exactly as if it had been picked off a label
+ *            card. Its own Inquiry button is a separate thing — it just
+ *            marks "us" as the query subject — see runInquiryForUs() for
+ *            why it goes no further.
  *   "inert"  project / phase / laboratory / tpi / supplier / rival. No data
  *            source feeds any of these this round, so their card opens to a
  *            plain empty state and a Close button. Deliberate, not a bug.
@@ -134,10 +142,47 @@
     };
   }
 
+  // The last successful runInquiryForClient() answer, kept around only for
+  // the duration of that query — {client:{id,name}, byField:{field:[doc_no,
+  // ...]}}, one entry per lit/focus field ("us" included, keyed off the same
+  // doc-number list the panel/annotation already use). openModalForField
+  // reads this to show a lit/focus card's OWN filtered view mid-query
+  // instead of its normal full list; cleared, like every other query-mode
+  // visual, by clearQueryMarks().
+  var lastQueryData = null;
+
+  // A lit/focus card's badge temporarily shows what THIS query attached to
+  // it rather than its normal server-rendered total (see setContextualBadge,
+  // called from runInquiryForClient) — this is where each field's ORIGINAL
+  // badge text is stashed so clearQueryMarks() can always put it back,
+  // whether or not that field happened to still be lit when Clear was hit.
+  var stashedBadgeText = {};
+
+  function setContextualBadge(field, count) {
+    var g = nodesByField[field];
+    var textEl = g && g.querySelector('.rc-badge-text');
+    if (!textEl) { return; }
+    if (!Object.prototype.hasOwnProperty.call(stashedBadgeText, field)) {
+      stashedBadgeText[field] = textEl.textContent;
+    }
+    textEl.textContent = count > 999 ? '999+' : String(count);
+  }
+
+  function restoreContextualBadges() {
+    Object.keys(stashedBadgeText).forEach(function (field) {
+      var g = nodesByField[field];
+      var textEl = g && g.querySelector('.rc-badge-text');
+      if (textEl) { textEl.textContent = stashedBadgeText[field]; }
+    });
+    stashedBadgeText = {};
+  }
+
   function clearQueryMarks() {
     Object.keys(nodesByField).forEach(function (field) {
       nodesByField[field].classList.remove('is-focus', 'is-lit');
     });
+    restoreContextualBadges();
+    lastQueryData = null;
     queryLinesG.innerHTML = '';
     hideUsCasesPanel();
   }
@@ -212,13 +257,31 @@
     });
   }
 
-  function openUsCasesPanel(cases) {
+  // Anchored to the vertical span "rival" and "supplier" occupy TOGETHER
+  // (they're stacked, one directly above the other, in the chart's own
+  // bottom-left corner — see rolechart.py) rather than to the "us" node's
+  // own centre-y: the owner wants this panel genuinely OCCUPYING the
+  // now-freed bottom-right corner, symmetrically opposite that stack, not
+  // floating near "us". Falls back to "us"'s own centre-y only if either
+  // rect is somehow missing (should not happen on this chart's fixed
+  // layout, but nodeRect() already returns null defensively).
+  function usCasesAnchorY() {
+    var rivalRect = nodeRect('rival');
+    var supplierRect = nodeRect('supplier');
+    if (rivalRect && supplierRect) {
+      return (rivalRect.y + supplierRect.y + supplierRect.h) / 2;
+    }
     var usRect = nodeRect('us');
-    if (!usRect) { return; }
+    return usRect ? usRect.cy : null;
+  }
+
+  function openUsCasesPanel(cases) {
+    var anchorY = usCasesAnchorY();
+    if (anchorY === null) { return; }
     renderUsCasesPanelContent(cases);
     var viewBoxParts = svg.getAttribute('viewBox').split(' ');
     var viewH = parseFloat(viewBoxParts[3]);
-    usCasesPanel.style.top = (usRect.cy / viewH * 100) + '%';
+    usCasesPanel.style.top = (anchorY / viewH * 100) + '%';
     usCasesPanel.hidden = false;
   }
 
@@ -227,31 +290,83 @@
     usCasesList.innerHTML = '';
   }
 
-  // The one additional short segment: the "us" node's own right edge to the
-  // panel's left edge — straight, not routed through the centre lane like
-  // the node-to-node lines, so plain node geometry is enough. The panel is
-  // plain HTML positioned over the responsive SVG, so its own pixel-space
-  // left edge is converted back into the SVG's viewBox units (the same
-  // units every other query line is already drawn in) via the ratio
-  // between the viewBox width and the SVG's current on-screen width.
+  // The trunk: the "us" node's own right edge to the panel's left edge, at
+  // whatever y the panel is anchored to (see usCasesAnchorY/openUsCasesPanel
+  // above — no longer "us"'s own centre-y, now the freed bottom-right
+  // corner) — a small elbow rather than the old flat horizontal line, since
+  // the panel usually sits well below "us" now. The panel is plain HTML
+  // positioned over the responsive SVG, so its own pixel-space geometry is
+  // converted back into the SVG's viewBox units (the same units every other
+  // query line is already drawn in) via the ratio between the viewBox width
+  // and the SVG's current on-screen width — every rect read from the DOM
+  // below (the panel's own, and each group heading's, for the branches)
+  // reuses this exact same ``scale`` conversion, never re-derived.
   // Reuses .rc-query-line and animateFill() exactly as every other query
-  // line does — no second line style.
+  // line does — no second trunk-line style.
+  //
+  // Then the branches: one short, light path per case GROUP heading
+  // currently rendered in the panel ("شاخه شاخه شاخه" — branch by branch by
+  // branch — the owner's own words) — reaching a little way INSIDE the
+  // panel toward that heading's own y, clearly thinner/fainter than the
+  // trunk (.rc-us-cases-branch, not .rc-query-line — see rolechart.css) so
+  // it reads as a light flourish, not competing visual noise. A heading
+  // currently scrolled out of view within the panel's own scrolling list
+  // (.rc-us-cases-list already scrolls — see the CSS) is skipped rather than
+  // drawn toward a garbage point: checked against the LIST's own visible
+  // rect, not just a zero-size check, since a scrolled-out heading still has
+  // a real size, just outside what is currently shown.
   function drawUsCasesConnector() {
     if (usCasesPanel.hidden) { return; }
     var usRect = nodeRect('us');
     var svgBox = svg.getBoundingClientRect();
     var panelBox = usCasesPanel.getBoundingClientRect();
-    if (!usRect || !svgBox.width) { return; }
+    if (!usRect || !svgBox.width || !panelBox.width) { return; }
     var viewBoxParts = svg.getAttribute('viewBox').split(' ');
     var viewW = parseFloat(viewBoxParts[2]);
     var scale = viewW / svgBox.width;
-    var panelLeftX = (panelBox.left - svgBox.left) * scale;
+    var toSvgX = function (clientX) { return (clientX - svgBox.left) * scale; };
+    var toSvgY = function (clientY) { return (clientY - svgBox.top) * scale; };
+    var panelLeftX = toSvgX(panelBox.left);
+    var panelWidth = panelBox.width * scale;
+    var panelCenterY = toSvgY(panelBox.top + panelBox.height / 2);
     var ns = 'http://www.w3.org/2000/svg';
-    var path = document.createElementNS(ns, 'path');
-    path.setAttribute('class', 'rc-query-line');
-    path.setAttribute('d', 'M' + (usRect.x + usRect.w) + ' ' + usRect.cy + ' L' + panelLeftX + ' ' + usRect.cy);
-    queryLinesG.appendChild(path);
-    animateFill(path);
+
+    var trunkStart = { x: usRect.x + usRect.w, y: usRect.cy };
+    var trunkEnd = { x: panelLeftX, y: panelCenterY };
+    var trunkMidX = trunkStart.x + (trunkEnd.x - trunkStart.x) * 0.55;
+    var trunkPts = dedupePoints([
+      trunkStart,
+      { x: trunkMidX, y: trunkStart.y },
+      { x: trunkMidX, y: trunkEnd.y },
+      trunkEnd
+    ]);
+    if (trunkPts.length < 2) { return; }
+    var trunk = document.createElementNS(ns, 'path');
+    trunk.setAttribute('class', 'rc-query-line');
+    trunk.setAttribute('d', elbowPath(trunkPts, ELBOW_R));
+    queryLinesG.appendChild(trunk);
+    animateFill(trunk);
+
+    var listBox = usCasesList.getBoundingClientRect();
+    var branchInX = panelLeftX + panelWidth * 0.55; // "as if it goes inside the box"
+    Array.prototype.forEach.call(usCasesList.querySelectorAll('.rc-us-cases-group-heading'), function (heading) {
+      var hb = heading.getBoundingClientRect();
+      if (!hb.width || !hb.height) { return; }
+      if (hb.bottom <= listBox.top || hb.top >= listBox.bottom) { return; } // scrolled out of view
+      var headingY = toSvgY(hb.top + hb.height / 2);
+      var branchPts = dedupePoints([
+        trunkEnd,
+        { x: branchInX, y: trunkEnd.y },
+        { x: branchInX, y: headingY },
+        { x: panelLeftX + panelWidth * 0.85, y: headingY }
+      ]);
+      if (branchPts.length < 2) { return; }
+      var branch = document.createElementNS(ns, 'path');
+      branch.setAttribute('class', 'rc-us-cases-branch');
+      branch.setAttribute('d', elbowPath(branchPts, 8));
+      queryLinesG.appendChild(branch);
+      animateFill(branch);
+    });
   }
 
   // The chart's own vertical centre lane. rolechart.py fixes this at its
@@ -404,6 +519,27 @@
         var g = nodesByField[field];
         if (g) { g.classList.add('is-lit'); }
       });
+      // Each lit/focus field's badge temporarily shows what THIS query
+      // attached to it — case_numbers.length where a case backs it,
+      // falling back to 1 for a manual-only tag with no case behind it —
+      // and "us" uses the same distinct doc-number count the panel/
+      // annotation already computed above (docNos), not a per-label count.
+      // The same per-field doc numbers are stashed on lastQueryData so a
+      // click on any of these cards, while the query stays active, can show
+      // just that field's own slice instead of its normal full list — see
+      // openModalForField's own is-query check. Both are undone together by
+      // clearQueryMarks().
+      var byField = {};
+      data.labels.forEach(function (l) {
+        var count = (l.case_numbers && l.case_numbers.length) ? l.case_numbers.length : 1;
+        byField[l.label] = l.case_numbers || [];
+        setContextualBadge(l.label, count);
+      });
+      if (showUsPanel) {
+        byField.us = docNos;
+        setContextualBadge('us', docNos.length);
+      }
+      lastQueryData = { client: { id: client.id, name: client.name }, byField: byField };
       window.requestAnimationFrame(function () {
         // Without a focus field there is no single anchor to route the
         // centre-lane line FROM (see the wizard-confirm call above), so we
@@ -428,10 +564,10 @@
   // companies, not chart cards, so there is nothing else on the chart to
   // draw a line to either way. Considered fetching connections_of_client for
   // every connected company and lighting up the union of their label cards
-  // too, but that reads as scope creep for a button whose modal already
-  // shows the full company/case list read-only (see renderUsRows) — this
-  // just marks "us" as the query subject, matching the task's own simpler
-  // fallback reading.
+  // too, but that reads as scope creep for a button that already has its own
+  // distinct meaning from this card's own direct click (see
+  // fetchAllCasesSearch/renderAllCasesRows) — this just marks "us" as the
+  // query subject, matching the task's own simpler fallback reading.
   function runInquiryForUs() {
     clearQueryMarks();
     chartRoot.classList.add('is-query');
@@ -476,6 +612,13 @@
   // so a stale response (a slow first fetch losing a race to a fast reopen
   // of the very same card) can never paint over what the viewer sees now.
   var modalSeq = 0;
+  // The admin/GM "us" card search's own debounce handle — same shape as
+  // companies.js's searchDebounce/SEARCH_DEBOUNCE_MS pair for its own
+  // server-backed search (the label card's own search stays a plain
+  // instant local filter, same as companies.js's label-tab branch, so it
+  // has no debounce of its own to mirror).
+  var usSearchDebounce = null;
+  var US_SEARCH_DEBOUNCE_MS = 200;
 
   function closeModal() {
     overlay.hidden = true;
@@ -483,6 +626,7 @@
     modalKind = null;
     selectedEntity = null;
     currentLabelCompanies = [];
+    window.clearTimeout(usSearchDebounce);
   }
   closeX.addEventListener('click', closeModal);
   closeDefaultBtn.addEventListener('click', closeModal);
@@ -541,7 +685,10 @@
     currentLabelCompanies = [];
     modalTitle.textContent = roleFa + ' · ' + abbr;
     searchInput.value = '';
-    searchWrap.hidden = !(modalKind === 'label' && modalMode === 'default');
+    // The label card's own browsing search stays exactly as it was; an
+    // admin/GM's "us" card click gets the same search box, wired instead to
+    // fetchAllCasesSearch (see below) rather than the local company filter.
+    searchWrap.hidden = !(modalMode === 'default' && (modalKind === 'label' || (modalKind === 'us' && CFG.isAdminTier)));
     actionsDefault.hidden = modalMode !== 'default';
     actionsPicking.hidden = modalMode !== 'picking';
     configureDefaultActions();
@@ -549,16 +696,79 @@
     overlay.hidden = false;
     listEl.innerHTML = '';
 
+    // Mid-query contextual view (applies to every viewer, not just
+    // admin/GM): a card that is currently lit or focused by an ACTIVE query
+    // shows only what THAT query attached to it, not its normal full list —
+    // see runInquiryForClient's own ``lastQueryData`` stash. Skipped
+    // whenever wizard "picking" mode applies instead — the two are
+    // unrelated, and picking mode always keeps its own normal behaviour.
+    if (modalMode === 'default' && chartRoot.classList.contains('is-query') && lastQueryData) {
+      var g = nodesByField[field];
+      if (g && (g.classList.contains('is-lit') || g.classList.contains('is-focus'))) {
+        searchWrap.hidden = true;
+        renderContextualQueryRow(field);
+        return;
+      }
+    }
+
     if (modalMode === 'picking') {
       renderPickingRow();
     } else if (modalKind === 'inert') {
       renderInertMessage();
     } else if (modalKind === 'us') {
-      fetchUsConnections();
+      if (CFG.isAdminTier) { fetchAllCasesSearch(''); } else { renderEmptyRow('Nothing connected yet.'); }
     } else {
       fetchLabelCompanies();
     }
     if (!searchWrap.hidden) { searchInput.focus(); }
+  }
+
+  // The one shared empty-state row — a plain, centred, neutral message, no
+  // list, no controls beyond whatever the modal's own action bar already
+  // shows. Used by "inert" cards below, and by an ordinary viewer's own
+  // "Foolad Tabar" click (see openModalForField's ``us`` branch) now that its
+  // own read-only case list is gone for everyone but admin/GM.
+  function renderEmptyRow(text) {
+    var empty = document.createElement('div');
+    empty.className = 'rc-row-empty';
+    empty.textContent = text;
+    listEl.appendChild(empty);
+  }
+
+  // ---- mid-query contextual view: a lit/focused card, clicked while an
+  // Inquiry is still active — see openModalForField's own is-query check.
+  // Not admin/GM-gated: any viewer can run an ordinary Inquiry from a label
+  // card, and this reads the very same lastQueryData every viewer's
+  // runInquiryForClient() already stashes (module-level, cleared by
+  // clearQueryMarks()). Shows just the queried company's own name,
+  // annotated with THIS field's own case doc numbers in the identical
+  // "via case X, Y" style runInquiryForClient's own ``annotations.us``
+  // already uses for the query-line tooltip — reusing the read-only
+  // name-plus-stacked-badges row shell (.rc-row-static/.rc-row-cases/
+  // .rc-row-badge) the old renderUsRows used for the same shape, since this
+  // row is equally never clickable (it is a read-out of the active query,
+  // not a new selection).
+  function renderContextualQueryRow(field) {
+    listEl.innerHTML = '';
+    if (!lastQueryData) { renderEmptyRow('Nothing connected yet.'); return; }
+    var docNos = lastQueryData.byField[field] || [];
+    var row = document.createElement('div');
+    row.className = 'rc-row rc-row-static';
+    var name = document.createElement('span');
+    name.className = 'rc-row-name';
+    name.textContent = lastQueryData.client.name;
+    name.setAttribute('dir', 'auto');
+    row.appendChild(name);
+    if (docNos.length) {
+      var casesWrap = document.createElement('div');
+      casesWrap.className = 'rc-row-cases';
+      var line = document.createElement('span');
+      line.className = 'rc-row-badge';
+      line.textContent = 'via case ' + docNos.join(', ');
+      casesWrap.appendChild(line);
+      row.appendChild(casesWrap);
+    }
+    listEl.appendChild(row);
   }
 
   // ---- "inert" cards: project / phase / laboratory / tpi / supplier / rival
@@ -566,10 +776,7 @@
   // fields this round, so there is nothing to list and nothing to do beyond
   // Close (already the only visible button — see configureDefaultActions).
   function renderInertMessage() {
-    var empty = document.createElement('div');
-    empty.className = 'rc-row-empty';
-    empty.textContent = 'Not connected to anything yet.';
-    listEl.appendChild(empty);
+    renderEmptyRow('Not connected to anything yet.');
   }
 
   // ---- "label" cards: default browsing mode ------------------------------
@@ -593,6 +800,14 @@
   searchInput.addEventListener('input', function () {
     if (modalKind === 'label' && modalMode === 'default') {
       renderLabelRows(filterCompanies(searchInput.value));
+    } else if (modalKind === 'us' && modalMode === 'default') {
+      // Unlike the label branch above, this IS a server round trip (every
+      // case in the system, not a small already-fetched label list), so it
+      // gets the same debounce companies.js's own server-backed search uses
+      // — see usSearchDebounce/US_SEARCH_DEBOUNCE_MS above.
+      var q = searchInput.value;
+      window.clearTimeout(usSearchDebounce);
+      usSearchDebounce = window.setTimeout(function () { fetchAllCasesSearch(q); }, US_SEARCH_DEBOUNCE_MS);
     }
   });
 
@@ -622,9 +837,10 @@
     row.appendChild(name);
 
     // A label card's own browsing list shows the bare name only — no
-    // "via case ..." badge here (that per-case detail lives on the "us"
-    // card's own read-only report, see renderUsRows, and on the Companies
-    // tab's separate companies.js, neither of which this touches). A
+    // "via case ..." badge here (that per-case detail lives on the query
+    // overlay's own contextual filtered row while a query is active, see
+    // renderContextualQueryRow, and on the Companies tab's separate
+    // companies.js, neither of which this touches). A
     // case-derived fact still never gets a delete control — it can NEVER be
     // edited from the chart — it just now renders identically to any other
     // row instead of growing a badge for it.
@@ -669,43 +885,60 @@
     return row;
   }
 
-  // ---- "us" card: read-only company/case report --------------------------
-  function fetchUsConnections() {
+  // ---- "us" card, admin/GM viewer: flat, live-searchable all-cases list --
+  // Deliberately NOT grouped/clustered like the "cases connected to Us" side
+  // panel elsewhere in this file (openUsCasesPanel/renderUsCasesPanelContent)
+  // — that panel is about ONE focused company's own cases mid-query; this is
+  // a flat browse/search over every case in the system, admin/GM only (the
+  // endpoint itself refuses anyone else — see marketing/views.py's
+  // all_cases_search). Called once with an empty query the moment the modal
+  // opens for this card (see openModalForField's ``us`` branch) so the list
+  // starts already populated with the newest cases, and again, debounced, on
+  // every keystroke in the modal's own search box (see the searchInput
+  // listener above) — the same modalSeq staleness guard fetchLabelCompanies
+  // already uses, so a slow first answer can never race a faster later one.
+  function fetchAllCasesSearch(query) {
     var seq = modalSeq;
-    get(CFG.usConnectionsUrl, {}).then(function (data) {
+    get(CFG.allCasesSearchUrl, { q: query || '' }).then(function (data) {
       if (seq !== modalSeq || !data.ok) { return; }
-      renderUsRows(data.companies);
+      renderAllCasesRows(data.cases);
     });
   }
 
-  function renderUsRows(companies) {
+  // One plain row per case — doc_no plus the client's own name, its
+  // label_fa trailing as a small informational tag (.rc-row-badge, the same
+  // pill this file already uses for a "via case ..." note elsewhere) — NOT
+  // the read-only .rc-row-static shell renderContextualQueryRow above reuses,
+  // since these rows ARE actionable: clicking one closes the modal and runs
+  // an Inquiry for that case's client with "us" as the origin field, which
+  // lights up every other card that client is connected to across the whole
+  // chart for free (runInquiryForClient's own client_connections fetch
+  // already does this — nothing extra needed here).
+  function renderAllCasesRows(cases) {
     listEl.innerHTML = '';
-    if (!companies.length) {
-      var empty = document.createElement('div');
-      empty.className = 'rc-row-empty';
-      empty.textContent = 'Nothing connected yet.';
-      listEl.appendChild(empty);
+    if (!cases.length) {
+      renderEmptyRow('No cases found.');
       return;
     }
-    companies.forEach(function (company) {
+    cases.forEach(function (c) {
       var row = document.createElement('div');
-      row.className = 'rc-row rc-row-static';
+      row.className = 'rc-row';
       var name = document.createElement('span');
       name.className = 'rc-row-name';
-      name.textContent = company.name;
+      name.textContent = c.doc_no + ' — ' + c.client_name;
       name.setAttribute('dir', 'auto');
       row.appendChild(name);
-      if ((company.cases || []).length) {
-        var casesWrap = document.createElement('div');
-        casesWrap.className = 'rc-row-cases';
-        company.cases.forEach(function (c) {
-          var line = document.createElement('span');
-          line.className = 'rc-row-badge';
-          line.textContent = 'via case ' + c.doc_no + ' (' + c.label + ')';
-          casesWrap.appendChild(line);
-        });
-        row.appendChild(casesWrap);
+      if (c.label_fa) {
+        var badge = document.createElement('span');
+        badge.className = 'rc-row-badge';
+        badge.textContent = c.label_fa;
+        badge.setAttribute('dir', 'auto');
+        row.appendChild(badge);
       }
+      row.addEventListener('click', function () {
+        closeModal();
+        runInquiryForClient({ id: c.client_id, name: c.client_name }, 'us');
+      });
       listEl.appendChild(row);
     });
   }
@@ -808,4 +1041,22 @@
       if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); }
     });
   });
+
+  // ------------------------------------------------------------------------
+  // The "View in marketing chart" deep link (?case=<id>, wired through as
+  // CFG.deepLinkCaseId by the view — see marketing/views.py's home()). Runs
+  // once, after the chart's own normal setup above, and lands the reader
+  // straight on an already-running Inquiry for that case's client — no modal
+  // ever opens for this path. allCasesSearchUrl?case_id= is admin/GM-only
+  // (see marketing/views.py's all_cases_search); a non-admin/GM reader's
+  // request simply 403s, and a stale/deleted case id comes back with zero
+  // cases — both are treated identically here: do nothing, no error shown,
+  // since ``get()`` resolves on any JSON body regardless of status code.
+  if (typeof CFG.deepLinkCaseId === 'number') {
+    get(CFG.allCasesSearchUrl, { case_id: CFG.deepLinkCaseId }).then(function (data) {
+      if (!data || !data.ok || !data.cases || data.cases.length !== 1) { return; }
+      var c = data.cases[0];
+      runInquiryForClient({ id: c.client_id, name: c.client_name }, 'us');
+    }).catch(function () {});
+  }
 })();

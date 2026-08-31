@@ -399,7 +399,12 @@
 <div class="side-section" data-side-panel="ALL" style="display:none;">
   <div class="tab-panel active" id="panel-combined">
     <div class="card">
-      <div class="card-head"><h3>Audit timeline{% if multi_side %} · all sub-streams{% endif %}</h3></div>
+      <div class="card-head">
+        <h3>Audit timeline{% if multi_side %} · all sub-streams{% endif %}</h3>
+        {% if is_admin_view %}
+        <a href="{% url 'marketing:home' %}?case={{ case.pk }}" class="btn btn-sm"><i class="fa-solid fa-share-nodes"></i> View in marketing chart</a>
+        {% endif %}
+      </div>
       <ul class="timeline">
         {% for ev in combined_events %}
           <li>
