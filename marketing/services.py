@@ -52,6 +52,7 @@ from django.db.models import Q
 from cases import services as case_services
 from cases.constants import MarketingLabel
 from cases.models import Case, Client
+from core.persian_text import normalize_persian
 
 from .models import ClientLabel
 
@@ -90,12 +91,26 @@ def search_clients(query: str = "", limit: int = 25):
     Commercial uses; hiding a real registered company's mere existence from
     a colleague would contradict the shared-directory design. Returns
     ``Client`` model instances, not dicts — callers serialize.
+
+    Persian/Arabic letter variants (e.g. Arabic ke/ye vs. Persian keheh/ye)
+    must compare as equal, so a plain ``icontains`` (which is byte/codepoint
+    exact) is not enough on its own — see ``core.persian_text``. The table is
+    small (hundreds of rows, confirmed against production), so the simplest
+    correct fix at this scale is a Python-side filter over every row rather
+    than chaining SQL REPLACE() calls; this does not scale to a huge table,
+    but the signature is unchanged, so a future move to DB-side
+    normalization is a pure internal swap.
     """
-    qs = Client.objects.all()
     query = (query or "").strip()
-    if query:
-        qs = qs.filter(name__icontains=query)
-    return list(qs.order_by("name")[:limit])
+    if not query:
+        return list(Client.objects.all().order_by("name")[:limit])
+    needle = normalize_persian(query).lower()
+    matches = [
+        c for c in Client.objects.all()
+        if needle in normalize_persian(c.name).lower()
+    ]
+    matches.sort(key=lambda c: c.name)
+    return matches[:limit]
 
 
 def get_or_create_client(name: str, user) -> Client:

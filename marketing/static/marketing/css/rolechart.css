@@ -202,6 +202,50 @@
 .rc-query-pill[hidden]{ display:none; }
 .rc-query-name{ font-size:.78rem; font-weight:700; color:var(--ink); }
 
+/* ---- The "us" cases panel ---------------------------------------------------
+   Only appears while an Inquiry's connections include "us" (the focused
+   company has at least one case) — built, positioned and hidden entirely by
+   chart_interact.js's openUsCasesPanel()/hideUsCasesPanel(); cleared by the
+   same clearQueryMarks()/Clear flow as every other query-mode visual. Floats
+   over the canvas the same way #rcQueryPill and .rc-wizard-bar already do —
+   --paper background, a border, --shadow-lg — rather than a new visual
+   language of its own; anchored to the canvas's own right edge, with its own
+   top set inline (a percentage of the chart's viewBox height, so it tracks
+   the "us" node's centre-y at any responsive width). */
+.rc-us-cases-panel{
+  position:absolute; right:.6rem; z-index:6; transform:translateY(-50%);
+  width:230px; max-width:calc(100% - 1.2rem); box-sizing:border-box;
+  background:var(--paper); border:1px solid var(--accent); border-radius:var(--radius-sm);
+  box-shadow:var(--shadow-lg); padding:.55rem .6rem;
+}
+.rc-us-cases-panel[hidden]{ display:none; }
+.rc-us-cases-title{
+  font-size:.7rem; font-weight:800; letter-spacing:.03em; color:var(--accent);
+  text-transform:uppercase; margin:0 0 .45rem;
+}
+/* The one scrollable region — height-capped so a client with a hundred-plus
+   cases never grows the panel past a sane size or reflows anything else on
+   the chart; a plain scrollbar, no virtual scrolling or pagination. */
+.rc-us-cases-list{
+  max-height:220px; overflow-y:auto;
+  display:flex; flex-direction:column; gap:.5rem;
+}
+.rc-us-cases-group{ display:flex; flex-direction:column; gap:.2rem; }
+/* One small sub-heading per label ("Owner (2)", ...) — the "خوشه‌ای"
+   (clustered) grouping the owner asked for, in place of one flat list. */
+.rc-us-cases-group-heading{
+  font-size:.72rem; font-weight:700; color:var(--muted);
+  direction:rtl; unicode-bidi:plaintext;
+}
+.rc-us-cases-row{
+  font-size:.78rem; color:var(--ink);
+  padding:.08rem 0 .08rem .5rem; border-left:2px solid var(--line-soft);
+  direction:ltr; unicode-bidi:normal;
+}
+@media (max-width:640px){
+  .rc-us-cases-panel{ width:190px; }
+}
+
 /* ---- The attach wizard's floating status bar -------------------------------
    Fixed to the viewport, not the panel, so it survives scrolling and every
    modal open/close while a wizard session is armed. */
@@ -339,17 +383,19 @@
 
 /* ---- The filter tabs -------------------------------------------------------
    Same visual weight/spacing as the archive page's own .archive-status-tabs
-   / .archive-status-tab (static/css/app.css) — a pill-tray of buttons in one
-   horizontal scrollable row — with the per-status colour dropped: there is
-   only one accent here, not eight statuses each with their own hue, so
-   every tab (including "All") is styled identically off --accent rather
-   than a --tab-sc set per button. */
+   / .archive-status-tab (static/css/app.css) — a pill-tray of buttons — with
+   the per-status colour dropped: there is only one accent here, not eight
+   statuses each with their own hue, so every tab (including "All") is
+   styled identically off --accent rather than a --tab-sc set per button.
+   flex-wrap (not the horizontal-scroll row this used to be) so all thirteen
+   tabs use the panel's own full width and wrap onto a second line instead of
+   clipping past its right edge; a real gap reads them as separate pills
+   rather than one crowded run. */
 .mc-tabs{
-  display:flex; flex-wrap:nowrap; align-items:stretch; flex-shrink:0;
-  gap:.3rem; margin:0 0 .8rem; padding:.4rem;
+  display:flex; flex-wrap:wrap; align-items:stretch;
+  gap:.4rem .5rem; margin:0 0 .8rem; padding:.4rem;
   background:var(--cloud); border:1px solid var(--line);
   border-radius:14px; box-shadow:var(--shadow-sm, 0 1px 2px rgba(15,23,42,.04));
-  overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:thin;
 }
 .mc-tab{
   appearance:none; border:1px solid transparent;
@@ -374,22 +420,38 @@
   background:var(--accent-soft, color-mix(in srgb, var(--accent) 14%, transparent));
   border-color:var(--accent); color:var(--accent-strong, var(--accent));
 }
-/* Persian role names, same rule as .rc-role above: plaintext derives the
-   base direction from the first strong character, rtl is the fallback. */
-.mc-tab-label{ direction:rtl; unicode-bidi:plaintext; }
-.mc-tab-all .mc-tab-label{ direction:ltr; unicode-bidi:normal; }
+/* The tab strip's own text is English-only now (companies.js swaps in each
+   tab's short English form on load) — no more Persian/rtl override here.
+   Every OTHER Persian spot in this tab (company names, the chips'/panel's
+   own label text) is untouched by this change and keeps its own rtl rule
+   right where it already lived. */
 
 /* ---- The row list -----------------------------------------------------------
-   .rc-row already supplies the flex layout (name grows, badges/× stay their
-   own width) and the hover/selected states; this only adds the page-level
-   (rather than compact-modal-list) spacing and a paper card per row, since
-   this list stands alone on the page rather than inside a bounded popover. */
+   .rc-row already supplies the flex layout and the hover/selected states;
+   this adds the page-level (rather than compact-modal-list) spacing and a
+   paper card per row, since this list stands alone on the page rather than
+   inside a bounded popover — plus this tab's own two-zone split (below). */
 .mc-list{ display:flex; flex-direction:column; gap:.35rem; }
 .mc-row{
   background:var(--paper); border:1px solid var(--line-soft);
-  padding:.6rem .75rem; flex-wrap:wrap;
+  padding:.6rem .75rem; justify-content:space-between; align-items:flex-start;
 }
 .mc-row:hover{ border-color:var(--accent); }
+/* Two explicit columns (see companies.js's buildRow) instead of the name and
+   every chip/badge/× flowing together on one wrapped line: this whole app
+   is bilingual, and Persian reads right-to-left, so the company NAME (often
+   Persian) sits on the right in its own flex:1 zone while its LABEL TAGS
+   stay in their own left-hand zone that never grows past half the row, so a
+   handful of tags can never crowd out a long name — they wrap onto their
+   own line within their own zone instead. Plain ltr DOM order (tags first,
+   name second) is what puts tags on the left/name on the right; see that
+   function's own comment for why no dir/rtl trickery is needed here. */
+.mc-row-name{ flex:1 1 auto; min-width:0; padding-top:.1rem; }
+.mc-row-tags{
+  flex:0 1 auto; max-width:55%;
+  display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end;
+  gap:.3rem;
+}
 .mc-row-add{
   color:var(--accent-strong, var(--accent)); font-weight:650;
   border-style:dashed; border-color:color-mix(in srgb, var(--accent) 45%, transparent);
@@ -409,6 +471,17 @@
   border-radius:100px; padding:.12rem .55rem; white-space:nowrap;
   direction:rtl; unicode-bidi:plaintext;
 }
+/* A single label tab's own bare case count (companies.js's buildRow,
+   label-tab branch) — a plain neutral number, not the chip's accent
+   treatment: on this tab the LABEL is already implied by which tab is open,
+   so this is standing in for the old "via case ..." badges, not naming
+   anything of its own the way a chip does. */
+.mc-row-count{
+  flex:0 0 auto; min-width:1.3rem; text-align:center;
+  font-size:.72rem; font-weight:700; color:var(--muted);
+  background:var(--cloud); border:1px solid var(--line-soft); border-radius:100px;
+  padding:.1rem .45rem; direction:ltr; unicode-bidi:normal;
+}
 
 /* ---- The label-editing panel -------------------------------------------- */
 .mc-panel{ max-width:440px; }
@@ -417,6 +490,25 @@
   padding:.5rem; display:flex; flex-direction:column; gap:.05rem;
 }
 .mc-panel-row{ cursor:pointer; }
+/* Tick-mark selection, not a native checkbox (companies.js's buildPanelRow
+   builds a plain clickable div now, not a <label>+<input>) — "checked" reads
+   as a soft accent tint on the row itself, the same --accent-soft token
+   .rc-row.is-selected / .mc-tab.is-active already use elsewhere in this
+   file, plus a small tick glyph (.mc-panel-check) at the row's own edge. */
+.mc-panel-row.is-checked{ background:var(--accent-soft); }
+/* The three lock states are unchanged (see buildPanelRow's own comment) —
+   only the checked/disabled VISUAL LANGUAGE moved off the native input.
+   is-locked always coincides with is-checked here (a row can only be locked
+   once an entry already exists), so this only needs to read as "you cannot
+   toggle this," not as its own separate checked/unchecked look. */
+.mc-panel-row.is-locked{ cursor:not-allowed; opacity:.65; }
+.mc-panel-row.is-locked:hover{ background:var(--accent-soft); }
+.mc-panel-row.is-busy{ pointer-events:none; opacity:.8; }
+.mc-panel-check{
+  flex:0 0 auto; width:1.1rem; text-align:center;
+  font-size:.86rem; font-weight:800; line-height:1;
+  color:var(--accent-strong, var(--accent));
+}
 .mc-panel-text{
   flex:1; direction:rtl; unicode-bidi:plaintext; font-size:.84rem; color:var(--ink);
 }

@@ -38,13 +38,15 @@
 
 </div>
 
-{# The one reusable "edit this company's labels" panel — see point 4 of the #}
-{# task: every one of the twelve labels as a checkbox, checked+enabled for a #}
-{# manual tag this viewer owns, checked+disabled for a case-derived one (case #}
-{# links are only ever editable via Commercial), unchecked+enabled for #}
-{# anything else. Reuses the chart modal's own overlay/card shell #}
-{# (.rc-modal-overlay / .rc-modal / .rc-modal-head, already in rolechart.css) #}
-{# so the two tabs' popovers read as one design. #}
+{# The one reusable "edit this company's labels" panel: every one of the #}
+{# twelve labels as a clickable tick-mark row (companies.js's own #}
+{# buildPanelRow — there is no native checkbox any more, just an is-checked #}
+{# row with its own tick glyph), checked+clickable for a manual tag this #}
+{# viewer owns, checked+locked for a case-derived one (case links are only #}
+{# ever editable via Commercial) or for a manual tag owned by someone else, #}
+{# unchecked+clickable for anything else. Reuses the chart modal's own #}
+{# overlay/card shell (.rc-modal-overlay / .rc-modal / .rc-modal-head, #}
+{# already in rolechart.css) so the two tabs' popovers read as one design. #}
 <div class="rc-modal-overlay" id="mcPanelOverlay" hidden>
   <div class="rc-modal mc-panel" role="dialog" aria-modal="true" aria-labelledby="mcPanelTitle">
     <div class="rc-modal-head">

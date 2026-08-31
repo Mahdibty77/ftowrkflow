@@ -139,6 +139,119 @@
       nodesByField[field].classList.remove('is-focus', 'is-lit');
     });
     queryLinesG.innerHTML = '';
+    hideUsCasesPanel();
+  }
+
+  // ------------------------------------------------------------------------
+  // The "us" cases panel — only while an Inquiry's connections include "us"
+  // (the focused company has at least one case). Built once here and
+  // reused across opens; hidden (and its own connector line cleared, since
+  // that line lives in queryLinesG same as every other query line) by the
+  // very same clearQueryMarks() every other query-mode visual already goes
+  // through — see the call above.
+  //
+  // Positioned `position:absolute` inside `#rcCanvas`, the same containing
+  // block `#rcQueryPill` already anchors to (see rolechart.css: `.rc-canvas`
+  // is `position:relative`) — anchored to the canvas's right edge via CSS,
+  // vertically aligned here to the "us" node's own centre-y, read as a
+  // PERCENTAGE of the chart's own viewBox height so it stays aligned
+  // whether the responsive SVG is currently rendered wide or narrow.
+  // ------------------------------------------------------------------------
+  var rcCanvas = document.getElementById('rcCanvas');
+  var usCasesPanel = document.createElement('div');
+  usCasesPanel.className = 'rc-us-cases-panel';
+  usCasesPanel.id = 'rcUsCasesPanel';
+  usCasesPanel.hidden = true;
+  var usCasesTitle = document.createElement('div');
+  usCasesTitle.className = 'rc-us-cases-title';
+  usCasesTitle.textContent = 'Cases connected to Us';
+  usCasesPanel.appendChild(usCasesTitle);
+  // The one scrollable region — height-capped in CSS (max-height +
+  // overflow-y:auto) so a client with a hundred-plus cases never grows the
+  // panel past a sane size or reflows anything else on the chart. Built
+  // once per open, from the array already in hand (no virtual scrolling,
+  // no re-render on scroll, no re-grouping per frame — see the CSS section
+  // for the height cap itself).
+  var usCasesList = document.createElement('div');
+  usCasesList.className = 'rc-us-cases-list';
+  usCasesPanel.appendChild(usCasesList);
+  if (rcCanvas) { rcCanvas.appendChild(usCasesPanel); }
+
+  // Groups ``cases`` (the SAME array client_connections/us Inquiry already
+  // fetched — nothing refetched here) by each row's own ``label`` key —
+  // "خوشه‌ای" (clustered), the owner's own word — into one small
+  // sub-heading per label plus its doc numbers underneath, rather than one
+  // flat list. The label's own display text is read off the matching label
+  // card's own `data-role` attribute (nodesByField), the same Persian name
+  // that card already shows, so nothing here has to duplicate FIELD_LABELS.
+  function renderUsCasesPanelContent(cases) {
+    usCasesList.innerHTML = '';
+    var order = [];
+    var byLabel = {};
+    cases.forEach(function (c) {
+      if (!byLabel[c.label]) { byLabel[c.label] = []; order.push(c.label); }
+      byLabel[c.label].push(c.doc_no);
+    });
+    order.forEach(function (label) {
+      var docNos = byLabel[label];
+      var group = document.createElement('div');
+      group.className = 'rc-us-cases-group';
+      var heading = document.createElement('div');
+      heading.className = 'rc-us-cases-group-heading';
+      var labelNode = nodesByField[label];
+      heading.textContent = (labelNode ? labelNode.getAttribute('data-role') : label) + ' (' + docNos.length + ')';
+      heading.setAttribute('dir', 'auto');
+      group.appendChild(heading);
+      docNos.forEach(function (docNo) {
+        var row = document.createElement('div');
+        row.className = 'rc-us-cases-row';
+        row.textContent = docNo;
+        group.appendChild(row);
+      });
+      usCasesList.appendChild(group);
+    });
+  }
+
+  function openUsCasesPanel(cases) {
+    var usRect = nodeRect('us');
+    if (!usRect) { return; }
+    renderUsCasesPanelContent(cases);
+    var viewBoxParts = svg.getAttribute('viewBox').split(' ');
+    var viewH = parseFloat(viewBoxParts[3]);
+    usCasesPanel.style.top = (usRect.cy / viewH * 100) + '%';
+    usCasesPanel.hidden = false;
+  }
+
+  function hideUsCasesPanel() {
+    usCasesPanel.hidden = true;
+    usCasesList.innerHTML = '';
+  }
+
+  // The one additional short segment: the "us" node's own right edge to the
+  // panel's left edge — straight, not routed through the centre lane like
+  // the node-to-node lines, so plain node geometry is enough. The panel is
+  // plain HTML positioned over the responsive SVG, so its own pixel-space
+  // left edge is converted back into the SVG's viewBox units (the same
+  // units every other query line is already drawn in) via the ratio
+  // between the viewBox width and the SVG's current on-screen width.
+  // Reuses .rc-query-line and animateFill() exactly as every other query
+  // line does — no second line style.
+  function drawUsCasesConnector() {
+    if (usCasesPanel.hidden) { return; }
+    var usRect = nodeRect('us');
+    var svgBox = svg.getBoundingClientRect();
+    var panelBox = usCasesPanel.getBoundingClientRect();
+    if (!usRect || !svgBox.width) { return; }
+    var viewBoxParts = svg.getAttribute('viewBox').split(' ');
+    var viewW = parseFloat(viewBoxParts[2]);
+    var scale = viewW / svgBox.width;
+    var panelLeftX = (panelBox.left - svgBox.left) * scale;
+    var ns = 'http://www.w3.org/2000/svg';
+    var path = document.createElementNS(ns, 'path');
+    path.setAttribute('class', 'rc-query-line');
+    path.setAttribute('d', 'M' + (usRect.x + usRect.w) + ' ' + usRect.cy + ' L' + panelLeftX + ' ' + usRect.cy);
+    queryLinesG.appendChild(path);
+    animateFill(path);
   }
 
   // The chart's own vertical centre lane. rolechart.py fixes this at its
@@ -268,7 +381,12 @@
       chartRoot.classList.add('is-query');
       var allFields = data.labels.map(function (l) { return l.label; });
       var annotations = {};
-      if (data.cases.length) {
+      // "us" is among the lit fields exactly when the focused company has
+      // at least one case — the same condition that already earns it the
+      // "via case ..." line annotation below now also opens the clustered
+      // case-list panel (see openUsCasesPanel / drawUsCasesConnector).
+      var showUsPanel = data.cases.length > 0;
+      if (showUsPanel) {
         allFields.push('us');
         var docNos = [];
         data.cases.forEach(function (c) {
@@ -292,6 +410,13 @@
         // just leave every applicable card lit and skip the line-drawing
         // step entirely — the highlight itself is the answer here.
         if (focusField) { drawQueryLines(focusField, litFields, annotations); }
+        // The panel's own connector line is drawn AFTER drawQueryLines,
+        // never before — drawQueryLines() clears queryLinesG at its own
+        // start, which would otherwise wipe this one right back out.
+        if (showUsPanel) {
+          openUsCasesPanel(data.cases);
+          drawUsCasesConnector();
+        }
       });
       queryName.textContent = client.name;
       queryPill.hidden = false;
@@ -496,17 +621,13 @@
     name.setAttribute('dir', 'auto');
     row.appendChild(name);
 
-    // A case-derived fact never gets a delete control — it can NEVER be
-    // edited from the chart — only a small, non-interactive "via case"
-    // badge per case number.
-    if (company.source === 'case') {
-      (company.case_numbers || []).forEach(function (docNo) {
-        var badge = document.createElement('span');
-        badge.className = 'rc-row-badge';
-        badge.textContent = 'via case ' + docNo;
-        row.appendChild(badge);
-      });
-    }
+    // A label card's own browsing list shows the bare name only — no
+    // "via case ..." badge here (that per-case detail lives on the "us"
+    // card's own read-only report, see renderUsRows, and on the Companies
+    // tab's separate companies.js, neither of which this touches). A
+    // case-derived fact still never gets a delete control — it can NEVER be
+    // edited from the chart — it just now renders identically to any other
+    // row instead of growing a badge for it.
 
     // A manual tag gets a "×" only when THIS viewer actually owns it
     // (``removable``) — an Expert cannot remove a Supervisor's or another

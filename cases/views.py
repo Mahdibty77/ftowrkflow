@@ -27,6 +27,7 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme, urlencode
 
 from accounts.constants import Role, Unit
+from core.persian_text import normalize_persian
 
 from . import codes, exports, services
 from .constants import CaseStatus, FormKind, DocKind, MarketingLabel, OfferType, PriceType, EventAction, Side
@@ -3518,9 +3519,29 @@ def client_list(request):
     clients = Client.objects.all()
     if query:
         clients = clients.filter(Q(name__icontains=query) | Q(code__icontains=query))
+    clients = list(clients.order_by("code", "name"))
+
+    # Commercial's own client table also shows Marketing's label tags (manual
+    # tags from ANY Marketing user, plus case-derived ones) — a deliberate,
+    # disclosed exception to `cases` staying independent of `marketing`
+    # (every other file in `cases` has zero references to `marketing` on
+    # purpose); the owner asked for this one screen to show it. Imported
+    # locally, not at module level, to keep that exception visible right
+    # here rather than baked into the module's import list.
+    from marketing import services as marketing_services
+    # scope="all": this is Commercial's screen, not a scoped Marketing
+    # viewer, so it needs the union across every Marketing user's tags, not
+    # just request.user's own. labels_for_clients batches across every
+    # client on the page in a constant number of queries — not one lookup
+    # per row in the template loop below.
+    labels_by_client = marketing_services.labels_for_clients(
+        [c.pk for c in clients], request.user, scope="all",
+    )
+    for c in clients:
+        c.labels = labels_by_client.get(c.pk, [])
 
     return render(request, "cases/client_list.html", {
-        "clients": clients.order_by("code", "name"),
+        "clients": clients,
         "query": query,
         "can_add": bool(profile and profile.can_add_client),
         "can_upload": bool(profile and (profile.can_add_client or _is_platform_admin(request.user))),
@@ -3644,15 +3665,31 @@ def client_delete(request, pk):
 
 @login_required
 def client_lookup(request):
-    """AJAX search used by the case form (search by code or name)."""
+    """AJAX search used by the case form (search by code or name).
+
+    Persian/Arabic letter variants must compare as equal (see
+    ``core.persian_text``), so a plain ``icontains`` is not enough on its
+    own. Same small-table Python-side-filter tradeoff as
+    ``marketing.services.search_clients`` — fine at the confirmed
+    current/foreseeable size, and easy to swap for DB-side normalization
+    later without changing this function's shape.
+    """
     profile = _profile(request.user)
     if not (profile and (profile.unit == Unit.COMMERCIAL or profile.is_admin)):
         return JsonResponse({"results": []})
     query = request.GET.get("q", "").strip()
     clients = Client.objects.all()
     if query:
-        clients = clients.filter(Q(name__icontains=query) | Q(code__icontains=query))
-    results = [{"id": c.id, "code": c.code, "name": c.name} for c in clients.order_by("name")[:20]]
+        needle = normalize_persian(query).lower()
+        clients = [
+            c for c in clients
+            if needle in normalize_persian(c.name).lower()
+            or needle in normalize_persian(c.code).lower()
+        ]
+        clients = sorted(clients, key=lambda c: c.name)[:20]
+    else:
+        clients = list(clients.order_by("name")[:20])
+    results = [{"id": c.id, "code": c.code, "name": c.name} for c in clients]
     return JsonResponse({"results": results})
 
 

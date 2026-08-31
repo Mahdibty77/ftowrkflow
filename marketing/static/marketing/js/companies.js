@@ -36,6 +36,40 @@
   var tabsEl = document.getElementById('mcTabs');
   var listEl = document.getElementById('mcList');
 
+  // The filter tab strip's own text is English-only now (LTR) — every OTHER
+  // Persian spot in this tab (company names, the chips'/panel's own label
+  // text via LABEL_TEXT above) stays exactly as RTL as it already was; this
+  // is scoped to the tab strip alone. Short, unambiguous forms of each key's
+  // own English abbreviation (see rolechart.py's SLOTS), not the long
+  // abbreviation text itself — that stays each tab's title/tooltip, set by
+  // the template — since a full "DESIGN CONSULTANT — FEED / DED" reads fine
+  // as a tooltip but not as a tab label. The template still renders
+  // label_fa as each tab's initial text (a plain no-JS fallback); this swaps
+  // it for the short English form as soon as the script runs — which, since
+  // this <script> tag sits after the tab markup with no defer/async, same as
+  // every other DOM read in this file, happens before the page is first
+  // shown to begin with.
+  var SHORT_TAB_TEXT = {
+    sponsor: 'Sponsor',
+    owner: 'Owner',
+    pmt: 'PMT',
+    mc: 'MC',
+    licensor: 'Licensor',
+    design: 'Design',
+    supervision: 'Supervision',
+    c: 'Construction',
+    p: 'Procurement',
+    pc: 'Proc. + Constr.',
+    epc: 'EPC',
+    sub: 'Subcontractor'
+  };
+  Array.prototype.forEach.call(tabsEl.querySelectorAll('.mc-tab[data-label]'), function (btn) {
+    var key = btn.getAttribute('data-label');
+    if (!key) { return; } // "All" already reads "All"
+    var span = btn.querySelector('.mc-tab-label');
+    if (span) { span.textContent = SHORT_TAB_TEXT[key] || LABEL_TEXT[key] || key; }
+  });
+
   var panelOverlay = document.getElementById('mcPanelOverlay');
   var panelTitle = document.getElementById('mcPanelTitle');
   var panelClose = document.getElementById('mcPanelClose');
@@ -84,8 +118,22 @@
     var seq = ++listSeq;
     get(CFG.labelCompaniesUrl, { label: label }).then(function (data) {
       if (seq !== listSeq || !data.ok) { return; }
-      labelListCache = data.companies;
+      // A label tab's own list, unlike "All", is sorted by its bare case
+      // count, most to least — see buildRow's label-tab branch, which shows
+      // that same count in place of "All"'s per-label chips/badges — ties
+      // broken by name so the order stays stable and predictable rather than
+      // shuffling on every re-fetch.
+      labelListCache = sortByCaseCountDesc(data.companies);
       renderRows(filterLocal(labelListCache, searchInput.value), searchInput.value);
+    });
+  }
+
+  function sortByCaseCountDesc(companies) {
+    return companies.slice().sort(function (a, b) {
+      var ca = (a.case_numbers || []).length;
+      var cb = (b.case_numbers || []).length;
+      if (ca !== cb) { return cb - ca; }
+      return a.name.localeCompare(b.name);
     });
   }
 
@@ -128,23 +176,27 @@
     var row = document.createElement('div');
     row.className = 'rc-row mc-row';
 
-    var name = document.createElement('span');
-    name.className = 'rc-row-name';
-    name.textContent = company.name;
-    name.setAttribute('dir', 'auto');
-    row.appendChild(name);
+    // Two explicit zones, not one flowing line of chips/badges next to the
+    // name (change 1): the company NAME (often Persian, RTL) gets its own
+    // container on the right, its LABEL TAGS get their own container on the
+    // left, laid out opposite ends by the CSS (.mc-row-name / .mc-row-tags)
+    // rather than everything appended as flat siblings.
+    var tags = document.createElement('div');
+    tags.className = 'mc-row-tags';
 
     if (company.source) {
       // A label-tab row: the label itself is implied by the open tab, so
-      // only its case badge(s) and its own remove control need rendering.
-      if (company.source === 'case') {
-        (company.case_numbers || []).forEach(function (docNo) {
-          var badge = document.createElement('span');
-          badge.className = 'rc-row-badge';
-          badge.textContent = 'via case ' + docNo;
-          row.appendChild(badge);
-        });
-      }
+      // only a bare case count and its own remove control need rendering.
+      // No more per-case "via case DOC_NO" badges here (change 4) — a plain
+      // number (0 for a company that only holds a manual tag, no cases)
+      // stands in for them; sorting that list by this same count, most to
+      // least, is fetchLabel's job, not this row's.
+      var count = document.createElement('span');
+      count.className = 'mc-row-count';
+      var caseCount = (company.case_numbers || []).length;
+      count.textContent = String(caseCount);
+      count.setAttribute('aria-label', caseCount + (caseCount === 1 ? ' case' : ' cases'));
+      tags.appendChild(count);
       // Same rule chart_interact.js's buildLabelRow uses: a manual layer
       // (whether or not it happens to be the label's WINNING source right
       // now) gets an × only when THIS viewer actually owns it.
@@ -159,24 +211,26 @@
           ev.stopPropagation();
           toggleLabel(company.id, currentTab, 0, function (ok) { if (ok) { refreshCurrentList(); } });
         });
-        row.appendChild(xBtn);
+        tags.appendChild(xBtn);
       }
     } else if (company.labels && company.labels.length) {
       // The "All" tab: no single label is implied here, so every label the
       // company currently holds gets its own small chip (name + case
       // badge(s) + its own independent remove control) — a company can
       // carry several at once, and each has to stay separately editable.
+      // (Unaffected by change 4 — that bare-count rule is for a single
+      // label tab's own list only.)
       company.labels.forEach(function (entry) {
         var chip = document.createElement('span');
         chip.className = 'mc-chip';
         chip.textContent = LABEL_TEXT[entry.label] || entry.label;
-        row.appendChild(chip);
+        tags.appendChild(chip);
         if (entry.source === 'case') {
           (entry.case_numbers || []).forEach(function (docNo) {
             var badge = document.createElement('span');
             badge.className = 'rc-row-badge';
             badge.textContent = 'via case ' + docNo;
-            row.appendChild(badge);
+            tags.appendChild(badge);
           });
         }
         var entryRemovable = (entry.source === 'manual' || entry.also_manual) && entry.removable;
@@ -190,10 +244,25 @@
             ev.stopPropagation();
             toggleLabel(company.id, entry.label, 0, function (ok) { if (ok) { refreshCurrentList(); } });
           });
-          row.appendChild(xBtn2);
+          tags.appendChild(xBtn2);
         }
       });
     }
+
+    var nameWrap = document.createElement('div');
+    nameWrap.className = 'mc-row-name';
+    var name = document.createElement('span');
+    name.className = 'rc-row-name';
+    name.textContent = company.name;
+    name.setAttribute('dir', 'auto');
+    nameWrap.appendChild(name);
+
+    // Tags first, name second — in a plain left-to-right flex row that puts
+    // the first child on the left, this alone gives the tags zone the left
+    // side and the name zone the right side (see this section's own CSS)
+    // without needing any dir/rtl trickery on the row itself.
+    row.appendChild(tags);
+    row.appendChild(nameWrap);
 
     row.addEventListener('click', function (ev) {
       if (ev.target.closest && ev.target.closest('.rc-row-remove')) { return; }
@@ -291,25 +360,40 @@
   }
 
   function buildPanelRow(labelDef, entry) {
-    var row = document.createElement('label');
-    row.className = 'rc-row mc-panel-row';
-
-    var checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.checked = !!entry;
+    var checked = !!entry;
     // Three states only (the owner's own rule): a case-derived label is
     // always locked — it is never editable from here, only via Commercial —
     // regardless of whether a removable manual layer also sits under it; a
     // manual label this viewer does not own is locked too, the same
     // "cannot remove what you don't own" rule the row list's own × follows;
     // everything else (a manual label this viewer owns, or no label at all)
-    // stays enabled.
+    // stays clickable. Only the INPUT ELEMENT and the visual language of
+    // "checked" changed here (a tick mark + a tinted row instead of a native
+    // checkbox) — which of these three states is togglable did not.
     var locked;
     if (!entry) { locked = false; }
     else if (entry.source === 'case') { locked = true; }
     else { locked = !entry.removable; }
-    checkbox.disabled = !CAN_EDIT || locked;
-    row.appendChild(checkbox);
+    var clickable = CAN_EDIT && !locked;
+    var pending = false;
+
+    // No more <input type="checkbox"> — the row itself is the clickable
+    // target (a plain div now, not a <label>, since there is no native
+    // control left for a <label> to address) and carries its own
+    // is-checked/is-locked look instead of a native checked/disabled one.
+    var row = document.createElement('div');
+    row.className = 'rc-row mc-panel-row';
+    row.classList.toggle('is-checked', checked);
+    row.classList.toggle('is-locked', !clickable);
+    row.setAttribute('role', 'checkbox');
+    row.setAttribute('aria-checked', checked ? 'true' : 'false');
+    if (clickable) { row.tabIndex = 0; } else { row.setAttribute('aria-disabled', 'true'); }
+
+    var check = document.createElement('span');
+    check.className = 'mc-panel-check';
+    check.setAttribute('aria-hidden', 'true');
+    check.textContent = checked ? '✓' : '';
+    row.appendChild(check);
 
     var text = document.createElement('span');
     text.className = 'mc-panel-text';
@@ -328,23 +412,35 @@
       row.appendChild(note2);
     }
 
-    checkbox.addEventListener('change', function () {
-      var add = checkbox.checked;
-      var client = panelClient;
-      var seq = panelSeq;
-      checkbox.disabled = true;
-      // Always re-ask the server for both views rather than hand-patch this
-      // one checkbox's state locally — the same "never trust a
-      // locally-guessed diff" rule chart_interact.js's own × handler follows
-      // (it calls fetchLabelCompanies() again rather than removing the row
-      // itself), and it means a failed toggle just shows back its own
-      // unchanged truth instead of needing its own revert/error path.
-      toggleLabel(client.id, labelDef.key, add, function () {
-        if (seq !== panelSeq || panelClient !== client) { return; }
-        refreshCurrentList();
-        loadPanel();
+    if (clickable) {
+      var toggle = function () {
+        if (pending) { return; }
+        pending = true;
+        var add = !checked;
+        var client = panelClient;
+        var seq = panelSeq;
+        row.classList.add('is-busy');
+        // Always re-ask the server for both views rather than hand-patch
+        // this row's state locally — the same "never trust a
+        // locally-guessed diff" rule chart_interact.js's own × handler
+        // follows (it calls fetchLabelCompanies() again rather than
+        // removing the row itself), and it means a failed toggle just shows
+        // back its own unchanged truth instead of needing its own
+        // revert/error path.
+        toggleLabel(client.id, labelDef.key, add, function () {
+          if (seq !== panelSeq || panelClient !== client) { return; }
+          refreshCurrentList();
+          loadPanel();
+        });
+      };
+      row.addEventListener('click', toggle);
+      row.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault();
+          toggle();
+        }
       });
-    });
+    }
 
     return row;
   }

@@ -10,6 +10,18 @@
 (function () {
   "use strict";
 
+  // Persian/Arabic letter-variant folding for search, mirroring
+  // core.persian_text.normalize_persian on the server. Same reasoning as
+  // foldDigits below: this file is served without a charset, so nothing it
+  // EXECUTES may depend on the file being decoded as UTF-8 -- done by code
+  // point (\uXXXX escapes, pure ASCII in the source bytes) rather than
+  // by a table of the letters themselves.
+  function normalizePersian(s) {
+    return (s || "")
+      .replace(/[\u0622\u0623\u0625\u0671]/g, "\u0627")
+      .replace(/\u0643/g, "\u06a9")
+      .replace(/[\u064a\u0649]/g, "\u06cc");
+  }
   /* ---------------------------------------------------------------- combobox */
   function buildCombo(select) {
     // Already upgraded: just refresh its options from the current <select>.
@@ -117,10 +129,10 @@
     }
 
     function render(filter) {
-      var f = (filter || "").toLowerCase();
+      var f = normalizePersian((filter || "").toLowerCase());
       list.innerHTML = "";
       var matches = options.filter(function (o) {
-        return !f || o.label.toLowerCase().indexOf(f) !== -1 || (o.code && o.code.toLowerCase().indexOf(f) !== -1);
+        return !f || normalizePersian(o.label.toLowerCase()).indexOf(f) !== -1 || (o.code && normalizePersian(o.code.toLowerCase()).indexOf(f) !== -1);
       });
       if (!matches.length) {
         var empty = document.createElement("div");
