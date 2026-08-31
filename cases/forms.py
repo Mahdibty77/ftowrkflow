@@ -1,7 +1,7 @@
 """Forms for case creation and the commercial master-data screens."""
 from django import forms
 
-from .constants import DocKind, OfferType, PriceType
+from .constants import DocKind, MarketingLabel, OfferType, PriceType
 from .models import Client, ExpertCode
 
 
@@ -38,6 +38,11 @@ class CaseCreateForm(forms.Form):
         queryset=Client.objects.all(), label="Client", required=True,
         empty_label="— Select client —",
         widget=forms.Select(attrs={"data-combo": "1", "data-placeholder": "Search client by name or code…", "data-required": "1"}),
+    )
+    marketing_label = forms.ChoiceField(
+        choices=[("", "— Not specified —")] + list(MarketingLabel.CHOICES),
+        label="Marketing role", required=False,
+        widget=forms.Select(attrs={"data-combo": "1", "data-placeholder": "Search role…"}),
     )
     order_no = forms.CharField(
         max_length=80, required=True,

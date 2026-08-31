@@ -29,7 +29,7 @@ from django.utils.http import url_has_allowed_host_and_scheme, urlencode
 from accounts.constants import Role, Unit
 
 from . import codes, exports, services
-from .constants import CaseStatus, FormKind, DocKind, OfferType, PriceType, EventAction, Side
+from .constants import CaseStatus, FormKind, DocKind, MarketingLabel, OfferType, PriceType, EventAction, Side
 from .forms import (CaseCreateForm, ClientForm, ClientRenameForm, CommentForm,
                     ExpertCodeForm)
 from .inquiry_validate import validate_inquiry_rows
@@ -773,6 +773,7 @@ def case_create(request):
                             client_commercial_phone=form.cleaned_data.get("client_commercial_phone", ""),
                             client_technical_expert=form.cleaned_data.get("client_technical_expert", ""),
                             client_technical_phone=form.cleaned_data.get("client_technical_phone", ""),
+                            marketing_label=form.cleaned_data.get("marketing_label", ""),
                             rows=rows,
                         )
                     except ValueError as exc:
@@ -2120,9 +2121,12 @@ def edit_items(request, pk):
             case.client_commercial_phone = request.POST.get("client_commercial_phone", "").strip()
             case.client_technical_expert = request.POST.get("client_technical_expert", "").strip()
             case.client_technical_phone = request.POST.get("client_technical_phone", "").strip()
+            posted_label = request.POST.get("marketing_label", "").strip()
+            case.marketing_label = posted_label if posted_label in MarketingLabel.LABELS else ""
             case.save(update_fields=[
                 "client_commercial_expert", "client_commercial_phone",
-                "client_technical_expert", "client_technical_phone", "updated_at",
+                "client_technical_expert", "client_technical_phone",
+                "marketing_label", "updated_at",
             ])
             messages.success(request, "Case contacts updated.")
             return redirect("cases:case_detail", pk=pk)
@@ -2137,6 +2141,7 @@ def edit_items(request, pk):
             "edit_side": "",
             "doc_kinds": DocKind.CHOICES, "offer_types": OfferType.CHOICES,
             "price_types": PriceType.CHOICES,
+            "marketing_labels": MarketingLabel.CHOICES,
             "clients": Client.objects.all().order_by("name"),
         })
 
@@ -2255,6 +2260,7 @@ def edit_items(request, pk):
                 "edit_side": side if side_edit else "",
                 "doc_kinds": DocKind.CHOICES, "offer_types": OfferType.CHOICES,
                 "price_types": PriceType.CHOICES,
+                "marketing_labels": MarketingLabel.CHOICES,
                 "clients": Client.objects.all().order_by("name"),
             })
 
@@ -2371,6 +2377,8 @@ def edit_items(request, pk):
             case.client_commercial_phone = request.POST.get("client_commercial_phone", "").strip()
             case.client_technical_expert = request.POST.get("client_technical_expert", "").strip()
             case.client_technical_phone = request.POST.get("client_technical_phone", "").strip()
+            posted_label = request.POST.get("marketing_label", "").strip()
+            case.marketing_label = posted_label if posted_label in MarketingLabel.LABELS else ""
             case.deadline = new_deadline
             case.doc_no = codes.build_doc_no(
                 ym=case.year_month, expert_code=case.expert_code,
@@ -2434,6 +2442,7 @@ def edit_items(request, pk):
         "edit_side": side if side_edit else "",
         "doc_kinds": DocKind.CHOICES, "offer_types": OfferType.CHOICES,
         "price_types": PriceType.CHOICES,
+        "marketing_labels": MarketingLabel.CHOICES,
         "clients": Client.objects.all().order_by("name"),
     })
 

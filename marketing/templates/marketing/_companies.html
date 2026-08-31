@@ -1,0 +1,58 @@
+{% comment %}
+  The Companies tab: a flat, searchable, filterable directory of every
+  Client, with each company's current label(s) shown as small tags and
+  editable in place, plus a panel that shows/edits a single company's full
+  twelve-label set at a glance.
+
+  All the interaction lives in companies.js — this template only lays out
+  the static shell (the search box, the filter-tab strip built from
+  ``labels`` below, the list's empty mount point, and the one reusable
+  label-editing panel) and hands the label text to the script as JSON, the
+  same ``|json_script`` idiom the marketing entity directory used before it.
+  Nothing here is rebuilt by the server after the first render — every list
+  of companies this tab ever shows is asked of the server fresh
+  (client_search / label_companies / client_connections), the same
+  discipline chart_interact.js uses for the chart's own modal.
+{% endcomment %}
+<div class="mc" id="mcRoot">
+
+  <div class="mc-search">
+    <input type="text" class="mc-search-input" id="mcSearchInput"
+           placeholder="Search companies…" autocomplete="off" dir="auto">
+  </div>
+
+  <nav class="mc-tabs" id="mcTabs" role="tablist" aria-label="Filter companies by role">
+    <button type="button" class="mc-tab mc-tab-all is-active" role="tab"
+            data-label="" aria-selected="true" title="Every company">
+      <span class="mc-tab-label">All</span>
+    </button>
+    {% for l in labels %}
+    <button type="button" class="mc-tab" role="tab" data-label="{{ l.key }}"
+            aria-selected="false" title="{{ l.abbr }}">
+      <span class="mc-tab-label">{{ l.label_fa }}</span>
+    </button>
+    {% endfor %}
+  </nav>
+
+  <div class="mc-list" id="mcList" aria-live="polite"></div>
+
+</div>
+
+{# The one reusable "edit this company's labels" panel — see point 4 of the #}
+{# task: every one of the twelve labels as a checkbox, checked+enabled for a #}
+{# manual tag this viewer owns, checked+disabled for a case-derived one (case #}
+{# links are only ever editable via Commercial), unchecked+enabled for #}
+{# anything else. Reuses the chart modal's own overlay/card shell #}
+{# (.rc-modal-overlay / .rc-modal / .rc-modal-head, already in rolechart.css) #}
+{# so the two tabs' popovers read as one design. #}
+<div class="rc-modal-overlay" id="mcPanelOverlay" hidden>
+  <div class="rc-modal mc-panel" role="dialog" aria-modal="true" aria-labelledby="mcPanelTitle">
+    <div class="rc-modal-head">
+      <h3 class="rc-modal-title" id="mcPanelTitle">Company</h3>
+      <button type="button" class="rc-modal-x" id="mcPanelClose" aria-label="Close">✕</button>
+    </div>
+    <div class="mc-panel-list" id="mcPanelList"></div>
+  </div>
+</div>
+
+{{ labels|json_script:"mcLabelsData" }}

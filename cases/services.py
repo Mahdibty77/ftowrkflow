@@ -455,7 +455,8 @@ def create_case(*, creator, kind: str, offer_type: str, client: Client,
                 order_no: str = "", deadline=None, rows: list[dict] | None = None,
                 price_type: str = "INTERNAL", client_commercial_expert: str = "",
                 client_commercial_phone: str = "",
-                client_technical_expert: str = "", client_technical_phone: str = "") -> Case:
+                client_technical_expert: str = "", client_technical_phone: str = "",
+                marketing_label: str = "") -> Case:
     """Create a new case, its inquiry rows and the first Inquiry form."""
     serial = next_case_serial()
     ym = year_month_token()
@@ -479,6 +480,7 @@ def create_case(*, creator, kind: str, offer_type: str, client: Client,
         client_commercial_phone=client_commercial_phone,
         client_technical_expert=client_technical_expert,
         client_technical_phone=client_technical_phone,
+        marketing_label=marketing_label,
         attach_no=f"FT-ATT-{ym}-{serial:05d}",
         status=CaseStatus.DRAFT, holder_unit=Unit.COMMERCIAL, created_by=creator,
         commercial_expert_display=_expert_display_for(creator, expert_code),

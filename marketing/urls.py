@@ -12,9 +12,10 @@ app_name = "marketing"
 
 urlpatterns = [
     path("", views.home, name="home"),
-    path("entities/search/", views.entity_search, name="entity_search"),
-    path("entities/create/", views.entity_create, name="entity_create"),
-    path("entities/link/", views.entity_link, name="entity_link"),
-    path("entities/unlink/", views.entity_unlink, name="entity_unlink"),
-    path("entities/connections/", views.entity_connections, name="entity_connections"),
+    path("entities/clients/search/", views.client_search, name="client_search"),
+    path("entities/clients/create/", views.client_create, name="client_create"),
+    path("entities/clients/connections/", views.client_connections, name="client_connections"),
+    path("entities/label/companies/", views.label_companies, name="label_companies"),
+    path("entities/label/toggle/", views.label_toggle, name="label_toggle"),
+    path("entities/us/connections/", views.us_connections, name="us_connections"),
 ]

@@ -1,81 +1,84 @@
-"""The Marketing entity directory: named values, and links between them.
+"""The Marketing company directory: shared clients, and Marketing's own tags on them.
 
-WHAT THIS IS. Every field on the project role chart — sponsor, owner, each of
-the four contract types, and so on, see ``rolechart.ALL_FIELDS`` for the full
-list — owns its own directory of named values. "Sponsor" does not hold one
-organisation; it holds every organisation that has ever been a sponsor, the
-same way a case's client field is really a client LIST the platform already
-knows. An :class:`Entity` is one such value: one name, in one field.
+WHAT THIS IS NOW. There is no more independent, Marketing-only directory of
+named values. The company directory Marketing browses is the SAME table
+Commercial uses to create cases — ``cases.models.Client`` — reused directly,
+not mirrored into a parallel model. Every company on the chart is a real,
+already-registered ``Client`` row, or becomes one the moment Marketing
+registers it (see ``marketing/services.py::get_or_create_client``, which
+creates a ``Client`` exactly the way ``cases/views.py::client_add`` already
+does).
 
-Two entities in different fields (an investor and a subcontractor, say) can be
-declared connected — an :class:`EntityLink` — and from either end of that link
-a person can ask "what else is directly connected to this one," across every
-field, which is what lights up a field's card when one of its values is
-selected elsewhere. See ``marketing/services.py`` for that query.
+A client can carry any number of the twelve business-role tags in
+``cases.constants.MarketingLabel`` at once (a company can be both Sponsor and
+Subcontractor, say). Those tags come from two independent sources that this
+app merges only at read time (see ``marketing/services.py``, in particular
+``companies_for_label`` / ``connections_of_client``):
 
-WHAT THIS DELIBERATELY IS NOT, yet. No project, no assignment of a value to a
-project's own slot, and no connection to ``cases`` at all — the owner asked
-for exactly this step ("دیتابیس مستقل" — its own, independent database) and
-said explicitly that wiring it to a project or to a case is a later,
-separately-requested step. The chart itself IS the directory now — each field
-is a clickable card backed by this model, with no separate tab and no
-placeholder organisation name; see ``marketing/rolechart.py``'s module
-docstring for that redesign.
+* MANUAL — a :class:`ClientLabel` row a Marketing user put on the client by
+  hand. That is the only thing this module still models.
+* CASE-DERIVED — implied live by ``cases.models.Case.marketing_label`` on
+  every case that client has (falling back to OWNER when a case leaves that
+  field blank). This is never stored here; it is read straight off
+  ``cases.Case`` whenever a label needs computing.
+
+"Our own position" — the chart's "us" card — is connected to a client ONLY
+through this case-derived path. There is no manual way to link a client to
+"us": a case is the only thing that can ever prove a real business
+relationship with our own position, so that connection is never a row a
+person can create or delete by hand.
+
+WHAT THIS DELIBERATELY IS NOT, any more. The old ``Entity`` (one named value
+per chart field, independently registered per field) and ``EntityLink`` (an
+arbitrary undirected connection between any two entities in any two fields)
+are gone entirely, along with the "any field can hold names, any two names
+can be linked" shape they gave the directory. That shape never matched the
+real business object Marketing was actually describing — a single company can
+play several roles for several projects, and the truth of "is this company
+connected to us" only ever lived in the cases those companies actually have,
+never in a link a person drew by hand. See this module's own git history for
+the version being replaced.
 """
 from __future__ import annotations
 
 from django.conf import settings
 from django.db import models
 
-from .rolechart import ALL_FIELDS
+from cases.constants import MarketingLabel
+from cases.models import Client
 
-FIELD_CHOICES = [(key, label) for key, label, _abbr in ALL_FIELDS]
 
+class ClientLabel(models.Model):
+    """One business-role tag a Marketing user has manually put on a company.
 
-class Entity(models.Model):
-    """One named value inside one field's directory (e.g. one sponsor).
+    This is the MANUAL half of a client's labels — see
+    ``marketing/services.py::companies_for_label`` /
+    ``connections_of_client`` (and the module docstring above) for the other
+    half: labels implied live by
+    ``cases.models.Case.marketing_label``, which are never stored as rows
+    here at all. A client can carry any number of manual labels, and the same
+    (client, label) pair can be added independently by more than one user —
+    a client that already carries a label purely because of its cases can
+    ALSO carry that same label here as a manual row; the two are tracked
+    independently, and it is ``services.py`` that de-duplicates them for
+    display.
 
-    ``created_by`` is who REGISTERED the value, and it is required — visibility
-    is scoped by it (see ``marketing/views.py``'s access function and
-    ``marketing/services.py``'s scoped queries), not merely an audit trail like
-    it is on ``EntityLink``. That is also why uniqueness is per-owner: two
-    Marketing Experts who both register "Foolad Sanat" as a sponsor are not the
-    same row, because each expert's directory is their own until a supervisor
-    or the GM looks at the union of everyone's.
+    ``created_by`` is who added this tag, and it is what scopes visibility
+    (see ``marketing/access.py`` and every ``services.py`` function that
+    takes a ``scope`` argument) — the same ownership shape the old ``Entity``
+    model used: a Marketing Expert manages only the labels THEY THEMSELVES
+    added, a Supervisor or the platform's GM sees the union of every Expert's.
+    That is also why uniqueness below is per (client, label, created_by) and
+    not just per (client, label): two Marketing Experts who both tag the same
+    client "Sponsor" are not the same fact, because each expert's set of tags
+    is their own until a supervisor or the GM looks at the union of
+    everyone's — exactly the reasoning ``Entity``'s per-owner uniqueness used
+    to carry, now applied to labels on a shared client instead of names in a
+    field-scoped directory.
     """
 
-    field = models.CharField(max_length=32, choices=FIELD_CHOICES, db_index=True)
-    name = models.CharField(max_length=200)
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="marketing_entities",
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["field", "name"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["field", "name", "created_by"],
-                name="marketing_entity_unique_field_name_owner",
-            ),
-        ]
-
-    def __str__(self):
-        return self.name
-
-
-class EntityLink(models.Model):
-    """An undirected connection between two entities, in any two fields.
-
-    Undirected in meaning, stored as one directed row: ``entity_a`` is always
-    the lower primary key of the pair, ``entity_b`` the higher — see
-    ``services.link_entities``, the only place a link is created. That is what
-    lets the unique constraint below actually stop a duplicate reverse edge;
-    without a fixed order, (A, B) and (B, A) would be two different rows.
-    """
-
-    entity_a = models.ForeignKey(Entity, on_delete=models.CASCADE, related_name="links_as_a")
-    entity_b = models.ForeignKey(Entity, on_delete=models.CASCADE, related_name="links_as_b")
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="marketing_labels")
+    label = models.CharField(max_length=32, choices=MarketingLabel.CHOICES)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True,
         on_delete=models.SET_NULL, related_name="+",
@@ -83,12 +86,13 @@ class EntityLink(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        ordering = ["label", "client__name"]
         constraints = [
             models.UniqueConstraint(
-                fields=["entity_a", "entity_b"], name="marketing_link_unique_pair",
-            ),
-            models.CheckConstraint(
-                condition=~models.Q(entity_a=models.F("entity_b")),
-                name="marketing_link_no_self",
+                fields=["client", "label", "created_by"],
+                name="marketing_clientlabel_unique_per_owner",
             ),
         ]
+
+    def __str__(self):
+        return f"{self.client.name} — {self.get_label_display()}"

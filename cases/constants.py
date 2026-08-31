@@ -73,6 +73,50 @@ class Side:
     LABELS = dict(CHOICES)
 
 
+class MarketingLabel:
+    """Which business role a case's client played, for Marketing's own chart.
+
+    Optional on every case — see Case.marketing_label. Blank means "not
+    specified," which Marketing treats as OWNER (the client's default role)
+    rather than as a stored choice of its own; see marketing/services.py for
+    where that default is actually applied. The twelve keys below are exactly
+    the twelve of marketing/rolechart.py's nineteen chart fields that describe
+    a business relationship a case's client could actually hold — the other
+    seven (the project itself, its phase, the laboratory, third-party
+    inspection, the sub-supplier, our own position, and a competitor) are not
+    meaningful answers to "what role did THIS CLIENT play," so they are not
+    offered here.
+    """
+    SPONSOR = "sponsor"
+    OWNER = "owner"
+    PMT = "pmt"
+    MC = "mc"
+    LICENSOR = "licensor"
+    DESIGN = "design"
+    SUPERVISION = "supervision"
+    C = "c"
+    P = "p"
+    PC = "pc"
+    EPC = "epc"
+    SUB = "sub"
+
+    CHOICES = [
+        (SPONSOR, "سرمایه‌گذار — SPONSOR / INVESTOR"),
+        (OWNER, "کارفرمای اصلی — OWNER / CLIENT"),
+        (PMT, "مجری طرح — PMT — PROJECT MGMT TEAM"),
+        (MC, "مدیریت طرح — MC / PMC — MGMT CONTRACTOR"),
+        (LICENSOR, "لیسانسور — LICENSOR"),
+        (DESIGN, "مشاور طراح — DESIGN CONSULTANT — FEED / DED"),
+        (SUPERVISION, "مشاور نظارت — SUPERVISION"),
+        (C, "پیمانکار اجرا — C — CONSTRUCTION ONLY"),
+        (P, "پیمانکار خرید — P — PROCUREMENT ONLY"),
+        (PC, "پیمانکار خرید و اجرا — PC — PROCUREMENT + CONSTRUCTION"),
+        (EPC, "پیمانکار طرح، خرید و اجرا — EPC — ENG. PROC. CONSTRUCTION"),
+        (SUB, "پیمانکار جزء — SUBCONTRACTOR"),
+    ]
+    LABELS = dict(CHOICES)
+
+
 class CaseStatus:
     DRAFT = "DRAFT"
     WITH_TECHNICAL = "WITH_TECHNICAL"

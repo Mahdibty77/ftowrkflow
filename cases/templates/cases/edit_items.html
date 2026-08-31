@@ -67,6 +67,13 @@
       <div class="field"><label>Client technical phone (optional)</label>
         <input type="text" name="client_technical_phone" value="{{ case.client_technical_phone }}" autocomplete="off" autocapitalize="off" spellcheck="false">
       </div>
+      <div class="field"><label><i class="fa-solid fa-tag"></i> Marketing role</label>
+        <select name="marketing_label" data-combo data-placeholder="Search role…">
+          <option value="" {% if not case.marketing_label %}selected{% endif %}>— Not specified —</option>
+          {% for code,label in marketing_labels %}<option value="{{ code }}" {% if code == case.marketing_label %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <div class="help">Optional — defaults to Owner/Client if left blank.</div>
+      </div>
     </div>
     <div class="help" style="margin-top:.3rem;">Only these four client contact fields. Inquiry rows are edited via New version.</div>
   </div>
@@ -127,6 +134,13 @@
       <div class="field"><label><i class="fa-solid fa-phone"></i> Client technical phone (optional)</label>
         <input type="text" name="client_technical_phone" value="{{ case.client_technical_phone }}" autocomplete="off" autocapitalize="off" spellcheck="false">
         <div class="help">Optional.</div>
+      </div>
+      <div class="field"><label><i class="fa-solid fa-tag"></i> Marketing role</label>
+        <select name="marketing_label" data-combo data-placeholder="Search role…">
+          <option value="" {% if not case.marketing_label %}selected{% endif %}>— Not specified —</option>
+          {% for code,label in marketing_labels %}<option value="{{ code }}" {% if code == case.marketing_label %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <div class="help">Optional — defaults to Owner/Client if left blank.</div>
       </div>
     </div>
   </div>

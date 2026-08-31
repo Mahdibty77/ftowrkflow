@@ -9,7 +9,9 @@ from django.db import models
 
 from accounts.constants import Unit
 
-from .constants import CaseStatus, DocKind, EventAction, FormKind, OfferType, PriceType, Side
+from .constants import (
+    CaseStatus, DocKind, EventAction, FormKind, MarketingLabel, OfferType, PriceType, Side,
+)
 
 
 class SerialCounter(models.Model):
@@ -98,6 +100,11 @@ class Case(models.Model):
     client_commercial_phone = models.CharField(max_length=40, blank=True)
     client_technical_expert = models.CharField(max_length=120, blank=True)
     client_technical_phone = models.CharField(max_length=40, blank=True)
+    # Which business role the client played for THIS case — optional, read only
+    # by the marketing app's chart (see marketing/services.py). Blank means
+    # "not specified"; marketing treats blank as the client's default OWNER role
+    # rather than storing that choice explicitly here.
+    marketing_label = models.CharField(max_length=32, choices=MarketingLabel.CHOICES, blank=True, default="")
     # Internal / External / Both — drives the sub-streams in case detail.
     price_type = models.CharField(
         max_length=10, choices=PriceType.CHOICES, default=PriceType.INTERNAL)

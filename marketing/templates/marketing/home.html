@@ -45,6 +45,14 @@
 
   {% include "marketing/_role_chart.html" %}
 </div>
+{% elif active_tab == 'companies' %}
+<div class="panel">
+  <div class="panel-h">
+    <h3>Companies</h3>
+  </div>
+
+  {% include "marketing/_companies.html" %}
+</div>
 {% endif %}
 
 {% endblock %}
@@ -52,11 +60,10 @@
 <div hidden>{% csrf_token %}</div>
 <script>
   window.FT_MARKETING_CHART = {
-    searchUrl: "{% url 'marketing:entity_search' %}",
-    createUrl: "{% url 'marketing:entity_create' %}",
-    linkUrl: "{% url 'marketing:entity_link' %}",
-    unlinkUrl: "{% url 'marketing:entity_unlink' %}",
-    connectionsUrl: "{% url 'marketing:entity_connections' %}",
+    labelCompaniesUrl: "{% url 'marketing:label_companies' %}",
+    labelToggleUrl: "{% url 'marketing:label_toggle' %}",
+    clientConnectionsUrl: "{% url 'marketing:client_connections' %}",
+    usConnectionsUrl: "{% url 'marketing:us_connections' %}",
     canEdit: {{ can_edit|yesno:"true,false" }}
   };
   // A live read of the CSRF cookie rather than a baked template value — the
@@ -72,6 +79,34 @@
     },
     enumerable: true
   });
+
+  window.FT_MARKETING_COMPANIES = {
+    clientSearchUrl: "{% url 'marketing:client_search' %}",
+    clientCreateUrl: "{% url 'marketing:client_create' %}",
+    labelCompaniesUrl: "{% url 'marketing:label_companies' %}",
+    labelToggleUrl: "{% url 'marketing:label_toggle' %}",
+    clientConnectionsUrl: "{% url 'marketing:client_connections' %}",
+    canEdit: {{ can_edit|yesno:"true,false" }}
+  };
+  // Same live cookie read as FT_MARKETING_CHART.csrfToken above, copied
+  // character for character rather than shared, so this object keeps
+  // working standalone even if that one is ever removed.
+  Object.defineProperty(window.FT_MARKETING_COMPANIES, "csrfToken", {
+    get: function () {
+      var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+      if (m) return decodeURIComponent(m[1]);
+      var inp = document.querySelector('input[name=csrfmiddlewaretoken]');
+      return (inp && inp.value) || "";
+    },
+    enumerable: true
+  });
 </script>
+{# Both scripts load unconditionally, same as chart_interact.js already did #}
+{# before this tab existed — see its own top-of-file comment: it self-guards #}
+{# on `getElementById('rcChart')` and no-ops when that tab isn't the active #}
+{# one. companies.js follows the identical pattern against 'mcRoot', so #}
+{# neither script needs a template-level {% if %} to stay inert on the other #}
+{# tab. #}
 <script src="{% static 'marketing/js/chart_interact.js' %}"></script>
+<script src="{% static 'marketing/js/companies.js' %}"></script>
 {% endblock %}

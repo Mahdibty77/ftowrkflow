@@ -15,24 +15,29 @@ appears EXACTLY ONCE, unconditionally, as its own clickable card.
     build(counts) -- counts -> a drawable chart
 
 WHERE THE MODEL PLUGS IN. ``build()`` takes just ``counts`` — a
-``{field key: how many entities}`` mapping built by
-``marketing/services.py::field_counts``, already scoped to the viewer — and
-returns a finished geometry dict the template walks. It touches no model, no
-request and no database itself. The organisation-name, contract-model and
-per-buying-chain concepts that used to live here (one sample organisation per
-slot, four duplicated sub/inspector chains, a dashed "not identified yet"
-edge style) are gone: what a field HOLDS is now its own directory of named
-entities and the links between them (see ``marketing/models.py``), and this
-module only draws the card a field sits on and how many entities a viewer can
-see in it.
+``{field key: how many companies}`` mapping built in
+``marketing/views.py::home`` (from ``services.label_counts`` for the twelve
+labelable fields and ``services.us_connections`` for "us"), already scoped to
+the viewer — and returns a finished geometry dict the template walks. It
+touches no model, no request and no database itself. The organisation-name,
+contract-model and per-buying-chain concepts that used to live here (one
+sample organisation per slot, four duplicated sub/inspector chains, a dashed
+"not identified yet" edge style) are gone: what a field HOLDS is now either a
+label on the shared ``cases.Client`` directory (twelve of the nineteen
+fields — see ``marketing/models.py::ClientLabel`` and
+``marketing/services.py``) or, for "us", every client connected through an
+actual case; this module only draws the card a field sits on and how many
+companies a viewer can see under it.
 
 GEOMETRY. A 1300-unit-wide viewBox, four columns plus a centre lane, rows 92
 apart — the same base grid the previous version of this chart used. Every row
 transition is drawn by ``_connect``: one point to one point is a line, one to
 many (or many to one) fans from that single point, and many to many converge
 on the centre lane and fan back out — there is no bus bar and no per-chain
-special case. The template receives finished coordinates and path data and
-makes no arithmetic decision of its own.
+special case, with one deliberate exception: the final row (supplier, rival)
+gets no incoming edge at all — see ``_NO_INCOMING_EDGE`` in ``build()``. The
+template receives finished coordinates and path data and makes no arithmetic
+decision of its own.
 """
 from __future__ import annotations
 
@@ -97,16 +102,20 @@ SLOT_COUNT = len(SLOTS)
 _SLOT_BY_KEY = {s[0]: s for s in SLOTS}
 
 # The two boxes that are not slots — never empty, because the project is the
-# subject of the chart and we are always on it — but every field, these two
-# included, is still its own entity directory (see the module docstring).
+# subject of the chart and we are always on it. Neither carries a label
+# directory of its own: "project" is one of the six inert fields (see
+# _kind_of below), and "us" is the one field backed by case data instead of
+# a label at all.
 PROJECT_ROLE = "نام پروژه"
 PROJECT_ABBR = "PROJECT"
 US_ROLE = "موقعیت ما"
 US_ABBR = "VENDOR / SUPPLIER"
 
-# Every field on the chart, in reading order — the one list the Marketing
-# entity directory (marketing/models.py) walks to know what fields exist and
-# what to call them.
+# Every field on the chart, in reading order — the one list marketing/views.py
+# and marketing/services.py both walk (via ALL_FIELDS/LABEL_KEYS below) so the
+# chart's own card order, the Companies tab's tab strip, and the twelve
+# MarketingLabel choices on a case can never drift apart on what a field is
+# called.
 _FIELD_ORDER = (
     "sponsor", "owner", "project", "phase", "pmt", "mc", "licensor", "design",
     "supervision", "c", "p", "pc", "epc", "sub", "tpi", "laboratory", "us",
@@ -126,10 +135,41 @@ def _field_entry(key):
 ALL_FIELDS = tuple(_field_entry(k) for k in _FIELD_ORDER)
 _LABEL_BY_KEY = {k: (fa, ab) for k, fa, ab in ALL_FIELDS}
 
+# Every field's behavioural GROUP, for the chart's own click handling in
+# chart_interact.js: "label" for the twelve MarketingLabel keys a card can be
+# tagged/untagged under (see marketing/services.py's own LABEL_KEYS, which
+# this mirrors exactly), "us" for the single "our own position" card, and
+# "inert" for the six fields no data source feeds this round (the same six
+# marketing/views.py names as its own ``_INERT_FIELDS``). Kept here as a
+# plain tuple rather than an import from either module, so rolechart.py still
+# touches no model, no request and no database — see the module docstring.
+# Exposed on every node as ``kind``, and from there as a ``data-kind``
+# attribute in the template, so the JS never has to hardcode which of the
+# nineteen keys falls in which group.
+LABEL_KEYS = (
+    "sponsor", "owner", "pmt", "mc", "licensor", "design", "supervision",
+    "c", "p", "pc", "epc", "sub",
+)
+_INERT_KEYS = ("project", "phase", "laboratory", "tpi", "supplier", "rival")
+
+
+def _kind_of(key):
+    if key == "us":
+        return "us"
+    if key in _INERT_KEYS:
+        return "inert"
+    return "label"
+
+
 # The rows of the chart, top to bottom — each a (y, ((field key, x), ...)).
 # Reordering or reshaping a row is the only change a future layout tweak
 # needs; ``build`` walks this once for the nodes and once more, pairwise,
 # for the connectors between one row and the next.
+#
+# supplier/rival sit in the chart's OWN bottom corners (COL[0]/COL[3], the
+# outermost established columns — not a new constant) rather than centred
+# beside each other: the owner asked for them detached, with no edge tying
+# them to anything else on the default chart. See ``_NO_INCOMING_EDGE``.
 _ROWS = (
     (R1,  (("sponsor", CEN),)),
     (R2,  (("owner", CEN),)),
@@ -141,8 +181,11 @@ _ROWS = (
     (R7,  (("sub", PAIR[0]), ("tpi", PAIR[1]))),
     (R8,  (("laboratory", CEN),)),
     (R9,  (("us", CEN),)),
-    (R10, (("supplier", PAIR[0]), ("rival", PAIR[1]))),
+    (R10, (("supplier", COL[0]), ("rival", COL[3]))),
 )
+
+# The one row transition ``build()`` deliberately does NOT draw an edge into.
+_NO_INCOMING_EDGE = frozenset({"supplier", "rival"})
 
 
 # --------------------------------------------------------------------------- #
@@ -171,6 +214,7 @@ def _node(key, role_fa, abbr, cx, y, count):
         "role_fa": role_fa,
         "abbr": abbr,
         "count": count,
+        "kind": _kind_of(key),
         "x": x,
         "y": y,
         "cx": cx,
@@ -232,9 +276,11 @@ def _connect(parents, y_parent_bottom, children, y_child_top):
 def build(counts):
     """Return everything the template needs to draw the chart.
 
-    ``counts``  ``{field key: how many entities}`` — see
-                ``marketing/services.py::field_counts``, already scoped to
-                the viewer. A field missing from it counts as zero.
+    ``counts``  ``{field key: how many companies}`` — built in
+                ``marketing/views.py::home`` from ``services.label_counts``
+                (the twelve labelable fields) and ``services.us_connections``
+                ("us"), already scoped to the viewer. A field missing from it
+                counts as zero.
     """
     counts = counts or {}
     nodes = []
@@ -245,10 +291,12 @@ def build(counts):
             nodes.append(_node(key, fa, ab, x, y, counts.get(key, 0)))
         if i + 1 < len(_ROWS):
             y_next, row_next = _ROWS[i + 1]
-            edges.extend(_connect(
-                [x for _k, x in row], y + NODE_H,
-                [x for _k, x in row_next], y_next,
-            ))
+            next_keys = {k for k, _x in row_next}
+            if not next_keys & _NO_INCOMING_EDGE:
+                edges.extend(_connect(
+                    [x for _k, x in row], y + NODE_H,
+                    [x for _k, x in row_next], y_next,
+                ))
 
     return {
         "view_w": VIEW_W,
