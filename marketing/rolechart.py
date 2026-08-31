@@ -17,14 +17,14 @@ ONCE, unconditionally, as its own clickable card.
 
 WHERE THE MODEL PLUGS IN. ``build()`` takes just ``counts`` — a
 ``{field key: how many companies}`` mapping built in
-``marketing/views.py::home`` (from ``services.label_counts`` for the twelve
+``marketing/views.py::home`` (from ``services.label_counts`` for the fourteen
 labelable fields and ``services.us_connections`` for "us"), already scoped to
 the viewer — and returns a finished geometry dict the template walks. It
 touches no model, no request and no database itself. The organisation-name,
 contract-model and per-buying-chain concepts that used to live here (one
 sample organisation per slot, four duplicated sub/inspector chains, a dashed
 "not identified yet" edge style) are gone: what a field HOLDS is now either a
-label on the shared ``cases.Client`` directory (twelve of the nineteen
+label on the shared ``cases.Client`` directory (fourteen of the nineteen
 fields — see ``marketing/models.py::ClientLabel`` and
 ``marketing/services.py``) or, for "us", every client connected through an
 actual case; this module only draws the card a field sits on and how many
@@ -107,7 +107,7 @@ _SLOT_BY_KEY = {s[0]: s for s in SLOTS}
 
 # The two boxes that are not slots — never empty, because the project is the
 # subject of the chart and we are always on it. Neither carries a label
-# directory of its own: "project" is one of the six inert fields (see
+# directory of its own: "project" is one of the four inert fields (see
 # _kind_of below), and "us" is the one field backed by case data instead of
 # a label at all.
 PROJECT_ROLE = "نام پروژه"
@@ -140,21 +140,30 @@ ALL_FIELDS = tuple(_field_entry(k) for k in _FIELD_ORDER)
 _LABEL_BY_KEY = {k: (fa, ab) for k, fa, ab in ALL_FIELDS}
 
 # Every field's behavioural GROUP, for the chart's own click handling in
-# chart_interact.js: "label" for the twelve MarketingLabel keys a card can be
-# tagged/untagged under (see marketing/services.py's own LABEL_KEYS, which
+# chart_interact.js: "label" for the fourteen MarketingLabel keys a card can
+# be tagged/untagged under (see marketing/services.py's own LABEL_KEYS, which
 # this mirrors exactly), "us" for the single "our own position" card, and
-# "inert" for the six fields no data source feeds this round (the same six
+# "inert" for the four fields no data source feeds this round (the same four
 # marketing/views.py names as its own ``_INERT_FIELDS``). Kept here as a
 # plain tuple rather than an import from either module, so rolechart.py still
 # touches no model, no request and no database — see the module docstring.
 # Exposed on every node as ``kind``, and from there as a ``data-kind``
 # attribute in the template, so the JS never has to hardcode which of the
 # nineteen keys falls in which group.
+#
+# supplier and rival joined this list (they used to sit in _INERT_KEYS
+# below, with no data source and no click interaction at all): a Marketing
+# user can now hand-tag a company under either one via
+# ``marketing/models.py::ClientLabel`` — see
+# ``cases.constants.MarketingLabel.MANUAL_ONLY_CHOICES`` for why they are
+# manual-tag-only (no case can ever hold them, unlike the other twelve).
+# Their GEOMETRY (bottom-left corner, no incoming edge, see _ROWS and
+# _NO_INCOMING_EDGE below) is unrelated to this and does not change.
 LABEL_KEYS = (
     "sponsor", "owner", "pmt", "mc", "licensor", "design", "supervision",
-    "c", "p", "pc", "epc", "sub",
+    "c", "p", "pc", "epc", "sub", "supplier", "rival",
 )
-_INERT_KEYS = ("project", "phase", "laboratory", "tpi", "supplier", "rival")
+_INERT_KEYS = ("project", "phase", "laboratory", "tpi")
 
 
 def _kind_of(key):
@@ -287,7 +296,7 @@ def build(counts):
 
     ``counts``  ``{field key: how many companies}`` — built in
                 ``marketing/views.py::home`` from ``services.label_counts``
-                (the twelve labelable fields) and ``services.us_connections``
+                (the fourteen labelable fields) and ``services.us_connections``
                 ("us"), already scoped to the viewer. A field missing from it
                 counts as zero.
     """

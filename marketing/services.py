@@ -50,18 +50,32 @@ from django.db import IntegrityError, transaction
 from django.db.models import Q
 
 from cases import services as case_services
-from cases.constants import MarketingLabel
+from cases.constants import CaseStatus, MarketingLabel
 from cases.models import Case, Client
 from core.persian_text import normalize_persian
 
 from .models import ClientLabel
 
-# The twelve labelable keys — NOT all nineteen chart fields. See
-# ``cases.constants.MarketingLabel``'s own docstring for why only these
-# twelve (of the chart's nineteen fields) describe a business role a case's
-# client could actually hold.
-FIELD_LABELS = {k: v for k, v in MarketingLabel.CHOICES}
-LABEL_KEYS = tuple(k for k, _ in MarketingLabel.CHOICES)
+# The fourteen labelable keys — NOT all nineteen chart fields. Twelve of
+# them (``MarketingLabel.CHOICES``) also describe a business role a case's
+# client could actually hold — see ``cases.constants.MarketingLabel``'s own
+# docstring for why only those twelve. The other two, rival and supplier
+# (``MarketingLabel.MANUAL_ONLY_CHOICES``), can NEVER come from a case —
+# Case.marketing_label's own choices deliberately stop at the twelve, so a
+# company only ever picks up these two labels via a manual ``ClientLabel``
+# row. Deriving from the SAME combined list ``ClientLabel.label``'s own
+# ``choices`` uses (see marketing/models.py) keeps this module's notion of
+# "every labelable key" from drifting apart from what the model actually
+# accepts — every function below that walks ``LABEL_KEYS`` generically
+# (``label_counts``, ``companies_for_label``, ``connections_of_client``,
+# ``labels_for_clients``, ``is_label``) therefore already works correctly
+# for "rival"/"supplier" too, with no special-casing: the case side of the
+# merge simply never matches them (no ``Case`` row can ever carry that
+# ``marketing_label``), so they end up genuinely manual-tag-only in
+# practice, which is exactly the desired behaviour.
+_ALL_LABEL_CHOICES = MarketingLabel.CHOICES + MarketingLabel.MANUAL_ONLY_CHOICES
+FIELD_LABELS = {k: v for k, v in _ALL_LABEL_CHOICES}
+LABEL_KEYS = tuple(k for k, _ in _ALL_LABEL_CHOICES)
 
 
 def is_label(key: str) -> bool:
@@ -78,6 +92,30 @@ def _scoped(qs, user, scope):
 def _effective_label(case: Case) -> str:
     """A case's business-role label, applying the blank-defaults-to-owner rule."""
     return case.marketing_label or MarketingLabel.OWNER
+
+
+# The "cases connected to Us" side panel shows a case's outcome, not its raw
+# workflow status — the owner asked for exactly three buckets, named exactly
+# this way, and nothing finer: a dead case (fell through or was cancelled)
+# reads "Cancelled", a case Commercial has actually finished (final-approved
+# or fully shut) reads "Approved", and every other status — still moving
+# through Draft/Technical/Supply/Commercial, including the various
+# unsuppliable-pending states — reads "بدون نتیجه" ("no result yet"). Terminal
+# states that are neither a clean win nor an explicit cancel (e.g.
+# UNSUP_CLOSED) deliberately fall into the third bucket rather than being
+# guessed into "Cancelled" — the owner named exactly BURNED/CANCELLED for
+# that bucket and nothing else.
+_STATUS_CANCELLED = frozenset({CaseStatus.BURNED, CaseStatus.CANCELLED})
+_STATUS_APPROVED = frozenset({CaseStatus.FINAL_APPROVED, CaseStatus.FINAL_CLOSED})
+
+
+def _status_fa(status: str) -> str:
+    """A case's raw ``status`` bucketed into the three outcomes above."""
+    if status in _STATUS_CANCELLED:
+        return "کنسل"
+    if status in _STATUS_APPROVED:
+        return "تایید شده"
+    return "بدون نتیجه"
 
 
 # --------------------------------------------------------------------------- #
@@ -188,21 +226,30 @@ def cases_for_client(client: Client) -> list:
 
     Returns, e.g.::
 
-        [{"case_id": 41, "doc_no": "IN-2601-007-KA", "label": "sub"},
-         {"case_id": 55, "doc_no": "TE-2603-012-KA", "label": "owner"}]
+        [{"case_id": 41, "doc_no": "IN-2601-007-KA", "label": "sub",
+          "status": "FINAL_CLOSED", "status_fa": "تایید شده"},
+         {"case_id": 55, "doc_no": "TE-2603-012-KA", "label": "owner",
+          "status": "WITH_TECHNICAL", "status_fa": "بدون نتیجه"}]
 
     ``label`` is ``case.marketing_label`` or, when that field was left
-    blank, ``"owner"`` (the blank-defaults-to-owner rule).
+    blank, ``"owner"`` (the blank-defaults-to-owner rule). ``status`` is the
+    raw ``cases.constants.CaseStatus`` value; ``status_fa`` is that status
+    bucketed into the three outcomes the "cases connected to Us" panel shows
+    (see ``_status_fa``) — sent pre-bucketed so the panel never has to know
+    the full status list itself.
     """
-    cases = Case.objects.filter(client=client).only("id", "doc_no", "marketing_label")
+    cases = Case.objects.filter(client=client).only("id", "doc_no", "marketing_label", "status")
     return [
-        {"case_id": c.pk, "doc_no": c.doc_no, "label": _effective_label(c)}
+        {
+            "case_id": c.pk, "doc_no": c.doc_no, "label": _effective_label(c),
+            "status": c.status, "status_fa": _status_fa(c.status),
+        }
         for c in cases
     ]
 
 
 def label_counts(user, scope) -> dict:
-    """``{label key: how many companies carry it}`` for all twelve keys.
+    """``{label key: how many companies carry it}`` for all fourteen keys.
 
     Two queries total (one grouped read over ``Case``, one over
     ``ClientLabel``), regardless of client count — this is what
@@ -463,7 +510,8 @@ def connections_of_client(client: Client, user, scope) -> dict:
             {"label": "sub", "label_fa": "پیمانکار جزء — SUBCONTRACTOR",
              "source": "manual", "also_manual": False, "removable": True},
          ],
-         "cases": [{"case_id": 41, "doc_no": "IN-2601-007-KA", "label": "owner"}]}
+         "cases": [{"case_id": 41, "doc_no": "IN-2601-007-KA", "label": "owner",
+                    "status": "WITH_TECHNICAL", "status_fa": "بدون نتیجه"}]}
 
     ``labels`` lists only labels that actually apply to ``client``, in
     ``LABEL_KEYS`` order. ``cases`` is exactly ``cases_for_client(client)`` —

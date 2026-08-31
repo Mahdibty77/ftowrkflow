@@ -67,7 +67,15 @@
     canEdit: {{ can_edit|yesno:"true,false" }},
     isAdminTier: {{ is_admin_tier|yesno:"true,false" }},
     allCasesSearchUrl: "{% url 'marketing:all_cases_search' %}",
-    deepLinkCaseId: {% if deep_link_case_id %}{{ deep_link_case_id }}{% else %}null{% endif %}
+    deepLinkCaseId: {% if deep_link_case_id %}{{ deep_link_case_id }}{% else %}null{% endif %},
+    // Admin/GM click-through on the "cases connected to Us" panel
+    // (chart_interact.js's renderUsCasesPanelContent) needs a real case
+    // detail URL built from a plain numeric id it only has client-side.
+    // cases:case_detail is "<int:pk>/", so reversing it with a placeholder
+    // pk and stripping the placeholder AND the trailing slash it carries
+    // leaves the base "/cases/" for the JS to append `<case_id>/` onto —
+    // stripping the digits alone would leave a stray double slash.
+    caseDetailUrlBase: "{% url 'cases:case_detail' 999999999 %}".replace("999999999/", "")
   };
   // A live read of the CSRF cookie rather than a baked template value — the
   // same reasoning as itemcoder/templates/itemcoder/tool_case.html: it stays

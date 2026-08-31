@@ -65,29 +65,33 @@ TABS = (
 )
 DEFAULT_TAB = TABS[0][0]
 
-# The Persian role name + English abbreviation for each of the twelve
+# The Persian role name + English abbreviation for each of the fourteen
 # MarketingLabel keys, read off rolechart.ALL_FIELDS (the chart's own single
 # source for this text) rather than retyped here — so the Companies tab's tab
 # strip and label-editing panel can never drift from what the chart's own
 # cards call the same field.
 _LABEL_TEXT = {key: (fa, ab) for key, fa, ab in rolechart.ALL_FIELDS}
 
-# The six chart fields no data source feeds this round (no case field and no
+# The four chart fields no data source feeds this round (no case field and no
 # manual tag can ever apply to them) — always badge 0. See the module
-# docstring on ``home`` for where this is used.
-_INERT_FIELDS = ("project", "phase", "laboratory", "tpi", "supplier", "rival")
+# docstring on ``home`` for where this is used. supplier/rival used to be
+# here too; they moved out once a Marketing user could manually tag a
+# company under either one (see cases/constants.py::MarketingLabel and
+# marketing/models.py::ClientLabel) — ``services.label_counts`` now returns
+# a real (possibly nonzero) count for both, same as the other twelve.
+_INERT_FIELDS = ("project", "phase", "laboratory", "tpi")
 
 
 @login_required
 def home(request):
     """The Marketing workspace.
 
-    Every field on the chart is its own clickable card. Twelve of the
+    Every field on the chart is its own clickable card. Fourteen of the
     nineteen fields (``services.LABEL_KEYS``) are backed by
     ``services.companies_for_label`` — their badge is how many companies
     currently carry that label, manual or case-derived, scoped to this
     viewer. The "us" field is backed by ``services.us_connections`` instead
-    (every client with a case, unscoped). The remaining six fields
+    (every client with a case, unscoped). The remaining four fields
     (``_INERT_FIELDS``) have no data source this round and always badge 0 —
     see ``marketing/rolechart.py`` for how the chart draws an empty card.
     """

@@ -224,11 +224,17 @@
    over the canvas the same way #rcQueryPill and .rc-wizard-bar already do —
    --paper background, a border, --shadow-lg — rather than a new visual
    language of its own; anchored to the canvas's own right edge, with its own
-   top set inline (a percentage of the chart's viewBox height, so it tracks
-   the "us" node's centre-y at any responsive width). */
+   top set inline, in PIXELS, by chart_interact.js's positionUsCasesPanel() —
+   no CSS transform:translateY(-50%) any more. A plain centring transform
+   around the rival/supplier anchor let a tall panel's far edge sail straight
+   past the canvas's own bottom whenever that anchor sat low (as it usually
+   does, near the freed bottom-right corner) even though headroom sat unused
+   above it; the JS now measures the panel's own real rendered height each
+   time it opens and clamps its top so the WHOLE box — not just its centre —
+   stays inside the canvas. */
 .rc-us-cases-panel{
-  position:absolute; right:.6rem; z-index:6; transform:translateY(-50%);
-  width:360px; max-width:calc(100% - 1.2rem); box-sizing:border-box;
+  position:absolute; right:2rem; z-index:6;
+  width:440px; max-width:calc(100% - 4rem); box-sizing:border-box;
   background:var(--paper); border:1px solid var(--accent); border-radius:var(--radius-sm);
   box-shadow:var(--shadow-lg); padding:.55rem .6rem;
 }
@@ -239,7 +245,13 @@
 }
 /* The one scrollable region — height-capped so a client with a hundred-plus
    cases never grows the panel past a sane size or reflows anything else on
-   the chart; a plain scrollbar, no virtual scrolling or pagination. */
+   the chart; a plain scrollbar, no virtual scrolling or pagination. The cap
+   itself is set inline, per open, by chart_interact.js's own
+   usCasesListMaxHeight()/positionUsCasesPanel() — RELATIVE to the chart
+   canvas's own current height AND to how much room the panel's own anchor
+   point actually leaves above/below it, not a fixed pixel value that could
+   exceed a short canvas on a small screen; this 440px is only the
+   pre-JS/no-JS fallback. */
 .rc-us-cases-list{
   max-height:440px; overflow-y:auto;
   display:flex; flex-direction:column; gap:.5rem;
@@ -252,12 +264,19 @@
   direction:rtl; unicode-bidi:plaintext;
 }
 .rc-us-cases-row{
+  display:flex; align-items:center; justify-content:space-between; gap:.4rem;
   font-size:.78rem; color:var(--ink);
   padding:.08rem 0 .08rem .5rem; border-left:2px solid var(--line-soft);
   direction:ltr; unicode-bidi:normal;
 }
+/* Admin/GM only (chart_interact.js only ever adds this class for that
+   viewer, when CFG.caseDetailUrlBase is present) — the row navigates to that
+   case's own detail page; everyone else's row stays exactly as plain/inert
+   as it always was. */
+.rc-us-cases-row.is-clickable{ cursor:pointer; border-radius:6px; }
+.rc-us-cases-row.is-clickable:hover{ background:var(--cloud); }
 @media (max-width:640px){
-  .rc-us-cases-panel{ width:300px; }
+  .rc-us-cases-panel{ width:320px; right:1rem; max-width:calc(100% - 2rem); }
 }
 
 /* ---- The attach wizard's floating status bar -------------------------------
@@ -347,19 +366,17 @@
 }
 .rc-row-remove:hover{ background:var(--cloud); color:var(--ink); }
 
-/* The wizard's "picking" row — one company, one checkbox, reflecting whether
-   the wizard's source already holds THIS card's label. */
-.rc-row-picking{ cursor:default; }
-.rc-row-picking:hover{ background:transparent; }
+/* The wizard's own "picking" mode now reuses the Companies tab's tick-row
+   shape (.mc-panel-row et al., further down this file) via
+   chart_interact.js's buildTickRow() — nothing bespoke lives here for it
+   any more.
 
-/* The read-only "name plus stacked case badges" row shape — used by the
-   mid-query contextual view (renderContextualQueryRow, chart_interact.js)
-   for a lit/focused card's own filtered slice while an Inquiry is active.
-   Never clickable: it is a read-out of the already-running query, not a
-   new selection. */
+   The read-only "name only" row shape — used by the mid-query contextual
+   view (renderContextualQueryRow, chart_interact.js) for a lit/focused
+   card's own read-out while an Inquiry is active. Never clickable: it is a
+   read-out of the already-running query, not a new selection. */
 .rc-row-static{ flex-direction:column; align-items:flex-start; gap:.25rem; cursor:default; }
 .rc-row-static:hover{ background:transparent; }
-.rc-row-cases{ display:flex; flex-direction:column; align-items:flex-start; gap:.2rem; }
 
 .rc-modal-actions{
   display:flex; gap:.4rem; padding:.6rem .7rem; border-top:1px solid var(--line-soft);
@@ -406,19 +423,30 @@
    template and in companies.js's own selectors, purely as hooks (the
    data-label querying, the is-active toggling) — see companies.js. All
    that's left to style here is what's genuinely different about THIS strip:
-   the container's own flex-wrap (not the archive page's horizontal-scroll
-   row — thirteen tabs read better wrapped onto the panel's own full width
-   than clipped past its right edge), and no per-field colour at all — every
-   button here simply leaves --tab-sc at .archive-status-tab's own inherited
-   --accent default rather than setting one of its own, the same reason the
-   archive page's own "All" tab has no .ast-dot either. */
+   nowrap plus horizontal scroll, the SAME mechanism the case archive page's
+   own .archive-status-tabs already uses (static/css/app.css) — with up to
+   fourteen tabs now (twelve labels plus the Rival/Supplier pair), wrapping
+   onto a second row read worse than a strip that scrolls, so this container
+   matches that reference rule's flex-wrap/overflow-x/scrollbar-width
+   properties exactly rather than wrapping onto the panel's own full width —
+   and no per-field colour at all — every button here simply leaves --tab-sc
+   at .archive-status-tab's own inherited --accent default rather than
+   setting one of its own, the same reason the archive page's own "All" tab
+   has no .ast-dot either. */
 .mc-tabs{
-  display:flex; flex-wrap:wrap; align-items:stretch;
+  display:flex; flex-wrap:nowrap; align-items:stretch;
   gap:.4rem .5rem; margin:0 0 .8rem; padding:.4rem;
   background:var(--cloud); border:1px solid var(--line);
   border-radius:14px; box-shadow:var(--shadow-sm, 0 1px 2px rgba(15,23,42,.04));
+  overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:thin;
 }
-.mc-tabs .archive-status-tab{ flex:1 1 8rem; }
+/* Matches .archive-status-tab's own flex-basis (static/css/app.css): flex-
+   basis 0 + a min-width floor, not a fixed 8rem basis, so with fourteen tabs
+   (twelve labels plus the two new Rival/Supplier ones) and nowrap above,
+   tabs shrink together down to that floor and only then does the strip
+   scroll horizontally, instead of every tab being squeezed uncomfortably
+   narrow or fighting the scroll behaviour. */
+.mc-tabs .archive-status-tab{ flex:1 1 0; min-width:4.2rem; }
 /* The tab strip's own text is English-only now (companies.js swaps in each
    tab's short English form on load) — no more Persian/rtl override here.
    Every OTHER Persian spot in this tab (company names, the chips'/panel's
@@ -457,12 +485,26 @@
    share a column boundary — nothing here actually lines up as a table. A
    grid on the row container instead fixes both columns' widths once, for
    the whole list, so every row's name starts at the same x and every row's
-   tags start at the same x too. Tags stay DOM-first/name second (same ltr
-   placement reasoning as above — tags on the left, name on the right), so
-   the tags column is the flexible 1fr track and the name gets the
-   consistent-width one. Label-tab rows (no .mc-row-all) are untouched. */
+   tags start at the same x too.
+
+   Name on the left, tags on the right — matching cases/client_list.html's
+   own Name-before-Labels column order. This page is RTL, so a grid's FIRST
+   column renders on the visual RIGHT, not the left — the reverse of plain
+   ltr flow. To put the name on the left, it has to sit in the grid's SECOND
+   column now (grid-template-columns swapped to fixed-track-first,
+   1fr-second below), with TAGS taking the first/right track instead. Since
+   a grid's own DOM order also has to agree with which named grid-column an
+   element is placed in (there is no explicit grid-column-name assignment
+   here, just source order), companies.js's buildRow appends the TAGS
+   element before the NAME element for an .mc-row-all row now (the reverse
+   of the label-tab branch) — see that function's own comment. The fixed-
+   width track stays assigned to TAGS and the flexible 1fr track stays
+   assigned to NAME (names can run long) — only which column each element
+   sits in, and which the DOM puts first, swapped from the earlier
+   right/left assignment. Label-tab rows (no .mc-row-all) are untouched —
+   still tags-left/name-right flex order, unaffected by this grid. */
 .mc-row.mc-row-all{
-  display:grid; grid-template-columns:1fr minmax(160px,260px);
+  display:grid; grid-template-columns:minmax(160px,260px) 1fr;
   align-items:start; gap:.6rem;
 }
 .mc-row-all .mc-row-tags{ max-width:none; }

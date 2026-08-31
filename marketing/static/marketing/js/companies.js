@@ -277,9 +277,20 @@
     // Tags first, name second — in a plain left-to-right flex row that puts
     // the first child on the left, this alone gives the tags zone the left
     // side and the name zone the right side (see this section's own CSS)
-    // without needing any dir/rtl trickery on the row itself.
-    row.appendChild(tags);
-    row.appendChild(nameWrap);
+    // without needing any dir/rtl trickery on the row itself. The "All" tab's
+    // own two-column grid (.mc-row-all) wants the OPPOSITE visual order —
+    // name on the left, tags on the right, matching cases/client_list.html's
+    // own Name-before-Labels column order — so that row reverses which
+    // element it appends first instead of touching `dir`, which would also
+    // flip the Persian name text's own reading direction. See .mc-row-all's
+    // own comment in rolechart.css for the matching grid-column swap.
+    if (isAllTab) {
+      row.appendChild(nameWrap);
+      row.appendChild(tags);
+    } else {
+      row.appendChild(tags);
+      row.appendChild(nameWrap);
+    }
 
     row.addEventListener('click', function (ev) {
       if (ev.target.closest && ev.target.closest('.rc-row-remove')) { return; }

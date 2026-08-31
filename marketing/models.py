@@ -9,11 +9,13 @@ registers it (see ``marketing/services.py::get_or_create_client``, which
 creates a ``Client`` exactly the way ``cases/views.py::client_add`` already
 does).
 
-A client can carry any number of the twelve business-role tags in
+A client can carry any number of the fourteen business-role tags in
 ``cases.constants.MarketingLabel`` at once (a company can be both Sponsor and
-Subcontractor, say). Those tags come from two independent sources that this
-app merges only at read time (see ``marketing/services.py``, in particular
-``companies_for_label`` / ``connections_of_client``):
+Subcontractor, say) — the twelve in ``MarketingLabel.CHOICES`` plus rival and
+supplier from ``MarketingLabel.MANUAL_ONLY_CHOICES`` (see ``ClientLabel.label``
+below for why those two are manual-only). Those tags come from two independent
+sources that this app merges only at read time (see ``marketing/services.py``,
+in particular ``companies_for_label`` / ``connections_of_client``):
 
 * MANUAL — a :class:`ClientLabel` row a Marketing user put on the client by
   hand. That is the only thing this module still models.
@@ -78,7 +80,14 @@ class ClientLabel(models.Model):
     """
 
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="marketing_labels")
-    label = models.CharField(max_length=32, choices=MarketingLabel.CHOICES)
+    # Fourteen choices, not twelve: MarketingLabel.CHOICES (the twelve roles
+    # a CASE's client could hold) PLUS MarketingLabel.MANUAL_ONLY_CHOICES
+    # (rival/supplier — two chart fields that can only ever be a MANUAL tag,
+    # never a case's own marketing_label). See the boundary spelled out on
+    # MarketingLabel itself in cases/constants.py: Case.marketing_label
+    # stays on CHOICES alone, deliberately, so this field is the only place
+    # the extra two are valid.
+    label = models.CharField(max_length=32, choices=MarketingLabel.CHOICES + MarketingLabel.MANUAL_ONLY_CHOICES)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True,
         on_delete=models.SET_NULL, related_name="+",

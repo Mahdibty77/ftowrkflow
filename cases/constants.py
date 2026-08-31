@@ -116,6 +116,40 @@ class MarketingLabel:
     ]
     LABELS = dict(CHOICES)
 
+    # Two more chart fields — the sub-supplier and a competitor — that are
+    # NOT among the twelve above, and never will be: per this class's own
+    # docstring, neither is a meaningful answer to "what role did THIS CASE'S
+    # CLIENT play," so they stay out of CHOICES/LABELS and therefore out of
+    # Case.marketing_label's own choices and the case-creation/edit forms
+    # (cases/forms.py, cases/templates/cases/case_create.html,
+    # cases/templates/cases/edit_items.html) entirely — a case cannot
+    # sensibly be "for" a competitor or a sub-supplier.
+    #
+    # But marketing/rolechart.py draws both of them as ordinary chart cards
+    # (see its SLOTS/LABEL_KEYS), and the owner wants a Marketing user able
+    # to hand-tag a company as one or the other — "this company is a
+    # competitor we're tracking," "this company supplies us" — exactly the
+    # kind of fact marketing/models.py::ClientLabel already exists to hold.
+    # ClientLabel.label is the ONLY consumer of this list: its ``choices``
+    # is ``MarketingLabel.CHOICES + MarketingLabel.MANUAL_ONLY_CHOICES``, so
+    # a company can carry these two tags manually while a case still can
+    # never hold them. Kept as a SEPARATE list, deliberately never merged
+    # into CHOICES/LABELS, so every existing consumer of CHOICES/LABELS
+    # (the case forms above, and the ``posted_label in MarketingLabel.LABELS``
+    # validation in cases/views.py) keeps rejecting "rival"/"supplier" as a
+    # case's own marketing_label without needing to know this list exists.
+    #
+    # Same "<Persian> — <ENGLISH>" formatting as CHOICES, and the same
+    # Persian role text / English abbreviation marketing/rolechart.py's
+    # SLOTS tuple already uses for these two keys, so the manual-tag choice
+    # in ClientLabel reads identically to the card it tags on the chart.
+    RIVAL = "rival"
+    SUPPLIER = "supplier"
+
+    MANUAL_ONLY_CHOICES = [
+        (RIVAL, "رقیب احتمالی — COMPETITOR"),
+        (SUPPLIER, "تأمین‌کننده — SUB-SUPPLIER"),
+    ]
 
 class CaseStatus:
     DRAFT = "DRAFT"

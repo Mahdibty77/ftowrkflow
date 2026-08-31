@@ -198,9 +198,10 @@
   // Positioned `position:absolute` inside `#rcCanvas`, the same containing
   // block `#rcQueryPill` already anchors to (see rolechart.css: `.rc-canvas`
   // is `position:relative`) — anchored to the canvas's right edge via CSS,
-  // vertically aligned here to the "us" node's own centre-y, read as a
-  // PERCENTAGE of the chart's own viewBox height so it stays aligned
-  // whether the responsive SVG is currently rendered wide or narrow.
+  // vertically placed here (in pixels, at open time) around
+  // usCasesAnchorY()'s own point but clamped to the canvas's own current
+  // bounds — see positionUsCasesPanel() below for why a plain percentage
+  // centred on that point is not enough on its own.
   // ------------------------------------------------------------------------
   var rcCanvas = document.getElementById('rcCanvas');
   var usCasesPanel = document.createElement('div');
@@ -225,32 +226,58 @@
   // Groups ``cases`` (the SAME array client_connections/us Inquiry already
   // fetched — nothing refetched here) by each row's own ``label`` key —
   // "خوشه‌ای" (clustered), the owner's own word — into one small
-  // sub-heading per label plus its doc numbers underneath, rather than one
+  // sub-heading per label plus its cases underneath, rather than one
   // flat list. The label's own display text is read off the matching label
   // card's own `data-role` attribute (nodesByField), the same Persian name
   // that card already shows, so nothing here has to duplicate FIELD_LABELS.
+  //
+  // Each case row also shows a small status badge (c.status_fa — the
+  // server-computed Persian status text now included alongside doc_no/label
+  // on every case entry this same array already carries) using the same
+  // .rc-row-badge pill this file already uses elsewhere for a small
+  // trailing tag; shown for every viewer, since it is purely informational.
+  // Admin/GM viewers (CFG.isAdminTier) additionally get the row itself
+  // clickable, navigating to that case's own detail page via
+  // CFG.caseDetailUrlBase — see home.html for how that URL base is built.
+  // Not gated for anyone else: a non-admin/GM viewer's row stays exactly as
+  // plain/unclickable as it always was.
   function renderUsCasesPanelContent(cases) {
     usCasesList.innerHTML = '';
     var order = [];
     var byLabel = {};
     cases.forEach(function (c) {
       if (!byLabel[c.label]) { byLabel[c.label] = []; order.push(c.label); }
-      byLabel[c.label].push(c.doc_no);
+      byLabel[c.label].push(c);
     });
     order.forEach(function (label) {
-      var docNos = byLabel[label];
+      var labelCases = byLabel[label];
       var group = document.createElement('div');
       group.className = 'rc-us-cases-group';
       var heading = document.createElement('div');
       heading.className = 'rc-us-cases-group-heading';
       var labelNode = nodesByField[label];
-      heading.textContent = (labelNode ? labelNode.getAttribute('data-role') : label) + ' (' + docNos.length + ')';
+      heading.textContent = (labelNode ? labelNode.getAttribute('data-role') : label) + ' (' + labelCases.length + ')';
       heading.setAttribute('dir', 'auto');
       group.appendChild(heading);
-      docNos.forEach(function (docNo) {
+      labelCases.forEach(function (c) {
         var row = document.createElement('div');
         row.className = 'rc-us-cases-row';
-        row.textContent = docNo;
+        var docSpan = document.createElement('span');
+        docSpan.textContent = c.doc_no;
+        row.appendChild(docSpan);
+        if (c.status_fa) {
+          var badge = document.createElement('span');
+          badge.className = 'rc-row-badge';
+          badge.textContent = c.status_fa;
+          badge.setAttribute('dir', 'auto');
+          row.appendChild(badge);
+        }
+        if (CFG.isAdminTier && CFG.caseDetailUrlBase && c.case_id != null) {
+          row.classList.add('is-clickable');
+          row.addEventListener('click', function () {
+            window.location.href = CFG.caseDetailUrlBase + c.case_id + '/';
+          });
+        }
         group.appendChild(row);
       });
       usCasesList.appendChild(group);
@@ -262,27 +289,89 @@
   // bottom-left corner — see rolechart.py) rather than to the "us" node's
   // own centre-y: the owner wants this panel genuinely OCCUPYING the
   // now-freed bottom-right corner, symmetrically opposite that stack, not
-  // floating near "us". Falls back to "us"'s own centre-y only if either
-  // rect is somehow missing (should not happen on this chart's fixed
-  // layout, but nodeRect() already returns null defensively).
+  // floating near "us". Weighted toward the TOP of that span (25% of the way
+  // down, not the exact 50% midpoint) so the panel itself sits comfortably
+  // higher rather than crowding the chart's own bottom edge. Falls back to
+  // "us"'s own centre-y only if either rect is somehow missing (should not
+  // happen on this chart's fixed layout, but nodeRect() already returns null
+  // defensively).
   function usCasesAnchorY() {
     var rivalRect = nodeRect('rival');
     var supplierRect = nodeRect('supplier');
     if (rivalRect && supplierRect) {
-      return (rivalRect.y + supplierRect.y + supplierRect.h) / 2;
+      var spanTop = rivalRect.y;
+      var spanBottom = supplierRect.y + supplierRect.h;
+      return spanTop + (spanBottom - spanTop) * 0.25;
     }
     var usRect = nodeRect('us');
     return usRect ? usRect.cy : null;
+  }
+
+  // The list's own max-height, in pixels, bounded against the CHART
+  // CANVAS's own current on-screen height rather than a fixed value that
+  // could exceed a short canvas on a small screen — re-measured every time
+  // the panel opens (openUsCasesPanel rebuilds it fresh each time anyway).
+  // ``chrome`` accounts for the panel's own title row and padding
+  // (.rc-us-cases-title plus the panel's own top/bottom padding). Reserves
+  // ``margin`` on BOTH the top and bottom of the canvas (not just once) —
+  // this is only the FIRST of two guards against the panel sticking out
+  // past the canvas: it caps the panel's total height against the canvas's
+  // own total height regardless of where the panel ends up sitting;
+  // positionUsCasesPanel() below is the second, tighter guard, clamping the
+  // panel's actual on-screen TOP against its own real rendered height once
+  // this cap has already been applied.
+  var US_CASES_PANEL_CHROME = 46; // title row + vertical padding, roughly
+  var US_CASES_PANEL_MARGIN = 24; // breathing room top/bottom within the canvas
+  function usCasesListMaxHeight() {
+    if (!rcCanvas) { return 440; }
+    var canvasH = rcCanvas.getBoundingClientRect().height;
+    if (!canvasH) { return 440; }
+    var available = canvasH - US_CASES_PANEL_CHROME - 2 * US_CASES_PANEL_MARGIN;
+    return Math.max(90, Math.min(620, available));
+  }
+
+  // Places the now-rendered, now-sized panel's own TOP so the whole box —
+  // not just the point it is nominally anchored to — stays inside the
+  // canvas. usCasesAnchorY() (in the SVG's own viewBox Y-units) is first
+  // converted to an actual on-screen pixel offset from the canvas's own top
+  // edge, the same viewBox-height ratio drawUsCasesConnector() already uses
+  // elsewhere in this file for the reverse conversion. The panel is then
+  // measured AT ITS REAL RENDERED SIZE (already capped by
+  // usCasesListMaxHeight() above, so a case-heavy client's list is already
+  // scrolling, not still growing) and centred on that pixel as closely as
+  // the canvas allows — clamped into [MARGIN, canvasH - height - MARGIN] so
+  // neither edge can ever sit outside the canvas. A plain CSS
+  // transform:translateY(-50%) used to do the centring instead, which broke
+  // exactly the case this function exists for: the rival/supplier anchor
+  // usually sits well down toward the canvas's own bottom-right corner, so
+  // centring blindly on it let a tall panel's bottom edge sail straight past
+  // the canvas even with plenty of headroom sitting unused above.
+  function positionUsCasesPanel(anchorY) {
+    if (!rcCanvas) { return; }
+    var canvasH = rcCanvas.getBoundingClientRect().height;
+    if (!canvasH) { return; }
+    var viewBoxParts = svg.getAttribute('viewBox').split(' ');
+    var viewH = parseFloat(viewBoxParts[3]);
+    var anchorPx = (anchorY / viewH) * canvasH;
+    var panelH = usCasesPanel.getBoundingClientRect().height ||
+      (usCasesList.getBoundingClientRect().height + US_CASES_PANEL_CHROME);
+    var top = anchorPx - panelH / 2;
+    var minTop = US_CASES_PANEL_MARGIN;
+    var maxTop = canvasH - panelH - US_CASES_PANEL_MARGIN;
+    top = maxTop >= minTop ? Math.max(minTop, Math.min(top, maxTop)) : Math.max(0, (canvasH - panelH) / 2);
+    usCasesPanel.style.top = top + 'px';
   }
 
   function openUsCasesPanel(cases) {
     var anchorY = usCasesAnchorY();
     if (anchorY === null) { return; }
     renderUsCasesPanelContent(cases);
-    var viewBoxParts = svg.getAttribute('viewBox').split(' ');
-    var viewH = parseFloat(viewBoxParts[3]);
-    usCasesPanel.style.top = (anchorY / viewH * 100) + '%';
+    usCasesList.style.maxHeight = usCasesListMaxHeight() + 'px';
+    // Unhidden BEFORE positioning — positionUsCasesPanel() needs the
+    // panel's own real rendered height, which a [hidden] (display:none)
+    // element cannot report.
     usCasesPanel.hidden = false;
+    positionUsCasesPanel(anchorY);
   }
 
   function hideUsCasesPanel() {
@@ -706,6 +795,18 @@
       var g = nodesByField[field];
       if (g && (g.classList.contains('is-lit') || g.classList.contains('is-focus'))) {
         searchWrap.hidden = true;
+        // Re-running Inquiry or Attach from inside an already-active query's
+        // read-out does not make sense — configureDefaultActions() just set
+        // both of these visible for a 'label' kind card moments ago; this
+        // overrides that specifically for the contextual case, leaving only
+        // the always-present Close button. attachBtn was already effectively
+        // dead here (selectedEntity is never set in this read-only mode) —
+        // hiding it alongside inquiryBtn is a small consistency improvement,
+        // not a behaviour change. Restored on the next open that does not
+        // hit this branch, since configureDefaultActions() runs fresh at the
+        // top of every openModalForField() call.
+        inquiryBtn.hidden = true;
+        attachBtn.hidden = true;
         renderContextualQueryRow(field);
         return;
       }
@@ -740,18 +841,15 @@
   // Not admin/GM-gated: any viewer can run an ordinary Inquiry from a label
   // card, and this reads the very same lastQueryData every viewer's
   // runInquiryForClient() already stashes (module-level, cleared by
-  // clearQueryMarks()). Shows just the queried company's own name,
-  // annotated with THIS field's own case doc numbers in the identical
-  // "via case X, Y" style runInquiryForClient's own ``annotations.us``
-  // already uses for the query-line tooltip — reusing the read-only
-  // name-plus-stacked-badges row shell (.rc-row-static/.rc-row-cases/
-  // .rc-row-badge) the old renderUsRows used for the same shape, since this
-  // row is equally never clickable (it is a read-out of the active query,
-  // not a new selection).
+  // clearQueryMarks()). Shows just the queried company's own name — no case
+  // numbers here (the owner's own words: "its case names come up which
+  // should not come up") — reusing the read-only static row shell
+  // (.rc-row-static) the old renderUsRows used for the same shape, since
+  // this row is equally never clickable (it is a read-out of the active
+  // query, not a new selection).
   function renderContextualQueryRow(field) {
     listEl.innerHTML = '';
     if (!lastQueryData) { renderEmptyRow('Nothing connected yet.'); return; }
-    var docNos = lastQueryData.byField[field] || [];
     var row = document.createElement('div');
     row.className = 'rc-row rc-row-static';
     var name = document.createElement('span');
@@ -759,15 +857,6 @@
     name.textContent = lastQueryData.client.name;
     name.setAttribute('dir', 'auto');
     row.appendChild(name);
-    if (docNos.length) {
-      var casesWrap = document.createElement('div');
-      casesWrap.className = 'rc-row-cases';
-      var line = document.createElement('span');
-      line.className = 'rc-row-badge';
-      line.textContent = 'via case ' + docNos.join(', ');
-      casesWrap.appendChild(line);
-      row.appendChild(casesWrap);
-    }
     listEl.appendChild(row);
   }
 
@@ -944,18 +1033,30 @@
   }
 
   // ---- wizard "picking" mode: reopening ANOTHER label card while armed ---
-  // One row: the wizard's own source company, with a single checkbox for
-  // THIS card's label — fetched fresh from client_connections rather than
-  // the heavier label_companies list, since all that is needed here is a
-  // yes/no answer about one client.
+  // B's own REAL, FULL existing company list — fetched via CFG.labelCompaniesUrl
+  // the same way fetchLabelCompanies()/buildLabelRow() fetch and render it for
+  // normal browsing — not just a single fact about the wizard's source (X).
+  // Every company B already carries renders as a read-only tick-row (no click
+  // handler at all — this is a wizard for managing X specifically, not a bulk
+  // editor for B); exactly one row is interactive: X's own, which reuses the
+  // EXACT same staging mechanism this function always had (toggle
+  // armedWizard.staged[field], dropping the key back out when it matches the
+  // server's current state, then updateWizardBar()) — only the surrounding
+  // list/visuals changed. Renders the tick-row markup companies.js's own
+  // buildPanelRow established (a plain <div class="rc-row mc-panel-row">,
+  // is-checked/is-locked, a .mc-panel-check "✓" glyph, a .mc-panel-text name)
+  // via the shared buildTickRow() helper below, reusing rolechart.css's
+  // already-existing classes rather than inventing new ones.
   function renderPickingRow() {
     var seq = modalSeq;
     var field = modalField;
     var armedWizard = wizard;
-    get(CFG.clientConnectionsUrl, { client_id: armedWizard.source.id }).then(function (data) {
+    get(CFG.labelCompaniesUrl, { label: field }).then(function (data) {
       if (seq !== modalSeq || !data.ok || wizard !== armedWizard) { return; }
+      var companies = data.companies || [];
+      var sourceId = armedWizard.source.id;
       var entry = null;
-      data.labels.forEach(function (l) { if (l.label === field) { entry = l; } });
+      companies.forEach(function (c) { if (c.id === sourceId) { entry = c; } });
       var hasLabel = !!entry;
       // Disabled whenever this viewer could not remove it if it were
       // checked — a case-derived fact with no manual row of this viewer's
@@ -963,43 +1064,105 @@
       // spells out; the same rule also covers another user's manual tag,
       // by the identical "cannot remove what you don't own" principle.
       var lockedOn = hasLabel && !(entry && entry.removable);
-
-      var row = document.createElement('div');
-      row.className = 'rc-row rc-row-picking';
-      var checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
       var staged = Object.prototype.hasOwnProperty.call(armedWizard.staged, field)
         ? armedWizard.staged[field] : hasLabel;
-      checkbox.checked = staged;
-      checkbox.disabled = lockedOn;
-      row.appendChild(checkbox);
 
-      var name = document.createElement('span');
-      name.className = 'rc-row-name';
-      name.textContent = armedWizard.source.name;
-      name.setAttribute('dir', 'auto');
-      row.appendChild(name);
+      listEl.innerHTML = '';
 
-      if (lockedOn) {
-        var note = document.createElement('span');
-        note.className = 'rc-row-badge';
-        note.textContent = 'implied by case';
-        row.appendChild(note);
+      // A genuinely empty label (B has zero companies today — the owner's
+      // own "Subcontractor" example) still gets X's own togglable row below
+      // (the whole point of the wizard is letting X be the FIRST company
+      // tagged under an empty card) — this note sits ALONGSIDE it, not in
+      // place of it, reusing renderLabelRows' own empty-state text/class.
+      if (!companies.length) {
+        var empty = document.createElement('div');
+        empty.className = 'rc-row-empty';
+        empty.textContent = 'No companies tagged yet.';
+        listEl.appendChild(empty);
       }
 
-      checkbox.addEventListener('change', function () {
-        // Staging is a client-side wizard concept — nothing is sent to the
-        // server until Final Confirm. An entry that lands back on the
-        // server's own current state is dropped rather than kept at
-        // "no-op", so the wizard bar's own count only ever reflects real
-        // changes.
-        if (checkbox.checked === hasLabel) { delete armedWizard.staged[field]; }
-        else { armedWizard.staged[field] = checkbox.checked; }
-        updateWizardBar();
+      // B's genuine existing companies (every entry except X) — read-only
+      // context only: no click handler at all, so the reader can see what is
+      // already there without being able to accidentally edit it.
+      companies.forEach(function (company) {
+        if (company.id === sourceId) { return; }
+        listEl.appendChild(buildTickRow(company.name, true, true));
       });
 
-      listEl.appendChild(row);
+      // X's own row — the one interactive row in this list. Synthesized
+      // (not one of B's fetched rows) when X does not carry this label yet,
+      // the common case, which is WHY the wizard exists; a small "attaching"
+      // tag (.rc-row-badge, already used elsewhere in this file for a small
+      // trailing note) marks it as distinct from B's pre-existing members.
+      var checkedNow = staged;
+      var sourceRow = buildTickRow(armedWizard.source.name, checkedNow, lockedOn);
+      if (lockedOn) {
+        var lockedNote = document.createElement('span');
+        lockedNote.className = 'rc-row-badge';
+        lockedNote.textContent = 'implied by case';
+        sourceRow.appendChild(lockedNote);
+      } else if (!hasLabel) {
+        var attachingTag = document.createElement('span');
+        attachingTag.className = 'rc-row-badge';
+        attachingTag.textContent = 'attaching';
+        sourceRow.appendChild(attachingTag);
+      }
+      if (!lockedOn) {
+        var checkGlyph = sourceRow.querySelector('.mc-panel-check');
+        var toggle = function () {
+          // Staging is a client-side wizard concept — nothing is sent to the
+          // server until Final Confirm. An entry that lands back on the
+          // server's own current state is dropped rather than kept at
+          // "no-op", so the wizard bar's own count only ever reflects real
+          // changes.
+          checkedNow = !checkedNow;
+          sourceRow.classList.toggle('is-checked', checkedNow);
+          sourceRow.setAttribute('aria-checked', checkedNow ? 'true' : 'false');
+          checkGlyph.textContent = checkedNow ? '✓' : '';
+          if (checkedNow === hasLabel) { delete armedWizard.staged[field]; }
+          else { armedWizard.staged[field] = checkedNow; }
+          updateWizardBar();
+        };
+        sourceRow.addEventListener('click', toggle);
+        sourceRow.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(); }
+        });
+      }
+      listEl.appendChild(sourceRow);
     });
+  }
+
+  // The shared tick-row markup — identical shape to companies.js's own
+  // buildPanelRow (see that file's comments for why a plain clickable div
+  // replaced a native checkbox there): a <div class="rc-row mc-panel-row">
+  // toggling is-checked/is-locked, a .mc-panel-check "✓" glyph, a
+  // .mc-panel-text name. Returned un-wired — callers that need it
+  // interactive (renderPickingRow's own source row) attach their own
+  // click/keydown handlers; a `locked` row is left exactly as rendered here,
+  // with no tabIndex and aria-disabled set, since it is never meant to be
+  // interactive at all.
+  function buildTickRow(name, checked, locked) {
+    var row = document.createElement('div');
+    row.className = 'rc-row mc-panel-row';
+    row.classList.toggle('is-checked', checked);
+    row.classList.toggle('is-locked', locked);
+    row.setAttribute('role', 'checkbox');
+    row.setAttribute('aria-checked', checked ? 'true' : 'false');
+    if (!locked) { row.tabIndex = 0; } else { row.setAttribute('aria-disabled', 'true'); }
+
+    var check = document.createElement('span');
+    check.className = 'mc-panel-check';
+    check.setAttribute('aria-hidden', 'true');
+    check.textContent = checked ? '✓' : '';
+    row.appendChild(check);
+
+    var text = document.createElement('span');
+    text.className = 'mc-panel-text';
+    text.textContent = name;
+    text.setAttribute('dir', 'auto');
+    row.appendChild(text);
+
+    return row;
   }
 
   attachBtn.addEventListener('click', function () {
