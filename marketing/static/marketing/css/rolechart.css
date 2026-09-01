@@ -8,12 +8,17 @@
    cannot reach a single element on any other screen; it is loaded only by
    marketing/home.html, through {% block head_extra %}.
 
-   NO PER-FIELD COLOUR. The first version of this chart gave every field a
-   colour family; once every field became its own clickable card too, a fully
-   coloured chart read as "خیلی رنگارنگ" (too colourful) — see rolechart.py's
-   module docstring. Every colour below is a plain neutral from the
-   platform's own tokens (static/css/app.css) EXCEPT the query-mode highlight,
-   which uses the viewer's own --accent — see that section for why.
+   MOSTLY NO PER-FIELD COLOUR. The first version of this chart gave every
+   field a colour family; once every field became its own clickable card too,
+   a fully coloured chart read as "خیلی رنگارنگ" (too colourful) — see
+   rolechart.py's module docstring. Most colour below is still a plain
+   neutral from the platform's own tokens (static/css/app.css), with two
+   deliberate exceptions: the query-mode highlight, which uses the viewer's
+   own --accent (see that section for why), and a NARROWER version of the old
+   per-field colour brought back — the owner's own follow-up request — as a
+   per-ROW (not per-field) tint on cards that actually hold a company; see
+   "Per-row colour coding" below for why row, not field, and why a related
+   range of hues rather than a family of arbitrary ones.
    =========================================================================== */
 
 /* ---- The tab strip -------------------------------------------------------
@@ -34,7 +39,13 @@
    wraps them onto their own line together on a narrow screen. See home.html
    for why this is .page-head's second child. */
 .rc-header-widgets{
-  display:flex; flex-wrap:wrap; gap:.7rem; flex:0 1 auto;
+  display:flex; flex-wrap:wrap; gap:.7rem;
+  /* Grow to fill whatever .page-head's own space-between leaves after the
+     title block (h1 + the user's own role line) — the owner's own request:
+     these cards should start right where that breadcrumb text ends, not
+     sit pinned to the far right with a dead gap in between. flex-grow:1 is
+     what claims that leftover width instead of leaving it empty. */
+  flex:1 1 480px; min-width:280px;
 }
 
 /* ---- The "Quick Inquiry" / "Case Mode" cards --------------------------------
@@ -48,18 +59,24 @@
    this small floating CONTAINER around them is defined here, not the rows
    themselves.
 
-   A small, compact card — NOT a full-width block. */
+   Sized to GROW with .rc-header-widgets rather than pinned to one narrow
+   width (the owner's own follow-up: these two cards read as small boxes —
+   they should run the length of the header and their own fields should
+   read as noticeably wider too, not just the outer card). flex-basis below
+   is only the width each card claims BEFORE growing/shrinking into
+   whatever .rc-header-widgets actually has free. */
 .rc-quick-inquiry{
   display:flex; flex-direction:column; gap:.55rem;
-  width:280px; max-width:100%; flex:0 0 auto;
+  width:auto; max-width:100%; flex:1 1 320px; min-width:260px;
   background:var(--paper); border:1px solid var(--line); border-radius:var(--radius-sm);
   padding:.7rem .8rem; box-shadow:var(--shadow-sm, 0 1px 2px rgba(15,23,42,.04));
 }
 /* Quick Inquiry alone (not Case Mode, which keeps its own single-field
-   width) reads as a wide horizontal row — the owner's own request — rather
-   than the narrow stacked-card shape every other small header card still
-   uses, so it gets more room for its two side-by-side fields below. */
-.rc-quick-inquiry-wide{ width:460px; }
+   shape) carries a bigger flex-grow share and basis than Case Mode below —
+   the owner's own request — since it holds two side-by-side fields rather
+   than Case Mode's one, and reads as a wide horizontal card rather than the
+   narrow stacked-card shape every other small header card still uses. */
+.rc-quick-inquiry-wide{ flex:1.6 1 420px; }
 .rc-quick-title{
   font-size:.7rem; font-weight:800; letter-spacing:.03em; color:var(--muted);
   text-transform:uppercase;
@@ -98,7 +115,8 @@
 /* "+ Add a new role" — a plain text-style link/button under the role
    select, not a full button, so it reads as a secondary affordance next to
    the primary Confirm button below. Hidden outright for a view-only viewer
-   (CAN_EDIT gates this in chart_interact.js the same way it gates Attach). */
+   (CAN_EDIT gates this in chart_interact.js the same way it gates every
+   other write on this chart). */
 .rc-quick-add-role-toggle{
   align-self:flex-start;
   border:0; background:transparent; color:var(--accent);
@@ -112,7 +130,7 @@
 .rc-quick-confirm{ width:100%; justify-content:center; }
 
 @media (max-width:640px){
-  .rc-quick-inquiry{ width:100%; }
+  .rc-quick-inquiry{ width:100%; flex-basis:100%; }
   .rc-quick-row{ flex-direction:column; }
 }
 
@@ -123,7 +141,7 @@
    in .page-head next to rcCaseModeWidget. Hidden until a case is confirmed
    there; shown/filled/cleared entirely by chart_interact.js
    (updateCaseModeBanner). A plain inline strip, not a floating pill like
-   .rc-query-pill/.rc-wizard-bar below (those float OVER the canvas; this
+   .rc-query-pill/.rc-anchor-bar below (those float OVER the canvas; this
    banner is page flow, always visible above it without covering anything),
    using the same --accent-bordered "you are in a mode" language as those
    two anyway (an accent border, not a full accent fill) so it still reads
@@ -214,6 +232,61 @@
 .rc-node.has-entries .rc-role{ fill:var(--ink); }
 .rc-node.has-entries .rc-abbr{ fill:var(--ink); fill-opacity:.72; }
 
+/* ---- Per-row colour coding (has-entries cards only) ------------------------
+   The owner's own follow-up, in Persian: "هر ردیف و سطح یک رنگ جدا ولی در یک
+   رنج" (each row/level its own colour, but within a range) — PMT+MC given as
+   one example pair sharing a colour, Supervision+Design as another. Those
+   two pairs are exactly one shared ROW each in rolechart.py's own _ROWS
+   (R4: pmt/mc: R5: design/supervision) — confirming this is a per-ROW tint,
+   not a per-FIELD one: every card in the same row shares one colour, which
+   is also why this reads off data-row-index (rolechart.py's own ``row_index``,
+   now threaded onto every node's <g> in _role_chart.html) rather than the
+   field key.
+
+   Only a card that actually HAS a company (.has-entries, already the
+   chart's own "this field is filled in" class) gets tinted — an .is-empty
+   card, and the three inert/us kinds (project/phase/laboratory/tpi are
+   "inert", "us" is "us" — see rolechart.py's _kind_of), stay the plain
+   neutral --rc-card they already were; the [data-kind="label"] guard below
+   is what keeps "us" out even though "us" can itself be has-entries.
+
+   "In a range," the owner's own word, means related tones, not a rainbow —
+   ten hues (one per row) spaced across one restrained blue-to-violet arc,
+   same saturation/lightness for every one of them, each set as one
+   --rc-row-hue custom property per data-row-index value, then mixed into
+   --paper with color-mix the same way this file already mixes --accent into
+   --paper elsewhere (e.g. is-focus's own .rc-box fill above) — one shared
+   color-mix rule reads whichever hue the card's own row set, rather than ten
+   near-duplicate fill rules. */
+.rc-node[data-row-index="0"]{ --rc-row-hue:206; }
+.rc-node[data-row-index="1"]{ --rc-row-hue:218; }
+.rc-node[data-row-index="2"]{ --rc-row-hue:230; }
+.rc-node[data-row-index="3"]{ --rc-row-hue:242; }
+.rc-node[data-row-index="4"]{ --rc-row-hue:254; }
+.rc-node[data-row-index="5"]{ --rc-row-hue:266; }
+.rc-node[data-row-index="6"]{ --rc-row-hue:278; }
+.rc-node[data-row-index="7"]{ --rc-row-hue:290; }
+.rc-node[data-row-index="8"]{ --rc-row-hue:302; }
+.rc-node[data-row-index="9"]{ --rc-row-hue:314; }
+.rc-node.has-entries[data-kind="label"] .rc-box{
+  fill:color-mix(in srgb, hsl(var(--rc-row-hue) 60% 46%) 16%, var(--paper));
+}
+/* Dark: the same hue, mixed a little stronger against the theme's own
+   darker --paper so it still reads clearly rather than washing out — the
+   same reasoning the query-mode is-focus/is-lit dark block already uses for
+   its own --accent mix, just applied to --rc-row-hue here. */
+[data-mode="dark"] .rc-node.has-entries[data-kind="label"] .rc-box,
+[data-theme="dark"] .rc-node.has-entries[data-kind="label"] .rc-box{
+  fill:color-mix(in srgb, hsl(var(--rc-row-hue) 55% 58%) 26%, var(--paper));
+}
+/* is-focus/is-lit/is-case-anchor (query mode, further down this file) must
+   still read clearly on TOP of a row-tinted card, not get muddied by it —
+   each of those already sets its own .rc-box fill with a selector chain of
+   four-plus classes (e.g. .rc-chart.is-query .rc-node.is-focus .rc-box),
+   strictly more specific than the two-class-plus-attribute selector above,
+   so they already win by CSS specificity alone with no !important and no
+   source-order dependency needed here. */
+
 /* The count badge — a plain neutral pill, not a status colour: how many
    entities a viewer can see, nothing more. */
 .rc-badge{ fill:var(--cloud); stroke:var(--line); stroke-width:1; }
@@ -259,19 +332,25 @@
    rather than a family colour, because "this is what you selected" is a
    state, not a category. Light and dark read differently on purpose — see
    the dark block below. */
-/* .12 read as too faint — a dimmed card still has to stay genuinely usable
-   mid-query (clickable, legible, its own "+ Add company"/connection-staging
-   still reachable), not just theoretically present at near-zero opacity —
-   the owner's own request. Raised to .5: still clearly the "not what this
-   query is about" state next to a full-opacity is-focus/is-lit card, just no
-   longer reads as broken/disabled. */
-.rc-chart.is-query .rc-node{ opacity:.5; transition:opacity .18s ease; }
+/* An untouched card during an active query must NOT dim/fade — the owner
+   rejected that outright: "کارت‌های خاموش نباید حالت شیشه‌ای داشته باشند
+   باید روشن باشند ولی سفید" (untouched cards must not look glassy, they
+   should be lit/bright, staying neutral). Earlier rounds tried opacity .12,
+   then .5, on the whole card (fill + stroke + text all together, since
+   opacity applies to the <g>) — both still read as a translucent, dimmed
+   card, exactly the "شیشه‌ای" look being rejected here, not a lit neutral
+   one. So an untouched card gets NO opacity change at all now: it stays at
+   its own ordinary full-opacity has-entries/is-empty look (or its own
+   per-row tint — see the row-colour block below), distinguished from
+   is-focus/is-lit purely by NOT carrying their accent stroke/fill/glow, the
+   same way it is already distinguished from them outside query mode. */
 .rc-chart.is-query .rc-node.is-focus,
 .rc-chart.is-query .rc-node.is-lit{ opacity:1; }
 /* The chart's own default edges are unrelated to a query's own path (drawn
-   separately, in .rc-query-lines) and were staying at full strength while
-   every card around them dimmed, which competed with the highlighted path
-   instead of getting out of its way. They dim exactly as far as the nodes. */
+   separately, in .rc-query-lines) — these may still read as a lighter,
+   quieter channel next to the highlighted path (a LINE, not a card, so the
+   "glassy card" objection above does not apply to it) without competing with
+   it visually. */
 .rc-chart.is-query .rc-edge{ opacity:.5; transition:opacity .18s ease; }
 .rc-chart.is-query .rc-node.is-focus .rc-box,
 .rc-chart.is-query .rc-node.is-lit .rc-box{
@@ -435,7 +514,7 @@
    company has at least one case) — built, positioned and hidden entirely by
    chart_interact.js's openUsCasesPanel()/hideUsCasesPanel(); cleared by the
    same clearQueryMarks()/Clear flow as every other query-mode visual. Floats
-   over the canvas the same way #rcQueryPill and .rc-wizard-bar already do —
+   over the canvas the same way #rcQueryPill and .rc-anchor-bar already do —
    --paper background, a border, --shadow-lg — rather than a new visual
    language of its own; anchored to the canvas's own right edge, with its own
    top set inline, in PIXELS, by chart_interact.js's positionUsCasesPanel() —
@@ -493,19 +572,22 @@
   .rc-us-cases-panel{ width:320px; right:1rem; max-width:calc(100% - 2rem); }
 }
 
-/* ---- The attach wizard's floating status bar -------------------------------
+/* ---- The active-anchor indicator bar ---------------------------------------
    Fixed to the viewport, not the panel, so it survives scrolling and every
-   modal open/close while a wizard session is armed. */
-.rc-wizard-bar{
+   modal open/close while an anchor is active (chart_interact.js's
+   setActiveAnchor/deactivateAnchor) — reuses the OLD attach wizard's own
+   fixed-position floating-bar shape (renamed .rc-wizard-bar → .rc-anchor-bar
+   et al.) rather than a bespoke element. */
+.rc-anchor-bar{
   position:fixed; left:50%; bottom:1.4rem; transform:translateX(-50%);
   z-index:150; display:flex; align-items:center; gap:.6rem;
   background:var(--paper); border:1px solid var(--line); border-radius:100px;
   padding:.5rem .5rem .5rem 1rem; box-shadow:var(--shadow-lg);
 }
-.rc-wizard-bar[hidden]{ display:none; }
-.rc-wizard-label{ font-size:.72rem; font-weight:800; letter-spacing:.04em; color:var(--accent); text-transform:uppercase; }
-.rc-wizard-source{ font-size:.84rem; font-weight:700; color:var(--ink); }
-.rc-wizard-count{ font-size:.76rem; color:var(--muted); white-space:nowrap; }
+.rc-anchor-bar[hidden]{ display:none; }
+.rc-anchor-label{ font-size:.72rem; font-weight:800; letter-spacing:.04em; color:var(--accent); text-transform:uppercase; }
+.rc-anchor-source{ font-size:.84rem; font-weight:700; color:var(--ink); }
+.rc-anchor-role{ font-size:.76rem; color:var(--muted); white-space:nowrap; direction:rtl; unicode-bidi:plaintext; }
 
 /* ---- The modal --------------------------------------------------------------
    One shell, reused for every field and for both of its modes — see
@@ -551,7 +633,6 @@
    browser's default [hidden]{display:none} rule, so the LATER rule (the
    author stylesheet, here) would otherwise win and the button would keep
    rendering — these two need their own, more specific override. */
-.rc-modal-attach[hidden],
 #rcModalInquiry[hidden],
 .rc-modal-add[hidden]{ display:none; }
 .rc-modal-x{
@@ -583,15 +664,25 @@
 }
 .rc-row:hover{ background:var(--cloud); }
 .rc-row.is-selected{ background:var(--accent-soft); border-color:var(--accent); }
-/* A real row rendered inside wizard "picking" mode with its own connection-
-   target tick (chart_interact.js's buildLabelRow, ``connectCtx`` — change 1b)
-   — the exact same accent-soft tint .mc-panel-row.is-checked already uses
+/* A real row rendered inside "connect" mode with its own connection-target
+   tick (chart_interact.js's buildLabelRow, ``connectCtx``) — the exact same
+   accent-soft tint .mc-panel-row.is-checked already uses
    for the identical "ticked" meaning elsewhere in this file, applied here to
    a plain .rc-row instead, since this tick sits ON TOP OF a row that also
    still carries its own name/× exactly as normal browsing already renders
    it, rather than swapping the row for a fully bespoke tick-row shape. */
 .rc-row.is-checked{ background:var(--accent-soft); border-color:var(--accent); }
 .rc-row-name{ flex:1; }
+/* Case Mode's own result rows show the doc_no ALONE (chart_interact.js's
+   buildCaseModeRow — the owner's own complaint was the old " — client_name"
+   suffix wrapping awkwardly in this narrow floating dropdown). Scoped to
+   just this list, not .rc-row-name generally, since every OTHER use of that
+   class (company/label rows elsewhere on the chart) still wants its longer
+   name to wrap normally. min-width:0 is what lets a flex child actually
+   shrink enough for text-overflow to kick in instead of overflowing. */
+#rcCaseModeList .rc-row-name{
+  min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
 .rc-row-empty{ padding:1rem .5rem; text-align:center; font-size:.8rem; color:var(--muted); }
 
 /* A row's "via case <doc_no>" badge — a plain neutral tag, never
@@ -611,10 +702,20 @@
 }
 .rc-row-remove:hover{ background:var(--cloud); color:var(--ink); }
 
-/* The wizard's own "picking" mode now reuses the Companies tab's tick-row
-   shape (.mc-panel-row et al., further down this file) via
-   chart_interact.js's buildTickRow() — nothing bespoke lives here for it
-   any more.
+/* The "Activate as this" pivot control (chart_interact.js's buildLabelRow) —
+   available on every real row, never CAN_EDIT-gated (it is a read, exactly
+   like Inquiry, never a write), so it gets the platform's own --accent
+   rather than --row-remove's neutral --muted, reading as "go here" instead
+   of "delete this". */
+.rc-row-pivot{
+  flex:0 0 auto; border:0; background:transparent; color:var(--accent);
+  font-size:.95rem; line-height:1; cursor:pointer; padding:.1rem .35rem; border-radius:6px;
+}
+.rc-row-pivot:hover{ background:var(--accent-soft); }
+
+/* "Connect" mode's own synthesized "connecting" row reuses the Companies
+   tab's tick-row shape (.mc-panel-row et al., further down this file) via
+   chart_interact.js's buildTickRow() — nothing bespoke lives here for it.
 
    The read-only "name only" row shape — used by the mid-query contextual
    view (renderContextualQueryRow, chart_interact.js) for a lit/focused
@@ -632,11 +733,11 @@
 /* ---- The "+ Add company" panel (change 2) -----------------------------------
    A reusable right-side sub-panel, built once and appended into
    .rc-modal-columns (chart_interact.js), toggled hidden/visible exactly like
-   every other once-built piece of this file (the wizard bar, the "us" cases
+   every other once-built piece of this file (the anchor bar, the "us" cases
    panel). Opening it just widens the SAME modal (.rc-modal.is-wide, above) —
    never a second window — and this panel occupies the freed width as a
    second column beside .rc-modal-main. Available from every label card's
-   modal, in both default browsing and wizard "picking" mode alike — see
+   modal, in both default browsing and "connect" mode alike — see
    chart_interact.js's updateAddCompanyButtonVisibility(). */
 .rc-add-company-panel{
   display:flex; flex-direction:column;
@@ -859,7 +960,7 @@
 /* The panel's own "Confirm changes" / "Cancel" footer (change 4) — hidden
    until there is at least one staged change (companies.js's
    updatePanelFooter). Same .btn family the rest of the app already uses,
-   the same reuse chart_interact.js's own #rcWizardBar makes of it, rather
+   the same reuse chart_interact.js's own #rcAnchorBar makes of it, rather
    than a bespoke button style just for this footer. */
 .mc-panel-actions{
   display:flex; align-items:center; gap:.5rem;

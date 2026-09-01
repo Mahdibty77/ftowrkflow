@@ -1,17 +1,19 @@
 """The project role chart: its slots, its geometry, and nothing else.
 
 WHAT THIS DRAWS. One project, and every outside party that stands between the
-money and the metal, in a single top-to-bottom flow: sponsor, owner paired
-with its licensor, the project itself, its phase, project management, the
-design chain, the four contract types (drawn unconditionally now — there is
-no contract-model gating any more; see the module's own git history if that
-phrase means nothing to you), a subcontractor card under each of the three
-contract types that can actually hold one, third-party inspection in its own
-row beneath those three, the laboratory, our own position, and finally
-supplier — directly beneath our own position — and rival, detached alone in
-the chart's bottom-left corner. Twenty-one fields in total — ``SLOTS`` plus
-"project" and "us" — and every one of them appears EXACTLY ONCE,
-unconditionally, as its own clickable card.
+money and the metal, in a single top-to-bottom flow: sponsor paired with its
+licensor, the owner on its own row beneath them (no longer paired with the
+licensor — see the module's own git history), the project paired with its
+phase, project management, the design chain, the four contract types (drawn
+unconditionally now — there is no contract-model gating any more; see the
+module's own git history if that phrase means nothing to you), a
+subcontractor card under each of the three contract types that can actually
+hold one, third-party inspection paired with the laboratory in one merged
+row beneath those three, our own position, and finally supplier — directly
+beneath our own position — and rival, detached alone in the chart's
+bottom-left corner. Twenty-one fields in total — ``SLOTS`` plus "project" and
+"us" — and every one of them appears EXACTLY ONCE, unconditionally, as its own
+clickable card.
 
     SLOTS       -- the nineteen, in reading order
     ALL_FIELDS  -- SLOTS plus the project and us, in chart order
@@ -32,8 +34,9 @@ fields — see ``marketing/models.py::ClientLabel`` and
 actual case; this module only draws the card a field sits on and how many
 companies a viewer can see under it.
 
-GEOMETRY. A 1300-unit-wide viewBox, four columns plus a centre lane, rows 92
-apart — the same base grid the previous version of this chart used. Every row
+GEOMETRY. A 1300-unit-wide viewBox, four columns plus a centre lane, rows 105
+apart (up from the original 92, to give an expanded card room to grow — see
+``_GAP``'s own comment for the full story). Every row
 transition is drawn by ``_connect``: one point to one point is a line, one to
 many (or many to one) fans from that single point, and many to many converge
 on the centre lane and fan back out — there is no bus bar and no per-chain
@@ -56,29 +59,32 @@ COL = (200, 500, 800, 1100)     # the four contract columns
 CEN = 650                       # the centre lane
 PAIR = (COL[1], COL[2])         # the two columns a side-by-side pair sits on
 
-# Row gap — was 92, raised to 140 (roughly +52%) this round. A single-constant
-# tuning change, nothing else: a later phase lets a card grow taller WHILE an
-# Inquiry is active, to show a list of connected names (see
+# Row gap — was 92, raised to 140 (roughly +52%) last round, now brought back
+# down to 105 this round. Still comfortably more than the original 92: a
+# later phase lets a card grow taller WHILE an Inquiry is active, to show a
+# list of connected names (see
 # ``marketing/services.py::connections_of_client``'s ``connected`` field)
-# inside the card itself. That phase needs real, pre-existing breathing room
-# between every row so an expanded card has somewhere to grow into without
-# the whole chart needing genuine dynamic reflow — comfortably fits several
-# short name rows plus a small heading, without the chart looking sparse when
-# nothing is expanded. Every row Y below (R1..R10) and VIEW_H are formulas
-# that chain off this one constant, so raising it alone is enough — nothing
-# past this point needed to change by hand for the new spacing to take
-# effect.
-_GAP = 140
-R1 = 18            # sponsor
-R2 = R1 + _GAP     # owner / licensor
-R3 = R2 + _GAP     # the project
-R3B = R3 + _GAP    # phase
-R4 = R3B + _GAP    # pmt / mc
+# inside the card itself, and that phase still needs real, pre-existing
+# breathing room between every row so an expanded card has somewhere to grow
+# into without the whole chart needing genuine dynamic reflow. But
+# noticeably shorter than 140 overall now, both from this smaller gap and
+# from _ROWS below carrying two fewer rows than last round: licensor moved
+# up to pair with sponsor instead of owner (net zero rows — owner simply
+# takes the row licensor vacated), while project/phase and tpi/laboratory
+# each folded from two separate rows into one shared row apiece, for two
+# rows removed overall. Every row Y below (R1..R10) and VIEW_H are formulas
+# that chain off this one constant, so changing it alone is enough —
+# nothing past this point needed to change by hand for the new spacing to
+# take effect.
+_GAP = 105
+R1 = 18            # sponsor / licensor
+R2 = R1 + _GAP     # owner
+R3 = R2 + _GAP     # project / phase
+R4 = R3 + _GAP     # pmt / mc
 R5 = R4 + _GAP     # design / supervision
 R6 = R5 + _GAP     # the four contract types
 R7 = R6 + _GAP     # sub / sub_pc / sub_epc
-R7B = R7 + _GAP    # tpi
-R8 = R7B + _GAP    # laboratory
+R8 = R7 + _GAP     # tpi / laboratory
 R9 = R8 + _GAP     # us
 R10 = R9 + _GAP    # rival / supplier
 VIEW_H = R10 + NODE_H + 26
@@ -194,6 +200,18 @@ def _kind_of(key):
 # needs; ``build`` walks this once for the nodes and once more, pairwise,
 # for the connectors between one row and the next.
 #
+# This round re-paired three of these rows to shorten the chart: licensor
+# moved up to sit beside sponsor on R1, leaving owner alone on its own row
+# (R2) again instead of paired with licensor; project and phase — previously
+# two separate rows — now share one row (R3), paired the same way
+# sponsor/licensor and pmt/mc already were; and tpi and laboratory —
+# likewise previously two separate rows — now share one row (R8) the same
+# way. None of this needed a new edge shape in ``_connect``: it already
+# handles 2-parent-to-1-child (R1 -> R2), 1-to-2 (R2 -> R3), and 3-to-2 via
+# centre-lane convergence (R7 -> R8, three subcontractor cards down to the
+# tpi/laboratory pair) — the same generic shapes it already drew elsewhere
+# on this chart.
+#
 # rival sits alone in the chart's OWN bottom-left corner (COL[0], the
 # outermost established column — not a new constant): the owner asked for it
 # detached, with no edge tying it to anything else on the default chart. See
@@ -204,16 +222,14 @@ def _kind_of(key):
 # is left deliberately empty here — a later phase grows a panel there in the
 # chart's own JS/CSS, so nothing else should be placed at COL[3] on this row.
 _ROWS = (
-    (R1,  (("sponsor", CEN),)),
-    (R2,  (("owner", PAIR[0]), ("licensor", PAIR[1]))),
-    (R3,  (("project", CEN),)),
-    (R3B, (("phase", CEN),)),
+    (R1,  (("sponsor", PAIR[0]), ("licensor", PAIR[1]))),
+    (R2,  (("owner", CEN),)),
+    (R3,  (("project", PAIR[0]), ("phase", PAIR[1]))),
     (R4,  (("pmt", PAIR[0]), ("mc", PAIR[1]))),
     (R5,  (("design", COL[1]), ("supervision", COL[2]))),
     (R6,  (("c", COL[0]), ("p", COL[1]), ("pc", COL[2]), ("epc", COL[3]))),
     (R7,  (("sub", COL[1]), ("sub_pc", COL[2]), ("sub_epc", COL[3]))),
-    (R7B, (("tpi", CEN),)),
-    (R8,  (("laboratory", CEN),)),
+    (R8,  (("tpi", PAIR[0]), ("laboratory", PAIR[1]))),
     (R9,  (("us", CEN),)),
     (R10, (("rival", COL[0]), ("supplier", CEN))),
 )
@@ -240,9 +256,13 @@ def _badge(count, x, y, w):
     }
 
 
-def _node(key, role_fa, abbr, cx, y, count):
+def _node(key, role_fa, abbr, cx, y, count, row_index):
     """One clickable card. ``count`` is how many entities the viewer can see
-    in this field — the only thing, besides its two labels, a node shows."""
+    in this field — the only thing, besides its two labels, a node shows.
+    ``row_index`` is the 0-based position of this node's row within
+    ``_ROWS`` — every card sharing a row gets the same value. Plumbed
+    through only so a later phase can colour-code cards by which row they
+    sit on; nothing in this module reads it."""
     has_entries = count > 0
     x = cx - NODE_W // 2
     return {
@@ -251,6 +271,7 @@ def _node(key, role_fa, abbr, cx, y, count):
         "abbr": abbr,
         "count": count,
         "kind": _kind_of(key),
+        "row_index": row_index,
         "x": x,
         "y": y,
         "cx": cx,
@@ -324,7 +345,7 @@ def build(counts):
     for i, (y, row) in enumerate(_ROWS):
         for key, x in row:
             fa, ab = _LABEL_BY_KEY[key]
-            nodes.append(_node(key, fa, ab, x, y, counts.get(key, 0)))
+            nodes.append(_node(key, fa, ab, x, y, counts.get(key, 0), i))
         if i + 1 < len(_ROWS):
             y_next, row_next = _ROWS[i + 1]
             # Filtered per CHILD, not per row: a row can mix an excluded

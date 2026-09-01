@@ -1,13 +1,13 @@
 {% comment %}
   The project role chart — every field is its own clickable card now, so this
   partial is the whole interface: one inline SVG, one reusable modal, one
-  floating status bar for an attach session in progress, and one floating pill
-  for an active query. There is no separate directory tab any more — see
-  marketing/views.py.
+  floating indicator bar for the active anchor (if any — see
+  chart_interact.js's setActiveAnchor), and one floating pill for an active
+  query. There is no separate directory tab any more — see marketing/views.py.
 
   The chart no longer creates companies (that lives in the Companies tab a
   later phase builds) — there is no Add button here at all, only search/
-  attach/inquiry. And the modal's own behaviour is gated by each node's own
+  connect/inquiry. And the modal's own behaviour is gated by each node's own
   ``data-kind`` (see marketing/rolechart.py's ``_kind_of``): "label" cards
   list and tag companies, the "us" card is a read-only case report, and
   "inert" cards (nothing feeds them this round) open to a plain empty state
@@ -28,7 +28,7 @@
 
   THIS TEMPLATE DOES NO ARITHMETIC. Every coordinate, every path and every
   count badge is computed in marketing/rolechart.py and arrives on ``chart``.
-  All the interaction — clicking a node, the modal, the attach wizard, the
+  All the interaction — clicking a node, the modal, the active anchor, the
   query highlight — lives in marketing/static/marketing/js/chart_interact.js,
   wired from the data-* attributes each node carries and from
   window.FT_MARKETING_CHART (set in home.html).
@@ -57,7 +57,7 @@
         {% for n in chart.nodes %}
         <g class="{{ n.cls }}" tabindex="0" role="button"
            data-field="{{ n.key }}" data-role="{{ n.role_fa }}" data-abbr="{{ n.abbr }}"
-           data-kind="{{ n.kind }}"
+           data-kind="{{ n.kind }}" data-row-index="{{ n.row_index }}"
            aria-label="{{ n.role_fa }} ({{ n.abbr }})">
           <title>{{ n.title }}</title>
           <rect class="rc-box" x="{{ n.x }}" y="{{ n.y }}" width="{{ n.w }}" height="{{ n.h }}" rx="10"/>
@@ -71,12 +71,18 @@
     </svg>
   </div>
 
-  <div class="rc-wizard-bar" id="rcWizardBar" hidden>
-    <span class="rc-wizard-label">Attach</span>
-    <span class="rc-wizard-source" id="rcWizardSource" dir="auto"></span>
-    <span class="rc-wizard-count" id="rcWizardCount"></span>
-    <button type="button" class="btn btn-sm btn-primary" id="rcWizardConfirm">Final Confirm</button>
-    <button type="button" class="btn btn-sm btn-ghost" id="rcWizardCancel">Cancel</button>
+  {% comment %}
+    The active-anchor indicator — a small persistent "Active: <company>
+    (<role>) — Deactivate" strip, shown whenever setActiveAnchor() (Inquiry /
+    case mode / the "Activate as this" pivot) has set one — reusing the OLD
+    attach wizard's own fixed-position floating-bar markup/ids/CSS
+    (chart_interact.js/rolechart.css), repurposed rather than rebuilt.
+  {% endcomment %}
+  <div class="rc-anchor-bar" id="rcAnchorBar" hidden>
+    <span class="rc-anchor-label">Active</span>
+    <span class="rc-anchor-source" id="rcAnchorSource" dir="auto"></span>
+    <span class="rc-anchor-role" id="rcAnchorRole" dir="auto"></span>
+    <button type="button" class="btn btn-sm btn-ghost" id="rcAnchorDeactivate">Deactivate</button>
   </div>
 
   <div class="rc-modal-overlay" id="rcModalOverlay" hidden>
@@ -91,7 +97,6 @@
       </div>
       <div class="rc-modal-list" id="rcModalList"></div>
       <div class="rc-modal-actions" id="rcModalActionsDefault">
-        <button type="button" class="btn btn-sm rc-modal-attach" id="rcModalAttach">Attach · چسباندن</button>
         <button type="button" class="btn btn-sm" id="rcModalInquiry">Inquiry · استعلام</button>
         <button type="button" class="btn btn-sm btn-ghost" id="rcModalCloseBtn">Close</button>
       </div>

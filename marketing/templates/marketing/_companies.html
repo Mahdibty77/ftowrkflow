@@ -65,9 +65,10 @@
 {# is this panel's own "Confirm changes" / "Cancel" footer, hidden by #}
 {# default and shown only once there is at least one staged change #}
 {# (companies.js's updatePanelFooter), the same conceptual staged-then- #}
-{# confirm pattern chart_interact.js's own attach wizard (#rcWizardBar) #}
-{# already uses for its own picking-mode checkbox, though this footer lives #}
-{# inside the panel itself rather than floating over the whole page. #}
+{# confirm pattern chart_interact.js's own "connect" mode (a card's own #}
+{# Confirm button, #rcModalConfirmCard) already uses for its own staged #}
+{# connection ticks, though this footer lives inside the panel itself #}
+{# rather than on a modal action bar. #}
 <div class="rc-modal-overlay" id="mcPanelOverlay" hidden>
   <div class="rc-modal mc-panel" role="dialog" aria-modal="true" aria-labelledby="mcPanelTitle">
     <div class="rc-modal-head">
