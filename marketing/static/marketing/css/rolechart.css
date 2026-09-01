@@ -25,30 +25,50 @@
 .rc-tabs .tab:hover{ text-decoration:none; }
 .rc-tabs .tab{ display:inline-block; }
 
-/* ---- The top-of-page "Quick Inquiry" card ----------------------------------
-   Lives in home.html's own .page-head, ABOVE .rc-chart, not inside it — so
-   it gets its own small vocabulary here rather than reusing .rc-chart's
-   `position:relative` container or its full-size .rc-modal-list (built for
-   a tall popover, not a few inches of header space). Every row inside its
-   company dropdown and its "add a new role" affordance still reuses
-   .rc-row / .rc-row-name / .rc-row-empty / .mc-row-add exactly as the
-   chart's own modal does — chart_interact.js's createCompanyPicker() builds
-   identical rows for both call sites, so only the small floating CONTAINER
-   around them is new here, not the rows themselves.
+/* ---- The top-of-page header widgets ----------------------------------------
+   Lives in home.html's own .page-head, ABOVE .rc-chart, not inside it — a
+   plain flex row holding both small cards below (Quick Inquiry, then Case
+   Mode) so .page-head itself still only ever has two children and its own
+   flex/space-between (static/css/app.css) keeps working unchanged; this row
+   is what actually places the two cards side by side, with its own gap, and
+   wraps them onto their own line together on a narrow screen. See home.html
+   for why this is .page-head's second child. */
+.rc-header-widgets{
+  display:flex; flex-wrap:wrap; gap:.7rem; flex:0 1 auto;
+}
 
-   A small, compact card — NOT a full-width block — sitting beside the
-   heading via .page-head's own flex/space-between (static/css/app.css); see
-   home.html for why this is .page-head's second child. */
+/* ---- The "Quick Inquiry" / "Case Mode" cards --------------------------------
+   Both small header cards share this one class (home.html) rather than a
+   copy each — Case Mode's own markup just carries it alongside its own root
+   id, so both get the identical card chrome/field/dropdown look for free.
+   Every row inside either card's dropdown still reuses .rc-row / .rc-row-name
+   / .rc-row-empty / .mc-row-add exactly as the chart's own modal does —
+   chart_interact.js's createCompanyPicker() (Quick Inquiry's own company
+   field) and its case-mode search block both build identical rows, so only
+   this small floating CONTAINER around them is defined here, not the rows
+   themselves.
+
+   A small, compact card — NOT a full-width block. */
 .rc-quick-inquiry{
   display:flex; flex-direction:column; gap:.55rem;
   width:280px; max-width:100%; flex:0 0 auto;
   background:var(--paper); border:1px solid var(--line); border-radius:var(--radius-sm);
   padding:.7rem .8rem; box-shadow:var(--shadow-sm, 0 1px 2px rgba(15,23,42,.04));
 }
+/* Quick Inquiry alone (not Case Mode, which keeps its own single-field
+   width) reads as a wide horizontal row — the owner's own request — rather
+   than the narrow stacked-card shape every other small header card still
+   uses, so it gets more room for its two side-by-side fields below. */
+.rc-quick-inquiry-wide{ width:460px; }
 .rc-quick-title{
   font-size:.7rem; font-weight:800; letter-spacing:.03em; color:var(--muted);
   text-transform:uppercase;
 }
+/* The Company/Role fields, side by side rather than stacked — each field
+   keeps its own column shape (label above its own combo), this row just
+   places the two of them next to each other with equal width. */
+.rc-quick-row{ display:flex; gap:.6rem; align-items:flex-start; }
+.rc-quick-row .rc-quick-field{ flex:1 1 0; min-width:0; }
 .rc-quick-field{ display:flex; flex-direction:column; gap:.3rem; }
 .rc-quick-label{ font-size:.72rem; font-weight:650; color:var(--muted); }
 /* The positioning context for the company dropdown below — a plain
@@ -93,7 +113,32 @@
 
 @media (max-width:640px){
   .rc-quick-inquiry{ width:100%; }
+  .rc-quick-row{ flex-direction:column; }
 }
+
+/* ---- The "case mode" banner --------------------------------------------------
+   Sits at the TOP of the Relationship Map panel itself (home.html, just
+   above the {% include %} that renders .rc-chart below) — the chart's own
+   state, not the search widget's, so it lives with the chart rather than up
+   in .page-head next to rcCaseModeWidget. Hidden until a case is confirmed
+   there; shown/filled/cleared entirely by chart_interact.js
+   (updateCaseModeBanner). A plain inline strip, not a floating pill like
+   .rc-query-pill/.rc-wizard-bar below (those float OVER the canvas; this
+   banner is page flow, always visible above it without covering anything),
+   using the same --accent-bordered "you are in a mode" language as those
+   two anyway (an accent border, not a full accent fill) so it still reads
+   as one family of "active mode" indicator across the page. */
+.rc-case-mode-banner{
+  display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;
+  background:var(--accent-soft); border:1px solid var(--accent); border-radius:var(--radius-sm);
+  padding:.5rem .8rem; margin:0 0 .8rem;
+}
+.rc-case-mode-banner[hidden]{ display:none; }
+.rc-case-mode-banner-label{
+  font-size:.7rem; font-weight:800; letter-spacing:.04em; color:var(--accent-strong, var(--accent));
+  text-transform:uppercase;
+}
+.rc-case-mode-banner-text{ flex:1; min-width:0; font-size:.84rem; font-weight:700; color:var(--ink); }
 
 /* ---- Chart tokens ---------------------------------------------------------
    --rc-card leans on --paper, which already flips per theme (see
@@ -214,14 +259,20 @@
    rather than a family colour, because "this is what you selected" is a
    state, not a category. Light and dark read differently on purpose — see
    the dark block below. */
-.rc-chart.is-query .rc-node{ opacity:.12; transition:opacity .18s ease; }
+/* .12 read as too faint — a dimmed card still has to stay genuinely usable
+   mid-query (clickable, legible, its own "+ Add company"/connection-staging
+   still reachable), not just theoretically present at near-zero opacity —
+   the owner's own request. Raised to .5: still clearly the "not what this
+   query is about" state next to a full-opacity is-focus/is-lit card, just no
+   longer reads as broken/disabled. */
+.rc-chart.is-query .rc-node{ opacity:.5; transition:opacity .18s ease; }
 .rc-chart.is-query .rc-node.is-focus,
 .rc-chart.is-query .rc-node.is-lit{ opacity:1; }
 /* The chart's own default edges are unrelated to a query's own path (drawn
    separately, in .rc-query-lines) and were staying at full strength while
    every card around them dimmed, which competed with the highlighted path
    instead of getting out of its way. They dim exactly as far as the nodes. */
-.rc-chart.is-query .rc-edge{ opacity:.12; transition:opacity .18s ease; }
+.rc-chart.is-query .rc-edge{ opacity:.5; transition:opacity .18s ease; }
 .rc-chart.is-query .rc-node.is-focus .rc-box,
 .rc-chart.is-query .rc-node.is-lit .rc-box{
   stroke:var(--accent); stroke-width:2;
@@ -274,6 +325,52 @@
   filter:drop-shadow(0 0 3px var(--accent));
   opacity:.5;
 }
+
+/* ---- Case mode's own anchor card -------------------------------------------
+   A THIRD visual state, alongside is-focus/is-lit above: while case mode is
+   active, the case's own real client — playing whatever role its
+   marketing_label currently resolves to — is the FOCUS field, exactly as any
+   other Inquiry's focus card is (same is-focus mechanism/timing), PLUS this
+   one further mark (chart_interact.js only ever adds it for that one call —
+   see runInquiryForClient's own ``isCaseAnchor`` param) so a reader can tell
+   "this card is the case's own real anchor" apart from "this card just
+   happens to be lit because something was connected to it". Always paired
+   with is-focus (chart_interact.js never sets it alone), so every selector
+   below targets both classes together rather than overriding is-focus's own
+   rules by source order alone — keeps this correct regardless of where in
+   the file it sits.
+
+   Colour, not just a badge: --warn (already theme-aware — see
+   static/css/app.css's dark block — no dark-mode override needed here just
+   to follow it) stands in for --accent on this one card's own ring/glow,
+   the same "a real colour, not a heavier version of the same look" rule the
+   owner asked for between is-focus and is-lit themselves, applied a second
+   time between an ordinary focus card and THIS one. */
+.rc-chart.is-query .rc-node.is-focus.is-case-anchor .rc-box{
+  stroke:var(--warn);
+  fill:color-mix(in srgb, var(--warn) 14%, var(--paper));
+}
+.rc-chart.is-query .rc-node.is-focus.is-case-anchor .rc-box{
+  filter:drop-shadow(0 4px 12px color-mix(in srgb, var(--warn) 45%, transparent));
+}
+[data-mode="dark"] .rc-chart.is-query .rc-node.is-focus.is-case-anchor .rc-box,
+[data-theme="dark"] .rc-chart.is-query .rc-node.is-focus.is-case-anchor .rc-box{
+  filter:drop-shadow(0 0 9px var(--warn));
+  fill:color-mix(in srgb, var(--warn) 24%, var(--paper));
+}
+/* The small corner badge itself — a filled dot plus a check-mark glyph,
+   built as real SVG children of the anchor node's own <g> by
+   chart_interact.js's addCaseAnchorBadge()/removeCaseAnchorBadge(), not a
+   CSS pseudo-element (SVG has no ::before/::after content model to speak
+   of). A --paper ring around the dot is what keeps it legible sitting
+   directly on top of the box's own (possibly similarly-toned) fill in
+   either theme, the same reason .rc-badge already gets its own stroke. */
+.rc-case-anchor-dot{ fill:var(--warn); stroke:var(--paper); stroke-width:1.5; }
+.rc-case-anchor-glyph{
+  fill:none; stroke:var(--paper); stroke-width:1.6;
+  stroke-linecap:round; stroke-linejoin:round;
+}
+
 /* The "us" cases panel's own per-case-group branch lines (drawn in
    drawUsCasesConnector, chart_interact.js) — one light, thin flourish per
    group heading fanning out from the trunk .rc-query-line into the panel,
@@ -300,35 +397,37 @@
 .rc-query-pill[hidden]{ display:none; }
 .rc-query-name{ font-size:.78rem; font-weight:700; color:var(--ink); }
 
-/* ---- Per-card query-mode name overlay ---------------------------------------
-   While an Inquiry is active, every TOUCHED card (the focus card and every
-   lit card it connects to) gets one of these floating directly below its own
-   box — chart_interact.js's showNodeOverlays()/positionNodeOverlay(), built
-   and positioned the same "plain HTML over the responsive SVG, converted
-   through the viewBox scale" way #rcUsCasesPanel already is, and cleared by
+/* ---- In-place card growth (query mode) --------------------------------------
+   While an Inquiry is active, every TOUCHED card grows its own box taller in
+   place to list its "connected" company name(s) — chart_interact.js's
+   growCard()/showCardGrowth() — rather than a separate floating box stacked
+   below it (an earlier round's .rc-node-overlay, rejected outright: "very
+   bad," in the owner's own words). This element is positioned flush against
+   the card's own <rect> bottom edge, sharing its exact left/right extent, so
+   it reads as ONE taller card rather than two stacked boxes: no border-radius
+   on top (the box's own rx="10" corners are up there, untouched), only on
+   the bottom, and no border of its own on top either — see growCard()'s own
+   comment for why its background/border-color/border-width are all set
+   INLINE, read live off the card's own <rect> via getComputedStyle, rather
+   than duplicated here as a second copy of has-entries/is-empty/is-focus/
+   is-lit's fill and stroke rules. Its own max-height is also set inline, per
+   card, per query — the real measured gap to whatever sits below it, capped
+   at a "still just a bit taller" ceiling — with overflow-y:auto so a longer
+   name list scrolls internally instead of ever pushing into the row below.
+   Cleared, all at once, by chart_interact.js's clearCardGrowth(), called from
    the same clearQueryMarks() every other query-mode visual already goes
-   through. Deliberately capped small — the owner's own words, cards should
-   look "a bit taller", not lose the chart's own overall look — so this caps
-   at roughly 2-4 short rows and scrolls internally (overflow-y:auto) rather
-   than ever growing the chart. `transform:translateX(-50%)` centres it under
-   the card's own horizontal centre, the one x positionNodeOverlay() computes;
-   positioned entirely BELOW the card's own box, never overlapping it, so it
-   can never capture a click meant for the node itself. */
-.rc-node-overlay{
-  position:absolute; z-index:5; transform:translateX(-50%);
-  max-width:150px; box-sizing:border-box;
-  background:var(--paper); border:1px solid var(--accent); border-radius:6px;
-  box-shadow:var(--shadow-sm, 0 1px 2px rgba(15,23,42,.04));
-  padding:.2rem .4rem;
-  max-height:4.4em; overflow-y:auto;
-  display:flex; flex-direction:column; gap:.1rem;
+   through. */
+.rc-card-grow{
+  position:absolute; z-index:4; box-sizing:border-box;
+  border-style:solid; border-top:none; border-radius:0 0 10px 10px;
+  overflow-y:auto;
+  padding:.3rem .55rem;
+  display:flex; flex-direction:column; gap:.15rem;
 }
-.rc-node-overlay-name{
-  font-size:.66rem; line-height:1.15; font-weight:650; color:var(--ink);
+.rc-card-grow-name{
+  font-size:.72rem; line-height:1.25; font-weight:650; color:var(--ink);
   white-space:normal; word-break:break-word;
-}
-@media (max-width:640px){
-  .rc-node-overlay{ max-width:110px; }
+  direction:rtl; unicode-bidi:plaintext;
 }
 
 /* ---- The "us" cases panel ---------------------------------------------------
@@ -484,6 +583,14 @@
 }
 .rc-row:hover{ background:var(--cloud); }
 .rc-row.is-selected{ background:var(--accent-soft); border-color:var(--accent); }
+/* A real row rendered inside wizard "picking" mode with its own connection-
+   target tick (chart_interact.js's buildLabelRow, ``connectCtx`` — change 1b)
+   — the exact same accent-soft tint .mc-panel-row.is-checked already uses
+   for the identical "ticked" meaning elsewhere in this file, applied here to
+   a plain .rc-row instead, since this tick sits ON TOP OF a row that also
+   still carries its own name/× exactly as normal browsing already renders
+   it, rather than swapping the row for a fully bespoke tick-row shape. */
+.rc-row.is-checked{ background:var(--accent-soft); border-color:var(--accent); }
 .rc-row-name{ flex:1; }
 .rc-row-empty{ padding:1rem .5rem; text-align:center; font-size:.8rem; color:var(--muted); }
 

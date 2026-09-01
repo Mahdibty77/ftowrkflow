@@ -25,6 +25,17 @@ one also applies (``also_manual``) — see ``companies_for_label`` and
 reused identically in both directions (one label -> its companies, one
 client -> its labels).
 
+A THIRD mechanism sits alongside those two, added this round:
+``marketing/models.py::Connection``, a directed (client, role) -> (client,
+role) edge created through the chart's own Attach flow (see
+``create_connection``/``remove_connection`` below). A ``Connection`` never
+changes which labels a client itself DIRECTLY holds — the two sources above
+still decide that, unchanged — it only decides WHO is displayed under a
+label's chart card (``connections_of_client``'s new ``connected`` field), and
+it can add an entry to that report for a label the client never actually
+held itself, purely because the client connected some OTHER company under
+it (see ``connections_of_client``'s docstring for the worked example).
+
 Case data itself (which clients have which cases, and each case's effective
 label) is SHARED TRUTH, not Marketing-owned data, so every case-derived read
 in this module is deliberately UNSCOPED: every viewer — Expert, Supervisor,
@@ -54,7 +65,7 @@ from cases.constants import CaseStatus, MarketingLabel
 from cases.models import Case, Client
 from core.persian_text import normalize_persian
 
-from .models import ClientLabel
+from .models import ClientLabel, Connection
 
 # The fourteen labelable keys — NOT all nineteen chart fields. Twelve of
 # them (``MarketingLabel.CHOICES``) also describe a business role a case's
@@ -243,6 +254,73 @@ def toggle_manual_label(client: Client, label: str, user, add: bool) -> None:
         ClientLabel.objects.get_or_create(client=client, label=label, created_by=user)
     else:
         ClientLabel.objects.filter(client=client, label=label, created_by=user).delete()
+
+
+# --------------------------------------------------------------------------- #
+# Connections — directed, role-to-role edges between two clients
+# --------------------------------------------------------------------------- #
+# See ``marketing/models.py``'s module docstring (the "UPDATE — the link
+# concept is back, deliberately" section) and ``Connection``'s own docstring
+# for the full reasoning behind this shape. The short version: this is what
+# the chart's Attach flow creates when a user attaches one card's client to
+# ANOTHER company under a different card, and it is deliberately narrower
+# than the old, removed ``EntityLink`` — scoped to one (client, role) pair on
+# each end, never a bare arbitrary link between two names.
+def create_connection(anchor_client: Client, anchor_role: str, target_client: Client, target_role: str, user, case=None) -> None:
+    """Get-or-create the directed edge (anchor_client, anchor_role) ->
+    (target_client, target_role), optionally scoped to ``case``.
+
+    Idempotent, like ``toggle_manual_label(..., add=True)``: calling this
+    again for the exact same five-tuple (see ``Connection.Meta.constraints``)
+    is a no-op, not a duplicate row or an error — the chart's Attach flow can
+    be re-opened and re-submitted without special-casing "already attached".
+
+    Both roles are validated with ``is_label()`` — the same helper
+    ``marketing/views.py::_label_or_400`` already uses at the HTTP layer for
+    a plain manual tag — and an invalid one raises ``ValueError``, matching
+    this file's existing error-handling convention (see
+    ``get_or_create_client``'s "A name is required." raise for the other
+    example of it). Validating here, not just at the view, keeps this
+    function safe to call from anywhere else in the codebase later without
+    silently accepting a role key that does not actually exist.
+
+    ``created_by`` is stamped on first creation only (it is deliberately not
+    part of the uniqueness constraint, and re-attaching the same edge as a
+    different user does not steal ownership of the existing row) — see
+    ``Connection``'s own docstring for why ownership is tracked but not part
+    of "is this the same fact".
+    """
+    if not is_label(anchor_role):
+        raise ValueError(f"Unknown label: {anchor_role!r}.")
+    if not is_label(target_role):
+        raise ValueError(f"Unknown label: {target_role!r}.")
+    Connection.objects.get_or_create(
+        anchor_client=anchor_client, anchor_role=anchor_role,
+        target_client=target_client, target_role=target_role, case=case,
+        defaults={"created_by": user},
+    )
+
+
+def remove_connection(anchor_client: Client, anchor_role: str, target_client: Client, target_role: str, case, user) -> None:
+    """Delete the directed edge (anchor_client, anchor_role) ->
+    (target_client, target_role) scoped to ``case`` — but ONLY a row THIS
+    USER themselves created.
+
+    The exact same "cannot remove what you don't own" rule
+    ``toggle_manual_label(..., add=False)`` already enforces for
+    ``ClientLabel``, applied here identically: an Expert can never remove a
+    connection a Supervisor or another Expert attached, matching the
+    ownership boundary ``scope`` enforces everywhere else in this module. A
+    no-op (not an error) when no such row exists at all, or when it exists
+    but belongs to someone else — the caller cannot distinguish "gone" from
+    "not yours" from this function's return value alone, by design, same as
+    ``toggle_manual_label``.
+    """
+    Connection.objects.filter(
+        anchor_client=anchor_client, anchor_role=anchor_role,
+        target_client=target_client, target_role=target_role,
+        case=case, created_by=user,
+    ).delete()
 
 
 # --------------------------------------------------------------------------- #
@@ -523,31 +601,90 @@ def companies_for_label(label: str, user, scope) -> list:
     return results
 
 
-def connections_of_client(client: Client, user, scope) -> dict:
+def connections_of_client(client: Client, user, scope, case=None) -> dict:
     """The label/case report Inquiry shows when a COMPANY (not "us") is the focus.
 
     The mirror image of ``companies_for_label``: instead of "one label -> its
     companies", this is "one client -> its labels", using the identical
-    merge rule and the identical per-entry field meanings (``source``,
-    ``also_manual``, ``removable``, ``case_numbers`` — see
-    ``companies_for_label``'s docstring for what each means).
+    merge rule and the identical per-entry field meanings for the labels
+    ``client`` DIRECTLY holds (``source``, ``also_manual``, ``removable``,
+    ``case_numbers`` — see ``companies_for_label``'s docstring for what each
+    means). On top of that, every entry now also carries who is actually
+    CONNECTED under that label — see ``connected`` below, the whole point of
+    this round's change and the piece the next phase builds its display on.
 
-    Returns, e.g.::
+    ``case`` is optional and controls which ``Connection`` rows are visible:
+    ``None`` shows only general (case-less) connections; a specific ``Case``
+    ADDS that case's own case-scoped connections on top of the general ones
+    — see ``Connection``'s own docstring for the full visibility rule. Every
+    existing caller keeps working unchanged by simply not passing it.
+
+    Returns, e.g. — the worked example being the owner's own: ``client`` is
+    "Water & Sewage of East Azerbaijan Province", which holds "owner" (via a
+    case) and has, through the chart's Attach flow, connected "Ofogh Novin
+    Homa" as its Supervision Consultant::
 
         {"labels": [
             {"label": "owner", "label_fa": "کارفرمای اصلی — OWNER / CLIENT",
              "source": "case", "also_manual": False, "removable": False,
-             "case_numbers": ["IN-2601-007-KA"]},
-            {"label": "sub", "label_fa": "پیمانکار جزء — SUBCONTRACTOR",
-             "source": "manual", "also_manual": False, "removable": True},
+             "case_numbers": ["IN-2601-007-KA"],
+             "connected": [{"id": 3, "name": "Water & Sewage of East Azerbaijan Province"}]},
+            {"label": "supervision", "label_fa": "مشاور نظارت — SUPERVISION",
+             "source": None, "also_manual": False, "removable": False,
+             "connected": [{"id": 9, "name": "Ofogh Novin Homa"}]},
          ],
          "cases": [{"case_id": 41, "doc_no": "IN-2601-007-KA", "label": "owner",
                     "status": "WITH_TECHNICAL", "status_fa": "بدون نتیجه"}]}
 
-    ``labels`` lists only labels that actually apply to ``client``, in
-    ``LABEL_KEYS`` order. ``cases`` is exactly ``cases_for_client(client)`` —
-    the same list, kept under its own key so the "connected to Us via case
-    NNNN" display doesn't have to re-derive it from ``labels``.
+    ``labels`` still lists every label that applies to ``client`` in
+    ``LABEL_KEYS`` order, but now in TWO different senses:
+
+    * Labels ``client`` DIRECTLY holds (case-derived and/or manual, exactly
+      as before — this half of the merge is UNCHANGED) get the usual
+      ``source``/``also_manual``/``removable``/``case_numbers`` fields, plus
+      ``connected``.
+    * Labels that apply ONLY because a ``Connection`` targets them — i.e.
+      ``client`` connected some OTHER company under that role through the
+      chart's Attach flow, without ever holding the role itself — appear as
+      NEW entries with ``source: None``, ``also_manual: False``,
+      ``removable: False``, and no ``case_numbers`` key at all (there is no
+      case-derived or manual fact behind these entries directly — only a
+      connection). The owner's "supervision" example above is exactly this
+      case: Water & Sewage never held Supervision itself, so this entry
+      exists purely because of the Connection row.
+
+    ``connected`` — a ``[{"id", "name"}, ...]`` list of the companies to
+    actually display under this label's chart card, for EVERY entry:
+
+    * Gather every ``Connection`` row anchored at ``client`` in one of the
+      roles ``client`` genuinely, directly holds (i.e. ``anchor_role`` must
+      be a label from the DIRECTLY-HELD half above — a connection anchored
+      on a role ``client`` does not actually hold is never surfaced),
+      whose ``target_role`` equals THIS entry's own label, and whose
+      ``case`` is NULL (general — always visible) or equals the ``case``
+      argument (case-scoped — visible only when Inquiry is running in that
+      case's own context). Scoped by ``user``/``scope`` exactly like manual
+      ``ClientLabel`` rows are (see ``_scoped``) — an Expert only sees
+      connections THEY built until a Supervisor/GM looks at the union,
+      consistent with every other manually-created fact in this module.
+    * If any such rows exist, ``connected`` is their DISTINCT target
+      clients (deduplicated by id, since more than one connection can
+      legitimately point at the same target — e.g. one general and one
+      case-scoped row for the same pair).
+    * If none exist, ``connected`` falls back to ``client``'s own identity —
+      ``[{"id": client.pk, "name": client.name}]`` — which is exactly
+      TODAY's behaviour for a label with no explicit connection behind it: a
+      company that simply also holds that role itself, with nobody else
+      specifically connected through it. This fallback only ever applies to
+      a DIRECTLY-HELD entry — a connection-only entry (``source is None``)
+      never falls back to ``client``'s own identity, since ``client`` never
+      held that role to begin with; its ``connected`` list is always the
+      real connected target(s) (and such an entry only exists at all because
+      at least one such target exists).
+
+    ``cases`` is exactly ``cases_for_client(client)`` — the same list, kept
+    under its own key so the "connected to Us via case NNNN" display doesn't
+    have to re-derive it from ``labels``.
     """
     case_rows = cases_for_client(client)
     case_labels: dict = {}
@@ -562,21 +699,73 @@ def connections_of_client(client: Client, user, scope) -> dict:
         ClientLabel.objects.filter(client=client, created_by=user).values_list("label", flat=True)
     )
 
+    # Only a role client genuinely, directly holds (case-derived and/or
+    # manual) may ever be the ANCHOR of a connection that gets surfaced here
+    # — see the docstring's "connected" bullet list above. This is computed
+    # before the Connection query below precisely so that query can filter
+    # on it directly (``anchor_role__in=...``), rather than fetching every
+    # connection anchored at ``client`` and discarding some after the fact.
+    directly_held_labels = {
+        label for label in LABEL_KEYS
+        if label in case_labels or label in manual_labels
+    }
+
+    conn_qs = Connection.objects.filter(
+        anchor_client=client, anchor_role__in=directly_held_labels,
+    )
+    if case is not None:
+        conn_qs = conn_qs.filter(Q(case__isnull=True) | Q(case=case))
+    else:
+        conn_qs = conn_qs.filter(case__isnull=True)
+    conn_qs = _scoped(conn_qs, user, scope).select_related("target_client").order_by("target_client__name")
+
+    # {target_role: {target_client_id: target_client_name}} — an inner dict
+    # (not a set of tuples) so the SAME target client reached via more than
+    # one Connection row (e.g. a general row and a case-scoped one for the
+    # identical pair, deliberately allowed to coexist — see ``Connection``'s
+    # own docstring) collapses into a single entry, per the "DISTINCT target
+    # clients" rule above. Insertion order follows the query's own
+    # ``order_by("target_client__name")``, and a plain dict preserves
+    # insertion order, so the final list comes out name-sorted for free.
+    connected_by_role: dict = {}
+    for row in conn_qs:
+        connected_by_role.setdefault(row.target_role, {})[row.target_client_id] = row.target_client.name
+
     labels_out = []
     for label in LABEL_KEYS:
         is_case = label in case_labels
         is_manual = label in manual_labels
-        if not (is_case or is_manual):
+        directly_held = is_case or is_manual
+        connected_targets = [
+            {"id": cid, "name": name}
+            for cid, name in connected_by_role.get(label, {}).items()
+        ]
+        if not directly_held and not connected_targets:
             continue
-        entry = {
-            "label": label,
-            "label_fa": FIELD_LABELS[label],
-            "source": "case" if is_case else "manual",
-            "also_manual": is_case and is_manual,
-            "removable": label in own_manual_labels,
-        }
-        if is_case:
-            entry["case_numbers"] = case_labels[label]
+        if directly_held:
+            entry = {
+                "label": label,
+                "label_fa": FIELD_LABELS[label],
+                "source": "case" if is_case else "manual",
+                "also_manual": is_case and is_manual,
+                "removable": label in own_manual_labels,
+            }
+            if is_case:
+                entry["case_numbers"] = case_labels[label]
+            entry["connected"] = connected_targets or [{"id": client.pk, "name": client.name}]
+        else:
+            # A connection-only entry: client never held this role itself,
+            # only connected some other company under it — see the
+            # docstring's "connection-only" paragraph. No case-derived or
+            # manual fact backs this row, hence no source/case_numbers.
+            entry = {
+                "label": label,
+                "label_fa": FIELD_LABELS[label],
+                "source": None,
+                "also_manual": False,
+                "removable": False,
+                "connected": connected_targets,
+            }
         labels_out.append(entry)
 
     return {"labels": labels_out, "cases": case_rows}

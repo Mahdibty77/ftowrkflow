@@ -56,7 +56,19 @@ COL = (200, 500, 800, 1100)     # the four contract columns
 CEN = 650                       # the centre lane
 PAIR = (COL[1], COL[2])         # the two columns a side-by-side pair sits on
 
-_GAP = 92
+# Row gap — was 92, raised to 140 (roughly +52%) this round. A single-constant
+# tuning change, nothing else: a later phase lets a card grow taller WHILE an
+# Inquiry is active, to show a list of connected names (see
+# ``marketing/services.py::connections_of_client``'s ``connected`` field)
+# inside the card itself. That phase needs real, pre-existing breathing room
+# between every row so an expanded card has somewhere to grow into without
+# the whole chart needing genuine dynamic reflow — comfortably fits several
+# short name rows plus a small heading, without the chart looking sparse when
+# nothing is expanded. Every row Y below (R1..R10) and VIEW_H are formulas
+# that chain off this one constant, so raising it alone is enough — nothing
+# past this point needed to change by hand for the new spacing to take
+# effect.
+_GAP = 140
 R1 = 18            # sponsor
 R2 = R1 + _GAP     # owner / licensor
 R3 = R2 + _GAP     # the project

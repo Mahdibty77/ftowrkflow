@@ -31,51 +31,103 @@
 
   {% if active_tab == 'roles' %}
   {% comment %}
-    The top-of-page "Quick Inquiry" card — a small, standalone shortcut that
-    runs the exact same Inquiry a reader would get by opening a role's card
-    on the chart below, picking a company there, and pressing Inquiry —
-    without first having to find the right card. Sits beside the heading
-    above (this is .page-head's SECOND child; the block's own
-    justify-content:space-between, static/css/app.css, is what pushes it to
-    the right, opposite "Marketing" / the title line), and — since it lives
-    inside this same {% if %} — only ever renders on the 'roles' tab,
-    alongside marketing/_role_chart.html below, never on the Companies tab.
-
-    Just the static shell: two field containers plus a Confirm button,
-    mirroring how _companies.html's own shell provides bare mount points for
-    companies.js to fill in. Every bit of behaviour — the company search
-    (reusing the exact same search/create mechanism the "+ Add company"
-    panel already built), the role dropdown (marketing:client_connections,
-    unchanged), adding a brand-new role (marketing:label_toggle, unchanged),
-    and Confirm itself (runInquiryForClient(), unchanged) — is wired in
-    chart_interact.js, self-guarded on these element ids exactly the way
-    every other piece of that file already guards on its own.
+    The top-of-page header widgets — a plain flex row (.rc-header-widgets)
+    holding both small standalone cards below, so .page-head itself still
+    only ever gets TWO children (the title block above, this wrapper) and
+    keeps working with its own justify-content:space-between exactly as
+    before; the wrapper is what actually lays the two cards out side by
+    side, with its own gap, and wraps them onto their own line together on a
+    narrow screen rather than justify-content spreading three items apart
+    unevenly. Only ever renders on the 'roles' tab, alongside
+    marketing/_role_chart.html below, never on the Companies tab.
   {% endcomment %}
-  <div class="rc-quick-inquiry" id="rcQuickInquiry">
-    <div class="rc-quick-title">Quick Inquiry</div>
+  <div class="rc-header-widgets">
+    {% comment %}
+      The "Quick Inquiry" card — a small, standalone shortcut that runs the
+      exact same Inquiry a reader would get by opening a role's card on the
+      chart below, picking a company there, and pressing Inquiry — without
+      first having to find the right card.
 
-    <div class="rc-quick-field">
-      <label class="rc-quick-label" for="rcQuickCompanyInput">Company</label>
-      <div class="rc-quick-combo">
-        <input type="text" id="rcQuickCompanyInput" class="rc-quick-select"
-               placeholder="Search a company…" autocomplete="off" dir="auto">
-        <div class="rc-quick-dropdown" id="rcQuickCompanyList" hidden></div>
+      Just the static shell: two field containers plus a Confirm button,
+      mirroring how _companies.html's own shell provides bare mount points for
+      companies.js to fill in. Every bit of behaviour — the company search
+      (reusing the exact same search/create mechanism the "+ Add company"
+      panel already built), the role dropdown (marketing:client_connections,
+      unchanged), adding a brand-new role (marketing:label_toggle, unchanged),
+      and Confirm itself (runInquiryForClient(), unchanged) — is wired in
+      chart_interact.js, self-guarded on these element ids exactly the way
+      every other piece of that file already guards on its own.
+    {% endcomment %}
+    <div class="rc-quick-inquiry rc-quick-inquiry-wide" id="rcQuickInquiry">
+      <div class="rc-quick-title">Quick Inquiry</div>
+
+      {% comment %}
+        Company and Role sit side by side in one horizontal row (the owner's
+        own request) rather than stacked — .rc-quick-row is just the flex
+        row wrapper; each field inside keeps its own .rc-quick-field shape
+        unchanged. The Role field is now the SAME searchable/live-filtered
+        combo the Company field already is (chart_interact.js's
+        createRolePicker, deliberately mirroring createCompanyPicker's own
+        markup/interaction) instead of a native <select> — only the input
+        itself changed, "+ Add a new role" underneath is untouched.
+      {% endcomment %}
+      <div class="rc-quick-row">
+        <div class="rc-quick-field">
+          <label class="rc-quick-label" for="rcQuickCompanyInput">Company</label>
+          <div class="rc-quick-combo">
+            <input type="text" id="rcQuickCompanyInput" class="rc-quick-select"
+                   placeholder="Search a company…" autocomplete="off" dir="auto">
+            <div class="rc-quick-dropdown" id="rcQuickCompanyList" hidden></div>
+          </div>
+        </div>
+
+        <div class="rc-quick-field">
+          <label class="rc-quick-label" for="rcQuickRoleInput">Role</label>
+          <div class="rc-quick-combo">
+            <input type="text" id="rcQuickRoleInput" class="rc-quick-select"
+                   placeholder="Pick a company first…" autocomplete="off" dir="auto" disabled>
+            <div class="rc-quick-dropdown" id="rcQuickRoleList" hidden></div>
+          </div>
+          <button type="button" class="rc-quick-add-role-toggle" id="rcQuickAddRoleToggle" hidden>+ Add a new role</button>
+          <div class="rc-quick-new-role" id="rcQuickNewRoleWrap" hidden>
+            <select id="rcQuickNewRoleSelect" class="rc-quick-select"></select>
+            <button type="button" class="btn btn-sm" id="rcQuickNewRoleAdd" disabled>Add</button>
+          </div>
+        </div>
       </div>
+
+      <button type="button" class="btn btn-sm btn-primary rc-quick-confirm" id="rcQuickConfirm" disabled>Run inquiry</button>
     </div>
 
-    <div class="rc-quick-field">
-      <label class="rc-quick-label" for="rcQuickRoleSelect">Role</label>
-      <select id="rcQuickRoleSelect" class="rc-quick-select" disabled>
-        <option value="">Pick a company first…</option>
-      </select>
-      <button type="button" class="rc-quick-add-role-toggle" id="rcQuickAddRoleToggle" hidden>+ Add a new role</button>
-      <div class="rc-quick-new-role" id="rcQuickNewRoleWrap" hidden>
-        <select id="rcQuickNewRoleSelect" class="rc-quick-select"></select>
-        <button type="button" class="btn btn-sm" id="rcQuickNewRoleAdd" disabled>Add</button>
+    {% comment %}
+      "Case mode" — a second, separate small card beside Quick Inquiry, one
+      field only: search cases (marketing:all_cases_search — see that view's
+      own docstring for why an ordinary Marketing Expert/Supervisor may call
+      it now, not just admin/GM). Picking a row confirms it straight away —
+      there is nothing else to configure, unlike Quick Inquiry's own two-step
+      company-then-role shape — so this widget is just the input plus its
+      live dropdown; no separate Confirm button. Reuses the exact same
+      floating-dropdown/row markup (.rc-quick-select/.rc-quick-dropdown/
+      .rc-row) Quick Inquiry's own company field already established above,
+      via the same class on this card's own root (.rc-quick-inquiry), so both
+      cards share one visual language without a second copy of that CSS.
+
+      Confirming a row here is what puts the WHOLE chart into "case mode" —
+      chart_interact.js's own ``currentCase`` — see rcCaseModeBanner below
+      for where that mode is shown once active.
+    {% endcomment %}
+    <div class="rc-quick-inquiry" id="rcCaseModeWidget">
+      <div class="rc-quick-title">Case Mode</div>
+
+      <div class="rc-quick-field">
+        <label class="rc-quick-label" for="rcCaseModeInput">Case</label>
+        <div class="rc-quick-combo">
+          <input type="text" id="rcCaseModeInput" class="rc-quick-select"
+                 placeholder="Search doc no. or company…" autocomplete="off" dir="auto">
+          <div class="rc-quick-dropdown" id="rcCaseModeList" hidden></div>
+        </div>
       </div>
     </div>
-
-    <button type="button" class="btn btn-sm btn-primary rc-quick-confirm" id="rcQuickConfirm" disabled>Run inquiry</button>
   </div>
   {% endif %}
 </div>
@@ -91,6 +143,21 @@
 <div class="panel">
   <div class="panel-h">
     <h3>Relationship Map</h3>
+  </div>
+
+  {% comment %}
+    The "case mode" banner — hidden until rcCaseModeWidget above confirms a
+    case, then shown at the top of THIS panel specifically (the owner's own
+    placement: on the Relationship Map, not the page header, since it is the
+    chart's own state, not the search widget's). chart_interact.js owns all
+    of its content/visibility; the leave/clear button is the "way to leave
+    case mode" the goal asks for, sitting right next to the doc number it is
+    clearing.
+  {% endcomment %}
+  <div class="rc-case-mode-banner" id="rcCaseModeBanner" hidden>
+    <span class="rc-case-mode-banner-label">Case mode</span>
+    <span class="rc-case-mode-banner-text" id="rcCaseModeBannerText" dir="auto"></span>
+    <button type="button" class="btn btn-sm btn-ghost" id="rcCaseModeLeaveBtn">Leave case mode</button>
   </div>
 
   {% include "marketing/_role_chart.html" %}
@@ -114,6 +181,11 @@
     labelToggleUrl: "{% url 'marketing:label_toggle' %}",
     clientConnectionsUrl: "{% url 'marketing:client_connections' %}",
     usConnectionsUrl: "{% url 'marketing:us_connections' %}",
+    // The attach wizard's "connect X to Y" staging (chart_interact.js, change
+    // 1) commits through this instead of labelToggleUrl whenever the target
+    // is a REAL OTHER company, not the wizard's own source — see
+    // marketing:connection_toggle / services.create_connection/remove_connection.
+    connectionToggleUrl: "{% url 'marketing:connection_toggle' %}",
     // The "+ Add company" panel (chart_interact.js) live-searches and can
     // register a brand-new client the exact same way the Companies tab's own
     // companies.js already does with these same two endpoints — exposed here

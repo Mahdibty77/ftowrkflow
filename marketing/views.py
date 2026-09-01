@@ -50,7 +50,7 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_POST
 
-from cases.models import Client
+from cases.models import Case, Client
 
 from . import rolechart, services
 from .access import access_for
@@ -240,8 +240,72 @@ def label_toggle(request):
 
 
 @login_required
+@require_POST
+def connection_toggle(request):
+    """POST anchor_client_id=, anchor_role=, target_client_id=, target_role=,
+    add=1|0, and optionally case_id= -> create/remove the directed
+    (anchor_client, anchor_role) -> (target_client, target_role) ``Connection``
+    the chart's Attach wizard stages when a viewer connects one company to
+    ANOTHER company under a different card, rather than tagging the anchor
+    itself — see ``services.create_connection``/``remove_connection``. Same
+    shape and gating as ``label_toggle`` above, just for the two-client edge
+    instead of a single client's own tag.
+
+    General (case-less) by default — ``case_id`` is optional and fails SOFT
+    exactly like ``client_connections``' own ``case_id`` read: an absent,
+    unparseable, or unknown id just means "no case", not a 400/404. Passing
+    one is how the chart's "case mode" (chart_interact.js's ``currentCase`` /
+    ``withCaseId``) scopes a connection staged while that mode is active to
+    the one case it was staged for, so it only becomes visible again when
+    Inquiry is later run in that SAME case's own context — see
+    ``Connection``'s own docstring and ``connections_of_client``'s ``case``
+    param for the full visibility rule. Every caller that never sends
+    ``case_id`` (every write outside case mode) keeps behaving exactly as
+    before: a general, case-less edge.
+    """
+    access = access_for(request)
+    if not access.can_edit:
+        return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
+    anchor_role, err = _label_or_400(request, "anchor_role")
+    if err is not None:
+        return err
+    target_role, err = _label_or_400(request, "target_role")
+    if err is not None:
+        return err
+    try:
+        anchor_client_id = int(request.POST.get("anchor_client_id"))
+        target_client_id = int(request.POST.get("target_client_id"))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "Unknown client."}, status=400)
+    anchor_client = Client.objects.filter(pk=anchor_client_id).first()
+    target_client = Client.objects.filter(pk=target_client_id).first()
+    if anchor_client is None or target_client is None:
+        return JsonResponse({"ok": False, "error": "Unknown client."}, status=404)
+    case_id = request.POST.get("case_id")
+    try:
+        case_id = int(case_id) if case_id is not None else None
+    except (TypeError, ValueError):
+        case_id = None
+    case = Case.objects.filter(pk=case_id).first() if case_id is not None else None
+    add = (request.POST.get("add") or "1").strip() not in ("0", "false", "False", "")
+    if add:
+        services.create_connection(anchor_client, anchor_role, target_client, target_role, request.user, case=case)
+    else:
+        services.remove_connection(anchor_client, anchor_role, target_client, target_role, case, request.user)
+    return JsonResponse({"ok": True})
+
+
+@login_required
 def client_connections(request):
-    """GET ?client_id= -> the label/case report Inquiry shows for a company."""
+    """GET ?client_id=&case_id= -> the label/case report Inquiry shows for a company.
+
+    ``case_id`` is optional and fails SOFT, the same way ``all_cases_search``'s
+    own ``case_id`` param already does: an absent, unparseable, or unknown id
+    just means "no case context", not a 400/404 — Inquiry runs perfectly well
+    with no case in view, and this is what puts case-scoped ``Connection``
+    rows in front of ``connections_of_client`` (see its own docstring) rather
+    than a hard requirement.
+    """
     access = access_for(request)
     if not access.can_view:
         return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
@@ -253,7 +317,13 @@ def client_connections(request):
     client = Client.objects.filter(pk=client_id).first()
     if client is None:
         return JsonResponse({"ok": False, "error": "Unknown client."}, status=404)
-    report = services.connections_of_client(client, request.user, access.scope)
+    case_id = request.GET.get("case_id")
+    try:
+        case_id = int(case_id) if case_id is not None else None
+    except (TypeError, ValueError):
+        case_id = None
+    case = Case.objects.filter(pk=case_id).first() if case_id is not None else None
+    report = services.connections_of_client(client, request.user, access.scope, case=case)
     return JsonResponse({
         "ok": True,
         "client": _client_json(client),
@@ -276,14 +346,38 @@ def us_connections(request):
 def all_cases_search(request):
     """GET ?q=&case_id= -> every case matching, by doc no. or client name.
 
-    Unlike every other endpoint in this file, ``access.can_view`` alone is
-    NOT enough here — this is deliberately admin/GM-only (the renamed "us"
-    card's all-cases search, and the deep link a later phase wires into it),
-    so an ordinary Marketing Expert/Supervisor who can view this page at all
-    must still be refused THIS endpoint. See ``access.Access.is_gm_or_admin``.
+    Two independent callers share this endpoint now, gated DIFFERENTLY on the
+    frontend even though the server-side check below is the same
+    ``access.can_view`` every other read endpoint in this file already uses:
+
+    * The renamed "us" card's own flat all-cases BROWSE — still rendered
+      admin/GM-only in chart_interact.js (``CFG.isAdminTier``), unchanged.
+      Browsing every case in the system from an unrelated card is the
+      broader, admin/GM-scoped capability the original admin/GM-only gate
+      here was actually written for.
+    * The chart's "case mode" search widget (chart_interact.js's
+      ``rcCaseModeWidget`` / ``enterCaseMode``) — an ordinary Marketing
+      Expert/Supervisor searching for ONE SPECIFIC case, by its own doc
+      number or client name, so THEY can point the chart at it and finish
+      that case's own relationship map. That is core Marketing work, not an
+      admin/GM-only capability: an Expert/Supervisor already has ``can_edit``
+      on every write this endpoint's result feeds into (Attach, connection
+      staging, Inquiry), and this endpoint itself is read-only (a plain case
+      lookup/search, no different in kind from ``client_search`` above,
+      which every viewer already reaches). Refusing them here would make
+      case mode unusable for the very seats who would use it day to day,
+      for no matching security gain — the case DATA it returns (doc_no,
+      client name/id, effective label) is exactly what every other
+      case-derived read in this module already shows every viewer
+      unscoped (see the module docstring's "Case-derived facts" note).
+      So the gate below is deliberately widened from ``is_gm_or_admin`` to
+      plain ``can_view``, matching this file's other read endpoints — this is
+      a genuine, intentional widening of who may call this URL, not an
+      oversight; only the "us" card's own BROWSE UI stays admin/GM-only, via
+      its own frontend flag, unaffected by this change.
     """
     access = access_for(request)
-    if not access.can_view or not access.is_gm_or_admin:
+    if not access.can_view:
         return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
     query = request.GET.get("q") or ""
     case_id = request.GET.get("case_id")

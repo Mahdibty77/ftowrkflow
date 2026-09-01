@@ -15,6 +15,7 @@ urlpatterns = [
     path("entities/clients/search/", views.client_search, name="client_search"),
     path("entities/clients/create/", views.client_create, name="client_create"),
     path("entities/clients/connections/", views.client_connections, name="client_connections"),
+    path("entities/connection/toggle/", views.connection_toggle, name="connection_toggle"),
     path("entities/label/companies/", views.label_companies, name="label_companies"),
     path("entities/label/toggle/", views.label_toggle, name="label_toggle"),
     path("entities/us/connections/", views.us_connections, name="us_connections"),

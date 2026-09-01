@@ -37,6 +37,20 @@
  * same discipline the deleted directory.js used and for the same reason: a
  * rapid sequence of clicks must never show something a later server answer
  * has already made stale.
+ *
+ * ONE piece of state does live at module level across the whole session,
+ * deliberately, alongside ``wizard``/``lastQueryData`` below: ``currentCase``,
+ * "case mode" — the chart pointed at one specific case (home.html's own
+ * rcCaseModeWidget search card, beside Quick Inquiry, and the
+ * rcCaseModeBanner shown on the Relationship Map panel while it is active).
+ * See ``currentCase``'s own comment (just after ``nodeRect`` below) for the
+ * full shape; the short version: every connection staged anywhere on the
+ * chart while it is set is recorded as belonging to THAT case (via
+ * ``withCaseId``), every Inquiry run while it is set can see that case's own
+ * case-scoped connections, and the case's own real client — playing
+ * whatever role its ``marketing_label`` currently resolves to — is
+ * automatically queried and marked ``.is-case-anchor`` the moment case mode
+ * is confirmed, distinct from a card merely lit by a connection.
  */
 (function () {
   'use strict';
@@ -209,6 +223,114 @@
   }
 
   // ------------------------------------------------------------------------
+  // The Quick Inquiry widget's Role field — a small parallel to
+  // createCompanyPicker just above, built specifically for a LOCAL,
+  // already-in-hand list rather than a server search: the Role field only
+  // ever filters the currently-picked company's own current roles (an array
+  // the Quick Inquiry block below already fetches via
+  // CFG.clientConnectionsUrl), so there is nothing to debounce or fetch
+  // here — every keystroke just re-filters ``items`` in place. Deliberately
+  // mirrors createCompanyPicker's own markup/interaction (.rc-row/
+  // .rc-row-name/.rc-row-empty rows, is-selected highlight, Enter/Space
+  // keyboard activation) so the Role field reads and behaves identically to
+  // the Company field beside it, per the owner's own request — just without
+  // a "+ Add ..." row of its own, since "+ Add a new role" already exists as
+  // its own separate, CAN_EDIT-gated affordance next to this field (see the
+  // Quick Inquiry block below), not something this picker needs to offer a
+  // second time.
+  // ------------------------------------------------------------------------
+  function createRolePicker(listEl, inputEl, onSelect) {
+    var items = [];          // [{field, label_fa}, ...] — the current company's own roles
+    var selectedField = null;
+
+    function select(item) {
+      selectedField = item ? item.field : null;
+      onSelect(item);
+    }
+
+    function activateOnKey(row, activate) {
+      row.tabIndex = 0;
+      row.setAttribute('role', 'option');
+      row.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); activate(); }
+      });
+    }
+
+    function buildRow(item) {
+      var row = document.createElement('div');
+      row.className = 'rc-row';
+      if (selectedField === item.field) { row.classList.add('is-selected'); }
+      var name = document.createElement('span');
+      name.className = 'rc-row-name';
+      name.textContent = item.label_fa;
+      name.setAttribute('dir', 'auto');
+      row.appendChild(name);
+      function activate() {
+        select(item);
+        inputEl.value = item.label_fa;
+        Array.prototype.forEach.call(listEl.querySelectorAll('.rc-row'), function (r) {
+          r.classList.remove('is-selected');
+        });
+        row.classList.add('is-selected');
+        listEl.hidden = true;
+      }
+      row.addEventListener('click', activate);
+      activateOnKey(row, activate);
+      return row;
+    }
+
+    function render(query) {
+      listEl.innerHTML = '';
+      var q = (query || '').trim();
+      var qLower = q.toLowerCase();
+      var matches = !q ? items : items.filter(function (item) {
+        return item.label_fa.toLowerCase().indexOf(qLower) !== -1;
+      });
+      matches.forEach(function (item) { listEl.appendChild(buildRow(item)); });
+      if (!matches.length) {
+        var empty = document.createElement('div');
+        empty.className = 'rc-row-empty';
+        empty.textContent = !items.length ? 'No roles yet.' : 'No roles match "' + q + '".';
+        listEl.appendChild(empty);
+      }
+    }
+
+    inputEl.addEventListener('input', function () {
+      if (selectedField) { select(null); }
+      render(inputEl.value);
+      listEl.hidden = false;
+    });
+
+    return {
+      // Replaces the filterable set outright (a freshly-picked company's own
+      // roles) and drops whatever was selected before — the same "a new
+      // company means a clean slate" rule the Quick Inquiry block already
+      // enforced on the old native <select>.
+      setItems: function (newItems) {
+        items = newItems;
+        selectedField = null;
+      },
+      render: render,
+      // Programmatically selects the row for ``field`` (used right after a
+      // brand-new role is added, so the reader lands on it — the same
+      // "selectField" carve-out quickPopulateRoleField already had for the
+      // old native <select>) without requiring a click/keydown of its own.
+      selectByField: function (field) {
+        var match = items.filter(function (item) { return item.field === field; })[0];
+        select(match || null);
+        inputEl.value = match ? match.label_fa : '';
+      },
+      reset: function () {
+        inputEl.value = '';
+        items = [];
+        select(null);
+        listEl.innerHTML = '';
+      },
+      selectedField: function () { return selectedField; }
+    };
+  }
+
+  // ------------------------------------------------------------------------
   // The attach wizard's floating status bar — survives the modal opening and
   // closing across as many cards as the user visits; only Final Confirm or
   // Cancel ever clears it.
@@ -217,10 +339,48 @@
   //   source: {id, name, code},  // the COMPANY the wizard is tagging
   //   field:  <label key>,       // the label card Attach was armed from —
   //                               // reopening THIS card stays in "default"
-  //                               // browsing mode, same carve-out as before
-  //   staged: {labelKey: true|false}  // desired end state, only for entries
-  // }                                 // that actually differ from the
-  //                                   // server's current state
+  //                               // browsing mode, same carve-out as before.
+  //                               // Doubles as the ANCHOR role for every
+  //                               // connectTo entry below — a wizard session
+  //                               // only ever tags/connects source AS this
+  //                               // one role, no matter how many other cards
+  //                               // it visits while armed.
+  //   staged: {
+  //     <labelKey>: {
+  //       selfTag: true|false,     // OPTIONAL — present only when "does
+  //                                 // source itself ALSO carry labelKey
+  //                                 // directly" differs from the server's
+  //                                 // current state; committed via
+  //                                 // toggle_manual_label(source, labelKey,
+  //                                 // ...) on Final Confirm, exactly as the
+  //                                 // single-boolean version of this object
+  //                                 // used to for every entry.
+  //       connectTo: {              // OPTIONAL keys — one per OTHER company
+  //         <targetClientId>: {     // (never source itself — that is what
+  //           name: "...",          // selfTag is for) whose desired
+  //           add: true|false       // connected-under-labelKey state
+  //         }                       // differs from the server's current
+  //       }                         // state. Committed via
+  //     }                           // create_connection(source, wizard.field,
+  //   }                             // targetClient, labelKey, ...) /
+  //                                 // remove_connection(...) on Final
+  //                                 // Confirm — see wizardConfirmBtn below.
+  //                                 // ``name`` is carried here (not just
+  //                                 // re-read off a server row) because a
+  //                                 // connectTo entry can point at a company
+  //                                 // that is not itself a member of
+  //                                 // labelKey's own list at all — see the
+  //                                 // "+ Add company" panel's wizard-mode
+  //                                 // branch further down this file.
+  //   }
+  // }
+  //
+  // A field entry (and, within it, an empty ``connectTo``) is deleted the
+  // moment it no longer holds any real staged change — see
+  // ensureStagedField/cleanupStagedField below — so wizard.staged's own key
+  // count is never a reliable change count on its own any more (a field can
+  // hold zero, one, or several real changes); see updateWizardBar's own
+  // count loop for the real tally.
   // ------------------------------------------------------------------------
   var wizardBar = document.getElementById('rcWizardBar');
   var wizardSource = document.getElementById('rcWizardSource');
@@ -230,11 +390,48 @@
 
   var wizard = null;
 
+  // The one place a field's staged entry is created — always starts with an
+  // empty ``connectTo`` so every caller can blindly index into it without a
+  // presence check of its own. Takes the wizard instance explicitly (rather
+  // than reading the module-level ``wizard`` itself) so a picking-row
+  // closure built for one armed session (renderPickingRow's own
+  // ``armedWizard``) can never reach through a STALE reference into whatever
+  // wizard happens to be armed (or not armed at all — Cancel does not close
+  // an already-open modal) by the time a reader actually clicks it.
+  function ensureStagedField(w, field) {
+    if (!w.staged[field]) { w.staged[field] = {}; }
+    if (!w.staged[field].connectTo) { w.staged[field].connectTo = {}; }
+    return w.staged[field];
+  }
+
+  // Drops a field's entry the moment it has gone back to holding nothing
+  // real — no selfTag override and an empty (or absent) connectTo — the same
+  // "a value matching the server's current state is not a change" rule the
+  // old single-boolean staged object already enforced, generalised over both
+  // shapes it can now hold.
+  function cleanupStagedField(w, field) {
+    var entry = w.staged[field];
+    if (!entry) { return; }
+    var hasConnect = entry.connectTo && Object.keys(entry.connectTo).length > 0;
+    var hasSelf = Object.prototype.hasOwnProperty.call(entry, 'selfTag');
+    if (!hasConnect && !hasSelf) { delete w.staged[field]; }
+  }
+
   function updateWizardBar() {
     if (!wizard) { wizardBar.hidden = true; return; }
     wizardBar.hidden = false;
     wizardSource.textContent = wizard.source.name;
-    var n = Object.keys(wizard.staged).length;
+    // Every genuine staged change, across both shapes a field's entry can
+    // hold — one for a present selfTag override, one per connectTo entry —
+    // rather than Object.keys(wizard.staged).length, which would now only
+    // ever count FIELDS touched, not the (possibly several) real changes
+    // within each one.
+    var n = 0;
+    Object.keys(wizard.staged).forEach(function (field) {
+      var entry = wizard.staged[field];
+      if (Object.prototype.hasOwnProperty.call(entry, 'selfTag')) { n += 1; }
+      if (entry.connectTo) { n += Object.keys(entry.connectTo).length; }
+    });
     wizardCount.textContent = n + (n === 1 ? ' change' : ' changes');
   }
 
@@ -247,19 +444,45 @@
   wizardConfirmBtn.addEventListener('click', function () {
     if (!wizard) { return; }
     var source = wizard.source;
+    var anchorRole = wizard.field;
     var staged = wizard.staged;
     wizard = null;
     updateWizardBar();
     updateActionState();
-    // One fetch per staged label — there is no bulk endpoint — run in
+    // One fetch per staged change — there is no bulk endpoint — run in
     // sequence so a slow request never races the next one for the same
-    // company.
+    // company. A selfTag change (unchanged from before: a plain manual tag
+    // on source itself) goes through labelToggleUrl exactly as it always
+    // did; every connectTo entry is a genuine company-to-company fact
+    // instead, so it goes through connectionToggleUrl — create_connection
+    // when add is true, remove_connection when it is false — anchored on
+    // this wizard session's own (source, anchorRole) throughout, no matter
+    // which field each entry was staged from.
     var chain = Promise.resolve();
-    Object.keys(staged).forEach(function (labelKey) {
-      var add = staged[labelKey];
-      chain = chain.then(function () {
-        return post(CFG.labelToggleUrl, { client_id: source.id, label: labelKey, add: add ? 1 : 0 });
-      });
+    Object.keys(staged).forEach(function (field) {
+      var entry = staged[field];
+      if (Object.prototype.hasOwnProperty.call(entry, 'selfTag')) {
+        var selfAdd = entry.selfTag;
+        chain = chain.then(function () {
+          return post(CFG.labelToggleUrl, { client_id: source.id, label: field, add: selfAdd ? 1 : 0 });
+        });
+      }
+      if (entry.connectTo) {
+        Object.keys(entry.connectTo).forEach(function (targetId) {
+          var add = entry.connectTo[targetId].add;
+          chain = chain.then(function () {
+            // withCaseId() scopes this write to the case currently active in
+            // "case mode" (if any) — see its own comment above — so an
+            // Attach staged while pointed at a case is recorded as
+            // belonging to that case specifically, not a general fact.
+            return post(CFG.connectionToggleUrl, withCaseId({
+              anchor_client_id: source.id, anchor_role: anchorRole,
+              target_client_id: targetId, target_role: field,
+              add: add ? 1 : 0
+            }));
+          });
+        });
+      }
     });
     chain.then(function () { runInquiryForClient(source, null); });
   });
@@ -279,6 +502,99 @@
       x: box.x, y: box.y, w: box.width, h: box.height,
       cx: box.x + box.width / 2, cy: box.y + box.height / 2
     };
+  }
+
+  // ------------------------------------------------------------------------
+  // "Case mode" — the chart pointed at ONE specific case (home.html's own
+  // rcCaseModeWidget/rcCaseModeBanner further down; see runInquiryForClient's
+  // own ``isCaseAnchor`` param and the case-mode wiring block near the
+  // bottom of this file for where ``currentCase`` is actually set/cleared).
+  //
+  // currentCase = {
+  //   caseId: <int>,       // scopes every subsequent create_connection/
+  //                        // remove_connection this session makes — see
+  //                        // withCaseId below — so an Attach staged while
+  //                        // this mode is active is recorded as belonging
+  //                        // to THIS case specifically, per
+  //                        // services.connections_of_client's own ``case``
+  //                        // param (a case-scoped Connection only becomes
+  //                        // visible again when Inquiry later runs in that
+  //                        // same case's own context).
+  //   docNo, clientId, clientName, label   // read straight off the SAME
+  //                        // marketing:all_cases_search row the search
+  //                        // widget's own click handed in — see
+  //                        // ``search_all_cases``'s own ``label`` field
+  //                        // (Case._effective_label): this case's real
+  //                        // client, playing whatever chart role its
+  //                        // marketing_label currently resolves to. NEVER
+  //                        // reused across a re-entry — every (re-)pick of
+  //                        // a case, even the exact same one, re-fetches
+  //                        // this from the server fresh (see the case-mode
+  //                        // search widget below), so a role changed
+  //                        // elsewhere in the app (Commercial's own
+  //                        // case-edit UI) shows up the moment this case is
+  //                        // picked again, never a stale cached value.
+  // }
+  // null when case mode is off — the ordinary, unscoped behaviour every
+  // existing caller already had before this round.
+  // ------------------------------------------------------------------------
+  var currentCase = null;
+
+  // Merges ``case_id: currentCase.caseId`` into ``params`` whenever case mode
+  // is active, leaving ``params`` untouched otherwise — the one place every
+  // case-scoped read/write below reaches through, rather than each call site
+  // re-checking ``currentCase`` on its own.
+  function withCaseId(params) {
+    if (currentCase) { params.case_id = currentCase.caseId; }
+    return params;
+  }
+
+  // The case-mode anchor's own extra mark on top of is-focus — see
+  // runInquiryForClient's own ``isCaseAnchor`` branch, and rolechart.css's
+  // ``.is-case-anchor`` rules for the actual look (a distinctly-coloured
+  // ring/glow plus this small corner dot, never a per-field colour). Built
+  // as real SVG child elements of the anchor node's own <g> — the same
+  // "small clickable card is an SVG group" shape every other per-node
+  // decoration on this chart already is (compare ``.rc-badge``/
+  // ``.rc-badge-text``, drawn once in rolechart.py) — rather than an HTML
+  // overlay like ``.rc-card-grow``, since this sits INSIDE the box itself at
+  // a fixed corner, not stacked below it. ``caseAnchorField`` remembers which
+  // node currently carries it so clearQueryMarks() can always remove it
+  // again, whether or not that field is still lit at the time.
+  var caseAnchorField = null;
+
+  function addCaseAnchorBadge(field) {
+    var rect = nodeRect(field);
+    if (!rect) { return; }
+    var ns = 'http://www.w3.org/2000/svg';
+    var g = document.createElementNS(ns, 'g');
+    g.setAttribute('class', 'rc-case-anchor-badge');
+    g.setAttribute('aria-hidden', 'true');
+    var cx = rect.x + 13, cy = rect.y + 13;
+    var dot = document.createElementNS(ns, 'circle');
+    dot.setAttribute('class', 'rc-case-anchor-dot');
+    dot.setAttribute('cx', cx);
+    dot.setAttribute('cy', cy);
+    dot.setAttribute('r', 7);
+    g.appendChild(dot);
+    // A plain check-mark glyph, not a font character — reads cleanly at this
+    // size in both themes with nothing more than the same currentColor-style
+    // stroke rule .rc-case-anchor-glyph sets in CSS.
+    var check = document.createElementNS(ns, 'path');
+    check.setAttribute('class', 'rc-case-anchor-glyph');
+    check.setAttribute('d',
+      'M' + (cx - 3) + ' ' + cy + ' L' + (cx - 0.8) + ' ' + (cy + 2.6) + ' L' + (cx + 3.4) + ' ' + (cy - 2.8));
+    g.appendChild(check);
+    nodesByField[field].appendChild(g);
+    caseAnchorField = field;
+  }
+
+  function removeCaseAnchorBadge() {
+    if (!caseAnchorField) { return; }
+    var g = nodesByField[caseAnchorField];
+    var badge = g && g.querySelector('.rc-case-anchor-badge');
+    if (badge && badge.parentNode) { badge.parentNode.removeChild(badge); }
+    caseAnchorField = null;
   }
 
   // The last successful runInquiryForClient() answer, kept around only for
@@ -318,98 +634,135 @@
 
   function clearQueryMarks() {
     Object.keys(nodesByField).forEach(function (field) {
-      nodesByField[field].classList.remove('is-focus', 'is-lit');
+      nodesByField[field].classList.remove('is-focus', 'is-lit', 'is-case-anchor');
     });
     restoreContextualBadges();
     lastQueryData = null;
     queryLinesG.innerHTML = '';
     hideUsCasesPanel();
-    clearNodeOverlays();
+    clearCardGrowth();
+    removeCaseAnchorBadge();
   }
 
   // ------------------------------------------------------------------------
-  // Per-card name overlays — while an Inquiry is active, every TOUCHED card
-  // (the focus card AND every lit card it connects to) gets a small floating
-  // tag showing the queried entity's own name directly below its own box, so
-  // it reads right on the chart itself rather than only inside a card's own
-  // modal (the owner's own separate ask for the focus card doubles up here
-  // too — see runInquiryForClient below). Built generically over "whatever
-  // names lastQueryData.namesByField lists for this field" rather than
-  // hardcoding a single name, even though today's data model only ever
-  // attaches ONE focused entity per query, so every touched field's array
-  // happens to hold just that one name — see runInquiryForClient's own
-  // namesByField construction.
+  // In-place card growth — while an Inquiry is active, every TOUCHED card
+  // (the focus card AND every lit card it connects to) grows its own box
+  // taller to show the queried company's own "connected" name(s) (possibly
+  // several — see marketing/services.py::connections_of_client's own
+  // ``connected`` field, and runInquiryForClient's own per-field
+  // namesByField construction below) INSIDE the card itself, so it reads as
+  // one taller card rather than a second floating box stacked underneath it
+  // (an earlier round tried exactly that — a separate .rc-node-overlay div —
+  // and the owner rejected it outright).
   //
-  // Positioned with plain HTML (position:absolute inside #rcCanvas), reusing
-  // the EXACT same viewBox-to-pixel conversion the "us" cases panel's own
-  // drawUsCasesConnector() above already uses, just in the opposite direction
-  // (SVG units -> screen pixels rather than the reverse) — see
-  // positionNodeOverlay(). Placed entirely BELOW the card's own box (never
-  // overlapping it), so it can never steal a click meant for the node itself;
-  // capped to a handful of short rows in CSS (rolechart.css's
-  // .rc-node-overlay) with its own overflow-y:auto scroll, the same
-  // "build once, cap the height, scroll for more" convention the "us" cases
-  // list already follows, so a future multi-name field never grows the chart
-  // itself. Built fresh on every successful query and torn down, all at
-  // once, by clearNodeOverlays() (called from clearQueryMarks() above).
+  // Built as a plain HTML element (position:absolute inside #rcCanvas, the
+  // same containing block #rcQueryPill/#rcUsCasesPanel already use) rather
+  // than growing the SVG <rect> itself: the box's own text elements
+  // (rc-role/rc-abbr/the badge) would all need repositioning too, and every
+  // OTHER row's fixed Y coordinate comes straight from rolechart.py's own
+  // pre-computed layout — reflowing that from here would mean duplicating
+  // its geometry rather than just reading it. An HTML slab positioned flush
+  // against the box's own bottom edge, sharing its exact left/right extent
+  // and its own resolved fill/stroke (read live off the box via
+  // getComputedStyle, not re-derived from rolechart.css's own state rules a
+  // second time — see growCard below), reads as a seamless continuation of
+  // the same card instead, with the card's existing Persian role title
+  // staying exactly where it already sits, at the top of the (unchanged)
+  // box above this.
+  //
+  // How tall it may grow is measured, not assumed: rolechart.py's row gap
+  // (_GAP) was raised specifically to leave room for this, but this still
+  // measures the REAL on-screen distance to the nearest card below it in the
+  // same horizontal band before growing into it, and caps its own height
+  // (with its own overflow-y:auto scroll) at whatever that leaves — see
+  // growCard's own ``available`` computation — rather than trusting the
+  // constant never to matter. Built fresh on every successful query and torn
+  // down, all at once, by clearCardGrowth() (called from clearQueryMarks()
+  // above); a field not currently touched is never grown at all.
   // ------------------------------------------------------------------------
-  var nodeOverlays = {}; // field -> the overlay element currently shown for it
+  var cardGrowEls = {}; // field -> the growth element currently shown for it
 
-  function buildNodeOverlay(names) {
-    var el = document.createElement('div');
-    el.className = 'rc-node-overlay';
-    names.forEach(function (name) {
-      var nameEl = document.createElement('div');
-      nameEl.className = 'rc-node-overlay-name';
-      nameEl.textContent = name;
-      nameEl.setAttribute('dir', 'auto');
-      el.appendChild(nameEl);
+  var CARD_GROW_MARGIN_PX = 6;   // breathing room kept above the next card down
+  var CARD_GROW_FALLBACK_PX = 160; // used only when nothing sits below at all (e.g. the chart's own bottom row)
+  var CARD_GROW_MAX_PX = 220;    // "a bit taller", not a card that dwarfs its row — see the module comment above
+
+  // How much vertical room, in real on-screen pixels, exists below
+  // ``boxScreen`` before the nearest OTHER card sharing its horizontal band
+  // begins — measured directly off every other card's own current
+  // getBoundingClientRect() rather than assumed from rolechart.py's _GAP, so
+  // this stays correct however the layout is tuned later. "Sharing its
+  // horizontal band" is a plain x-range overlap check: a card in a different
+  // column two rows down is irrelevant, only the one(s) directly beneath
+  // this card's own column(s) can ever be grown into.
+  function availableGrowthPx(field, boxScreen) {
+    var nextTop = Infinity;
+    Object.keys(nodesByField).forEach(function (otherField) {
+      if (otherField === field) { return; }
+      var otherBox = nodesByField[otherField].querySelector('.rc-box');
+      if (!otherBox) { return; }
+      var r = otherBox.getBoundingClientRect();
+      var overlapsX = r.left < boxScreen.right && r.right > boxScreen.left;
+      if (overlapsX && r.top >= boxScreen.bottom - 1) {
+        nextTop = Math.min(nextTop, r.top);
+      }
     });
-    return el;
+    var raw = nextTop === Infinity ? CARD_GROW_FALLBACK_PX : (nextTop - boxScreen.bottom - CARD_GROW_MARGIN_PX);
+    return Math.max(0, Math.min(raw, CARD_GROW_MAX_PX));
   }
 
-  // rect (nodeRect(field)) is in the SVG's own viewBox units — converted to a
-  // pixel offset relative to #rcCanvas (the overlay's own containing block)
-  // via the svg's real on-screen rect and the viewBox->pixel scale, the same
-  // ratio drawUsCasesConnector()/positionUsCasesPanel() already derive
-  // elsewhere in this file, just applied to place a point rather than to
-  // measure one. Anchored on the box's own horizontal centre and just below
-  // its bottom edge; `transform:translateX(-50%)` (rolechart.css) does the
-  // actual centring so this only has to compute one x, not a left edge.
-  function positionNodeOverlay(el, field) {
-    var rect = nodeRect(field);
-    var svgBox = svg.getBoundingClientRect();
-    if (!rect || !rcCanvas || !svgBox.width || !svgBox.height) { return; }
+  function growCard(field, names) {
+    var g = nodesByField[field];
+    var boxEl = g && g.querySelector('.rc-box');
+    if (!g || !boxEl || !rcCanvas || !names || !names.length) { return; }
+    var boxScreen = boxEl.getBoundingClientRect();
     var canvasBox = rcCanvas.getBoundingClientRect();
-    var viewBoxParts = svg.getAttribute('viewBox').split(' ');
-    var viewW = parseFloat(viewBoxParts[2]);
-    var viewH = parseFloat(viewBoxParts[3]);
-    var scaleX = svgBox.width / viewW;
-    var scaleY = svgBox.height / viewH;
-    var left = (svgBox.left - canvasBox.left) + rect.cx * scaleX;
-    var top = (svgBox.top - canvasBox.top) + (rect.y + rect.h) * scaleY;
-    el.style.left = left + 'px';
-    el.style.top = (top + 4) + 'px'; // a small gap below the card's own box
+    if (!boxScreen.width || !canvasBox.width) { return; }
+    var available = availableGrowthPx(field, boxScreen);
+    // No usable room at all (should not happen on this chart's own fixed,
+    // now-generously-gapped layout, but nodeRect()-style helpers elsewhere in
+    // this file stay defensive too) — leave the card at its normal size
+    // rather than force a sliver nothing could actually read.
+    if (available < 18) { return; }
+
+    var el = document.createElement('div');
+    el.className = 'rc-card-grow';
+    var boxStyle = window.getComputedStyle(boxEl);
+    var strokeW = parseFloat(boxStyle.strokeWidth) || 1.4;
+    el.style.background = boxStyle.fill;
+    el.style.borderColor = boxStyle.stroke;
+    el.style.borderWidth = strokeW + 'px';
+    el.style.maxHeight = available + 'px';
+    names.forEach(function (name) {
+      var row = document.createElement('div');
+      row.className = 'rc-card-grow-name';
+      row.textContent = name;
+      row.setAttribute('dir', 'auto');
+      el.appendChild(row);
+    });
+    rcCanvas.appendChild(el);
+    el.style.left = (boxScreen.left - canvasBox.left) + 'px';
+    el.style.width = boxScreen.width + 'px';
+    // Pulled up by half the box's own stroke width so this slab's top edge
+    // sits exactly where the box's stroke is centred, covering the box's own
+    // bottom border rather than leaving it as a visible seam between "the
+    // card" and "the growth" — the whole point is reading as one shape.
+    el.style.top = (boxScreen.bottom - canvasBox.top - strokeW / 2) + 'px';
+    cardGrowEls[field] = el;
   }
 
-  function showNodeOverlays(fields) {
+  function showCardGrowth(fields) {
     if (!lastQueryData || !rcCanvas) { return; }
     fields.forEach(function (field) {
-      var names = lastQueryData.namesByField[field];
-      if (!names || !names.length) { return; }
-      var el = buildNodeOverlay(names);
-      rcCanvas.appendChild(el);
-      positionNodeOverlay(el, field);
-      nodeOverlays[field] = el;
+      growCard(field, lastQueryData.namesByField[field]);
     });
   }
 
-  function clearNodeOverlays() {
-    Object.keys(nodeOverlays).forEach(function (field) {
-      var el = nodeOverlays[field];
+  function clearCardGrowth() {
+    Object.keys(cardGrowEls).forEach(function (field) {
+      var el = cardGrowEls[field];
       if (el && el.parentNode) { el.parentNode.removeChild(el); }
     });
-    nodeOverlays = {};
+    cardGrowEls = {};
   }
 
   // ------------------------------------------------------------------------
@@ -803,8 +1156,24 @@
   // every staged change has landed (that call passes ``originField: null``,
   // since a wizard session can touch several label cards at once and there
   // is no longer one single card it came "from").
-  function runInquiryForClient(client, originField) {
-    get(CFG.clientConnectionsUrl, { client_id: client.id }).then(function (data) {
+  //
+  // ``isCaseAnchor`` is optional, and true for exactly one caller: case
+  // mode's own automatic Inquiry, run the moment a case is confirmed in
+  // rcCaseModeWidget (see the case-mode wiring block below), on that case's
+  // own real client under its own effective role — this marks the resulting
+  // focus card with the extra .is-case-anchor treatment (see
+  // rolechart.css) so it reads as "this case's own real anchor", not just
+  // "whatever happens to be lit right now". Every other caller (Quick
+  // Inquiry, a normal in-chart Inquiry, the wizard's own post-Confirm
+  // re-query) leaves it undefined/false and gets the plain is-focus look
+  // unchanged.
+  //
+  // The client_connections fetch itself always goes through withCaseId() —
+  // regardless of ``isCaseAnchor`` — so ANY Inquiry run while case mode is
+  // active (not only this one automatic call) picks up that case's own
+  // case-scoped Connection rows, per the goal's own requirement.
+  function runInquiryForClient(client, originField, isCaseAnchor) {
+    get(CFG.clientConnectionsUrl, withCaseId({ client_id: client.id })).then(function (data) {
       if (!data.ok) { return; }
       clearQueryMarks();
       chartRoot.classList.add('is-query');
@@ -827,7 +1196,15 @@
       var litFields = focusField ? allFields.filter(function (f) { return f !== focusField; }) : allFields;
       if (focusField) {
         var focusG = nodesByField[focusField];
-        if (focusG) { focusG.classList.add('is-focus'); }
+        if (focusG) {
+          focusG.classList.add('is-focus');
+          // See this function's own ``isCaseAnchor`` comment above — only
+          // ever set by case mode's own automatic entry Inquiry.
+          if (isCaseAnchor) {
+            focusG.classList.add('is-case-anchor');
+            addCaseAnchorBadge(focusField);
+          }
+        }
       }
       litFields.forEach(function (field) {
         var g = nodesByField[field];
@@ -853,13 +1230,24 @@
         byField.us = docNos;
         setContextualBadge('us', docNos.length);
       }
-      // One name per touched field, generically — every field in allFields
-      // gets the SAME array today (there is only ever one focused entity per
-      // query in the current data model), but this is built per-field rather
-      // than hardcoded so a future round that attaches more than one entity
-      // to a field just works — see showNodeOverlays() above.
+      // One NAME LIST per touched field — each label field's own real
+      // ``connected`` array (marketing/services.py::connections_of_client),
+      // the actual company/companies that should show under THAT card, which
+      // is not always ``client`` itself any more (the owner's own bug report:
+      // a company connected under a DIFFERENT company's role must show ITS
+      // OWN name there, not the focused client's repeated everywhere) — see
+      // growCard()/showCardGrowth() above for where this is read back out.
+      // "us" is the one exception: it is never one of ``data.labels``'
+      // entries (that array only ever holds the fourteen label keys), it is
+      // pushed onto allFields separately above purely because ``client`` has
+      // at least one case, and it has always shown ``client``'s own name —
+      // unchanged here, on purpose.
       var namesByField = {};
-      allFields.forEach(function (field) { namesByField[field] = [client.name]; });
+      data.labels.forEach(function (l) {
+        var names = (l.connected && l.connected.length) ? l.connected.map(function (c) { return c.name; }) : [client.name];
+        namesByField[l.label] = names;
+      });
+      if (showUsPanel) { namesByField.us = [client.name]; }
       lastQueryData = { client: { id: client.id, name: client.name }, byField: byField, namesByField: namesByField };
       window.requestAnimationFrame(function () {
         // Without a focus field there is no single anchor to route the
@@ -874,10 +1262,10 @@
           openUsCasesPanel(data.cases);
           drawUsCasesConnector();
         }
-        // Every touched field — focus and lit alike — gets its own small
-        // name overlay; allFields already IS that whole set (focusField
-        // plus litFields, and "us" too when showUsPanel pushed it above).
-        showNodeOverlays(allFields);
+        // Every touched field — focus and lit alike — grows in place;
+        // allFields already IS that whole set (focusField plus litFields,
+        // and "us" too when showUsPanel pushed it above).
+        showCardGrowth(allFields);
       });
       queryName.textContent = client.name;
       queryPill.hidden = false;
@@ -1050,19 +1438,55 @@
     addCompanyPicker.reset();
   }
 
-  // Commits the staged company to the CURRENTLY OPEN card's own field —
-  // identical in default and picking mode, since both just mean "attach
-  // this company to modalField" (change 2d: no special-casing between the
-  // two modes at all).
+  // Clears just the just-committed pick back to a fresh, empty search —
+  // used after EVERY successful "Add" below instead of closeAddCompanyPanel,
+  // so the panel itself stays open, at its current widened size, ready for
+  // the reader to find or create the NEXT company in the same sitting (the
+  // owner's own requirement: picking a result must not read as the panel
+  // "suddenly closing"). Only the panel's own × button, Escape, or the whole
+  // modal closing ever calls closeAddCompanyPanel now.
+  function resetAddCompanyPickerForNextPick() {
+    addCompanyPicker.reset();
+    addCompanyConfirmBtn.disabled = true;
+    addCompanyPicker.search('');
+    addCompanySearchInput.focus();
+  }
+
+  // Commits the staged company to the CURRENTLY OPEN card's own field — used
+  // to be identical in default and picking mode (both just meant "attach
+  // this company to modalField" directly). Picking mode's own meaning
+  // changed under change 1: the found/created company here plays modalField
+  // (B)'s role, CONNECTED to the wizard's own source rather than tagged
+  // itself — the exact same fact a tick on one of B's already-real rows
+  // stages (see renderPickingRow's own connectCtx), just reached through
+  // search-or-create instead of an existing row, so it is staged into the
+  // SAME wizard.staged[field].connectTo bucket rather than committed here —
+  // Final Confirm is what actually calls create_connection, same as every
+  // other connectTo entry. Default browsing mode is untouched: it still
+  // commits immediately, via a plain manual tag.
+  //
+  // Neither branch closes the panel any more (change 2) — refreshLabelList()
+  // redraws the card's own main/left list (or, in picking mode, its ticked
+  // picking-row view) to show the just-added company THERE, exactly as any
+  // other staged/attached addition already would, while this panel stays
+  // open beside it for another pick.
   addCompanyConfirmBtn.addEventListener('click', function () {
     var client = addCompanyPicker.selected();
     if (!client || modalKind !== 'label' || !modalField) { return; }
     var field = modalField;
+    if (modalMode === 'picking' && wizard) {
+      var entry = ensureStagedField(wizard, field);
+      entry.connectTo[client.id] = { name: client.name, add: true };
+      cleanupStagedField(wizard, field);
+      updateWizardBar();
+      resetAddCompanyPickerForNextPick();
+      refreshLabelList();
+      return;
+    }
     addCompanyConfirmBtn.disabled = true;
     post(CFG.labelToggleUrl, { client_id: client.id, label: field, add: 1 }).then(function (data) {
-      addCompanyConfirmBtn.disabled = false;
-      if (!data.ok || modalField !== field) { return; }
-      closeAddCompanyPanel();
+      if (!data.ok || modalField !== field) { addCompanyConfirmBtn.disabled = false; return; }
+      resetAddCompanyPickerForNextPick();
       refreshLabelList();
     });
   });
@@ -1190,16 +1614,19 @@
         // read-out does not make sense — configureDefaultActions() just set
         // both of these visible for a 'label' kind card moments ago; this
         // overrides that specifically for the contextual case, leaving only
-        // the always-present Close button. attachBtn was already effectively
+        // the always-present Close button (plus "+ Add company", which stays
+        // available here on purpose — the owner explicitly wants to be able
+        // to add a company to a card that is currently lit while an Inquiry
+        // is active, not just when browsing normally; see
+        // updateAddCompanyButtonVisibility() above for its own CAN_EDIT/kind
+        // gate, unaffected by is-query). attachBtn was already effectively
         // dead here (selectedEntity is never set in this read-only mode) —
         // hiding it alongside inquiryBtn is a small consistency improvement,
         // not a behaviour change. Restored on the next open that does not
         // hit this branch, since configureDefaultActions() runs fresh at the
-        // top of every openModalForField() call. "+ Add company" gets the
-        // same treatment, for the same reason.
+        // top of every openModalForField() call.
         inquiryBtn.hidden = true;
         attachBtn.hidden = true;
-        addCompanyBtn.hidden = true;
         renderContextualQueryRow(field);
         return;
       }
@@ -1318,10 +1745,35 @@
     });
   }
 
-  function buildLabelRow(company) {
+  // ``connectCtx`` — {checked, onToggle(nowChecked)} — is present ONLY when
+  // this row is being rendered inside wizard "picking" mode (renderPickingRow
+  // below), turning the row's own click from "select this company for
+  // Attach/Inquiry" (irrelevant there — picking mode shows neither button,
+  // see configureDefaultActions) into "stage/unstage a connection from the
+  // wizard's own source company to THIS one, under the card currently open"
+  // (change 1b). Rendered ON TOP of the row's existing name/× — a small tick
+  // glyph (.mc-panel-check, the exact same glyph the synthesized "attaching"
+  // row below already uses) prepended to the row, so both mechanisms read as
+  // visually related but distinct: "attaching" always carries its own
+  // .rc-row-badge tag naming what it means, this one is a bare tick on an
+  // otherwise perfectly normal row, the same language buildTickRow's own
+  // callers already use elsewhere in this file for "toggle this fact".
+  function buildLabelRow(company, connectCtx) {
     var row = document.createElement('div');
     row.className = 'rc-row';
-    if (selectedEntity && selectedEntity.id === company.id) { row.classList.add('is-selected'); }
+    if (!connectCtx && selectedEntity && selectedEntity.id === company.id) { row.classList.add('is-selected'); }
+
+    var check = null;
+    if (connectCtx) {
+      check = document.createElement('span');
+      check.className = 'mc-panel-check';
+      check.setAttribute('aria-hidden', 'true');
+      check.textContent = connectCtx.checked ? '✓' : '';
+      row.appendChild(check);
+      row.classList.toggle('is-checked', connectCtx.checked);
+      row.setAttribute('role', 'checkbox');
+      row.setAttribute('aria-checked', connectCtx.checked ? 'true' : 'false');
+    }
 
     var name = document.createElement('span');
     name.className = 'rc-row-name';
@@ -1368,17 +1820,38 @@
       row.appendChild(xBtn);
     }
 
-    // Selecting the row (its name, not the × control) is what enables
-    // Attach / Inquiry below — same as the old default-mode selection.
-    row.addEventListener('click', function (ev) {
-      if (ev.target.closest && ev.target.closest('.rc-row-remove')) { return; }
-      selectedEntity = company;
-      Array.prototype.forEach.call(listEl.querySelectorAll('.rc-row'), function (r) {
-        r.classList.remove('is-selected');
+    if (connectCtx) {
+      // Toggles this row's own connection-target tick — nothing sent to the
+      // server here; onToggle just stages/unstages the change on the armed
+      // wizard, same as the synthesized "attaching" row's own toggle below.
+      var toggleConnect = function () {
+        connectCtx.checked = !connectCtx.checked;
+        row.classList.toggle('is-checked', connectCtx.checked);
+        row.setAttribute('aria-checked', connectCtx.checked ? 'true' : 'false');
+        check.textContent = connectCtx.checked ? '✓' : '';
+        connectCtx.onToggle(connectCtx.checked);
+      };
+      row.tabIndex = 0;
+      row.addEventListener('click', function (ev) {
+        if (ev.target.closest && ev.target.closest('.rc-row-remove')) { return; }
+        toggleConnect();
       });
-      row.classList.add('is-selected');
-      updateActionState();
-    });
+      row.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggleConnect(); }
+      });
+    } else {
+      // Selecting the row (its name, not the × control) is what enables
+      // Attach / Inquiry below — same as the old default-mode selection.
+      row.addEventListener('click', function (ev) {
+        if (ev.target.closest && ev.target.closest('.rc-row-remove')) { return; }
+        selectedEntity = company;
+        Array.prototype.forEach.call(listEl.querySelectorAll('.rc-row'), function (r) {
+          r.classList.remove('is-selected');
+        });
+        row.classList.add('is-selected');
+        updateActionState();
+      });
+    }
     return row;
   }
 
@@ -1443,28 +1916,63 @@
   // ---- wizard "picking" mode: reopening ANOTHER label card while armed ---
   // B's own REAL, FULL existing company list — fetched via CFG.labelCompaniesUrl
   // the same way fetchLabelCompanies()/buildLabelRow() fetch and render it for
-  // normal browsing. Every row B genuinely carries — X's own included,
-  // whenever X already happens to be tagged here — now renders through that
-  // SAME buildLabelRow() the default browsing view uses: selectable, and
-  // removable via its own × whenever this viewer owns/can-remove that tag,
-  // exactly as a normal (non-wizard) click on this card would show it (fix
-  // for change 1 — these rows used to be inert, read-only tick-rows; they no
-  // longer are). The one thing that stays special to this mode is X's own
-  // SYNTHESIZED toggle row, staged via wizard.staged — but only for the ADD
-  // case, when X does NOT already carry this label: once X is already a
-  // genuine member of B's list (rendered above, like everyone else), its own
-  // × already covers "take X out of this card" — a second, separate staged-
-  // removal path for the very same fact would just be two conflicting ways
-  // to do the one thing, so it is deliberately gone.
+  // normal browsing — fetched ALONGSIDE X's own client_connections report (the
+  // exact same one Inquiry reads), which is where each of B's real rows gets
+  // its INITIAL tick state from: a row here starts checked when X is already
+  // connected to that company under B (so re-opening a card mid-session, or
+  // days later, shows the truth rather than always starting blank). Every row
+  // B genuinely carries — X's own included, whenever X already happens to be
+  // tagged here — renders through that SAME buildLabelRow() the default
+  // browsing view uses, now passed a connectCtx (change 1b): selectable as a
+  // connection TARGET, and still removable via its own × whenever this viewer
+  // owns/can-remove that tag, exactly as a normal (non-wizard) click on this
+  // card would show it. Two other things layer on top of that real list:
+  // X's own SYNTHESIZED toggle row (the ADD case, when X does NOT already
+  // carry B directly — unchanged from before, still a separate SELF-tag fact,
+  // not a connection), and one further synthesized row per staged connection
+  // target that is NOT itself a genuine member of B (a company only ever
+  // reaches this via the "+ Add company" panel's own wizard-mode branch
+  // below, since every OTHER way of staging a connectTo entry starts from a
+  // row already in ``companies``).
   function renderPickingRow() {
     var seq = modalSeq;
     var field = modalField;
     var armedWizard = wizard;
-    get(CFG.labelCompaniesUrl, { label: field }).then(function (data) {
+    Promise.all([
+      get(CFG.labelCompaniesUrl, { label: field }),
+      // withCaseId() here too — X's own "already connected" starting tick
+      // state (``alreadyConnectedIds`` below) must include a case-scoped
+      // connection staged earlier in THIS same case-mode session, or
+      // reopening this card mid-session would show it as unticked again.
+      get(CFG.clientConnectionsUrl, withCaseId({ client_id: armedWizard.source.id }))
+    ]).then(function (results) {
+      var data = results[0];
+      var connData = results[1];
       if (seq !== modalSeq || !data.ok || wizard !== armedWizard) { return; }
       var companies = data.companies || [];
       var sourceId = armedWizard.source.id;
       var hasLabel = companies.some(function (c) { return c.id === sourceId; });
+
+      // Who X is ALREADY connected to under THIS field, read off X's own
+      // client_connections report — the same ``connected`` array Inquiry
+      // itself reads (see runInquiryForClient) — so a real row's starting
+      // tick state matches reality. X's own identity is excluded: a
+      // directly-held entry with no explicit connections falls back to
+      // ``[X itself]`` there (see connections_of_client's own docstring),
+      // which is not "X connected to X" and has nothing to do with this
+      // list of OTHER companies. Fails soft (an unreadable connData just
+      // means "nothing starts pre-checked") rather than blocking the render
+      // — a slow/failed second request should never hide B's own real list.
+      var alreadyConnectedIds = {};
+      if (connData && connData.ok) {
+        var labelEntry = null;
+        (connData.labels || []).forEach(function (l) { if (l.label === field) { labelEntry = l; } });
+        if (labelEntry) {
+          (labelEntry.connected || []).forEach(function (c) {
+            if (c.id !== sourceId) { alreadyConnectedIds[c.id] = true; }
+          });
+        }
+      }
 
       listEl.innerHTML = '';
 
@@ -1484,22 +1992,41 @@
       }
 
       // Every company B genuinely carries — including X's own, when X is
-      // already tagged here — is now a real, interactive row: selectable,
-      // and removable via its own × exactly like normal default-mode
-      // browsing. Nothing bespoke or read-only left for these.
+      // already tagged here — is now a real, interactive row: toggleable as
+      // a connection target, and removable via its own × exactly like normal
+      // default-mode browsing.
+      var realIds = {};
       companies.forEach(function (company) {
-        listEl.appendChild(buildLabelRow(company));
+        realIds[company.id] = true;
+        var stagedField = armedWizard.staged[field];
+        var connectTo = (stagedField && stagedField.connectTo) || {};
+        var initial = !!alreadyConnectedIds[company.id];
+        var checked = Object.prototype.hasOwnProperty.call(connectTo, company.id) ? connectTo[company.id].add : initial;
+        var connectCtx = {
+          checked: checked,
+          onToggle: function (nowChecked) {
+            if (wizard !== armedWizard) { return; } // wizard cancelled/confirmed while this row's modal stayed open
+            var entry = ensureStagedField(armedWizard, field);
+            var initialNow = !!alreadyConnectedIds[company.id];
+            // Same "drop back to matching the server's current state = no
+            // real change" rule the selfTag row already applies below.
+            if (nowChecked === initialNow) { delete entry.connectTo[company.id]; }
+            else { entry.connectTo[company.id] = { name: company.name, add: nowChecked }; }
+            cleanupStagedField(armedWizard, field);
+            updateWizardBar();
+          }
+        };
+        listEl.appendChild(buildLabelRow(company, connectCtx));
       });
 
       // X's own SYNTHESIZED toggle row — only when X does NOT already carry
       // this label, the ADD case, which is the whole reason the wizard
       // exists. A small "attaching" tag (.rc-row-badge, already used
       // elsewhere in this file for a small trailing note) marks it as
-      // distinct from B's pre-existing members above.
+      // distinct from B's pre-existing members above, and from the
+      // "connecting" rows below.
       if (!hasLabel) {
-        var staged = Object.prototype.hasOwnProperty.call(armedWizard.staged, field)
-          ? armedWizard.staged[field] : false;
-        var checkedNow = staged;
+        var checkedNow = !!(armedWizard.staged[field] && armedWizard.staged[field].selfTag);
         var sourceRow = buildTickRow(armedWizard.source.name, checkedNow, false);
         var attachingTag = document.createElement('span');
         attachingTag.className = 'rc-row-badge';
@@ -1507,6 +2034,7 @@
         sourceRow.appendChild(attachingTag);
         var checkGlyph = sourceRow.querySelector('.mc-panel-check');
         var toggle = function () {
+          if (wizard !== armedWizard) { return; } // wizard cancelled/confirmed while this row's modal stayed open
           // Staging is a client-side wizard concept — nothing is sent to the
           // server until Final Confirm. An entry that lands back on the
           // server's own current state (false — X is not a member yet) is
@@ -1516,8 +2044,9 @@
           sourceRow.classList.toggle('is-checked', checkedNow);
           sourceRow.setAttribute('aria-checked', checkedNow ? 'true' : 'false');
           checkGlyph.textContent = checkedNow ? '✓' : '';
-          if (!checkedNow) { delete armedWizard.staged[field]; }
-          else { armedWizard.staged[field] = checkedNow; }
+          var entry = ensureStagedField(armedWizard, field);
+          if (!checkedNow) { delete entry.selfTag; } else { entry.selfTag = true; }
+          cleanupStagedField(armedWizard, field);
           updateWizardBar();
         };
         sourceRow.addEventListener('click', toggle);
@@ -1526,6 +2055,43 @@
         });
         listEl.appendChild(sourceRow);
       }
+
+      // One further synthesized row per staged connectTo entry that is NOT
+      // itself a genuine member of B (``realIds``) — reached only through
+      // the "+ Add company" panel's own wizard-mode branch, since that is
+      // the one path that can stage a connection to a company B's own list
+      // does not (yet) contain at all; see addCompanyConfirmBtn below. Only
+      // ever an ADD (a staged REMOVAL of a connection to a non-member company
+      // is not something any control in this file can produce), and always
+      // ticked — unticking it here just drops the staged entry outright
+      // (there is no "current state" to fall back to, since the server never
+      // considered this company connected under B before this session
+      // started staging it).
+      var connectTo = (armedWizard.staged[field] && armedWizard.staged[field].connectTo) || {};
+      Object.keys(connectTo).forEach(function (targetId) {
+        if (realIds[targetId]) { return; }
+        var info = connectTo[targetId];
+        if (!info.add) { return; }
+        var extraRow = buildTickRow(info.name, true, false);
+        var connectingTag = document.createElement('span');
+        connectingTag.className = 'rc-row-badge';
+        connectingTag.textContent = 'connecting';
+        extraRow.appendChild(connectingTag);
+        var untoggle = function () {
+          if (wizard !== armedWizard) { return; } // wizard cancelled/confirmed while this row's modal stayed open
+          var entry = armedWizard.staged[field];
+          if (!entry || !entry.connectTo) { return; }
+          delete entry.connectTo[targetId];
+          cleanupStagedField(armedWizard, field);
+          updateWizardBar();
+          renderPickingRow();
+        };
+        extraRow.addEventListener('click', untoggle);
+        extraRow.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); untoggle(); }
+        });
+        listEl.appendChild(extraRow);
+      });
     });
   }
 
@@ -1609,14 +2175,15 @@
   if (quickPanel) {
     var quickCompanyInput = document.getElementById('rcQuickCompanyInput');
     var quickCompanyList = document.getElementById('rcQuickCompanyList');
-    var quickRoleSelect = document.getElementById('rcQuickRoleSelect');
+    var quickRoleInput = document.getElementById('rcQuickRoleInput');
+    var quickRoleList = document.getElementById('rcQuickRoleList');
     var quickAddRoleToggle = document.getElementById('rcQuickAddRoleToggle');
     var quickNewRoleWrap = document.getElementById('rcQuickNewRoleWrap');
     var quickNewRoleSelect = document.getElementById('rcQuickNewRoleSelect');
     var quickNewRoleAdd = document.getElementById('rcQuickNewRoleAdd');
     var quickConfirmBtn = document.getElementById('rcQuickConfirm');
 
-    if (quickCompanyInput && quickCompanyList && quickRoleSelect && quickAddRoleToggle &&
+    if (quickCompanyInput && quickCompanyList && quickRoleInput && quickRoleList && quickAddRoleToggle &&
         quickNewRoleWrap && quickNewRoleSelect && quickNewRoleAdd && quickConfirmBtn) {
 
       // Every "label" card on the chart, read straight off the chart's own
@@ -1632,48 +2199,38 @@
       var quickRoles = [];     // that company's own current labels — client_connections' own shape
 
       function quickShowDropdown(show) { quickCompanyList.hidden = !show; }
+      function quickShowRoleDropdown(show) {
+        if (quickRoleInput.disabled) { return; }
+        quickRoleList.hidden = !show;
+      }
 
       function quickUpdateConfirmState() {
-        quickConfirmBtn.disabled = !quickCompany || !quickRoleSelect.value;
+        quickConfirmBtn.disabled = !quickCompany || !quickRolePicker.selectedField();
       }
 
       function quickResetRoleField(placeholderText) {
-        quickRoleSelect.innerHTML = '';
-        var opt = document.createElement('option');
-        opt.value = '';
-        opt.textContent = placeholderText;
-        quickRoleSelect.appendChild(opt);
-        quickRoleSelect.disabled = true;
+        quickRolePicker.reset();
+        quickRoleInput.placeholder = placeholderText;
+        quickRoleInput.disabled = true;
+        quickShowRoleDropdown(false);
         quickAddRoleToggle.hidden = true;
         quickNewRoleWrap.hidden = true;
         quickUpdateConfirmState();
       }
 
-      // Renders quickRoles (the company's own current labels) into the role
-      // select, optionally leaving a specific field pre-selected — used
+      // Loads quickRoles (the company's own current labels) into the role
+      // picker, optionally leaving a specific field pre-selected — used
       // right after a brand-new role is added, so the reader lands on it
-      // rather than back on "Choose a role…".
+      // rather than back on an empty field.
       function quickPopulateRoleField(selectField) {
-        quickRoleSelect.innerHTML = '';
-        if (!quickRoles.length) {
-          var empty = document.createElement('option');
-          empty.value = '';
-          empty.textContent = 'No roles yet';
-          quickRoleSelect.appendChild(empty);
-        } else {
-          var placeholder = document.createElement('option');
-          placeholder.value = '';
-          placeholder.textContent = 'Choose a role…';
-          quickRoleSelect.appendChild(placeholder);
-          quickRoles.forEach(function (l) {
-            var opt = document.createElement('option');
-            opt.value = l.label;
-            opt.textContent = l.label_fa;
-            quickRoleSelect.appendChild(opt);
-          });
-        }
-        quickRoleSelect.disabled = false;
-        if (selectField) { quickRoleSelect.value = selectField; }
+        var items = quickRoles.map(function (l) { return { field: l.label, label_fa: l.label_fa }; });
+        quickRolePicker.setItems(items);
+        quickRoleInput.value = '';
+        quickRoleInput.disabled = !quickRoles.length;
+        quickRoleInput.placeholder = quickRoles.length ? 'Choose a role…' : 'No roles yet';
+        quickRolePicker.render('');
+        if (selectField) { quickRolePicker.selectByField(selectField); }
+        quickShowRoleDropdown(false);
         // Adding a role from here is the same mutation Attach already makes
         // from the chart (CFG.labelToggleUrl) — gated the same way, on
         // CAN_EDIT, everywhere else in this file already gates a write.
@@ -1693,6 +2250,16 @@
           quickPopulateRoleField(selectFieldAfter);
         });
       }
+
+      // The Role field's own picker — see createRolePicker's own comment
+      // further up this file for why it is not just a second
+      // createCompanyPicker instance (this one filters a local array, never
+      // fetches). onSelect only ever needs to keep the Confirm button's
+      // enabled state current — the picked field itself is read straight
+      // off quickRolePicker.selectedField() wherever it's needed below.
+      var quickRolePicker = createRolePicker(quickRoleList, quickRoleInput, function () {
+        quickUpdateConfirmState();
+      });
 
       var quickPicker = createCompanyPicker(quickCompanyList, quickCompanyInput, function (client) {
         quickCompany = client;
@@ -1717,14 +2284,22 @@
         if (!quickCompanyList.childElementCount) { quickPicker.search(quickCompanyInput.value); }
       });
       quickCompanyInput.addEventListener('input', function () { quickShowDropdown(true); });
-      // Closes the dropdown on any click outside the whole card — picking a
-      // row already closes it itself (quickShowDropdown(false) above), so
-      // this is only for "the reader clicked away without choosing".
-      document.addEventListener('click', function (ev) {
-        if (!quickPanel.contains(ev.target)) { quickShowDropdown(false); }
-      });
 
-      quickRoleSelect.addEventListener('change', quickUpdateConfirmState);
+      quickRoleInput.addEventListener('focus', function () {
+        if (quickRoleInput.disabled) { return; }
+        quickShowRoleDropdown(true);
+        if (!quickRoleList.childElementCount) { quickRolePicker.render(quickRoleInput.value); }
+      });
+      // Closes either dropdown on any click outside the whole card — picking
+      // a row already closes its own (quickShowDropdown/quickShowRoleDropdown
+      // above), so this is only for "the reader clicked away without
+      // choosing".
+      document.addEventListener('click', function (ev) {
+        if (!quickPanel.contains(ev.target)) {
+          quickShowDropdown(false);
+          quickShowRoleDropdown(false);
+        }
+      });
 
       quickAddRoleToggle.addEventListener('click', function () {
         if (!quickCompany) { return; }
@@ -1780,13 +2355,146 @@
       // chart's own panel is scrolled into view right after, plainly, so
       // the reader actually sees the query state change on it.
       quickConfirmBtn.addEventListener('click', function () {
-        if (!quickCompany || !quickRoleSelect.value) { return; }
-        runInquiryForClient(quickCompany, quickRoleSelect.value);
+        var field = quickRolePicker.selectedField();
+        if (!quickCompany || !field) { return; }
+        runInquiryForClient(quickCompany, field);
         chartRoot.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
 
       quickResetRoleField('Pick a company first…');
     }
+  }
+
+  // ------------------------------------------------------------------------
+  // "Case mode" — home.html's own second small header card, rcCaseModeWidget,
+  // sitting beside Quick Inquiry above. One field: search cases (doc no. or
+  // client name) via CFG.allCasesSearchUrl — the exact same endpoint and row
+  // shape the admin/GM "us" card search already established (renderAllCasesRows
+  // above), reused here rather than a second endpoint (see
+  // marketing:all_cases_search's own docstring for why an ordinary
+  // Marketing Expert/Supervisor may call it now too). Picking a row IS the
+  // confirm — there is no second field/button to press, unlike Quick
+  // Inquiry's own company-then-role shape — because a case, unlike a
+  // company, has exactly one thing case mode ever does with it.
+  //
+  // Same self-guard convention as the Quick Inquiry block above: every
+  // element looked up independently, and this whole block does nothing when
+  // any is missing (e.g. the Companies tab, where none of this is rendered).
+  // ------------------------------------------------------------------------
+  var caseModeWidget = document.getElementById('rcCaseModeWidget');
+  var caseModeInput = document.getElementById('rcCaseModeInput');
+  var caseModeList = document.getElementById('rcCaseModeList');
+  var caseModeBanner = document.getElementById('rcCaseModeBanner');
+  var caseModeBannerText = document.getElementById('rcCaseModeBannerText');
+  var caseModeLeaveBtn = document.getElementById('rcCaseModeLeaveBtn');
+
+  if (caseModeWidget && caseModeInput && caseModeList && caseModeBanner &&
+      caseModeBannerText && caseModeLeaveBtn) {
+
+    var caseModeSeq = 0;
+    var caseModeDebounce = null;
+
+    function caseModeShowDropdown(show) { caseModeList.hidden = !show; }
+
+    function buildCaseModeRow(c) {
+      var row = document.createElement('div');
+      row.className = 'rc-row';
+      var name = document.createElement('span');
+      name.className = 'rc-row-name';
+      name.textContent = c.doc_no + ' — ' + c.client_name;
+      name.setAttribute('dir', 'auto');
+      row.appendChild(name);
+      if (c.label_fa) {
+        var badge = document.createElement('span');
+        badge.className = 'rc-row-badge';
+        badge.textContent = c.label_fa;
+        badge.setAttribute('dir', 'auto');
+        row.appendChild(badge);
+      }
+      function activate() { caseModeShowDropdown(false); enterCaseMode(c); }
+      row.addEventListener('click', activate);
+      row.tabIndex = 0;
+      row.setAttribute('role', 'option');
+      row.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); activate(); }
+      });
+      return row;
+    }
+
+    function renderCaseModeRows(cases, query) {
+      caseModeList.innerHTML = '';
+      cases.forEach(function (c) { caseModeList.appendChild(buildCaseModeRow(c)); });
+      if (!cases.length) {
+        var empty = document.createElement('div');
+        empty.className = 'rc-row-empty';
+        var q = (query || '').trim();
+        empty.textContent = q ? 'No cases match "' + q + '".' : 'No cases yet.';
+        caseModeList.appendChild(empty);
+      }
+    }
+
+    function caseModeSearch(query) {
+      var mySeq = ++caseModeSeq;
+      get(CFG.allCasesSearchUrl, { q: query || '' }).then(function (data) {
+        if (mySeq !== caseModeSeq || !data.ok) { return; }
+        renderCaseModeRows(data.cases, query);
+      });
+    }
+
+    // Deliberately ALWAYS re-fetches on focus, unlike createCompanyPicker's
+    // own focus handler (which skips the fetch when a result list is
+    // already showing) — a stale row here is not just cosmetic: clicking one
+    // re-anchors the whole chart on whatever ``label`` it carries, and that
+    // has to be this case's CURRENT effective role, not whatever it was the
+    // last time this dropdown happened to be open (see the goal's own
+    // re-anchoring requirement — no cached effective-role value may survive
+    // a fresh case-mode entry).
+    caseModeInput.addEventListener('focus', function () {
+      caseModeShowDropdown(true);
+      caseModeSearch(caseModeInput.value);
+    });
+    caseModeInput.addEventListener('input', function () {
+      caseModeShowDropdown(true);
+      var q = caseModeInput.value;
+      window.clearTimeout(caseModeDebounce);
+      caseModeDebounce = window.setTimeout(function () { caseModeSearch(q); }, US_SEARCH_DEBOUNCE_MS);
+    });
+    document.addEventListener('click', function (ev) {
+      if (!caseModeWidget.contains(ev.target)) { caseModeShowDropdown(false); }
+    });
+
+    function updateCaseModeBanner() {
+      if (!currentCase) { caseModeBanner.hidden = true; caseModeBannerText.textContent = ''; return; }
+      caseModeBanner.hidden = false;
+      caseModeBannerText.textContent = 'Editing chart for case ' + currentCase.docNo + ' — ' + currentCase.clientName;
+    }
+
+    // Confirming a row: sets currentCase (every subsequent connection write
+    // and Inquiry fetch reaches this through withCaseId() — see its own
+    // comment near the top of this file), shows the banner, and immediately
+    // runs the SAME runInquiryForClient() any other Inquiry already uses —
+    // for THIS case's own real client, under whatever role
+    // ``c.label`` (search_all_cases' own ``_effective_label`` read) says it
+    // currently plays — marked as this case's own anchor (isCaseAnchor:
+    // true) rather than a plain focus card. ``c`` is exactly the row the
+    // fresh caseModeSearch() fetch above just handed in — never a value
+    // held over from an earlier open — so re-picking the same case after its
+    // marketing_label changed elsewhere always re-anchors on the NEW role.
+    function enterCaseMode(c) {
+      currentCase = { caseId: c.case_id, docNo: c.doc_no, clientId: c.client_id, clientName: c.client_name, label: c.label };
+      updateCaseModeBanner();
+      caseModeInput.value = c.doc_no;
+      caseModeList.innerHTML = '';
+      runInquiryForClient({ id: c.client_id, name: c.client_name }, c.label, true);
+      chartRoot.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    caseModeLeaveBtn.addEventListener('click', function () {
+      currentCase = null;
+      updateCaseModeBanner();
+      caseModeInput.value = '';
+      caseModeList.innerHTML = '';
+    });
   }
 
   // ------------------------------------------------------------------------
@@ -1809,11 +2517,12 @@
   // CFG.deepLinkCaseId by the view — see marketing/views.py's home()). Runs
   // once, after the chart's own normal setup above, and lands the reader
   // straight on an already-running Inquiry for that case's client — no modal
-  // ever opens for this path. allCasesSearchUrl?case_id= is admin/GM-only
-  // (see marketing/views.py's all_cases_search); a non-admin/GM reader's
-  // request simply 403s, and a stale/deleted case id comes back with zero
-  // cases — both are treated identically here: do nothing, no error shown,
-  // since ``get()`` resolves on any JSON body regardless of status code.
+  // ever opens for this path. allCasesSearchUrl?case_id= now answers any
+  // viewer who can open this page at all (see marketing/views.py's
+  // all_cases_search — widened from admin/GM-only alongside this round's own
+  // case-mode search widget); a stale/deleted case id still comes back with
+  // zero cases either way — do nothing, no error shown, since ``get()``
+  // resolves on any JSON body regardless of status code.
   if (typeof CFG.deepLinkCaseId === 'number') {
     get(CFG.allCasesSearchUrl, { case_id: CFG.deepLinkCaseId }).then(function (data) {
       if (!data || !data.ok || !data.cases || data.cases.length !== 1) { return; }
