@@ -16,11 +16,22 @@
   // EXECUTES may depend on the file being decoded as UTF-8 -- done by code
   // point (\uXXXX escapes, pure ASCII in the source bytes) rather than
   // by a table of the letters themselves.
+  //
+  // Two steps, in the same order as the Python twin: (1) fold the Arabic
+  // letter-variants to their Persian form, then (2) strip EVERY whitespace
+  // character entirely (not collapsed to one space - removed), so spacing
+  // differences (extra spaces, a missing space, tabs) can never make two
+  // names compare as different. The result is comparison-only -- it is no
+  // longer word-shaped, so it must never be displayed or re-inserted
+  // anywhere, only compared against another normalizePersian()/
+  // normalize_persian() result. Keep this in sync with
+  // core/persian_text.py::normalize_persian.
   function normalizePersian(s) {
     return (s || "")
       .replace(/[\u0622\u0623\u0625\u0671]/g, "\u0627")
       .replace(/\u0643/g, "\u06a9")
-      .replace(/[\u064a\u0649]/g, "\u06cc");
+      .replace(/[\u064a\u0649]/g, "\u06cc")
+      .replace(/\s+/g, "");
   }
   /* ---------------------------------------------------------------- combobox */
   function buildCombo(select) {

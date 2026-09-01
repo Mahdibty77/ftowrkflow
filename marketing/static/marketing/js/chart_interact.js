@@ -70,6 +70,145 @@
   }
 
   // ------------------------------------------------------------------------
+  // The one reusable "search the whole shared client directory, or create a
+  // brand-new company" mechanism — every spot on this page that needs to
+  // turn free text into a picked/created Client (the "+ Add company" panel
+  // below, and the top-of-page Quick Inquiry card further down) builds one
+  // instance of this against its own {list, input} pair rather than each
+  // re-implementing its own search/create/debounce logic. Mirrors
+  // CFG.clientSearchUrl's row shape and companies.js's own "+ Add ..." rule
+  // exactly (an exact-name match already in the results suppresses the
+  // create row) — both call sites end up with visually identical rows
+  // because both go through buildRow/buildCreateRow here, never their own.
+  //
+  // Deliberately dumb about WHEN a search fires or WHERE the results are
+  // shown — search(query) is exposed for a caller to invoke on whatever
+  // trigger fits its own UI (a panel opening, an input gaining focus,
+  // etc.); the debounced live-as-you-type search on the input itself is the
+  // one behaviour every caller wants unconditionally, so that alone is
+  // wired here.
+  // ------------------------------------------------------------------------
+  function createCompanyPicker(listEl, inputEl, onSelect) {
+    var selected = null;
+    var seq = 0;
+    var debounce = null;
+
+    function select(client) {
+      selected = client;
+      onSelect(client);
+    }
+
+    function search(query) {
+      var mySeq = ++seq;
+      get(CFG.clientSearchUrl, { q: query || '' }).then(function (data) {
+        if (mySeq !== seq || !data.ok) { return; }
+        renderRows(data.clients, query);
+      });
+    }
+
+    function renderRows(companies, query) {
+      listEl.innerHTML = '';
+      companies.forEach(function (company) { listEl.appendChild(buildRow(company)); });
+      var q = (query || '').trim();
+      if (!companies.length) {
+        var empty = document.createElement('div');
+        empty.className = 'rc-row-empty';
+        empty.textContent = q ? 'No companies match "' + q + '".' : 'No companies yet.';
+        listEl.appendChild(empty);
+      }
+      // "+ Add ..." only when there is text to add, it does not already name
+      // a result already in view, AND this viewer can actually create one —
+      // client_create refuses a view-only GM/admin server-side regardless,
+      // but a picker with no outer CAN_EDIT gate of its own (the Quick
+      // Inquiry widget, unlike the "+ Add company" panel whose own trigger
+      // button is already CAN_EDIT-gated) must not show a live-looking
+      // affordance that can only ever silently no-op for that viewer — the
+      // same "no point rendering a dead click" rule this file's row-remove
+      // button already follows.
+      if (q && CAN_EDIT) {
+        var qLower = q.toLowerCase();
+        var exact = companies.some(function (c) { return c.name.toLowerCase() === qLower; });
+        if (!exact) { listEl.appendChild(buildCreateRow(q)); }
+      }
+    }
+
+    // A row here is a plain div, not a native control, so it needs its own
+    // keyboard support — the same tabIndex/keydown pattern buildTickRow
+    // already uses elsewhere in this file for the identical reason.
+    function activateOnKey(row, activate) {
+      row.tabIndex = 0;
+      row.setAttribute('role', 'option');
+      row.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); activate(); }
+      });
+    }
+
+    function buildRow(company) {
+      var row = document.createElement('div');
+      row.className = 'rc-row';
+      if (selected && selected.id === company.id) { row.classList.add('is-selected'); }
+      var name = document.createElement('span');
+      name.className = 'rc-row-name';
+      name.textContent = company.name;
+      name.setAttribute('dir', 'auto');
+      row.appendChild(name);
+      function activate() {
+        select({ id: company.id, name: company.name, code: company.code });
+        Array.prototype.forEach.call(listEl.querySelectorAll('.rc-row'), function (r) {
+          r.classList.remove('is-selected');
+        });
+        row.classList.add('is-selected');
+      }
+      row.addEventListener('click', activate);
+      activateOnKey(row, activate);
+      return row;
+    }
+
+    function buildCreateRow(name) {
+      var row = document.createElement('div');
+      row.className = 'rc-row mc-row-add';
+      row.textContent = '+ Add "' + name + '"';
+      function activate() {
+        post(CFG.clientCreateUrl, { name: name }).then(function (data) {
+          if (!data.ok) { return; }
+          // Whatever came back — brand new, or an existing near-duplicate the
+          // server matched instead — is treated identically: stage it as the
+          // selected company and re-list so it shows (and reads as selected)
+          // among the real results too.
+          inputEl.value = '';
+          search('');
+          select({ id: data.client.id, name: data.client.name, code: data.client.code });
+        });
+      }
+      row.addEventListener('click', activate);
+      activateOnKey(row, activate);
+      return row;
+    }
+
+    inputEl.addEventListener('input', function () {
+      var q = inputEl.value;
+      if (selected) { select(null); }
+      // Same debounce timing as companies.js's own "All" tab search and this
+      // file's own admin "us" search — reused here rather than a third
+      // value (US_SEARCH_DEBOUNCE_MS is declared further down this file, but
+      // already has its value by the time this callback ever actually runs).
+      window.clearTimeout(debounce);
+      debounce = window.setTimeout(function () { search(q); }, US_SEARCH_DEBOUNCE_MS);
+    });
+
+    return {
+      search: search,
+      reset: function () {
+        inputEl.value = '';
+        if (selected) { select(null); }
+        listEl.innerHTML = '';
+        window.clearTimeout(debounce);
+      },
+      selected: function () { return selected; }
+    };
+  }
+
+  // ------------------------------------------------------------------------
   // The attach wizard's floating status bar — survives the modal opening and
   // closing across as many cards as the user visits; only Final Confirm or
   // Cancel ever clears it.
@@ -185,6 +324,92 @@
     lastQueryData = null;
     queryLinesG.innerHTML = '';
     hideUsCasesPanel();
+    clearNodeOverlays();
+  }
+
+  // ------------------------------------------------------------------------
+  // Per-card name overlays — while an Inquiry is active, every TOUCHED card
+  // (the focus card AND every lit card it connects to) gets a small floating
+  // tag showing the queried entity's own name directly below its own box, so
+  // it reads right on the chart itself rather than only inside a card's own
+  // modal (the owner's own separate ask for the focus card doubles up here
+  // too — see runInquiryForClient below). Built generically over "whatever
+  // names lastQueryData.namesByField lists for this field" rather than
+  // hardcoding a single name, even though today's data model only ever
+  // attaches ONE focused entity per query, so every touched field's array
+  // happens to hold just that one name — see runInquiryForClient's own
+  // namesByField construction.
+  //
+  // Positioned with plain HTML (position:absolute inside #rcCanvas), reusing
+  // the EXACT same viewBox-to-pixel conversion the "us" cases panel's own
+  // drawUsCasesConnector() above already uses, just in the opposite direction
+  // (SVG units -> screen pixels rather than the reverse) — see
+  // positionNodeOverlay(). Placed entirely BELOW the card's own box (never
+  // overlapping it), so it can never steal a click meant for the node itself;
+  // capped to a handful of short rows in CSS (rolechart.css's
+  // .rc-node-overlay) with its own overflow-y:auto scroll, the same
+  // "build once, cap the height, scroll for more" convention the "us" cases
+  // list already follows, so a future multi-name field never grows the chart
+  // itself. Built fresh on every successful query and torn down, all at
+  // once, by clearNodeOverlays() (called from clearQueryMarks() above).
+  // ------------------------------------------------------------------------
+  var nodeOverlays = {}; // field -> the overlay element currently shown for it
+
+  function buildNodeOverlay(names) {
+    var el = document.createElement('div');
+    el.className = 'rc-node-overlay';
+    names.forEach(function (name) {
+      var nameEl = document.createElement('div');
+      nameEl.className = 'rc-node-overlay-name';
+      nameEl.textContent = name;
+      nameEl.setAttribute('dir', 'auto');
+      el.appendChild(nameEl);
+    });
+    return el;
+  }
+
+  // rect (nodeRect(field)) is in the SVG's own viewBox units — converted to a
+  // pixel offset relative to #rcCanvas (the overlay's own containing block)
+  // via the svg's real on-screen rect and the viewBox->pixel scale, the same
+  // ratio drawUsCasesConnector()/positionUsCasesPanel() already derive
+  // elsewhere in this file, just applied to place a point rather than to
+  // measure one. Anchored on the box's own horizontal centre and just below
+  // its bottom edge; `transform:translateX(-50%)` (rolechart.css) does the
+  // actual centring so this only has to compute one x, not a left edge.
+  function positionNodeOverlay(el, field) {
+    var rect = nodeRect(field);
+    var svgBox = svg.getBoundingClientRect();
+    if (!rect || !rcCanvas || !svgBox.width || !svgBox.height) { return; }
+    var canvasBox = rcCanvas.getBoundingClientRect();
+    var viewBoxParts = svg.getAttribute('viewBox').split(' ');
+    var viewW = parseFloat(viewBoxParts[2]);
+    var viewH = parseFloat(viewBoxParts[3]);
+    var scaleX = svgBox.width / viewW;
+    var scaleY = svgBox.height / viewH;
+    var left = (svgBox.left - canvasBox.left) + rect.cx * scaleX;
+    var top = (svgBox.top - canvasBox.top) + (rect.y + rect.h) * scaleY;
+    el.style.left = left + 'px';
+    el.style.top = (top + 4) + 'px'; // a small gap below the card's own box
+  }
+
+  function showNodeOverlays(fields) {
+    if (!lastQueryData || !rcCanvas) { return; }
+    fields.forEach(function (field) {
+      var names = lastQueryData.namesByField[field];
+      if (!names || !names.length) { return; }
+      var el = buildNodeOverlay(names);
+      rcCanvas.appendChild(el);
+      positionNodeOverlay(el, field);
+      nodeOverlays[field] = el;
+    });
+  }
+
+  function clearNodeOverlays() {
+    Object.keys(nodeOverlays).forEach(function (field) {
+      var el = nodeOverlays[field];
+      if (el && el.parentNode) { el.parentNode.removeChild(el); }
+    });
+    nodeOverlays = {};
   }
 
   // ------------------------------------------------------------------------
@@ -628,7 +853,14 @@
         byField.us = docNos;
         setContextualBadge('us', docNos.length);
       }
-      lastQueryData = { client: { id: client.id, name: client.name }, byField: byField };
+      // One name per touched field, generically — every field in allFields
+      // gets the SAME array today (there is only ever one focused entity per
+      // query in the current data model), but this is built per-field rather
+      // than hardcoded so a future round that attaches more than one entity
+      // to a field just works — see showNodeOverlays() above.
+      var namesByField = {};
+      allFields.forEach(function (field) { namesByField[field] = [client.name]; });
+      lastQueryData = { client: { id: client.id, name: client.name }, byField: byField, namesByField: namesByField };
       window.requestAnimationFrame(function () {
         // Without a focus field there is no single anchor to route the
         // centre-lane line FROM (see the wizard-confirm call above), so we
@@ -642,6 +874,10 @@
           openUsCasesPanel(data.cases);
           drawUsCasesConnector();
         }
+        // Every touched field — focus and lit alike — gets its own small
+        // name overlay; allFields already IS that whole set (focusField
+        // plus litFields, and "us" too when showUsPanel pushed it above).
+        showNodeOverlays(allFields);
       });
       queryName.textContent = client.name;
       queryPill.hidden = false;
@@ -691,6 +927,149 @@
   var confirmCardBtn = document.getElementById('rcModalConfirmCard');
   var closeCardBtn = document.getElementById('rcModalCloseCard');
 
+  // ------------------------------------------------------------------------
+  // The "+ Add company" panel (change 2) — a reusable right-side sub-panel
+  // available from EVERY label card's modal, in both default browsing and
+  // wizard "picking" mode alike. Built once here, moving the template's own
+  // existing modal-body nodes (the search box, the company list, and both
+  // action bars) into a new .rc-modal-columns/.rc-modal-main wrapper — see
+  // rolechart.css — so this panel can sit BESIDE them as a second column
+  // instead of only ever stacking underneath. The same "build once near the
+  // top of the file, toggle hidden/visible on demand" convention as
+  // #rcWizardBar / the "us" cases panel above; opening it just widens the
+  // SAME modal (.rc-modal.is-wide) — never a second window.
+  // ------------------------------------------------------------------------
+  var modalEl = overlay.querySelector('.rc-modal');
+  var modalHeadEl = overlay.querySelector('.rc-modal-head');
+
+  var modalColumns = document.createElement('div');
+  modalColumns.className = 'rc-modal-columns';
+  var modalMain = document.createElement('div');
+  modalMain.className = 'rc-modal-main';
+  // Moves (does not clone) the template's own existing nodes — appendChild
+  // on an element already in the document detaches it from its old parent
+  // first, so this is purely a reparent, never a re-template.
+  modalMain.appendChild(searchWrap);
+  modalMain.appendChild(listEl);
+  modalMain.appendChild(actionsDefault);
+  modalMain.appendChild(actionsPicking);
+  modalColumns.appendChild(modalMain);
+  modalEl.appendChild(modalColumns);
+
+  // The trigger lives in the modal HEAD, not either action bar — the one
+  // spot shared by both modalMode "default" and "picking", so a single
+  // button (not two, one per mode) covers change 2b/2d's "visible in BOTH
+  // modes" requirement without duplicating it.
+  var addCompanyBtn = document.createElement('button');
+  addCompanyBtn.type = 'button';
+  addCompanyBtn.className = 'btn btn-sm rc-modal-add';
+  addCompanyBtn.textContent = '+ Add company';
+  addCompanyBtn.hidden = true;
+  modalHeadEl.insertBefore(addCompanyBtn, closeX);
+
+  var addCompanyPanel = document.createElement('div');
+  addCompanyPanel.className = 'rc-add-company-panel';
+  addCompanyPanel.hidden = true;
+
+  var addCompanyHead = document.createElement('div');
+  addCompanyHead.className = 'rc-add-company-head';
+  var addCompanyTitle = document.createElement('div');
+  addCompanyTitle.className = 'rc-add-company-title';
+  addCompanyTitle.textContent = 'Add a company';
+  addCompanyHead.appendChild(addCompanyTitle);
+  var addCompanyCloseBtn = document.createElement('button');
+  addCompanyCloseBtn.type = 'button';
+  addCompanyCloseBtn.className = 'rc-modal-x';
+  addCompanyCloseBtn.setAttribute('aria-label', 'Close add-company panel');
+  addCompanyCloseBtn.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
+  addCompanyHead.appendChild(addCompanyCloseBtn);
+  addCompanyPanel.appendChild(addCompanyHead);
+
+  // Reuses .rc-modal-search/.rc-modal-search-input exactly as the main
+  // column's own search box does — see rolechart.css.
+  var addCompanySearchWrap = document.createElement('div');
+  addCompanySearchWrap.className = 'rc-modal-search';
+  var addCompanySearchInput = document.createElement('input');
+  addCompanySearchInput.type = 'text';
+  addCompanySearchInput.className = 'rc-modal-search-input';
+  addCompanySearchInput.placeholder = 'Search the whole directory…';
+  addCompanySearchInput.autocomplete = 'off';
+  addCompanySearchInput.setAttribute('dir', 'auto');
+  addCompanySearchWrap.appendChild(addCompanySearchInput);
+  addCompanyPanel.appendChild(addCompanySearchWrap);
+
+  // Reuses .rc-modal-list/.rc-row/.rc-row-empty/.mc-row-add exactly as
+  // companies.js's own "All" tab and this file's own label list already do.
+  var addCompanyList = document.createElement('div');
+  addCompanyList.className = 'rc-modal-list';
+  addCompanyPanel.appendChild(addCompanyList);
+
+  var addCompanyActions = document.createElement('div');
+  addCompanyActions.className = 'rc-modal-actions';
+  var addCompanyConfirmBtn = document.createElement('button');
+  addCompanyConfirmBtn.type = 'button';
+  addCompanyConfirmBtn.className = 'btn btn-sm btn-primary';
+  addCompanyConfirmBtn.textContent = 'Add';
+  addCompanyConfirmBtn.disabled = true;
+  addCompanyActions.appendChild(addCompanyConfirmBtn);
+  addCompanyPanel.appendChild(addCompanyActions);
+
+  modalColumns.appendChild(addCompanyPanel);
+
+  // At most one company staged at a time, either picked straight off the
+  // search results or just registered via the create-new row — the two are
+  // functionally identical from here on, since client_create's own near-
+  // duplicate check (services.get_or_create_client/normalize_persian) may
+  // hand back an EXISTING client for a near-duplicate name instead of a
+  // fresh one — see createCompanyPicker's own buildCreateRow, which relies
+  // on that server-side check rather than any separate client-side one
+  // (change 2e). The search/create mechanism itself is the one shared
+  // helper further up this file (createCompanyPicker) — this is just that
+  // helper's own confirm-button wiring, specific to THIS panel.
+  var addCompanyPicker = createCompanyPicker(addCompanyList, addCompanySearchInput, function (client) {
+    addCompanyConfirmBtn.disabled = !client;
+  });
+
+  function updateAddCompanyButtonVisibility() {
+    addCompanyBtn.hidden = !(CAN_EDIT && modalKind === 'label');
+  }
+
+  function openAddCompanyPanel() {
+    if (!CAN_EDIT || modalKind !== 'label') { return; }
+    modalEl.classList.add('is-wide');
+    addCompanyPanel.hidden = false;
+    addCompanyPicker.reset();
+    addCompanyConfirmBtn.disabled = true;
+    addCompanyPicker.search('');
+    addCompanySearchInput.focus();
+  }
+
+  function closeAddCompanyPanel() {
+    modalEl.classList.remove('is-wide');
+    addCompanyPanel.hidden = true;
+    addCompanyPicker.reset();
+  }
+
+  // Commits the staged company to the CURRENTLY OPEN card's own field —
+  // identical in default and picking mode, since both just mean "attach
+  // this company to modalField" (change 2d: no special-casing between the
+  // two modes at all).
+  addCompanyConfirmBtn.addEventListener('click', function () {
+    var client = addCompanyPicker.selected();
+    if (!client || modalKind !== 'label' || !modalField) { return; }
+    var field = modalField;
+    addCompanyConfirmBtn.disabled = true;
+    post(CFG.labelToggleUrl, { client_id: client.id, label: field, add: 1 }).then(function (data) {
+      addCompanyConfirmBtn.disabled = false;
+      if (!data.ok || modalField !== field) { return; }
+      closeAddCompanyPanel();
+      refreshLabelList();
+    });
+  });
+
+  addCompanyBtn.addEventListener('click', openAddCompanyPanel);
+  addCompanyCloseBtn.addEventListener('click', closeAddCompanyPanel);
+
   var modalField = null;
   var modalKind = null;            // 'label' | 'us' | 'inert'
   var modalMode = 'default';       // 'default' | 'picking'
@@ -716,6 +1095,7 @@
     selectedEntity = null;
     currentLabelCompanies = [];
     window.clearTimeout(usSearchDebounce);
+    closeAddCompanyPanel();
   }
   closeX.addEventListener('click', closeModal);
   closeDefaultBtn.addEventListener('click', closeModal);
@@ -724,7 +1104,13 @@
     if (ev.target === overlay) { closeModal(); }
   });
   document.addEventListener('keydown', function (ev) {
-    if (ev.key === 'Escape' && !overlay.hidden) { closeModal(); }
+    if (ev.key !== 'Escape' || overlay.hidden) { return; }
+    // The "+ Add company" panel reads as a layer ON TOP of the card's own
+    // modal (it widens the same window rather than opening a new one) — so
+    // Escape backs out of that layer first, same as it would a second real
+    // dialog, and only closes the whole modal once that layer is gone.
+    if (!addCompanyPanel.hidden) { closeAddCompanyPanel(); return; }
+    closeModal();
   });
 
   // Which of the default-mode action buttons apply to this card's kind.
@@ -782,6 +1168,11 @@
     actionsPicking.hidden = modalMode !== 'picking';
     configureDefaultActions();
     updateActionState();
+    // A fresh open never inherits a previous card's widened "+ Add company"
+    // layer — always starts collapsed; the button's own visibility is then
+    // set fresh for THIS card's kind/mode.
+    closeAddCompanyPanel();
+    updateAddCompanyButtonVisibility();
     overlay.hidden = false;
     listEl.innerHTML = '';
 
@@ -804,9 +1195,11 @@
         // hiding it alongside inquiryBtn is a small consistency improvement,
         // not a behaviour change. Restored on the next open that does not
         // hit this branch, since configureDefaultActions() runs fresh at the
-        // top of every openModalForField() call.
+        // top of every openModalForField() call. "+ Add company" gets the
+        // same treatment, for the same reason.
         inquiryBtn.hidden = true;
         attachBtn.hidden = true;
+        addCompanyBtn.hidden = true;
         renderContextualQueryRow(field);
         return;
       }
@@ -878,6 +1271,17 @@
     });
   }
 
+  // Refreshes whichever view of a label card's company list is currently
+  // showing — the normal default-mode fetch/render, or, while wizard
+  // "picking" mode is showing a DIFFERENT card, that mode's own fetch/render
+  // — so a row action (the × on any row, per change 1, or a completed
+  // "+ Add company", per change 2c) always redraws into the view the viewer
+  // is actually looking at instead of snapping back to default-mode
+  // browsing regardless of what was open.
+  function refreshLabelList() {
+    if (modalMode === 'picking') { renderPickingRow(); } else { fetchLabelCompanies(); }
+  }
+
   function filterCompanies(q) {
     q = (q || '').trim().toLowerCase();
     if (!q) { return currentLabelCompanies; }
@@ -937,7 +1341,11 @@
     // A manual tag gets a "×" only when THIS viewer actually owns it
     // (``removable``) — an Expert cannot remove a Supervisor's or another
     // Expert's tag; the endpoint refuses it server-side too, but there is no
-    // point rendering a dead click.
+    // point rendering a dead click. Unchanged whether this row is rendered
+    // by the default browsing view OR by wizard "picking" mode (change 1) —
+    // buildLabelRow itself has no notion of which mode called it; only the
+    // refresh below (refreshLabelList) has to know, so the right view
+    // redraws afterward.
     var canRemove = (company.source === 'manual' || company.also_manual) && company.removable;
     if (CAN_EDIT && canRemove) {
       var xBtn = document.createElement('button');
@@ -954,7 +1362,7 @@
             selectedEntity = null;
             updateActionState();
           }
-          fetchLabelCompanies();
+          refreshLabelList();
         });
       });
       row.appendChild(xBtn);
@@ -1035,18 +1443,19 @@
   // ---- wizard "picking" mode: reopening ANOTHER label card while armed ---
   // B's own REAL, FULL existing company list — fetched via CFG.labelCompaniesUrl
   // the same way fetchLabelCompanies()/buildLabelRow() fetch and render it for
-  // normal browsing — not just a single fact about the wizard's source (X).
-  // Every company B already carries renders as a read-only tick-row (no click
-  // handler at all — this is a wizard for managing X specifically, not a bulk
-  // editor for B); exactly one row is interactive: X's own, which reuses the
-  // EXACT same staging mechanism this function always had (toggle
-  // armedWizard.staged[field], dropping the key back out when it matches the
-  // server's current state, then updateWizardBar()) — only the surrounding
-  // list/visuals changed. Renders the tick-row markup companies.js's own
-  // buildPanelRow established (a plain <div class="rc-row mc-panel-row">,
-  // is-checked/is-locked, a .mc-panel-check "✓" glyph, a .mc-panel-text name)
-  // via the shared buildTickRow() helper below, reusing rolechart.css's
-  // already-existing classes rather than inventing new ones.
+  // normal browsing. Every row B genuinely carries — X's own included,
+  // whenever X already happens to be tagged here — now renders through that
+  // SAME buildLabelRow() the default browsing view uses: selectable, and
+  // removable via its own × whenever this viewer owns/can-remove that tag,
+  // exactly as a normal (non-wizard) click on this card would show it (fix
+  // for change 1 — these rows used to be inert, read-only tick-rows; they no
+  // longer are). The one thing that stays special to this mode is X's own
+  // SYNTHESIZED toggle row, staged via wizard.staged — but only for the ADD
+  // case, when X does NOT already carry this label: once X is already a
+  // genuine member of B's list (rendered above, like everyone else), its own
+  // × already covers "take X out of this card" — a second, separate staged-
+  // removal path for the very same fact would just be two conflicting ways
+  // to do the one thing, so it is deliberately gone.
   function renderPickingRow() {
     var seq = modalSeq;
     var field = modalField;
@@ -1055,17 +1464,7 @@
       if (seq !== modalSeq || !data.ok || wizard !== armedWizard) { return; }
       var companies = data.companies || [];
       var sourceId = armedWizard.source.id;
-      var entry = null;
-      companies.forEach(function (c) { if (c.id === sourceId) { entry = c; } });
-      var hasLabel = !!entry;
-      // Disabled whenever this viewer could not remove it if it were
-      // checked — a case-derived fact with no manual row of this viewer's
-      // own on top of it (removable === false) is the example the task
-      // spells out; the same rule also covers another user's manual tag,
-      // by the identical "cannot remove what you don't own" principle.
-      var lockedOn = hasLabel && !(entry && entry.removable);
-      var staged = Object.prototype.hasOwnProperty.call(armedWizard.staged, field)
-        ? armedWizard.staged[field] : hasLabel;
+      var hasLabel = companies.some(function (c) { return c.id === sourceId; });
 
       listEl.innerHTML = '';
 
@@ -1074,6 +1473,9 @@
       // (the whole point of the wizard is letting X be the FIRST company
       // tagged under an empty card) — this note sits ALONGSIDE it, not in
       // place of it, reusing renderLabelRows' own empty-state text/class.
+      // Companies.length already excludes X whenever X is not yet a member
+      // (fetched from the server as-is), so this is naturally "B's real list
+      // aside from X's own synthesized row," no extra filtering needed.
       if (!companies.length) {
         var empty = document.createElement('div');
         empty.className = 'rc-row-empty';
@@ -1081,45 +1483,40 @@
         listEl.appendChild(empty);
       }
 
-      // B's genuine existing companies (every entry except X) — read-only
-      // context only: no click handler at all, so the reader can see what is
-      // already there without being able to accidentally edit it.
+      // Every company B genuinely carries — including X's own, when X is
+      // already tagged here — is now a real, interactive row: selectable,
+      // and removable via its own × exactly like normal default-mode
+      // browsing. Nothing bespoke or read-only left for these.
       companies.forEach(function (company) {
-        if (company.id === sourceId) { return; }
-        listEl.appendChild(buildTickRow(company.name, true, true));
+        listEl.appendChild(buildLabelRow(company));
       });
 
-      // X's own row — the one interactive row in this list. Synthesized
-      // (not one of B's fetched rows) when X does not carry this label yet,
-      // the common case, which is WHY the wizard exists; a small "attaching"
-      // tag (.rc-row-badge, already used elsewhere in this file for a small
-      // trailing note) marks it as distinct from B's pre-existing members.
-      var checkedNow = staged;
-      var sourceRow = buildTickRow(armedWizard.source.name, checkedNow, lockedOn);
-      if (lockedOn) {
-        var lockedNote = document.createElement('span');
-        lockedNote.className = 'rc-row-badge';
-        lockedNote.textContent = 'implied by case';
-        sourceRow.appendChild(lockedNote);
-      } else if (!hasLabel) {
+      // X's own SYNTHESIZED toggle row — only when X does NOT already carry
+      // this label, the ADD case, which is the whole reason the wizard
+      // exists. A small "attaching" tag (.rc-row-badge, already used
+      // elsewhere in this file for a small trailing note) marks it as
+      // distinct from B's pre-existing members above.
+      if (!hasLabel) {
+        var staged = Object.prototype.hasOwnProperty.call(armedWizard.staged, field)
+          ? armedWizard.staged[field] : false;
+        var checkedNow = staged;
+        var sourceRow = buildTickRow(armedWizard.source.name, checkedNow, false);
         var attachingTag = document.createElement('span');
         attachingTag.className = 'rc-row-badge';
         attachingTag.textContent = 'attaching';
         sourceRow.appendChild(attachingTag);
-      }
-      if (!lockedOn) {
         var checkGlyph = sourceRow.querySelector('.mc-panel-check');
         var toggle = function () {
           // Staging is a client-side wizard concept — nothing is sent to the
           // server until Final Confirm. An entry that lands back on the
-          // server's own current state is dropped rather than kept at
-          // "no-op", so the wizard bar's own count only ever reflects real
-          // changes.
+          // server's own current state (false — X is not a member yet) is
+          // dropped rather than kept at "no-op", so the wizard bar's own
+          // count only ever reflects real changes.
           checkedNow = !checkedNow;
           sourceRow.classList.toggle('is-checked', checkedNow);
           sourceRow.setAttribute('aria-checked', checkedNow ? 'true' : 'false');
           checkGlyph.textContent = checkedNow ? '✓' : '';
-          if (checkedNow === hasLabel) { delete armedWizard.staged[field]; }
+          if (!checkedNow) { delete armedWizard.staged[field]; }
           else { armedWizard.staged[field] = checkedNow; }
           updateWizardBar();
         };
@@ -1127,8 +1524,8 @@
         sourceRow.addEventListener('keydown', function (ev) {
           if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(); }
         });
+        listEl.appendChild(sourceRow);
       }
-      listEl.appendChild(sourceRow);
     });
   }
 
@@ -1189,6 +1586,208 @@
   // staged its change (or lack of one) on the wizard the moment it was
   // toggled, so "Confirm this card" is just a way back to the chart.
   confirmCardBtn.addEventListener('click', closeModal);
+
+  // ------------------------------------------------------------------------
+  // The top-of-page "Quick Inquiry" card — home.html's own small standalone
+  // panel in .page-head, rendered only alongside this same rcChart (the
+  // 'roles' tab), well above it on the page. Two fields — a company, then
+  // (once picked) a dropdown of THAT company's own current roles, with a
+  // small affordance to add a role it does not have yet — and a Confirm
+  // button that just calls runInquiryForClient() directly, the exact same
+  // function a normal in-chart Inquiry already runs. Nothing here builds a
+  // second query mechanism: this only ever gathers the two inputs
+  // runInquiryForClient already takes.
+  //
+  // Every element is looked up and guarded independently, the same
+  // convention this whole file already follows (see the top-of-file
+  // comment / the `if (!chartRoot || !CFG)` guard above) — the card is only
+  // ever templated onto the 'roles' tab, so its absence elsewhere (e.g. the
+  // Companies tab) is expected, not an error, and this block simply does
+  // nothing on that page.
+  // ------------------------------------------------------------------------
+  var quickPanel = document.getElementById('rcQuickInquiry');
+  if (quickPanel) {
+    var quickCompanyInput = document.getElementById('rcQuickCompanyInput');
+    var quickCompanyList = document.getElementById('rcQuickCompanyList');
+    var quickRoleSelect = document.getElementById('rcQuickRoleSelect');
+    var quickAddRoleToggle = document.getElementById('rcQuickAddRoleToggle');
+    var quickNewRoleWrap = document.getElementById('rcQuickNewRoleWrap');
+    var quickNewRoleSelect = document.getElementById('rcQuickNewRoleSelect');
+    var quickNewRoleAdd = document.getElementById('rcQuickNewRoleAdd');
+    var quickConfirmBtn = document.getElementById('rcQuickConfirm');
+
+    if (quickCompanyInput && quickCompanyList && quickRoleSelect && quickAddRoleToggle &&
+        quickNewRoleWrap && quickNewRoleSelect && quickNewRoleAdd && quickConfirmBtn) {
+
+      // Every "label" card on the chart, read straight off the chart's own
+      // nodes (never a second copy of rolechart.py's LABEL_KEYS) — the full
+      // set a role can be picked from, and what "add a new role" offers
+      // once the ones the company already holds are filtered out below.
+      var quickAllLabels = [];
+      Array.prototype.forEach.call(svg.querySelectorAll('.rc-node[data-kind="label"]'), function (g) {
+        quickAllLabels.push({ field: g.getAttribute('data-field'), role_fa: g.getAttribute('data-role') });
+      });
+
+      var quickCompany = null; // the currently picked company, or null
+      var quickRoles = [];     // that company's own current labels — client_connections' own shape
+
+      function quickShowDropdown(show) { quickCompanyList.hidden = !show; }
+
+      function quickUpdateConfirmState() {
+        quickConfirmBtn.disabled = !quickCompany || !quickRoleSelect.value;
+      }
+
+      function quickResetRoleField(placeholderText) {
+        quickRoleSelect.innerHTML = '';
+        var opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = placeholderText;
+        quickRoleSelect.appendChild(opt);
+        quickRoleSelect.disabled = true;
+        quickAddRoleToggle.hidden = true;
+        quickNewRoleWrap.hidden = true;
+        quickUpdateConfirmState();
+      }
+
+      // Renders quickRoles (the company's own current labels) into the role
+      // select, optionally leaving a specific field pre-selected — used
+      // right after a brand-new role is added, so the reader lands on it
+      // rather than back on "Choose a role…".
+      function quickPopulateRoleField(selectField) {
+        quickRoleSelect.innerHTML = '';
+        if (!quickRoles.length) {
+          var empty = document.createElement('option');
+          empty.value = '';
+          empty.textContent = 'No roles yet';
+          quickRoleSelect.appendChild(empty);
+        } else {
+          var placeholder = document.createElement('option');
+          placeholder.value = '';
+          placeholder.textContent = 'Choose a role…';
+          quickRoleSelect.appendChild(placeholder);
+          quickRoles.forEach(function (l) {
+            var opt = document.createElement('option');
+            opt.value = l.label;
+            opt.textContent = l.label_fa;
+            quickRoleSelect.appendChild(opt);
+          });
+        }
+        quickRoleSelect.disabled = false;
+        if (selectField) { quickRoleSelect.value = selectField; }
+        // Adding a role from here is the same mutation Attach already makes
+        // from the chart (CFG.labelToggleUrl) — gated the same way, on
+        // CAN_EDIT, everywhere else in this file already gates a write.
+        quickAddRoleToggle.hidden = !CAN_EDIT;
+        quickNewRoleWrap.hidden = true;
+        quickUpdateConfirmState();
+      }
+
+      function quickFetchRoles(company, selectFieldAfter) {
+        get(CFG.clientConnectionsUrl, { client_id: company.id }).then(function (data) {
+          // Guards against a slow answer landing after the reader already
+          // picked a DIFFERENT company (or cleared the field) — the same
+          // "only the latest request may paint" discipline every other
+          // fetch in this file already follows.
+          if (!data.ok || !quickCompany || quickCompany.id !== company.id) { return; }
+          quickRoles = data.labels || [];
+          quickPopulateRoleField(selectFieldAfter);
+        });
+      }
+
+      var quickPicker = createCompanyPicker(quickCompanyList, quickCompanyInput, function (client) {
+        quickCompany = client;
+        quickShowDropdown(false);
+        if (client) {
+          // The dropdown collapses the instant a company is picked (unlike
+          // the "+ Add company" panel, which stays open with the row itself
+          // showing is-selected) — so the input's own text becomes the only
+          // visible record of what's picked; set it to the company's name
+          // rather than leaving whatever the reader had typed to find it.
+          quickCompanyInput.value = client.name;
+          quickResetRoleField('Loading roles…');
+          quickFetchRoles(client, null);
+        } else {
+          quickResetRoleField('Pick a company first…');
+        }
+        quickUpdateConfirmState();
+      });
+
+      quickCompanyInput.addEventListener('focus', function () {
+        quickShowDropdown(true);
+        if (!quickCompanyList.childElementCount) { quickPicker.search(quickCompanyInput.value); }
+      });
+      quickCompanyInput.addEventListener('input', function () { quickShowDropdown(true); });
+      // Closes the dropdown on any click outside the whole card — picking a
+      // row already closes it itself (quickShowDropdown(false) above), so
+      // this is only for "the reader clicked away without choosing".
+      document.addEventListener('click', function (ev) {
+        if (!quickPanel.contains(ev.target)) { quickShowDropdown(false); }
+      });
+
+      quickRoleSelect.addEventListener('change', quickUpdateConfirmState);
+
+      quickAddRoleToggle.addEventListener('click', function () {
+        if (!quickCompany) { return; }
+        var have = {};
+        quickRoles.forEach(function (l) { have[l.label] = true; });
+        var available = quickAllLabels.filter(function (l) { return !have[l.field]; });
+        quickNewRoleSelect.innerHTML = '';
+        if (!available.length) {
+          var noneOpt = document.createElement('option');
+          noneOpt.value = '';
+          noneOpt.textContent = 'Already has every role';
+          quickNewRoleSelect.appendChild(noneOpt);
+          quickNewRoleAdd.disabled = true;
+        } else {
+          var placeholder = document.createElement('option');
+          placeholder.value = '';
+          placeholder.textContent = 'Choose a role to add…';
+          quickNewRoleSelect.appendChild(placeholder);
+          available.forEach(function (l) {
+            var opt = document.createElement('option');
+            opt.value = l.field;
+            opt.textContent = l.role_fa;
+            quickNewRoleSelect.appendChild(opt);
+          });
+          quickNewRoleAdd.disabled = true;
+        }
+        quickNewRoleWrap.hidden = false;
+      });
+
+      quickNewRoleSelect.addEventListener('change', function () {
+        quickNewRoleAdd.disabled = !quickNewRoleSelect.value;
+      });
+
+      // Reuses CFG.labelToggleUrl — the exact same "assign a role" endpoint
+      // every other flow in this file already calls (Attach's wizard
+      // confirm, the "+ Add company" panel, a label row's own ×) — nothing
+      // new added to marketing/views.py for this.
+      quickNewRoleAdd.addEventListener('click', function () {
+        if (!quickCompany || !quickNewRoleSelect.value) { return; }
+        var field = quickNewRoleSelect.value;
+        var company = quickCompany;
+        quickNewRoleAdd.disabled = true;
+        post(CFG.labelToggleUrl, { client_id: company.id, label: field, add: 1 }).then(function (data) {
+          if (!data.ok || !quickCompany || quickCompany.id !== company.id) { return; }
+          quickFetchRoles(company, field);
+        });
+      });
+
+      // Runs the EXACT SAME thing a normal in-chart Inquiry does — the
+      // picked company and role/field handed straight to
+      // runInquiryForClient(), never a parallel query path of its own. The
+      // widget sits above the fold and the chart usually does not, so the
+      // chart's own panel is scrolled into view right after, plainly, so
+      // the reader actually sees the query state change on it.
+      quickConfirmBtn.addEventListener('click', function () {
+        if (!quickCompany || !quickRoleSelect.value) { return; }
+        runInquiryForClient(quickCompany, quickRoleSelect.value);
+        chartRoot.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+
+      quickResetRoleField('Pick a company first…');
+    }
+  }
 
   // ------------------------------------------------------------------------
   // Node clicks — every one of the nineteen fields opens the same modal.

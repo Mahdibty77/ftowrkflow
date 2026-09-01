@@ -79,13 +79,13 @@ class MarketingLabel:
     Optional on every case — see Case.marketing_label. Blank means "not
     specified," which Marketing treats as OWNER (the client's default role)
     rather than as a stored choice of its own; see marketing/services.py for
-    where that default is actually applied. The twelve keys below are exactly
-    the twelve of marketing/rolechart.py's nineteen chart fields that describe
-    a business relationship a case's client could actually hold — the other
-    seven (the project itself, its phase, the laboratory, third-party
-    inspection, the sub-supplier, our own position, and a competitor) are not
-    meaningful answers to "what role did THIS CLIENT play," so they are not
-    offered here.
+    where that default is actually applied. The fourteen keys below are
+    exactly the fourteen of marketing/rolechart.py's twenty-one chart fields
+    that describe a business relationship a case's client could actually
+    hold — the other seven (the project itself, its phase, the laboratory,
+    third-party inspection, the sub-supplier, our own position, and a
+    competitor) are not meaningful answers to "what role did THIS CLIENT
+    play," so they are not offered here.
     """
     SPONSOR = "sponsor"
     OWNER = "owner"
@@ -99,6 +99,8 @@ class MarketingLabel:
     PC = "pc"
     EPC = "epc"
     SUB = "sub"
+    SUB_PC = "sub_pc"
+    SUB_EPC = "sub_epc"
 
     CHOICES = [
         (SPONSOR, "سرمایه‌گذار — SPONSOR / INVESTOR"),
@@ -112,12 +114,14 @@ class MarketingLabel:
         (P, "پیمانکار خرید — P — PROCUREMENT ONLY"),
         (PC, "پیمانکار خرید و اجرا — PC — PROCUREMENT + CONSTRUCTION"),
         (EPC, "پیمانکار طرح، خرید و اجرا — EPC — ENG. PROC. CONSTRUCTION"),
-        (SUB, "پیمانکار جزء — SUBCONTRACTOR"),
+        (SUB, "پیمانکار جزء P — SUBCONTRACTOR — P"),
+        (SUB_PC, "پیمانکار جزء PC — SUBCONTRACTOR — PC"),
+        (SUB_EPC, "پیمانکار جزء EPC — SUBCONTRACTOR — EPC"),
     ]
     LABELS = dict(CHOICES)
 
     # Two more chart fields — the sub-supplier and a competitor — that are
-    # NOT among the twelve above, and never will be: per this class's own
+    # NOT among the fourteen above, and never will be: per this class's own
     # docstring, neither is a meaningful answer to "what role did THIS CASE'S
     # CLIENT play," so they stay out of CHOICES/LABELS and therefore out of
     # Case.marketing_label's own choices and the case-creation/edit forms

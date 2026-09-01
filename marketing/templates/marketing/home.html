@@ -28,6 +28,56 @@
     <h1>Marketing</h1>
     <div class="sub">{{ user.profile.title_line }}</div>
   </div>
+
+  {% if active_tab == 'roles' %}
+  {% comment %}
+    The top-of-page "Quick Inquiry" card — a small, standalone shortcut that
+    runs the exact same Inquiry a reader would get by opening a role's card
+    on the chart below, picking a company there, and pressing Inquiry —
+    without first having to find the right card. Sits beside the heading
+    above (this is .page-head's SECOND child; the block's own
+    justify-content:space-between, static/css/app.css, is what pushes it to
+    the right, opposite "Marketing" / the title line), and — since it lives
+    inside this same {% if %} — only ever renders on the 'roles' tab,
+    alongside marketing/_role_chart.html below, never on the Companies tab.
+
+    Just the static shell: two field containers plus a Confirm button,
+    mirroring how _companies.html's own shell provides bare mount points for
+    companies.js to fill in. Every bit of behaviour — the company search
+    (reusing the exact same search/create mechanism the "+ Add company"
+    panel already built), the role dropdown (marketing:client_connections,
+    unchanged), adding a brand-new role (marketing:label_toggle, unchanged),
+    and Confirm itself (runInquiryForClient(), unchanged) — is wired in
+    chart_interact.js, self-guarded on these element ids exactly the way
+    every other piece of that file already guards on its own.
+  {% endcomment %}
+  <div class="rc-quick-inquiry" id="rcQuickInquiry">
+    <div class="rc-quick-title">Quick Inquiry</div>
+
+    <div class="rc-quick-field">
+      <label class="rc-quick-label" for="rcQuickCompanyInput">Company</label>
+      <div class="rc-quick-combo">
+        <input type="text" id="rcQuickCompanyInput" class="rc-quick-select"
+               placeholder="Search a company…" autocomplete="off" dir="auto">
+        <div class="rc-quick-dropdown" id="rcQuickCompanyList" hidden></div>
+      </div>
+    </div>
+
+    <div class="rc-quick-field">
+      <label class="rc-quick-label" for="rcQuickRoleSelect">Role</label>
+      <select id="rcQuickRoleSelect" class="rc-quick-select" disabled>
+        <option value="">Pick a company first…</option>
+      </select>
+      <button type="button" class="rc-quick-add-role-toggle" id="rcQuickAddRoleToggle" hidden>+ Add a new role</button>
+      <div class="rc-quick-new-role" id="rcQuickNewRoleWrap" hidden>
+        <select id="rcQuickNewRoleSelect" class="rc-quick-select"></select>
+        <button type="button" class="btn btn-sm" id="rcQuickNewRoleAdd" disabled>Add</button>
+      </div>
+    </div>
+
+    <button type="button" class="btn btn-sm btn-primary rc-quick-confirm" id="rcQuickConfirm" disabled>Run inquiry</button>
+  </div>
+  {% endif %}
 </div>
 
 <nav class="tabs rc-tabs" aria-label="Marketing sections">
@@ -64,6 +114,13 @@
     labelToggleUrl: "{% url 'marketing:label_toggle' %}",
     clientConnectionsUrl: "{% url 'marketing:client_connections' %}",
     usConnectionsUrl: "{% url 'marketing:us_connections' %}",
+    // The "+ Add company" panel (chart_interact.js) live-searches and can
+    // register a brand-new client the exact same way the Companies tab's own
+    // companies.js already does with these same two endpoints — exposed here
+    // too now, alongside FT_MARKETING_COMPANIES's own copies below, so the
+    // chart's modal never has to reach across into that other config object.
+    clientSearchUrl: "{% url 'marketing:client_search' %}",
+    clientCreateUrl: "{% url 'marketing:client_create' %}",
     canEdit: {{ can_edit|yesno:"true,false" }},
     isAdminTier: {{ is_admin_tier|yesno:"true,false" }},
     allCasesSearchUrl: "{% url 'marketing:all_cases_search' %}",

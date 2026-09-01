@@ -151,29 +151,60 @@ def search_clients(query: str = "", limit: int = 25):
     return matches[:limit]
 
 
-def get_or_create_client(name: str, user) -> Client:
-    """The client named ``name`` — existing (case-insensitive match), or freshly
-    registered exactly the way ``cases/views.py::client_add`` already does:
-    a sequential code from ``cases.services.next_client_code()`` and
-    ``created_by`` stamped to ``user``.
+def _find_by_normalized_name(needle: str):
+    """The first ``Client`` whose normalized name equals ``needle`` (already
+    itself a ``normalize_persian(...).lower()`` result), or ``None``.
 
-    Matches on ``name__iexact`` first, the same check
-    ``cases.forms.ClientForm.clean_name`` performs, since ``Client.name``'s
-    database-level uniqueness is case-sensitive (sqlite has no
-    case-insensitive collation here) and would otherwise let "Foolad Sanat"
-    and "foolad sanat" become two rows. If two concurrent requests both miss
-    that check and race to create the same name, the loser's ``IntegrityError``
-    (raised by ``Client.name``'s unique constraint) is caught and resolved by
-    re-reading the winner's row — the same race ``client_add`` already
-    tolerates implicitly via ``next_client_code()``'s own atomic counter,
-    just made explicit here since this path (unlike ``client_add``'s own
-    form-backed one) can be called concurrently from independent JSON
-    requests without a form re-render in between to catch it.
+    Same Python-side scan-and-compare ``search_clients`` above uses — the
+    table is small (hundreds of rows), so one pass here is cheap and avoids
+    N+1 queries; not reinvented, just reused for equality instead of
+    substring containment.
+    """
+    return next(
+        (c for c in Client.objects.all() if normalize_persian(c.name).lower() == needle),
+        None,
+    )
+
+
+def get_or_create_client(name: str, user) -> Client:
+    """The client named ``name`` — an existing NEAR-DUPLICATE if one already
+    exists, or freshly registered exactly the way ``cases/views.py::client_add``
+    already does: a sequential code from ``cases.services.next_client_code()``
+    and ``created_by`` stamped to ``user``.
+
+    Matches by NORMALIZED name first, using ``normalize_persian`` (see
+    ``core.persian_text``) the same scan-and-compare way ``search_clients``
+    above already does over the whole table: this folds Persian/Arabic
+    letter variants AND strips all whitespace, so two names that differ only
+    by which keyboard typed a shared letter, or by spacing (extra/irregular
+    spaces, or a space missing entirely between two words), are treated as
+    the SAME company. This subsumes a plain case-insensitive exact match
+    (``cases.forms.ClientForm.clean_name``'s check, and the reason
+    ``Client.name``'s database-level uniqueness — case-sensitive, since
+    sqlite has no case-insensitive collation here — could otherwise let
+    "Foolad Sanat" and "foolad sanat" become two rows), so that check is not
+    duplicated separately. The whole point of "get or create" is that this
+    is transparent to the caller: an existing near-duplicate genuinely IS
+    the client they meant, so this returns it rather than creating a second
+    row or raising. Only when no existing client's normalized name matches
+    is a new row created. One pass over the (small, hundreds-of-rows) Client
+    table — see ``_find_by_normalized_name`` — no per-row query, so no N+1.
+
+    If two concurrent requests both miss that check and race to create the
+    same (or near-duplicate) name, the loser's ``IntegrityError`` (raised by
+    ``Client.name``'s unique constraint) is caught and resolved by
+    re-reading the winner's row via the same normalized comparison — the
+    same race ``client_add`` already tolerates implicitly via
+    ``next_client_code()``'s own atomic counter, just made explicit here
+    since this path (unlike ``client_add``'s own form-backed one) can be
+    called concurrently from independent JSON requests without a form
+    re-render in between to catch it.
     """
     name = (name or "").strip()
     if not name:
         raise ValueError("A name is required.")
-    existing = Client.objects.filter(name__iexact=name).first()
+    needle = normalize_persian(name).lower()
+    existing = _find_by_normalized_name(needle)
     if existing is not None:
         return existing
     actor = user if getattr(user, "is_authenticated", False) else None
@@ -184,7 +215,7 @@ def get_or_create_client(name: str, user) -> Client:
             )
         return client
     except IntegrityError:
-        existing = Client.objects.filter(name__iexact=name).first()
+        existing = _find_by_normalized_name(needle)
         if existing is not None:
             return existing
         raise

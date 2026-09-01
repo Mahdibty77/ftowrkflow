@@ -1,6 +1,8 @@
 """Forms for case creation and the commercial master-data screens."""
 from django import forms
 
+from core.persian_text import normalize_persian
+
 from .constants import DocKind, MarketingLabel, OfferType, PriceType
 from .models import Client, ExpertCode
 
@@ -161,7 +163,18 @@ class ClientForm(forms.ModelForm):
 
     def clean_name(self):
         name = self.cleaned_data["name"].strip()
-        if Client.objects.filter(name__iexact=name).exists():
+        # A plain name__iexact only catches an EXACT (modulo case) match —
+        # two names differing only by a Persian/Arabic letter variant or by
+        # whitespace (extra/missing spaces, a run-together word) would both
+        # slip past it and create a real duplicate client. Compare normalized
+        # forms instead, the same way marketing/services.py's own
+        # get_or_create_client and search_clients already do for the
+        # Marketing-side "add a company" flows — see core.persian_text for
+        # what normalize_persian folds away. The table is small (hundreds of
+        # rows), so a Python-side scan is the same acceptable trade-off those
+        # functions already made.
+        needle = normalize_persian(name).lower()
+        if any(normalize_persian(c.name).lower() == needle for c in Client.objects.all()):
             raise forms.ValidationError("A client with this name already exists.")
         return name
 

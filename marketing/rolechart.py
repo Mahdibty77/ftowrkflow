@@ -1,30 +1,32 @@
 """The project role chart: its slots, its geometry, and nothing else.
 
 WHAT THIS DRAWS. One project, and every outside party that stands between the
-money and the metal, in a single top-to-bottom flow: sponsor, owner, the
-project itself, its phase, project management, the design chain, the four
-contract types (drawn unconditionally now — there is no contract-model
-gating any more; see the module's own git history if that phrase means
-nothing to you), a subcontractor and a third-party inspector, the
-laboratory, our own position, and finally supplier and rival, stacked
-together in the chart's bottom-left corner. Nineteen fields in total —
-``SLOTS`` plus "project" and "us" — and every one of them appears EXACTLY
-ONCE, unconditionally, as its own clickable card.
+money and the metal, in a single top-to-bottom flow: sponsor, owner paired
+with its licensor, the project itself, its phase, project management, the
+design chain, the four contract types (drawn unconditionally now — there is
+no contract-model gating any more; see the module's own git history if that
+phrase means nothing to you), a subcontractor card under each of the three
+contract types that can actually hold one, third-party inspection in its own
+row beneath those three, the laboratory, our own position, and finally
+supplier — directly beneath our own position — and rival, detached alone in
+the chart's bottom-left corner. Twenty-one fields in total — ``SLOTS`` plus
+"project" and "us" — and every one of them appears EXACTLY ONCE,
+unconditionally, as its own clickable card.
 
-    SLOTS       -- the seventeen, in reading order
+    SLOTS       -- the nineteen, in reading order
     ALL_FIELDS  -- SLOTS plus the project and us, in chart order
     build(counts) -- counts -> a drawable chart
 
 WHERE THE MODEL PLUGS IN. ``build()`` takes just ``counts`` — a
 ``{field key: how many companies}`` mapping built in
-``marketing/views.py::home`` (from ``services.label_counts`` for the fourteen
+``marketing/views.py::home`` (from ``services.label_counts`` for the sixteen
 labelable fields and ``services.us_connections`` for "us"), already scoped to
 the viewer — and returns a finished geometry dict the template walks. It
 touches no model, no request and no database itself. The organisation-name,
 contract-model and per-buying-chain concepts that used to live here (one
 sample organisation per slot, four duplicated sub/inspector chains, a dashed
 "not identified yet" edge style) are gone: what a field HOLDS is now either a
-label on the shared ``cases.Client`` directory (fourteen of the nineteen
+label on the shared ``cases.Client`` directory (sixteen of the twenty-one
 fields — see ``marketing/models.py::ClientLabel`` and
 ``marketing/services.py``) or, for "us", every client connected through an
 actual case; this module only draws the card a field sits on and how many
@@ -35,11 +37,11 @@ apart — the same base grid the previous version of this chart used. Every row
 transition is drawn by ``_connect``: one point to one point is a line, one to
 many (or many to one) fans from that single point, and many to many converge
 on the centre lane and fan back out — there is no bus bar and no per-chain
-special case, with one deliberate exception: the final two rows (rival, then
-supplier, stacked in the bottom-left corner) get no incoming edge at all —
-see ``_NO_INCOMING_EDGE`` in ``build()``. The
-template receives finished coordinates and path data and makes no arithmetic
-decision of its own.
+special case, with one deliberate exception: in the final row, rival — alone
+in the bottom-left corner — gets no incoming edge at all, while supplier, its
+row-mate directly beneath "us" in the centre lane, gets an ordinary one — see
+``_NO_INCOMING_EDGE`` in ``build()``. The template receives finished
+coordinates and path data and makes no arithmetic decision of its own.
 """
 from __future__ import annotations
 
@@ -55,27 +57,26 @@ CEN = 650                       # the centre lane
 PAIR = (COL[1], COL[2])         # the two columns a side-by-side pair sits on
 
 _GAP = 92
-_GAP_STACK = 26    # the tight breathing gap between rival and supplier below it
 R1 = 18            # sponsor
-R2 = R1 + _GAP     # owner
+R2 = R1 + _GAP     # owner / licensor
 R3 = R2 + _GAP     # the project
 R3B = R3 + _GAP    # phase
 R4 = R3B + _GAP    # pmt / mc
-R5 = R4 + _GAP     # licensor / design / supervision
+R5 = R4 + _GAP     # design / supervision
 R6 = R5 + _GAP     # the four contract types
-R7 = R6 + _GAP     # sub / tpi
-R8 = R7 + _GAP     # laboratory
+R7 = R6 + _GAP     # sub / sub_pc / sub_epc
+R7B = R7 + _GAP    # tpi
+R8 = R7B + _GAP    # laboratory
 R9 = R8 + _GAP     # us
-R10 = R9 + _GAP           # rival
-R11 = R10 + NODE_H + _GAP_STACK   # supplier, close beneath rival
-VIEW_H = R11 + NODE_H + 26
+R10 = R9 + _GAP    # rival / supplier
+VIEW_H = R10 + NODE_H + 26
 
 Y_ROLE = 26        # the Persian role name's baseline, from the box's top edge
 Y_ABBR = 45        # the English abbreviation's baseline
 
 
 # --------------------------------------------------------------------------- #
-# The seventeen slots
+# The nineteen slots
 # --------------------------------------------------------------------------- #
 # (key, Persian role name, English abbreviation). No colour family any more:
 # the first version of this chart gave every field a family hue, and once
@@ -96,7 +97,9 @@ SLOTS = (
     ("p",           "پیمانکار خرید",               "P — PROCUREMENT ONLY"),
     ("pc",          "پیمانکار خرید و اجرا",        "PC — PROCUREMENT + CONSTRUCTION"),
     ("epc",         "پیمانکار طرح، خرید و اجرا",   "EPC — ENG. PROC. CONSTRUCTION"),
-    ("sub",         "پیمانکار جزء",                "SUBCONTRACTOR"),
+    ("sub",         "پیمانکار جزء P",              "SUBCONTRACTOR — P"),
+    ("sub_pc",      "پیمانکار جزء PC",             "SUBCONTRACTOR — PC"),
+    ("sub_epc",     "پیمانکار جزء EPC",            "SUBCONTRACTOR — EPC"),
     ("tpi",         "بازرس ثالث",                  "TPI — THIRD PARTY INSP."),
     ("laboratory",  "آزمایشگاه",                   "LABORATORY"),
     ("supplier",    "تأمین‌کننده",                 "SUB-SUPPLIER"),
@@ -117,13 +120,13 @@ US_ABBR = "VENDOR / SUPPLIER"
 
 # Every field on the chart, in reading order — the one list marketing/views.py
 # and marketing/services.py both walk (via ALL_FIELDS/LABEL_KEYS below) so the
-# chart's own card order, the Companies tab's tab strip, and the twelve
+# chart's own card order, the Companies tab's tab strip, and the fourteen
 # MarketingLabel choices on a case can never drift apart on what a field is
 # called.
 _FIELD_ORDER = (
     "sponsor", "owner", "project", "phase", "pmt", "mc", "licensor", "design",
-    "supervision", "c", "p", "pc", "epc", "sub", "tpi", "laboratory", "us",
-    "supplier", "rival",
+    "supervision", "c", "p", "pc", "epc", "sub", "sub_pc", "sub_epc", "tpi",
+    "laboratory", "us", "supplier", "rival",
 )
 
 
@@ -140,7 +143,7 @@ ALL_FIELDS = tuple(_field_entry(k) for k in _FIELD_ORDER)
 _LABEL_BY_KEY = {k: (fa, ab) for k, fa, ab in ALL_FIELDS}
 
 # Every field's behavioural GROUP, for the chart's own click handling in
-# chart_interact.js: "label" for the fourteen MarketingLabel keys a card can
+# chart_interact.js: "label" for the sixteen MarketingLabel keys a card can
 # be tagged/untagged under (see marketing/services.py's own LABEL_KEYS, which
 # this mirrors exactly), "us" for the single "our own position" card, and
 # "inert" for the four fields no data source feeds this round (the same four
@@ -149,19 +152,19 @@ _LABEL_BY_KEY = {k: (fa, ab) for k, fa, ab in ALL_FIELDS}
 # touches no model, no request and no database — see the module docstring.
 # Exposed on every node as ``kind``, and from there as a ``data-kind``
 # attribute in the template, so the JS never has to hardcode which of the
-# nineteen keys falls in which group.
+# twenty-one keys falls in which group.
 #
 # supplier and rival joined this list (they used to sit in _INERT_KEYS
 # below, with no data source and no click interaction at all): a Marketing
 # user can now hand-tag a company under either one via
 # ``marketing/models.py::ClientLabel`` — see
 # ``cases.constants.MarketingLabel.MANUAL_ONLY_CHOICES`` for why they are
-# manual-tag-only (no case can ever hold them, unlike the other twelve).
+# manual-tag-only (no case can ever hold them, unlike the other fourteen).
 # Their GEOMETRY (bottom-left corner, no incoming edge, see _ROWS and
 # _NO_INCOMING_EDGE below) is unrelated to this and does not change.
 LABEL_KEYS = (
     "sponsor", "owner", "pmt", "mc", "licensor", "design", "supervision",
-    "c", "p", "pc", "epc", "sub", "supplier", "rival",
+    "c", "p", "pc", "epc", "sub", "sub_pc", "sub_epc", "supplier", "rival",
 )
 _INERT_KEYS = ("project", "phase", "laboratory", "tpi")
 
@@ -179,31 +182,34 @@ def _kind_of(key):
 # needs; ``build`` walks this once for the nodes and once more, pairwise,
 # for the connectors between one row and the next.
 #
-# rival and supplier sit stacked in the chart's OWN bottom-left corner
-# (COL[0], the outermost established column — not a new constant), rival at
-# R10 directly above supplier at R11, _GAP_STACK apart rather than the
-# standard _GAP: the owner asked for them detached, with no edge tying them
-# to anything else on the default chart. See ``_NO_INCOMING_EDGE``. The
-# bottom-right corner (COL[3], where rival used to sit alone) is left
-# deliberately empty here — a later phase grows a panel there in the chart's
-# own JS/CSS, so nothing else should be placed at COL[3] on this row.
+# rival sits alone in the chart's OWN bottom-left corner (COL[0], the
+# outermost established column — not a new constant): the owner asked for it
+# detached, with no edge tying it to anything else on the default chart. See
+# ``_NO_INCOMING_EDGE``. supplier shares this same final row but sits in the
+# centre lane instead, directly beneath "us" — an ordinary child with an
+# ordinary incoming edge, not detached at all; only rival gets the no-edge
+# treatment. The bottom-right corner (COL[3], where rival used to sit alone)
+# is left deliberately empty here — a later phase grows a panel there in the
+# chart's own JS/CSS, so nothing else should be placed at COL[3] on this row.
 _ROWS = (
     (R1,  (("sponsor", CEN),)),
-    (R2,  (("owner", CEN),)),
+    (R2,  (("owner", PAIR[0]), ("licensor", PAIR[1]))),
     (R3,  (("project", CEN),)),
     (R3B, (("phase", CEN),)),
     (R4,  (("pmt", PAIR[0]), ("mc", PAIR[1]))),
-    (R5,  (("licensor", COL[0]), ("design", COL[1]), ("supervision", COL[2]))),
+    (R5,  (("design", COL[1]), ("supervision", COL[2]))),
     (R6,  (("c", COL[0]), ("p", COL[1]), ("pc", COL[2]), ("epc", COL[3]))),
-    (R7,  (("sub", PAIR[0]), ("tpi", PAIR[1]))),
+    (R7,  (("sub", COL[1]), ("sub_pc", COL[2]), ("sub_epc", COL[3]))),
+    (R7B, (("tpi", CEN),)),
     (R8,  (("laboratory", CEN),)),
     (R9,  (("us", CEN),)),
-    (R10, (("rival", COL[0]),)),
-    (R11, (("supplier", COL[0]),)),
+    (R10, (("rival", COL[0]), ("supplier", CEN))),
 )
 
-# The one row transition ``build()`` deliberately does NOT draw an edge into.
-_NO_INCOMING_EDGE = frozenset({"supplier", "rival"})
+# The one field build() deliberately draws no incoming edge into: rival,
+# alone in its bottom-left corner. Its row-mate supplier gets an ordinary
+# edge like everything else — see build()'s per-child filtering below.
+_NO_INCOMING_EDGE = frozenset({"rival"})
 
 
 # --------------------------------------------------------------------------- #
@@ -296,7 +302,7 @@ def build(counts):
 
     ``counts``  ``{field key: how many companies}`` — built in
                 ``marketing/views.py::home`` from ``services.label_counts``
-                (the fourteen labelable fields) and ``services.us_connections``
+                (the sixteen labelable fields) and ``services.us_connections``
                 ("us"), already scoped to the viewer. A field missing from it
                 counts as zero.
     """
@@ -309,11 +315,17 @@ def build(counts):
             nodes.append(_node(key, fa, ab, x, y, counts.get(key, 0)))
         if i + 1 < len(_ROWS):
             y_next, row_next = _ROWS[i + 1]
-            next_keys = {k for k, _x in row_next}
-            if not next_keys & _NO_INCOMING_EDGE:
+            # Filtered per CHILD, not per row: a row can mix an excluded
+            # field (rival) with an ordinary one (supplier) now that both
+            # sit in the same final row — see _NO_INCOMING_EDGE above. This
+            # still draws nothing when EVERY child in the next row is
+            # excluded (the old all-or-nothing case), so no other row
+            # transition's edges change.
+            included_next = [(k, x) for k, x in row_next if k not in _NO_INCOMING_EDGE]
+            if included_next:
                 edges.extend(_connect(
                     [x for _k, x in row], y + NODE_H,
-                    [x for _k, x in row_next], y_next,
+                    [x for _k, x in included_next], y_next,
                 ))
 
     return {

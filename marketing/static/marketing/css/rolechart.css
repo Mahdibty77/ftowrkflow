@@ -25,6 +25,76 @@
 .rc-tabs .tab:hover{ text-decoration:none; }
 .rc-tabs .tab{ display:inline-block; }
 
+/* ---- The top-of-page "Quick Inquiry" card ----------------------------------
+   Lives in home.html's own .page-head, ABOVE .rc-chart, not inside it — so
+   it gets its own small vocabulary here rather than reusing .rc-chart's
+   `position:relative` container or its full-size .rc-modal-list (built for
+   a tall popover, not a few inches of header space). Every row inside its
+   company dropdown and its "add a new role" affordance still reuses
+   .rc-row / .rc-row-name / .rc-row-empty / .mc-row-add exactly as the
+   chart's own modal does — chart_interact.js's createCompanyPicker() builds
+   identical rows for both call sites, so only the small floating CONTAINER
+   around them is new here, not the rows themselves.
+
+   A small, compact card — NOT a full-width block — sitting beside the
+   heading via .page-head's own flex/space-between (static/css/app.css); see
+   home.html for why this is .page-head's second child. */
+.rc-quick-inquiry{
+  display:flex; flex-direction:column; gap:.55rem;
+  width:280px; max-width:100%; flex:0 0 auto;
+  background:var(--paper); border:1px solid var(--line); border-radius:var(--radius-sm);
+  padding:.7rem .8rem; box-shadow:var(--shadow-sm, 0 1px 2px rgba(15,23,42,.04));
+}
+.rc-quick-title{
+  font-size:.7rem; font-weight:800; letter-spacing:.03em; color:var(--muted);
+  text-transform:uppercase;
+}
+.rc-quick-field{ display:flex; flex-direction:column; gap:.3rem; }
+.rc-quick-label{ font-size:.72rem; font-weight:650; color:var(--muted); }
+/* The positioning context for the company dropdown below — a plain
+   floating panel anchored to this field, not the whole card, so the role
+   field underneath is never covered while it's open. */
+.rc-quick-combo{ position:relative; }
+/* .rc-quick-select doubles as the company text input's own look, so both
+   fields in this small card share one visual language (same border/radius/
+   font-size as .rc-modal-search-input, just sized for this narrower card). */
+.rc-quick-select{
+  width:100%; box-sizing:border-box; font-size:.84rem;
+  padding:.45rem .55rem; border:1px solid var(--line); border-radius:var(--radius-sm);
+  background:var(--paper); color:var(--ink);
+}
+.rc-quick-select:focus{ outline:none; border-color:var(--accent); }
+.rc-quick-select:disabled{ color:var(--muted); cursor:not-allowed; }
+/* The live company search results — a small floating panel under the input,
+   capped and scrollable rather than pushing the rest of the card down. */
+.rc-quick-dropdown{
+  position:absolute; left:0; right:0; top:calc(100% + .3rem); z-index:20;
+  max-height:220px; overflow-y:auto;
+  background:var(--paper); border:1px solid var(--line); border-radius:var(--radius-sm);
+  box-shadow:var(--shadow-lg); padding:.3rem;
+  display:flex; flex-direction:column; gap:.1rem;
+}
+.rc-quick-dropdown[hidden]{ display:none; }
+/* "+ Add a new role" — a plain text-style link/button under the role
+   select, not a full button, so it reads as a secondary affordance next to
+   the primary Confirm button below. Hidden outright for a view-only viewer
+   (CAN_EDIT gates this in chart_interact.js the same way it gates Attach). */
+.rc-quick-add-role-toggle{
+  align-self:flex-start;
+  border:0; background:transparent; color:var(--accent);
+  font-size:.74rem; font-weight:650; cursor:pointer; padding:0;
+}
+.rc-quick-add-role-toggle:hover{ text-decoration:underline; }
+.rc-quick-add-role-toggle[hidden]{ display:none; }
+.rc-quick-new-role{ display:flex; gap:.4rem; align-items:center; }
+.rc-quick-new-role[hidden]{ display:none; }
+.rc-quick-new-role .rc-quick-select{ flex:1; }
+.rc-quick-confirm{ width:100%; justify-content:center; }
+
+@media (max-width:640px){
+  .rc-quick-inquiry{ width:100%; }
+}
+
 /* ---- Chart tokens ---------------------------------------------------------
    --rc-card leans on --paper, which already flips per theme (see
    static/css/app.css), so nothing here needs its own dark-mode block just to
@@ -165,6 +235,14 @@
 .rc-chart.is-query .rc-node.is-lit .rc-box{
   filter:drop-shadow(0 3px 9px color-mix(in srgb, var(--accent) 32%, transparent));
 }
+/* The focus card needs to read as meaningfully different from a merely-lit
+   card, not just a heavier version of the same look — the owner's own word
+   was COLOUR specifically, beyond the stroke-width/glow above. A real
+   accent-tinted fill on is-focus's own .rc-box only — is-lit's own look is
+   untouched. */
+.rc-chart.is-query .rc-node.is-focus .rc-box{
+  fill:color-mix(in srgb, var(--accent) 12%, var(--paper));
+}
 /* The path shape itself (a rounded orthogonal elbow through the chart's own
    centre lane, not a diagonal) and its one-shot "fluid filling it"
    stroke-dashoffset animation are both built in chart_interact.js — this is
@@ -184,6 +262,12 @@
 [data-mode="dark"] .rc-chart.is-query .rc-node.is-lit .rc-box,
 [data-theme="dark"] .rc-chart.is-query .rc-node.is-lit .rc-box{
   filter:drop-shadow(0 0 6px var(--accent));
+}
+/* Dark: the same accent-tinted fill, mixed a little stronger against the
+   theme's own darker --paper so it still reads clearly at a glance. */
+[data-mode="dark"] .rc-chart.is-query .rc-node.is-focus .rc-box,
+[data-theme="dark"] .rc-chart.is-query .rc-node.is-focus .rc-box{
+  fill:color-mix(in srgb, var(--accent) 22%, var(--paper));
 }
 [data-mode="dark"] .rc-query-line,
 [data-theme="dark"] .rc-query-line{
@@ -215,6 +299,37 @@
 }
 .rc-query-pill[hidden]{ display:none; }
 .rc-query-name{ font-size:.78rem; font-weight:700; color:var(--ink); }
+
+/* ---- Per-card query-mode name overlay ---------------------------------------
+   While an Inquiry is active, every TOUCHED card (the focus card and every
+   lit card it connects to) gets one of these floating directly below its own
+   box — chart_interact.js's showNodeOverlays()/positionNodeOverlay(), built
+   and positioned the same "plain HTML over the responsive SVG, converted
+   through the viewBox scale" way #rcUsCasesPanel already is, and cleared by
+   the same clearQueryMarks() every other query-mode visual already goes
+   through. Deliberately capped small — the owner's own words, cards should
+   look "a bit taller", not lose the chart's own overall look — so this caps
+   at roughly 2-4 short rows and scrolls internally (overflow-y:auto) rather
+   than ever growing the chart. `transform:translateX(-50%)` centres it under
+   the card's own horizontal centre, the one x positionNodeOverlay() computes;
+   positioned entirely BELOW the card's own box, never overlapping it, so it
+   can never capture a click meant for the node itself. */
+.rc-node-overlay{
+  position:absolute; z-index:5; transform:translateX(-50%);
+  max-width:150px; box-sizing:border-box;
+  background:var(--paper); border:1px solid var(--accent); border-radius:6px;
+  box-shadow:var(--shadow-sm, 0 1px 2px rgba(15,23,42,.04));
+  padding:.2rem .4rem;
+  max-height:4.4em; overflow-y:auto;
+  display:flex; flex-direction:column; gap:.1rem;
+}
+.rc-node-overlay-name{
+  font-size:.66rem; line-height:1.15; font-weight:650; color:var(--ink);
+  white-space:normal; word-break:break-word;
+}
+@media (max-width:640px){
+  .rc-node-overlay{ max-width:110px; }
+}
 
 /* ---- The "us" cases panel ---------------------------------------------------
    Only appears while an Inquiry's connections include "us" (the focused
@@ -310,6 +425,24 @@
   background:var(--paper); border:1px solid var(--line); border-radius:var(--radius);
   box-shadow:var(--shadow-lg); overflow:hidden;
 }
+/* Widened by chart_interact.js's openAddCompanyPanel() (a plain class
+   toggle, not a second window) whenever the "+ Add company" panel is open —
+   see .rc-modal-columns/.rc-add-company-panel below. Collapses straight back
+   to the normal 400px the moment that panel closes. */
+.rc-modal.is-wide{ max-width:760px; }
+
+/* The modal's own original body — the search box, the company list, and
+   both action bars — now lives inside this one wrapper instead of as direct
+   children of .rc-modal, so the "+ Add company" panel can sit BESIDE it as a
+   second column (see .rc-modal-columns) rather than only ever stacking
+   underneath it. Built once by moving the template's own existing nodes
+   (chart_interact.js), never re-templated — this is purely a layout
+   container. */
+.rc-modal-columns{ display:flex; flex:1; min-height:0; }
+.rc-modal-main{
+  display:flex; flex-direction:column; flex:1;
+  min-width:0; min-height:0;
+}
 .rc-modal-head{
   display:flex; align-items:center; gap:.5rem;
   padding:.6rem .7rem; border-bottom:1px solid var(--line-soft);
@@ -320,7 +453,8 @@
    author stylesheet, here) would otherwise win and the button would keep
    rendering — these two need their own, more specific override. */
 .rc-modal-attach[hidden],
-#rcModalInquiry[hidden]{ display:none; }
+#rcModalInquiry[hidden],
+.rc-modal-add[hidden]{ display:none; }
 .rc-modal-x{
   border:0; background:transparent; color:var(--muted);
   font-size:1rem; line-height:1; cursor:pointer; padding:.25rem .4rem; border-radius:6px;
@@ -335,7 +469,11 @@
 }
 
 .rc-modal-list{
-  flex:1; min-height:140px; overflow-y:auto;
+  /* Noticeably taller than before (was 140px) so several more rows are
+     comfortably visible before this same overflow-y:auto pattern kicks in —
+     the owner's own request, change 2a. Still just a floor: flex:1 lets it
+     grow further to fill whatever room .rc-modal's own max-height leaves. */
+  flex:1; min-height:420px; overflow-y:auto;
   padding:.5rem; display:flex; flex-direction:column; gap:.1rem;
 }
 .rc-row{
@@ -384,9 +522,40 @@
 .rc-modal-actions[hidden]{ display:none; }
 .rc-modal-actions .btn{ flex:1; justify-content:center; }
 
+/* ---- The "+ Add company" panel (change 2) -----------------------------------
+   A reusable right-side sub-panel, built once and appended into
+   .rc-modal-columns (chart_interact.js), toggled hidden/visible exactly like
+   every other once-built piece of this file (the wizard bar, the "us" cases
+   panel). Opening it just widens the SAME modal (.rc-modal.is-wide, above) —
+   never a second window — and this panel occupies the freed width as a
+   second column beside .rc-modal-main. Available from every label card's
+   modal, in both default browsing and wizard "picking" mode alike — see
+   chart_interact.js's updateAddCompanyButtonVisibility(). */
+.rc-add-company-panel{
+  display:flex; flex-direction:column;
+  width:320px; flex:0 0 320px; min-width:0; min-height:0;
+  border-left:1px solid var(--line-soft);
+}
+.rc-add-company-panel[hidden]{ display:none; }
+.rc-add-company-head{
+  display:flex; align-items:center; justify-content:space-between; gap:.4rem;
+  padding:.6rem .7rem; border-bottom:1px solid var(--line-soft);
+}
+.rc-add-company-title{ font-size:.8rem; font-weight:700; color:var(--ink); }
+/* The panel's own search box and result/create list reuse .rc-modal-search /
+   .rc-modal-search-input / .rc-modal-list / .rc-row / .mc-row-add exactly as
+   the main column already does — see chart_interact.js — so nothing new is
+   defined here for either. */
+
 /* ---- Narrow screens -------------------------------------------------------- */
 @media (max-width:640px){
   .rc-modal{ max-width:none; }
+  .rc-modal.is-wide{ max-width:none; }
+  .rc-modal-columns{ flex-direction:column; }
+  .rc-add-company-panel{
+    width:auto; flex:0 0 auto; max-height:50vh;
+    border-left:0; border-top:1px solid var(--line-soft);
+  }
 }
 
 /* ===========================================================================
