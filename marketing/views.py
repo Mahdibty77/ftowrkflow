@@ -13,8 +13,8 @@ of one:
   decoration, so when the second tab went the strip went with it and that view
   no longer has a ``tab`` concept at all.
 * THE COMPANY DIRECTORY (``directory`` -> ``company_detail`` ->
-  ``contact_add`` / ``contact_remove``) — the section that replaced that
-  removed "Companies" tab,
+  ``contact_add`` / ``contact_remove``, and ``report_add`` -> ``report_create``)
+  — the section that replaced that removed "Companies" tab,
   built as its own set of URLs with a row-per-company list and a detail page
   per company. It reads the SAME shared ``cases.Client`` directory and the same
   ``ClientLabel`` rows the chart reads, through the same
@@ -76,8 +76,23 @@ from .access import (
     access_for, case_access_for, case_open_url, marketing_seat_role,
     scope_case_rows,
 )
-from .forms import ContactForm
-from .models import ClientEventAction, ContactRole
+from .forms import ContactForm, ReportForm
+from .models import ClientEventAction, ContactRole, ReportOption
+
+
+def _int_or_none(raw):
+    """``raw`` as an int, or None — never an exception.
+
+    The same soft parse this file already applies to every optional id that
+    arrives from a request (``home``'s ``?case=``, ``connection_toggle``'s
+    ``case_id``, ``all_cases_search``'s ``case_id``): an absent, blank or
+    unparseable value means "nothing was chosen", not a 400. Written once here
+    for the report flow rather than inlined a fourth time.
+    """
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
 
 
 def _case_open_prefix(case_access) -> str:
@@ -508,12 +523,13 @@ def all_cases_search(request):
 # The company directory: a list of every company, and a page per company
 # --------------------------------------------------------------------------- #
 # This is the section that replaced the removed "Companies" tab (see the module
-# docstring). Four plain HTML views, no JSON: the list, one company's detail
-# page, the form that adds a contact to it, and the POST that removes one.
-# Every one of them goes through ``access_for`` exactly like the JSON endpoints
-# above, and each mutating path (adding a contact, removing a contact, adding a
-# contact role) is gated on ``can_edit`` independently of whatever its template
-# chose to draw — a hidden button is not a permission.
+# docstring). Six plain HTML views, no JSON: the list, one company's detail
+# page, the form that adds a contact to it, the POST that removes one, and the
+# two steps of the "write a report on this company" flow. Every one of them goes
+# through ``access_for`` exactly like the JSON endpoints above, and each
+# mutating path (adding a contact, removing a contact, adding a contact role,
+# recording a report) is gated on ``can_edit`` independently of whatever its
+# template chose to draw — a hidden button is not a permission.
 
 
 def _label_text_to_key() -> dict:
@@ -712,6 +728,12 @@ def _counts_over(case_rows) -> dict:
 # Removals deliberately do not reuse their own "added" icon — a timeline where
 # LABEL_ADDED and LABEL_REMOVED look identical is a timeline you have to read
 # twice.
+#
+# ``CASE_CREATED`` used to have an entry here (``fa-folder-plus``). The owner
+# removed the derived "a case was opened for this company" row from the timeline
+# outright, so the action no longer exists — see
+# ``services.client_timeline`` — and its icon went with it rather than being
+# left behind pointing at a key nothing can produce.
 _TIMELINE_ICONS = {
     ClientEventAction.CLIENT_REGISTERED: "fa-building",
     ClientEventAction.LABEL_ADDED: "fa-tag",
@@ -720,7 +742,7 @@ _TIMELINE_ICONS = {
     ClientEventAction.CONNECTION_REMOVED: "fa-ban",
     ClientEventAction.CONTACT_ADDED: "fa-user-plus",
     ClientEventAction.CONTACT_REMOVED: "fa-trash",
-    ClientEventAction.CASE_CREATED: "fa-folder-plus",
+    ClientEventAction.REPORT_ADDED: "fa-file-lines",
 }
 
 
@@ -775,6 +797,57 @@ def _contact_rows(client, request, access) -> list:
     ]
 
 
+def _pi_money_total(case_rows, case_access) -> str:
+    """The company's total PI money over EXACTLY ``case_rows``, formatted — or "".
+
+    THE OWNER ASKED THE COMPANY PAGE FOR THE NUMBER THE ARCHIVE ALREADY SHOWS,
+    so this reuses that page's own two helpers rather than computing money a
+    second time. ``cases/services.py::archive_attach_money`` returns the
+    ``{case id: amount}`` map (VAT-inclusive PI grand totals), and
+    ``cases/export_data.py::format_money_amount`` renders the sum — which is
+    line for line what ``cases/views.py::archive`` does for its "Grand total
+    (all PI)" banner, down to printing "—" for a genuine zero. There is
+    deliberately no arithmetic here that the archive does not also do: a company
+    page and an archive banner disagreeing about the same money would be worse
+    than neither existing.
+
+    OVER THE VISIBLE ROWS, NOT THE WHOLE COMPANY. ``case_rows`` is exactly what
+    the Cases tab lists (``_visible_case_rows``, scoped by
+    ``access.case_access_for``), for the reason ``_counts_over`` above already
+    documents for the outcome counts: a total that summed cases the reader is
+    not being shown would sit above a three-row table and quote a figure those
+    three rows cannot add up to. A Commercial MANAGER now sees every case on the
+    company (see ``access.case_access_for``), so their total is the company's
+    real total; an expert's is the total of their own cases, and that is the
+    honest answer for them.
+
+    RETURNS "" — not "0", not "—" — WHEN THIS VIEWER MAY NOT SEE MONEY AT ALL.
+    ``case_access.show_money`` is ``ArchiveScope.show_money``'s own rule (see
+    ``access._case_money_visible``), and the empty string is what tells the
+    template there is no figure to draw, as opposed to a figure that happens to
+    be nothing. ``archive_attach_money`` is not called at all in that case —
+    the same short-circuit ``cases/views.py::archive`` uses, so the expensive
+    proforma decode is never paid for a reader who would not be shown the
+    result.
+    """
+    if not case_access.show_money:
+        return ""
+    ids = [row["case_id"] for row in case_rows if row.get("case_id") is not None]
+    if not ids:
+        return ""
+    from cases import services as case_services
+    from cases.export_data import format_money_amount
+
+    # ``archive_attach_money`` wants objects with a ``pk`` (it also stamps a
+    # per-row display string onto each, which nothing here reads — the MAP is
+    # what this function is after, exactly as the archive's drill-down banner
+    # uses it). ``.only("id")`` because that is the only column it touches.
+    gt_map = case_services.archive_attach_money(
+        list(Case.objects.filter(pk__in=ids).only("id")))
+    total = sum(gt_map.values()) if gt_map else 0.0
+    return format_money_amount(total) if total else "—"
+
+
 def _can_manage_roles(access) -> bool:
     """May this viewer ADD to the shared ``ContactRole`` vocabulary?
 
@@ -812,6 +885,36 @@ def _can_manage_roles(access) -> bool:
     return bool(access.can_manage_config)
 
 
+def _can_manage_options(access) -> bool:
+    """May this viewer ADD to the shared ``ReportOption`` vocabulary?
+
+    THE SAME ONE CAPABILITY ``_can_manage_roles`` ABOVE READS, over the second
+    of the two lists it governs (``marketing/models.py::ReportOption``, whose
+    own docstring says so): a Marketing Supervisor and the platform admin, not
+    the General Manager. Read that function for the whole argument — why a
+    configuration vocabulary is not working data, why the answer is deliberately
+    NOT ``can_edit and scope == "all"``, and why the admin holding it does not
+    by itself put a write in front of them.
+
+    A SECOND NAMED FUNCTION RATHER THAN ``access.can_manage_config`` INLINE, and
+    rather than calling ``_can_manage_roles`` under a misleading name, for the
+    reason that one exists at all: each vocabulary's views ask one narrowly-named
+    question, so the day the two lists stop sharing a capability there is a
+    place to say so instead of a bare flag threaded through four call sites.
+
+    THE ROUTE IT NOW UNLOCKS IS THE POINT OF THIS FUNCTION. ``ReportOption``
+    used to be manageable ONLY through ``marketing/admin.py``, and the Django
+    admin needs ``is_staff`` — which a Marketing Supervisor does not have. So
+    the one in-app screen that reads this capability (the report form) computed
+    True for them and then pointed them at a login wall. ``ContactRole`` never
+    had that problem because it has always had a second route, the inline
+    "add a new role" field on the contact form; the report form now has the
+    identical field, gated by ABSENCE in exactly the same way (see
+    ``marketing/forms.py::ReportForm`` and ``report_create`` below).
+    """
+    return bool(access.can_manage_config)
+
+
 @login_required
 def company_detail(request, pk):
     """One company: its labels, its contacts, its cases and its timeline.
@@ -843,20 +946,35 @@ def company_detail(request, pk):
       ``services.case_status_counts`` is ALSO read, unscoped, purely so the
       page can say honestly how many cases the company has in total when the
       viewer is only being shown some of them.
-    * TIMELINE — ``services.client_timeline``, the merged native + registration
-      + case-derived history, with one icon attached per row. Scoped TWICE
-      OVER, by both of this page's rules rather than only one: ``access.scope``
-      governs the native ``ClientEvent`` half, and the SAME ``case_access`` the
-      Cases tab uses governs the case-derived half.
+    * TIMELINE — ``services.client_timeline``, the native ``ClientEvent`` rows
+      plus the derived registration row, with one icon attached per row. WHICH
+      ROWS appear is ``access.scope`` alone: the timeline no longer has a case
+      half to scope, since the owner removed the synthesised "a case was opened"
+      entries ("it is not needed to record that someone opened a case").
+      ``case_access`` is passed all the same, and for a different job — some of
+      those stored rows FROZE a case's document number into their own text when
+      they were written (a report's ``subject``, a connection's ``comment``),
+      and the actor-based scope says nothing about who may read a case number.
+      It is the same one decision the Cases tab makes, applied to those frozen
+      strings at read time; see ``services._redact_case_numbers``. No row is
+      dropped by it. The CASES TAB above is still a separate code path
+      (``_visible_case_rows``) with its own scoping.
+    * REPORTS — ``services.list_reports``, which enforces its visibility rule
+      itself through the SAME ``_scoped`` helper contacts use: an ordinary
+      Marketing user sees only the reports they wrote, a Supervisor/GM/admin
+      sees every one. It takes ``case_access`` for the same reason the timeline
+      does, and it is the same ONE decision again: a report's attached case is
+      NAMED only to a viewer who may see that case, and is otherwise shown
+      unnamed rather than removed — the report is Marketing's data, the case
+      number is not. Passed to the template for its own section.
 
-      That second argument is the whole point. Before it existed this view
-      passed only ``access.scope``, and the case half was an unfiltered
-      ``Case.objects.filter(client=client)`` — so the Timeline tab printed the
-      document numbers, the frozen commercial-expert names and clickable case
-      links for exactly the cases the Cases tab of the same render had just
-      said were "outside what your seat may see". Both tabs now go through the
-      one ``case_access_for`` decision, computed once below and passed to both,
-      so the page cannot contradict itself.
+    AND THE MONEY. ``pi_total_display`` is the total PI money over exactly the
+    case rows above — see ``_pi_money_total``, which reuses the case archive's
+    own ``archive_attach_money`` / ``format_money_amount`` rather than computing
+    money a second time, and returns "" for a viewer the existing
+    ``ArchiveScope.show_money`` rule does not show money to (which includes a
+    MARKETING-ONLY login; see ``access._case_money_visible`` for why that is the
+    existing rule and not a decision taken here).
     """
     access = access_for(request)
     if not access.can_view:
@@ -880,9 +998,21 @@ def company_detail(request, pk):
         "case_rows": case_rows,
         "counts": counts,
         "hidden_case_count": max(all_counts["total"] - counts["total"], 0),
+        # The archive's own "Grand total (all PI)" figure, over the visible rows
+        # only — empty string when this viewer may not be shown money at all.
+        "pi_total_display": _pi_money_total(case_rows, case_access),
+        "show_money": case_access.show_money,
         "timeline": _timeline_with_icons(
             services.client_timeline(client, request.user, access.scope,
                                      case_access=case_access)),
+        "reports": services.list_reports(client, request.user, access.scope,
+                                         case_access=case_access),
+        # Whether the reports list this viewer is looking at is the WHOLE list
+        # or only their own — the same sentence, for the same reason, that
+        # ``sees_all_contacts`` below produces for contacts, and decided by the
+        # same thing (the SCOPE, not ``can_edit``), because reports reuse
+        # contacts' visibility rule exactly.
+        "sees_all_reports": access.scope == "all",
         "can_edit": access.can_edit,
         # Whether the contact list this viewer is looking at is the WHOLE list
         # or only their own rows — the page says so in words, because a scoped
@@ -1009,3 +1139,187 @@ def contact_remove(request, pk, contact_id):
     client = get_object_or_404(Client, pk=pk)
     services.remove_contact(client, contact_id, request.user, access.scope)
     return redirect("marketing:company_detail", pk=client.pk)
+
+
+# --------------------------------------------------------------------------- #
+# Reports — the two-step "write a report on this company" flow
+# --------------------------------------------------------------------------- #
+# THE OWNER DESCRIBED TWO STEPS, and they are two views because they are two
+# different KINDS of request, not because a wizard needs a step counter:
+#
+#   step 1 (``report_add``)     — choose a case to attach, or Skip. Reads only.
+#   step 2 (``report_create``)  — pick options / write the text, then confirm.
+#                                 Writes, and is therefore POST-only.
+#
+# Both are gated exactly like ``contact_add`` above — ``can_view and can_edit``,
+# checked on the URL and not merely hidden on the detail page — because writing
+# a report is a write on Marketing's working data, which the view-only tier (the
+# General Manager and the platform admin) does not have. That is deliberate and
+# is not in tension with those two seats SEEING every report: reading the unit's
+# work and adding to it are two different grants, and this app has kept them
+# apart since ``access_for`` was written.
+
+
+def _report_case_choices(client, request, case_access) -> list:
+    """The cases step 1 may offer, as ``{"case_id", "doc_no", "label_fa"}`` rows.
+
+    ``_visible_case_rows`` — the SAME helper the company page's Cases tab uses,
+    not a second query with a second idea of what this viewer may see. Never
+    offer a case they cannot open: a picker that lists a case is telling the
+    reader that case exists, and the whole point of ``case_access_for`` is that
+    a document number is case identity. Reusing the helper also means the two
+    lists on the same company can never disagree — the writer attaches a report
+    to a case they can see listed one tab away.
+
+    ``report_create`` re-derives this same list and checks the submitted id
+    against it, so this function decides what is OFFERED, never what is
+    ACCEPTED.
+    """
+    return _visible_case_rows(client, request, case_access)
+
+
+@login_required
+def report_add(request, pk):
+    """Step 1: which case is this report about — or none.
+
+    A FULL PAGE, like ``contact_add``, and for its reasons. GET renders the
+    picker; the only POST it accepts is the one its own two buttons make
+    ("Continue" with a case, or "Skip"), which carries the choice forward and
+    renders step 2. It never writes, so it is deliberately NOT ``require_POST``
+    — a reader must be able to open, bookmark and reload step 1.
+
+    ATTACHING A CASE IS OPTIONAL, by the owner's own wording, and the Skip
+    button is that option made explicit rather than left implied by an empty
+    dropdown. Both buttons land on the same step 2; the only difference is
+    whether a case id travels with it.
+
+    A case id that is not in this viewer's own visible list is dropped here and
+    again in ``report_create`` — see ``_report_case_choices``.
+
+    STEP 2 IS BUILT WITH ``can_manage_options``, the same value the template is
+    told, so the inline "add a new option" field EXISTS on the form only for a
+    viewer who may create one — the gate is the field's absence, not the
+    template's ``{% if %}``. See ``_can_manage_options`` and
+    ``marketing/forms.py::ReportForm``.
+    """
+    access = access_for(request)
+    if not access.can_view or not access.can_edit:
+        return render(request, "marketing/denied.html", status=403)
+
+    client = get_object_or_404(Client, pk=pk)
+    case_access = case_access_for(request, access)
+    case_choices = _report_case_choices(client, request, case_access)
+    can_manage_options = _can_manage_options(access)
+
+    if request.method == "POST":
+        # Whatever arrived, kept only if it is one of the rows this viewer was
+        # actually offered. ``skip`` needs no special handling: it simply sends
+        # no case id, which is the same state as "picked nothing".
+        chosen_id = _int_or_none(request.POST.get("case_id"))
+        allowed = {row["case_id"] for row in case_choices}
+        case_id = chosen_id if chosen_id in allowed else None
+        return render(request, "marketing/report_form.html", {
+            "client": client,
+            "form": ReportForm(initial={"case_id": case_id},
+                               can_manage_options=can_manage_options),
+            "case_row": next(
+                (r for r in case_choices if r["case_id"] == case_id), None),
+            "can_manage_options": can_manage_options,
+        })
+
+    return render(request, "marketing/report_case.html", {
+        "client": client,
+        "case_choices": case_choices,
+    })
+
+
+@login_required
+@require_POST
+def report_create(request, pk):
+    """Step 2's confirm: validate and record the report.
+
+    POST-ONLY, for ``contact_remove``'s reason turned the other way round: this
+    is the one request in the flow that writes a row, and a write behind a GET
+    is one prefetching browser or one crawled URL away from doing itself.
+
+    THE "AT LEAST ONE OF OPTIONS / TEXT" RULE IS THE FORM'S
+    (``forms.ReportForm.clean``), enforced server-side; an invalid submit
+    re-renders step 2 with the errors and everything the writer already typed,
+    including the case they picked in step 1 (carried in a hidden field), so
+    nobody has to walk the wizard again to fix a typo.
+
+    THE CASE IS RE-VALIDATED HERE, against this viewer's own visible rows, and
+    that is not belt-and-braces — it is the actual check. Step 1's list decides
+    what is offered; a hidden field is a value the browser sends, so an id that
+    is not in the list is simply dropped and the report is filed with no case,
+    exactly as a Skip would have filed it.
+
+    ``services.add_report`` does the writing (and the timeline row), so there is
+    exactly one place in the app that creates a ``CompanyReport``.
+
+    THE INLINE "ADD A NEW OPTION" FIELD IS GATED A SECOND TIME, on
+    ``_can_manage_options``, and gated by ABSENCE — word for word the shape
+    ``contact_add`` uses for ``new_role``: the form is constructed WITHOUT that
+    field for anyone who may not create options, so a hand-built POST carrying
+    ``new_option=...`` from an ordinary Marketing Expert never reaches the
+    ``get_or_create`` below, because the value never reaches ``cleaned_data``
+    at all. The ``if can_manage_options else ""`` on the read is the same
+    belt-and-braces line ``contact_add`` carries, and for the same reason: it
+    makes the gate legible at the write, not because the form could leak.
+    """
+    access = access_for(request)
+    if not access.can_view or not access.can_edit:
+        return render(request, "marketing/denied.html", status=403)
+
+    client = get_object_or_404(Client, pk=pk)
+    case_access = case_access_for(request, access)
+    case_choices = _report_case_choices(client, request, case_access)
+    can_manage_options = _can_manage_options(access)
+
+    form = ReportForm(request.POST, can_manage_options=can_manage_options)
+    if form.is_valid():
+        data = form.cleaned_data
+        case_id = data.get("case_id")
+        allowed = {row["case_id"] for row in case_choices}
+        case = (Case.objects.filter(pk=case_id).first()
+                if case_id in allowed else None)
+        options = list(data["options"])
+        new_option = (data.get("new_option") or "").strip() if can_manage_options else ""
+        if new_option:
+            # get_or_create, not create, and stamping ``created_by`` on first
+            # creation only: verbatim what ``contact_add`` does with a typed
+            # ``ContactRole``, for verbatim its reasons — ``ReportOption.name``
+            # is globally unique, so re-typing an option that already exists
+            # means the same thing as having ticked it and must not be an
+            # IntegrityError.
+            option, _created = ReportOption.objects.get_or_create(
+                name=new_option,
+                defaults={"created_by": request.user},
+            )
+            # Attached to THIS report as well as added to the list, because
+            # that is what the writer asked for — ``ReportForm.clean`` counts a
+            # typed option as the report having said something precisely on the
+            # strength of this line. Appended only when it is not already among
+            # the ticked boxes, so re-typing a preset the writer also ticked
+            # cannot double it up.
+            if option.pk not in {o.pk for o in options}:
+                options.append(option)
+        services.add_report(
+            client, request.user,
+            text=data["text"],
+            options=options,
+            case=case,
+        )
+        return redirect("marketing:company_detail", pk=client.pk)
+
+    # Invalid: back to step 2 with the errors, and with whichever case the
+    # writer had already attached still attached (read from the bound form's own
+    # cleaned value, so a rejected id is not re-offered as if it had been kept).
+    kept_id = form.cleaned_data.get("case_id") if hasattr(form, "cleaned_data") else None
+    return render(request, "marketing/report_form.html", {
+        "client": client,
+        "form": form,
+        "case_row": next(
+            (r for r in case_choices if r["case_id"] == kept_id), None),
+        "can_manage_options": can_manage_options,
+    })

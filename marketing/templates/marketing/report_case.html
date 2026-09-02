@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  WRITE A REPORT — STEP 1 OF 2: which case, if any, is it about?
+
+  The owner's flow has two screens, and this is the first: "a field listing that
+  person's own cases for this company so they can attach one, with an explicit
+  Skip — attaching a case is optional". So the page offers exactly one control
+  and two ways out of it, and the Skip is a real button rather than an implied
+  "just leave the dropdown alone", because an optional step that looks required
+  is the one people abandon.
+
+  Same shape as marketing/contact_form.html and every other Django-form screen
+  in this platform (cases/client_form.html, accounts/user_form.html,
+  people/person_form.html): a method="post" form in a .card, the control in a
+  .field with its label, a .btn-row at the bottom. It carries no Django Form
+  class of its own on purpose — nothing here validates and nothing here writes,
+  it only chooses which screen 2 to draw — see marketing/views.py::report_add.
+
+  THE CASE LIST IS ALREADY SCOPED before it reaches this template. It is the
+  same _visible_case_rows the company page's Cases tab uses, so a writer is
+  never offered a case they could not open one tab away; the view re-checks
+  whatever comes back, since a <select> is a value the browser sends and not a
+  fact. The case <select> carries data-combo and is upgraded by static/js/ui.js
+  into the searchable picker every other select in this platform gets.
+{% endcomment %}
+{% block title %}Add report · {{ client.name }} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Add report{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1>Add a report</h1>
+    <div class="sub">on <span dir="auto">{{ client.name }}</span> <span class="mono">({{ client.code }})</span></div>
+  </div>
+  <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-sm">
+    <i class="fa-solid fa-arrow-left"></i> Back to company
+  </a>
+</div>
+
+<form method="post" action="{% url 'marketing:report_add' client.pk %}"
+      class="card form-narrow" autocomplete="off">
+  {% csrf_token %}
+
+  <div class="help" style="margin-bottom:.8rem;">
+    <i class="fa-solid fa-circle-info"></i>
+    Step 1 of 2 — if this report is about one specific case, attach it here.
+    It is optional; Skip goes straight to writing the report.
+  </div>
+
+  <div class="field">
+    <label for="reportCaseSelect"><i class="fa-solid fa-folder-open"></i> Case this report is about</label>
+    <select id="reportCaseSelect" name="case_id" data-combo="1"
+            data-placeholder="Search a case…">
+      <option value="">— No case —</option>
+      {% for row in case_choices %}
+      <option value="{{ row.case_id }}">{{ row.doc_no }} · {{ row.label_fa|default:row.label }} · {{ row.status_fa }}</option>
+      {% endfor %}
+    </select>
+    {% if not case_choices %}
+    {# Said in words rather than left as an empty dropdown: the list is scoped  #}
+    {# (marketing/views.py::_visible_case_rows), so "none" here means "none you #}
+    {# may see", not necessarily "none exist" — and the report itself is still  #}
+    {# perfectly writable without one.                                          #}
+    <div class="help">There are no cases on this company that your seat may see. Skip to write the report on the company itself.</div>
+    {% endif %}
+  </div>
+
+  {# Two submits, one form. Both land on step 2; the only difference is whether #}
+  {# a case id travels with the request — Skip submits the form with the select #}
+  {# ignored, which is exactly the same state as picking "— No case —".         #}
+  <div class="btn-row">
+    <button type="submit" class="btn btn-primary">
+      <i class="fa-solid fa-arrow-right-long"></i> Continue
+    </button>
+    <button type="submit" class="btn btn-ghost" name="skip" value="1"
+            formnovalidate onclick="document.getElementById('reportCaseSelect').value='';">
+      Skip — no case
+    </button>
+    <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-ghost">Cancel</a>
+  </div>
+</form>
+{% endblock %}

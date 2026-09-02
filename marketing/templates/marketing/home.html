@@ -105,8 +105,10 @@
       cards share one visual language without a second copy of that CSS.
 
       Confirming a row here is what puts the WHOLE chart into "case mode" —
-      chart_interact.js's own ``currentCase`` — see rcCaseModeBanner below
-      for where that mode is shown once active.
+      chart_interact.js's own ``caseMeta`` — see #rcModeBanner below for where
+      that mode is shown once active. That banner is shared with an ordinary
+      company activation now, and case mode always wins it: the two can never
+      be on screen together.
     {% endcomment %}
     <div class="rc-quick-inquiry" id="rcCaseModeWidget">
       <div class="rc-quick-title">Case Mode</div>
@@ -129,18 +131,43 @@
   </div>
 
   {% comment %}
-    The "case mode" banner — hidden until rcCaseModeWidget above confirms a
-    case, then shown at the top of THIS panel specifically (the owner's own
-    placement: on the Relationship Map, not the page header, since it is the
-    chart's own state, not the search widget's). chart_interact.js owns all
-    of its content/visibility; the leave/clear button is the "way to leave
-    case mode" the goal asks for, sitting right next to the doc number it is
-    clearing.
+    THE CHART'S ONE MODE BANNER — hidden until something is active, then shown
+    at the top of THIS panel specifically (the owner's own placement for the
+    case banner it grew out of: on the Relationship Map, not the page header,
+    since it is the chart's own state, not the search widget's), and STICKY
+    there, so it stays frozen at the top while the chart scrolls under it.
+
+    ONE banner, two kinds of activation, never both on screen:
+
+      * a CASE (confirmed in rcCaseModeWidget above) — "Case mode · Editing
+        chart for case DOCNO — CLIENT · Leave case mode", exactly as before;
+      * a COMPANY activated as a role (an Inquiry, the "Activate as this"
+        pivot on any row) — the same banner, in the same place, carrying that
+        card's own company and role and its Deactivate control. This replaces
+        the small floating "Active / name / role / Deactivate" bar that used
+        to sit in the chart canvas's own top-left corner; that bar is gone
+        entirely (see marketing/_role_chart.html and rolechart.css).
+
+    Every label, every piece of text and the single button's own wording are
+    set by chart_interact.js's updateModeBanner(), which is also what keeps
+    the one case a single line cannot state — the chart repainted by a plain
+    Quick Inquiry for a company OTHER than the one edits attach to — honest,
+    in the note span. The static text below is only what the banner looks like
+    before the script ever touches it.
   {% endcomment %}
-  <div class="rc-case-mode-banner" id="rcCaseModeBanner" hidden>
-    <span class="rc-case-mode-banner-label">Case mode</span>
-    <span class="rc-case-mode-banner-text" id="rcCaseModeBannerText" dir="auto"></span>
-    <button type="button" class="btn btn-sm btn-ghost" id="rcCaseModeLeaveBtn">Leave case mode</button>
+  <div class="rc-mode-banner" id="rcModeBanner" hidden>
+    <span class="rc-mode-banner-label" id="rcModeBannerLabel">Active</span>
+    <span class="rc-mode-banner-text" id="rcModeBannerText" dir="auto"></span>
+    <span class="rc-mode-banner-role" id="rcModeBannerRole" dir="auto" hidden></span>
+    <span class="rc-mode-banner-note" id="rcModeBannerNote" dir="auto" hidden></span>
+    {% comment %}Pure layout, no id: nothing in the JS touches it - it only
+    claims the leftover width so the button below stays hard right in every
+    state. This is a comment TAG rather than the short comment syntax on
+    purpose: the short one is single-line only, so a newline inside one stops
+    it being a comment at all and the whole block renders into the banner as
+    visible text - which is exactly the bug this replaced.{% endcomment %}
+    <span class="rc-mode-banner-spacer"></span>
+    <button type="button" class="btn btn-sm btn-ghost" id="rcModeBannerBtn">Deactivate</button>
   </div>
 
   {% include "marketing/_role_chart.html" %}

@@ -411,15 +411,25 @@ class ClientEventAction:
     does not apply here: ``cases.models.Case.marketing_label`` is a field ON
     a case, so the cases app genuinely needs it.)
 
-    STORABLE VS DERIVED — the same discipline ``MarketingLabel`` uses for
-    ``CHOICES`` vs ``MANUAL_ONLY_CHOICES``, applied to a different boundary.
-    ``CHOICES`` is exactly the set of actions that can ever be WRITTEN as a
-    ``ClientEvent`` row, and it is what the model's ``choices=`` uses.
-    ``DERIVED_CHOICES`` holds actions that are never stored at all: they are
-    synthesised at read time by ``marketing/services.py::client_timeline``
-    from case data the cases app owns. Keeping them out of ``CHOICES`` means
-    the model can never accidentally accept one, while ``ALL_LABELS`` still
-    gives the template one lookup that covers both kinds of entry.
+    THERE IS NO "DERIVED" HALF ANY MORE. This class used to carry a second
+    vocabulary — ``CASE_CREATED`` / ``DERIVED_CHOICES`` / ``DERIVED_LABELS``,
+    and an ``ALL_LABELS`` that merged the two — for one action that was never
+    stored: a "Case NNNN was opened for this company" row that
+    ``marketing/services.py::client_timeline`` synthesised live from
+    ``cases.models.Case``. The owner removed that entry from the timeline
+    outright ("it is not needed to record that someone opened a case"), and the
+    machinery went with it rather than being left behind as a vocabulary with
+    no members. ``CHOICES`` is therefore now simply the set of actions a
+    ``ClientEvent`` row can hold, and ``LABELS`` the one lookup a timeline
+    template needs.
+
+    A DERIVED ENTRY IS STILL POSSIBLE, and one still exists — the REGISTRATION
+    row ``marketing/services.py::_registration_entry`` synthesises from
+    ``cases.models.Client.created_by``. It needs no vocabulary of its own
+    because it reuses ``CLIENT_REGISTERED``, which is a genuinely storable
+    action (the chart's own "+ Add company" flow writes it as a real row). That
+    is exactly why the split above stopped earning its keep: it existed for one
+    action, and that action is gone.
     """
 
     CLIENT_REGISTERED = "CLIENT_REGISTERED"
@@ -429,6 +439,7 @@ class ClientEventAction:
     CONNECTION_REMOVED = "CONNECTION_REMOVED"
     CONTACT_ADDED = "CONTACT_ADDED"
     CONTACT_REMOVED = "CONTACT_REMOVED"
+    REPORT_ADDED = "REPORT_ADDED"
 
     CHOICES = [
         (CLIENT_REGISTERED, "Company registered"),
@@ -438,22 +449,9 @@ class ClientEventAction:
         (CONNECTION_REMOVED, "Connection removed"),
         (CONTACT_ADDED, "Contact added"),
         (CONTACT_REMOVED, "Contact removed"),
+        (REPORT_ADDED, "Report added"),
     ]
     LABELS = dict(CHOICES)
-
-    # Never stored — see the class docstring. Derived live from
-    # ``cases.models.Case`` by ``client_timeline``.
-    CASE_CREATED = "CASE_CREATED"
-
-    DERIVED_CHOICES = [
-        (CASE_CREATED, "Case created"),
-    ]
-    DERIVED_LABELS = dict(DERIVED_CHOICES)
-
-    # Storable + derived together — the one lookup a timeline template needs,
-    # since a rendered timeline row can be either kind and the template is
-    # deliberately not supposed to know which.
-    ALL_LABELS = {**LABELS, **DERIVED_LABELS}
 
 
 class ClientEvent(models.Model):
@@ -491,13 +489,33 @@ class ClientEvent(models.Model):
     erase the record that it ever existed. A plain string cannot be rewritten
     by anything that happens later.
 
+    ``subject_role`` is a SECOND frozen slot beside it, and it exists because
+    one action genuinely needs two nouns. A CONNECTION_ADDED row is about
+    another company AND about the ROLE that company was connected AS ("connected
+    to Ofogh Novin Homa **as Supervision Consultant**"), and the owner asked for
+    that role to be rendered as its own tag rather than buried in the
+    ``comment`` line, where it used to travel as half of an "anchor → target"
+    string. Splitting it out is what lets the template print a chip instead of a
+    sentence fragment.
+
+    IT IS FROZEN TEXT, NOT A ROLE KEY TO LOOK UP AT RENDER TIME, and that is
+    deliberate rather than convenient: every other value on this model is a
+    snapshot taken at write time precisely so nothing that happens afterwards
+    can rewrite history, and a role's Persian display name is exactly the kind
+    of thing that gets reworded (``cases.constants.MarketingLabel``'s texts have
+    changed more than once). Resolving it live would let a rename silently
+    rewrite what a two-year-old row says happened. ``blank=True`` with an empty
+    default so every row written before this field existed — and every action
+    that has no role to name — still renders unchanged.
+
     NOT A MIRROR OF CASE HISTORY. This model records only what MARKETING did
-    to a company inside its own directory. The other half of a company's
-    story — its cases — is NOT copied into rows here; it is derived at read
-    time straight from ``cases.models.Case`` and merged into the same list.
-    See ``marketing/services.py::client_timeline`` for that merge and for why
-    it is deliberately a read-time derivation rather than the cases app being
-    taught to write rows into this table.
+    to a company inside its own directory, and — since the owner removed the
+    derived "a case was opened" entry — the company's CASES are no longer part
+    of its timeline at all, neither as rows here nor as a read-time merge. The
+    Cases tab of the company detail page is where a company's cases are listed,
+    under its own scoping (``marketing/views.py::_visible_case_rows``); this
+    model and ``marketing/services.py::client_timeline`` no longer say anything
+    about them.
     """
 
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="marketing_events")
@@ -505,10 +523,12 @@ class ClientEvent(models.Model):
         settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL,
         related_name="marketing_client_events",
     )
-    # Storable actions only — ClientEventAction.CASE_CREATED is deliberately
-    # NOT among these; see that class's docstring.
     action = models.CharField(max_length=32, choices=ClientEventAction.CHOICES)
     subject = models.CharField(max_length=200, blank=True)
+    # The role the ``subject`` was connected AS — see the class docstring.
+    # Same width as ``actor_role_label`` above, since both hold a role's
+    # display text and there is no reason for the two to truncate differently.
+    subject_role = models.CharField(max_length=160, blank=True)
     comment = models.TextField(blank=True)
     # The two frozen snapshots — see the class docstring. Same widths as
     # CaseEvent's so the two timelines cannot truncate the same name
@@ -531,7 +551,7 @@ class ClientEvent(models.Model):
         value rather than raising — a row written before an action was
         renamed must still render.
         """
-        return ClientEventAction.ALL_LABELS.get(self.action, self.action)
+        return ClientEventAction.LABELS.get(self.action, self.action)
 
     @property
     def actor_display_name(self) -> str:
@@ -547,4 +567,155 @@ class ClientEvent(models.Model):
             return self.actor_name
         if self.actor_id and self.actor:
             return self.actor.get_full_name() or self.actor.username
+        return ""
+
+
+class ReportOption(models.Model):
+    """One preset thing a marketing report can say — e.g. "بازدید حضوری".
+
+    THE SAME KIND OF OBJECT AS :class:`ContactRole`, and deliberately built the
+    same way: a tiny, managed lookup table rather than a constant class in
+    ``cases/constants.py``. Read that class's docstring for the full reasoning;
+    it applies here word for word. The short version is that the members of this
+    list are not structural — the workflow does not change when Marketing starts
+    recording a new kind of visit — so the owner has to be able to add one
+    without a developer, a migration and a deploy, and only a table can do that.
+
+    WHO MAY EXTEND IT is exactly who may extend ``ContactRole``:
+    ``marketing/access.py::Access.can_manage_config`` — a Marketing Supervisor
+    and the platform admin, and NOT the General Manager. That flag exists
+    precisely so a configuration vocabulary can be administered by people who
+    hold no write at all on Marketing's working data (see its own comment on
+    ``Access``), and this is the second vocabulary it governs.
+
+    TWO ROUTES INTO EXISTENCE, exactly the two ``ContactRole`` has, and for a
+    concrete reason: ``marketing/admin.py`` registers this model the way it
+    registers that one, but the Django admin requires ``is_staff`` and a
+    MARKETING SUPERVISOR IS NOT STAFF — so an admin-only list would be
+    administrable by only one of the two seats ``can_manage_config`` names,
+    while the report screen told the other one to go there. The second route is
+    the inline "…or add a new option" field on
+    ``marketing/forms.py::ReportForm``, the same field
+    ``marketing/forms.py::ContactForm`` has always offered for a new job title,
+    gated the same way (the field does not EXIST for a viewer without the
+    grant) and written in the same place (the view get-or-creates; see
+    ``marketing/views.py::report_create``).
+
+    ``name`` is globally unique for ``ContactRole``'s reason: this is ONE shared
+    vocabulary, and two people each creating their own "site visit" row would
+    fragment every checklist that reads from it and silently split
+    :class:`CompanyReport` rows across duplicate options that read identically.
+
+    ``created_by`` is recorded for audit but, again like ``ContactRole``,
+    deliberately does NOT scope visibility — a list of options only an Expert's
+    own supervisor can see is not a shared vocabulary. ``SET_NULL`` so removing
+    a user never removes an option the whole unit depends on.
+    """
+
+    name = models.CharField(max_length=200, unique=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class CompanyReport(models.Model):
+    """One marketing person's written report about one company.
+
+    The owner's description, in full: "a marketing person opens a company, adds
+    a report, and it is recorded against that company with who wrote it, the
+    text, the date and time, and optionally which case it was about. Each
+    marketing user sees only the reports THEY wrote; the manager and the admin
+    see all of them."
+
+    Every clause of that maps onto a column below, and none of them invents a
+    rule this app did not already have:
+
+    * WHO WROTE IT — ``created_by``, named that and not ``author`` on purpose.
+      It is what ``marketing/services.py::_scoped`` filters on, and reusing that
+      helper is what makes the visibility rule above be THE SAME RULE
+      :class:`CompanyContact` already follows rather than a second one that can
+      drift (see ``services.list_reports``). ``marketing/access.py::access_for``
+      already resolves an ordinary Marketing seat to scope ``"own"`` and a
+      Supervisor / the GM / the admin to ``"all"``, which is precisely the two
+      populations the owner named.
+    * THE TEXT — ``text``, free-form and ``blank=True``; and
+    * THE PRESET OPTIONS — ``options``, a many-to-many onto
+      :class:`ReportOption`, also allowed to be empty.
+
+      NEITHER IS REQUIRED AT THIS LAYER, AND THE COMBINATION IS. "A report that
+      says nothing is not a report" is a real rule and it IS enforced — in
+      ``marketing/forms.py::ReportForm.clean()``, server-side, exactly where
+      ``CompanyContact``'s own "at least one of phone/email" rule lives and for
+      the identical reason (see that class's docstring): a violation can be
+      reported against the fields the person actually left blank, instead of
+      arriving as an ``IntegrityError`` with nothing to attach it to, and a
+      future import or backfill of legitimately partial historical records is
+      not made impossible by a database constraint.
+    * THE DATE AND TIME — ``created_at``, indexed because reports are read
+      newest-first and nothing else orders them.
+    * WHICH CASE IT WAS ABOUT — ``case``, OPTIONAL by the owner's own wording
+      ("optionally which case"), which is why the flow that creates one offers
+      an explicit Skip. ``SET_NULL`` rather than ``CASCADE``, for
+      :class:`Connection`'s reason: the report was still written and still says
+      what it says, even if the case that prompted it is later removed.
+
+    ``author_name`` FREEZES THE WRITER'S DISPLAY NAME at write time, exactly
+    as :class:`ClientEvent` freezes ``actor_name`` and for exactly that
+    docstring's reason — a later rename, a promotion, a transfer, or the person
+    leaving must never silently rewrite who a report says wrote it. It is
+    populated by ``marketing/services.py::add_report`` through the same
+    ``cases.services._actor_snapshot`` helper the timeline uses, so a name here
+    and a name on the timeline row recording the same act cannot disagree.
+    Only the NAME is frozen, not the role label: the owner asked for the
+    timeline to stop showing role labels beside names, and there is no screen
+    that wants one here.
+    """
+
+    client = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name="marketing_reports")
+    # See the class docstring: optional by the owner's rule, SET_NULL so a
+    # removed case never removes the report that was written about it.
+    case = models.ForeignKey(
+        "cases.Case", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="marketing_reports",
+    )
+    text = models.TextField(blank=True)
+    options = models.ManyToManyField(
+        ReportOption, blank=True, related_name="reports")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="+",
+    )
+    # The frozen author snapshot — see the class docstring.
+    author_name = models.CharField(max_length=160, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.client_id} · report by {self.author_name or self.created_by_id}"
+
+    @property
+    def author_display_name(self) -> str:
+        """The name to show — frozen first, live only as a last resort.
+
+        ``ClientEvent.actor_display_name``'s rule, applied to the same kind of
+        frozen column. The live fallback covers only a row written outside
+        ``services.add_report``; every row that function writes carries a
+        populated ``author_name`` (or an honest empty string for an anonymous
+        writer, which no real flow produces).
+        """
+        if self.author_name:
+            return self.author_name
+        if self.created_by_id and self.created_by:
+            return self.created_by.get_full_name() or self.created_by.username
         return ""

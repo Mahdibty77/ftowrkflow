@@ -36,16 +36,35 @@ it can add an entry to that report for a label the client never actually
 held itself, purely because the client connected some OTHER company under
 it (see ``connections_of_client``'s docstring for the worked example).
 
-TWO MORE THINGS HANG OFF A COMPANY, added this round, and both follow the
-same rules as everything above rather than inventing their own:
+THREE MORE THINGS HANG OFF A COMPANY, and all three follow the same rules as
+everything above rather than inventing their own:
 ``marketing/models.py::CompanyContact`` (the people to call there — created,
 listed and removed by ``add_contact``/``list_contacts``/``remove_contact``,
-scoped by the same ``(user, scope)`` pair) and
-``marketing/models.py::ClientEvent`` (the company's own immutable timeline —
-written by ``log_client_event``/``_try_log`` from every mutating service in
-this file, and read back by ``client_timeline``, which MERGES those rows with
-case history derived live from ``cases.models.Case``; see that function for
-why the case half is derived at read time instead of mirrored into rows).
+scoped by the same ``(user, scope)`` pair); ``marketing/models.py::
+CompanyReport`` (what a marketing person wrote about the company — created and
+listed by ``add_report``/``list_reports``, scoped by that same pair through
+that same ``_scoped`` helper, deliberately NOT by a second rule of its own);
+and ``marketing/models.py::ClientEvent`` (the company's own immutable timeline
+— written by ``log_client_event``/``_try_log`` from every mutating service in
+this file, and read back by ``client_timeline``).
+
+THE TIMELINE NO LONGER SAYS ANYTHING ABOUT CASES. ``client_timeline`` used to
+merge a live-derived "case NNNN was opened" entry per case into those stored
+rows; the owner removed it ("it is not needed to record that someone opened a
+case"), so the timeline is now Marketing's own history alone. A company's cases
+are listed by the company detail page's own Cases tab, which has always been a
+separate code path with its own scoping.
+
+IT DOES STILL CARRY CASE NUMBERS THAT WERE FROZEN INTO IT, though, and that is
+a different thing from deriving rows: ``add_report`` freezes the attached
+case's document number as a ``REPORT_ADDED`` row's ``subject``, and
+``_connection_comment`` freezes one into a ``CONNECTION_ADDED`` /
+``CONNECTION_REMOVED`` row's ``comment``. Those rows are scoped by the ACTOR
+(``_scoped_events``) — Marketing's rule, which says nothing about cases — so
+``client_timeline`` takes a ``case_access`` and puts every such number through
+``_redact_case_numbers`` before returning. Same rule as everywhere else in this
+file, applied at read time because a frozen audit row cannot be un-written; the
+row itself is never dropped, only the case goes unnamed.
 
 Case EXISTENCE (which clients have which cases, and each case's effective
 label) is SHARED TRUTH, not Marketing-owned data, so that half of every
@@ -60,9 +79,9 @@ rule that a Marketing viewer sees only the cases that are theirs on the
 commercial side, and the admin/GM see them all. Every function below that
 emits a document number therefore takes a ``case_access`` argument and filters
 through ``marketing/access.py::scope_case_rows``, exactly like every case LIST
-in this app already does (``companies_for_label``, ``connections_of_client``,
-``client_timeline``). ``case_access`` is decided by the caller from the
-request, never re-derived here, for the same reason ``scope`` is not.
+in this app already does (``companies_for_label``, ``connections_of_client``).
+``case_access`` is decided by the caller from the request, never re-derived
+here, for the same reason ``scope`` is not.
 
 A CONSEQUENCE, AND IT IS THE CORRECT ONE: two viewers looking at the same
 company can legitimately see the same label backed by different numbers of
@@ -98,10 +117,10 @@ from cases.constants import CaseStatus, MarketingLabel
 from cases.models import Case, Client
 from core.persian_text import normalize_persian
 
-from .access import CaseAccess, case_open_url, scope_case_rows
+from .access import CaseAccess, scope_case_rows
 from .models import (
-    ClientEvent, ClientEventAction, ClientLabel, CompanyContact, Connection,
-    ContactGender, ContactRole,
+    ClientEvent, ClientEventAction, ClientLabel, CompanyContact, CompanyReport,
+    Connection, ContactGender, ContactRole, ReportOption,
 )
 
 # The twenty labelable keys — NOT all twenty-one chart fields ("us" is the
@@ -146,6 +165,71 @@ def is_label(key: str) -> bool:
 NO_CASE_ACCESS = CaseAccess(can_open=False, all_cases=False)
 
 
+def _visible_case_ids(case_ids, case_access: CaseAccess) -> set:
+    """Which of these case primary keys ``case_access`` actually admits.
+
+    A thin adapter, not a second rule: ``marketing/access.py::scope_case_rows``
+    is the one place that decides, and it works on ROWS carrying ``case_id``,
+    so a caller holding bare ids wraps them, asks it, and unwraps the answer.
+    Written once here because two callers now need the SET rather than the
+    filtered rows — a report keeps its place in the list whether or not its case
+    may be named (see ``_report_row``), so "which survive" is the wrong shape
+    for them.
+
+    One query, whatever the count, because ``scope_case_rows`` is one query.
+    """
+    ids = {i for i in case_ids if i is not None}
+    if not ids:
+        return set()
+    return {
+        row["case_id"]
+        for row in scope_case_rows([{"case_id": i} for i in ids], case_access)
+    }
+
+
+def _hidden_case_doc_nos(candidates, case_access: CaseAccess) -> set:
+    """Of these frozen strings, the ones that ARE case document numbers this
+    viewer may not be shown.
+
+    THE READ-TIME HALF OF THE DOCUMENT-NUMBER RULE, and it exists because
+    ``ClientEvent`` freezes its nouns as TEXT at write time, by design (see
+    ``marketing/models.py::ClientEvent``): a timeline row that recorded a case
+    number recorded the STRING, not a foreign key, and a row already written
+    cannot be un-written. The module docstring's rule — a document number is
+    case identity and is governed by ``case_access_for`` — therefore has to be
+    applied where the row is READ, which is here, and not by refusing to freeze
+    it, which would break the audit record for the people who may see it.
+
+    Works by asking the case table which of these strings is a real ``doc_no``
+    and then putting exactly those through the SAME
+    ``marketing/access.py::scope_case_rows`` every case LIST in this app goes
+    through — no second rule, and no per-action parsing: a string is treated as
+    case identity if and only if the case table says it is one.
+
+    A STRING THAT MATCHES NO CASE IS LEFT ALONE, and that is not an oversight.
+    Most of the strings handed to this function are company names, role labels
+    and contact names, which is precisely why it cannot blank what it does not
+    recognise. The residue — a number frozen for a case that has since been
+    deleted — names nothing this viewer (or anyone) could open, so leaving it is
+    the honest reading of an audit row rather than a hole in the rule.
+
+    Two queries total for a whole timeline: one over ``Case.doc_no``, one inside
+    ``scope_case_rows``.
+    """
+    wanted = {c for c in candidates if c}
+    if not wanted:
+        return set()
+    rows = [
+        {"case_id": pk, "doc_no": doc_no}
+        for pk, doc_no in Case.objects.filter(
+            doc_no__in=wanted).values_list("pk", "doc_no")
+    ]
+    if not rows:
+        return set()
+    visible = {row["doc_no"] for row in scope_case_rows(rows, case_access)}
+    return {row["doc_no"] for row in rows} - visible
+
+
 def _scoped(qs, user, scope):
     """``qs`` narrowed to ``user``'s own rows when ``scope == "own"``."""
     if scope == "own":
@@ -186,7 +270,7 @@ def _status_fa(status: str) -> str:
 # The company timeline — writing to it
 # --------------------------------------------------------------------------- #
 def log_client_event(client: Client, actor, action: str, subject: str = "",
-                     comment: str = "") -> ClientEvent:
+                     comment: str = "", subject_role: str = "") -> ClientEvent:
     """Write one immutable ``ClientEvent`` row — this app's ``cases.services.log``.
 
     A deliberate mirror of ``cases/services.py::log``, down to freezing the
@@ -211,6 +295,13 @@ def log_client_event(client: Client, actor, action: str, subject: str = "",
     frozen for the same reason the actor fields are — see
     ``marketing/models.py::ClientEvent``.
 
+    ``subject_role`` is the optional SECOND frozen noun: the role ``subject``
+    was connected AS, for the two CONNECTION actions. It is passed as already
+    resolved display text (``FIELD_LABELS.get(...)``, done by the caller) rather
+    than as a role key, because freezing is the whole point — see that model's
+    docstring. Blank for every other action, and blank on every row written
+    before the column existed.
+
     Raises whatever the database raises: this is the plain writer, for
     callers that WANT a failure to surface. The mutating services in this
     module deliberately do not use it directly — see ``_try_log`` below.
@@ -221,6 +312,7 @@ def log_client_event(client: Client, actor, action: str, subject: str = "",
         actor=actor if getattr(actor, "is_authenticated", False) else None,
         action=action,
         subject=subject or "",
+        subject_role=subject_role or "",
         comment=comment or "",
         actor_name=actor_name,
         actor_role_label=actor_role_label,
@@ -228,7 +320,7 @@ def log_client_event(client: Client, actor, action: str, subject: str = "",
 
 
 def _try_log(client: Client, actor, action: str, subject: str = "",
-             comment: str = "") -> None:
+             comment: str = "", subject_role: str = "") -> None:
     """``log_client_event`` that can never break the operation it is recording.
 
     HISTORY IS SECONDARY TO THE FACT IT RECORDS. If tagging a company
@@ -249,7 +341,8 @@ def _try_log(client: Client, actor, action: str, subject: str = "",
     """
     try:
         with transaction.atomic():
-            log_client_event(client, actor, action, subject=subject, comment=comment)
+            log_client_event(client, actor, action, subject=subject,
+                             comment=comment, subject_role=subject_role)
     except Exception:
         pass
 
@@ -417,31 +510,63 @@ def toggle_manual_label(client: Client, label: str, user, add: bool) -> None:
 # ANOTHER company under a different card, and it is deliberately narrower
 # than the old, removed ``EntityLink`` — scoped to one (client, role) pair on
 # each end, never a bare arbitrary link between two names.
-def _connection_comment(anchor_role: str, target_role: str, case=None) -> str:
-    """The one-line "which roles, and under which case" note frozen onto a
-    connection's timeline row.
+def _connection_role_label(role: str) -> str:
+    """One role key as the frozen display text a timeline row stores.
+
+    ``FIELD_LABELS.get(role, role)`` — never ``FIELD_LABELS[role]`` — so a row
+    can still be written for a role key this module no longer recognises,
+    instead of the logging attempt raising inside the real operation it is only
+    meant to be recording. Frozen at write time for the reason every other value
+    on a ``ClientEvent`` is (see ``marketing/models.py::ClientEvent``): renaming
+    a role's Persian display text later must never rewrite what an old row says
+    happened.
+    """
+    return FIELD_LABELS.get(role, role)
+
+
+# The separator ``_connection_comment`` joins a comment's nouns with, and the
+# one ``_redact_case_numbers`` splits them back apart on at read time. ONE
+# constant rather than two literals: the reader of a timeline row and the writer
+# of it have to agree about where one frozen noun ends and the next begins, and
+# a comment written with " · " but split on "·" would keep a document number
+# glued to the role beside it and hand it to a viewer who may not see the case.
+_COMMENT_NOUN_SEP = " · "
+
+
+def _connection_comment(anchor_role: str, case=None) -> str:
+    """The "from which of THIS company's roles, and under which case" note
+    frozen onto a connection's timeline row.
 
     A ``Connection`` is four facts (two clients, two roles) plus an optional
-    case, but a ``ClientEvent`` has exactly one ``subject`` slot, and that
-    slot is spent on the OTHER company's name — the thing a reader scanning a
-    timeline is actually looking for. The two roles and the case number are
-    the remaining context, so they go in ``comment``, rendered here once
-    rather than at each of the two call sites.
+    case, and a ``ClientEvent`` now has two frozen noun slots for them: the
+    OTHER company's name goes in ``subject`` (the thing a reader scanning a
+    timeline is actually looking for) and the role that company was connected
+    AS goes in ``subject_role``, so the template can print it as its own tag.
+    What is left is the ANCHOR side — which of this company's own roles the edge
+    was drawn from — plus the case number, and those are the remaining context,
+    so they stay in ``comment``, rendered here once rather than at each of the
+    two call sites.
 
-    Frozen text, not identifiers, for the same reason every other field on a
-    ``ClientEvent`` is frozen (see ``marketing/models.py::ClientEvent``): the
-    display names come from ``FIELD_LABELS`` at write time, so renaming a
-    role's Persian display text later can never rewrite what this row says
-    happened. ``FIELD_LABELS.get(role, role)`` — never ``FIELD_LABELS[role]``
-    — so a row can still be written for a role key this module no longer
-    recognises instead of the logging attempt raising inside the real
-    operation it is only meant to be recording.
+    THE TARGET ROLE USED TO BE IN HERE TOO, as the second half of an
+    "anchor → target" string, and the owner asked for it to come out: a
+    connection's timeline entry has to read "Connected this company to X as
+    ROLE" with the role as a chip, not as a fragment buried in a note under the
+    sentence. It moved to its own frozen column rather than being reconstructed
+    at render time — see ``ClientEvent.subject_role``. Rows written before that
+    change keep their original arrow text in this field and still render exactly
+    as they always did; nothing rewrites them.
+
+    THE DOCUMENT NUMBER IS STILL WRITTEN, and deliberately so even though a
+    document number is case identity: this is an audit row, and the people who
+    may see that case must be able to read which case a connection was drawn
+    under. Who may READ it is decided when the timeline is rendered, by
+    ``_redact_case_numbers`` — see that function for why the gate has to be at
+    read time. The joiner is ``_COMMENT_NOUN_SEP``, which is the same constant
+    that reader splits on.
     """
-    anchor_fa = FIELD_LABELS.get(anchor_role, anchor_role)
-    target_fa = FIELD_LABELS.get(target_role, target_role)
-    line = f"{anchor_fa} → {target_fa}"
+    anchor_fa = _connection_role_label(anchor_role)
     doc_no = (getattr(case, "doc_no", "") or "").strip() if case is not None else ""
-    return f"{line} · {doc_no}" if doc_no else line
+    return f"{anchor_fa}{_COMMENT_NOUN_SEP}{doc_no}" if doc_no else anchor_fa
 
 
 def create_connection(anchor_client: Client, anchor_role: str, target_client: Client, target_role: str, user, case=None) -> None:
@@ -490,7 +615,8 @@ def create_connection(anchor_client: Client, anchor_role: str, target_client: Cl
         # business event.
         _try_log(anchor_client, user, ClientEventAction.CONNECTION_ADDED,
                  subject=target_client.name,
-                 comment=_connection_comment(anchor_role, target_role, case))
+                 subject_role=_connection_role_label(target_role),
+                 comment=_connection_comment(anchor_role, case))
 
 
 def remove_connection(anchor_client: Client, anchor_role: str, target_client: Client, target_role: str, case, user) -> None:
@@ -523,7 +649,8 @@ def remove_connection(anchor_client: Client, anchor_role: str, target_client: Cl
     if removed:
         _try_log(anchor_client, user, ClientEventAction.CONNECTION_REMOVED,
                  subject=target_client.name,
-                 comment=_connection_comment(anchor_role, target_role, case))
+                 subject_role=_connection_role_label(target_role),
+                 comment=_connection_comment(anchor_role, case))
 
 
 # --------------------------------------------------------------------------- #
@@ -1086,39 +1213,45 @@ def _scoped_events(qs, user, scope):
 
 
 def _timeline_entry(kind: str, action: str, *, subject: str = "",
-                    comment: str = "", actor_name: str = "",
-                    actor_role_label: str = "", created_at=None,
-                    case_id=None, doc_no: str = "", open_url: str = "") -> dict:
+                    subject_role: str = "", comment: str = "",
+                    actor_name: str = "", actor_role_label: str = "",
+                    created_at=None) -> dict:
     """One row of ``client_timeline``, in the ONE shape every source produces.
 
     Every key is present on every entry, whichever source it came from — a
-    case-derived row carries an empty ``comment`` and a native row carries
-    ``case_id=None``/``doc_no=""``/``open_url=""`` — so the template walks a
-    single uniform list and never branches on where a row came from. ``kind``
-    is there for the one thing a template legitimately WANTS to differ on
-    (linking a case-derived row through to its case), not for reconstructing
-    the rest of the shape.
+    derived registration row simply carries empty strings where a stored row has
+    a comment or a role — so the template walks a single uniform list and never
+    branches on where a row came from. ``kind`` records which source produced it
+    (``"event"`` for a stored ``ClientEvent``, ``"client"`` for the derived
+    registration row), for a caller that legitimately wants to tell them apart.
 
-    ``open_url`` is where a case-derived row's link actually goes, built by
-    ``marketing/access.py::case_open_url`` — the SAME function
-    ``marketing/views.py::_visible_case_rows`` uses for the Cases tab of the
-    same page, so the two tabs cannot send the same viewer to two different
-    places for the same case. It is never a bare ``cases:case_detail`` URL: a
-    dual-seat viewer has to pass through their own Commercial seat or the case
-    page bounces them. Empty on every non-case row.
+    THIS SHAPE USED TO CARRY ``case_id`` / ``doc_no`` / ``open_url`` TOO. All
+    three existed for exactly one thing — the derived "Case NNNN was opened for
+    this company" row, which linked through to the case — and the owner removed
+    that row from the timeline outright. With nothing left to link to, the three
+    keys were three empty values on every entry and one more shape for a reader
+    to hold in their head, so they went with it. The Cases tab of the company
+    detail page is where a company's cases are listed and linked
+    (``marketing/views.py::_visible_case_rows``, which builds its own
+    ``open_url`` through ``access.case_open_url`` and is untouched by any of
+    this).
+
+    ``actor_role_label`` is still carried even though the timeline no longer
+    RENDERS it (the owner asked for the actor's name alone). It is a frozen
+    audit value that ``ClientEvent`` keeps writing, and passing it through costs
+    nothing while leaving it available to anything that later wants it — the
+    decision not to print it belongs to the template, not to this shape.
     """
     return {
         "kind": kind,
         "action": action,
-        "action_label": ClientEventAction.ALL_LABELS.get(action, action),
+        "action_label": ClientEventAction.LABELS.get(action, action),
         "subject": subject or "",
+        "subject_role": subject_role or "",
         "comment": comment or "",
         "actor_name": actor_name or "",
         "actor_role_label": actor_role_label or "",
         "created_at": created_at,
-        "case_id": case_id,
-        "doc_no": doc_no or "",
-        "open_url": open_url or "",
     }
 
 
@@ -1130,17 +1263,22 @@ def _registration_entry(client: Client) -> list:
     concatenate it exactly like the other two halves of the timeline.
 
     WHY DERIVED, AND NOT A STORED ROW. The owner asked for the timeline to say
-    who added a company, when, and in what role. A real ``CLIENT_REGISTERED``
+    who added a company and when. A real ``CLIENT_REGISTERED``
     ``ClientEvent`` is written by exactly one code path —
     ``get_or_create_client``, the chart's own Attach/"+ Add company" flow — so
     every company that predates this app, and every company Commercial creates
     through ``cases/views.py::client_add``, would otherwise have a timeline that
     never mentions its own registration. ``cases.models.Client`` has carried
     ``created_by`` and ``created_at`` all along, which is the fact itself, so
-    this reads it at the moment the timeline is rendered — precisely the way
-    ``client_timeline`` already derives the whole CASE half at read time, and
-    for the same two reasons: no backfill to run for history that already
-    happened, and no second copy to keep in step. The cases app is untouched.
+    this reads it at the moment the timeline is rendered, for two reasons: no
+    backfill to run for history that already happened, and no second copy to
+    keep in step. The cases app is untouched.
+
+    THIS IS NOW THE TIMELINE'S ONLY DERIVED ROW. It used to sit beside a whole
+    derived CASE half; the owner removed that half (see ``client_timeline``),
+    and this one stays because it reports a MARKETING fact — who put this
+    company in the directory — that simply happens to be stored on a cases-app
+    table, not because deriving rows is a habit of this module.
 
     NEVER DOUBLE-REPORTS. A company registered through the chart already has a
     real stored row saying so, and synthesising a second one from the very
@@ -1182,71 +1320,137 @@ def _registration_entry(client: Client) -> list:
     ]
 
 
+def _redact_case_numbers(entries, case_access: CaseAccess) -> list:
+    """``entries`` with every case document number this viewer may not see
+    taken out of them — the row itself always kept.
+
+    THE PROBLEM THIS SOLVES. Two ``ClientEvent`` actions freeze a case's
+    document number into their text at write time: ``REPORT_ADDED`` puts it in
+    ``subject`` (``add_report``) and ``CONNECTION_ADDED`` /
+    ``CONNECTION_REMOVED`` put it in ``comment`` (``_connection_comment``).
+    ``client_timeline`` is scoped by the ACTOR (``_scoped_events``), which is
+    the right rule for Marketing's own history and says nothing whatever about
+    cases — so a viewer with ``scope="all"`` (a Marketing Supervisor, the GM,
+    the admin) reads every one of those rows, including rows naming cases that
+    ``marketing/access.py::case_access_for`` refuses them. The module docstring
+    is unambiguous that a document number is case identity and is that
+    function's to give out, and the Cases tab has always honoured it; these two
+    rows did not.
+
+    WHY THE FIX IS HERE AND NOT AT THE WRITE. The number is frozen by design —
+    a ``ClientEvent`` is an immutable record, and a viewer who MAY see the case
+    is entitled to read which case a report or a connection was filed under.
+    Refusing to write it would take that away from everyone to protect it from
+    someone, and would rewrite nothing already stored. So the row is written as
+    it always was and the gate is applied when it is read, per viewer, which is
+    the only place a per-viewer answer exists.
+
+    THE ROW IS NEVER DROPPED. The report, the connection and their actor are
+    Marketing's own history, already correctly scoped by ``_scoped_events``;
+    only the case attached to them is withheld. A blanked ``subject`` makes the
+    template read "Wrote a report on this company" instead of "... about case
+    NNNN", and a comment loses the number while keeping the role beside it —
+    the case is simply not named.
+
+    ONE MECHANISM FOR BOTH ACTIONS, and no per-action parsing: every frozen
+    noun on every entry (the whole ``subject``, and each
+    ``_COMMENT_NOUN_SEP``-separated part of ``comment``) is offered to
+    ``_hidden_case_doc_nos``, which answers using the case table and
+    ``scope_case_rows``. A string is redacted if and only if it really is the
+    document number of a case this viewer is refused; company names, role
+    labels and contact names match no case and pass through untouched. That is
+    what keeps the report path and the connection path from ever disagreeing
+    about the same number — there is one gate, not two.
+
+    Entries are returned in the same order, and an entry with nothing to redact
+    is returned as the very same dict object.
+    """
+    entries = list(entries)
+    candidates = set()
+    for entry in entries:
+        if entry.get("subject"):
+            candidates.add(entry["subject"])
+        for part in (entry.get("comment") or "").split(_COMMENT_NOUN_SEP):
+            part = part.strip()
+            if part:
+                candidates.add(part)
+    hidden = _hidden_case_doc_nos(candidates, case_access)
+    if not hidden:
+        return entries
+    out = []
+    for entry in entries:
+        subject = "" if entry.get("subject") in hidden else entry.get("subject", "")
+        comment = entry.get("comment") or ""
+        if comment:
+            comment = _COMMENT_NOUN_SEP.join(
+                part for part in comment.split(_COMMENT_NOUN_SEP)
+                if part.strip() not in hidden
+            )
+        if subject != entry.get("subject", "") or comment != (entry.get("comment") or ""):
+            entry = dict(entry, subject=subject, comment=comment)
+        out.append(entry)
+    return out
+
+
 def client_timeline(client: Client, user, scope, *,
                     case_access: CaseAccess = NO_CASE_ACCESS) -> list:
-    """One company's whole history, newest first — all three sources merged.
+    """One company's history, newest first — what MARKETING did to it.
 
-    THREE SOURCES, ONE LIST, in the shape this module already uses for labels
-    (see the module docstring's "TWO SOURCES OF A LABEL" section), applied to
-    history instead of tags:
+    TWO SOURCES, ONE LIST:
 
     * NATIVE — ``marketing/models.py::ClientEvent`` rows, everything MARKETING
       did to this company in its own directory (registered it, tagged it,
-      connected it, added or removed a contact). Scoped by ``(user, scope)`` —
-      see ``_scoped_events`` for why history has to honour the same boundary
-      the facts behind it do.
-    * CASE-DERIVED — the company's cases, read live from ``cases.models.Case``
-      and synthesised into ``ClientEventAction.CASE_CREATED`` entries using
-      each case's OWN ``created_at`` and ``doc_no``. SCOPED BY ``case_access``,
-      not by ``(user, scope)`` — see the next paragraph.
+      connected it, added or removed a contact, wrote a report on it). Scoped by
+      ``(user, scope)`` — see ``_scoped_events`` for why history has to honour
+      the same boundary the facts behind it do.
     * REGISTRATION — who first added the company at all, derived from
       ``cases.models.Client``'s own ``created_by``/``created_at`` when no
       stored ``CLIENT_REGISTERED`` row already says it. See
       ``_registration_entry`` for why it is derived rather than backfilled, and
       for why it can never double-report.
 
-    WHY THE CASE HALF IS SCOPED, AND BY WHAT. It used to be a plain
-    ``Case.objects.filter(client=client)`` with no filtering at all, on the
-    reasoning that case-derived facts are shared truth. Half of that is right
-    and half of it leaked: a case's EXISTENCE is shared truth, but this half of
-    the timeline does not merely say a case exists — it prints the case's
-    document number, the commercial expert's name frozen onto it, and a link
-    straight into it. That is case IDENTITY, governed by
-    ``marketing/access.py::case_access_for`` like every other case list in this
-    app, and without it the Timeline tab of the company detail page listed
-    exactly the document numbers the Cases tab of the SAME page had just
-    correctly refused to show. ``case_access`` is that decision, taken by the
-    caller from the request and applied here through the same
-    ``scope_case_rows`` the Cases tab uses; ``NO_CASE_ACCESS`` (no cases at
-    all) is the fail-closed default for a caller that passes nothing.
+    THERE WAS A THIRD SOURCE, AND THE OWNER REMOVED IT. This function used to
+    also synthesise one "Case NNNN was opened for this company" entry per case,
+    live from ``cases.models.Case``, scoped by a ``case_access`` argument this
+    signature no longer takes. The owner's instruction was plain — "it is not
+    needed to record that someone opened a case" — so the case half is gone
+    entirely, and with it everything that existed only to serve it: the
+    ``CASE_CREATED`` action, its icon, its template branch, and the
+    ``case_id``/``doc_no``/``open_url`` keys on ``_timeline_entry``.
 
-    WHY THE CASE HALF IS DERIVED AT READ TIME rather than the cases app
-    writing ``ClientEvent`` rows as it goes. Teaching ``cases/services.py`` to
-    write into a Marketing table would put Marketing's history model on the
-    critical path of case creation — a change to another app's business logic,
-    which this round was explicitly told not to make. Deriving here costs one
-    extra query on one detail page and, unlike a mirror table, can never drift
-    out of sync with the cases it describes: there is no backfill to run for
-    cases created before this existed, and no second copy to keep correct when
-    a case is renumbered. The trade-off is accepted deliberately: this half of
-    the timeline is a VIEW of case data, not a record Marketing owns.
+    ``case_access`` IS BACK, FOR A COMPLETELY DIFFERENT REASON, and it is worth
+    being precise about the difference because the argument was removed once
+    already. It used to decide which cases got a SYNTHESISED row of their own;
+    that half is still gone and is not coming back. What it does now is
+    RETRACTIVE: two stored actions froze a case's document number into their own
+    text when they were written (``REPORT_ADDED``'s ``subject``,
+    ``CONNECTION_ADDED``/``CONNECTION_REMOVED``'s ``comment``), and
+    ``_scoped_events`` scopes this list by the ACTOR alone — which is the
+    correct rule for Marketing's history and no rule at all about cases. A
+    Supervisor, the GM or the admin (``scope="all"``) therefore read every such
+    row, document numbers included, for cases ``case_access_for`` refuses them —
+    exactly what the module docstring says must never happen. ``_redact_case_
+    numbers`` takes those numbers back out, per viewer, at read time; see it for
+    why the gate cannot live at the write. NO ROW IS EVER DROPPED by it: the
+    history is still whatever ``scope`` says it is, only the case is unnamed.
 
-    ``actor_name`` on a case-derived entry is the case's own
-    ``commercial_expert_display`` — the name the cases app FROZE onto the case
-    when it was created (see ``cases/services.py::freeze_commercial_expert``),
-    never a live re-derivation from ``case.created_by``, so this half of the
-    timeline keeps the same discipline the native half does. There is no
-    frozen role label to go with it, so ``actor_role_label`` is honestly empty
-    rather than guessed at.
+    Defaults to ``NO_CASE_ACCESS`` like every other ``case_access`` argument in
+    this module, and fails the same way — a caller who forgets it gets a
+    timeline with no document numbers on it, never somebody else's case
+    identity. The CASES TAB is still a different code path
+    (``marketing/views.py::_visible_case_rows``) with its own scoping,
+    untouched.
 
     Returns a list of ``_timeline_entry`` dicts, newest first. Ties (two rows
-    with the identical timestamp) keep native rows ahead of case-derived ones:
-    Python's sort is stable and native rows are appended first.
+    with the identical timestamp) keep stored rows ahead of the derived
+    registration one: Python's sort is stable and stored rows are appended
+    first.
     """
     entries = [
         _timeline_entry(
             "event", ev.action,
-            subject=ev.subject, comment=ev.comment,
+            subject=ev.subject, subject_role=ev.subject_role,
+            comment=ev.comment,
             actor_name=ev.actor_name, actor_role_label=ev.actor_role_label,
             created_at=ev.created_at,
         )
@@ -1255,33 +1459,8 @@ def client_timeline(client: Client, user, scope, *,
         )
     ]
     entries += _registration_entry(client)
-    # Rows first, filter, THEN synthesise entries — ``scope_case_rows`` keys off
-    # ``case_id`` and returns the rows otherwise untouched, so everything the
-    # entry needs rides along and a case this viewer may not open never reaches
-    # ``_timeline_entry`` at all. Its ``doc_no`` is therefore never built into a
-    # string that could leak through some other key.
-    case_rows = [
-        {
-            "case_id": c.pk, "doc_no": c.doc_no, "created_at": c.created_at,
-            "expert": c.commercial_expert_display,
-        }
-        for c in Case.objects.filter(client=client).only(
-            "id", "doc_no", "created_at", "commercial_expert_display",
-        )
-    ]
-    entries += [
-        _timeline_entry(
-            "case", ClientEventAction.CASE_CREATED,
-            subject=row["doc_no"],
-            actor_name=row["expert"],
-            created_at=row["created_at"],
-            case_id=row["case_id"], doc_no=row["doc_no"],
-            open_url=case_open_url(case_access, row["case_id"]),
-        )
-        for row in scope_case_rows(case_rows, case_access)
-    ]
     entries.sort(key=lambda e: e["created_at"], reverse=True)
-    return entries
+    return _redact_case_numbers(entries, case_access)
 
 
 # --------------------------------------------------------------------------- #
@@ -1456,6 +1635,202 @@ def remove_contact(client: Client, contact_id, user, scope) -> bool:
     contact.delete()
     _try_log(client, user, ClientEventAction.CONTACT_REMOVED, subject=name)
     return True
+
+
+# --------------------------------------------------------------------------- #
+# Reports — what a marketing person wrote about a company
+# --------------------------------------------------------------------------- #
+# SCOPING NOTE, once, for both functions below, and it is the SAME note the
+# contacts section above already carries — deliberately, because it is the same
+# rule and not a lookalike. The owner's wording for reports is "each marketing
+# user sees only the reports THEY wrote; the manager and the admin see all of
+# them", which is word for word the shape of the contacts rule, and
+# ``marketing/access.py::access_for`` already resolves exactly those two
+# populations into exactly two scope values (an ordinary Marketing seat ->
+# "own"; a Supervisor, the GM and the platform admin -> "all"). ``_scoped``
+# filters on ``created_by``, which is precisely "who wrote this report". So
+# reports reuse that one helper and get no rule of their own; a second one
+# would be the same two lines under a different name, free to drift.
+def _report_row(report: CompanyReport, user, visible_case_ids=frozenset()) -> dict:
+    """One report as the flat dict the company page renders.
+
+    Dicts, not model instances, like every other report in this module (see
+    ``_contact_row``, which this mirrors field for field where the two overlap)
+    — the caller renders straight from these without touching the ORM again.
+
+    ``author`` is the FROZEN ``author_name``, through
+    ``CompanyReport.author_display_name`` so a row somehow written outside
+    ``add_report`` still shows something; never a live lookup on
+    ``created_by``, for the reason that model's docstring gives.
+
+    ``options`` is the option NAMES, resolved here once. ``case_doc_no`` is the
+    attached case's document number or an empty string — read live from the FK
+    rather than frozen, deliberately and unlike everything on ``ClientEvent``:
+    a report is a live working record that points at a live case, not an
+    immutable audit row, so it should follow a renumbered case rather than keep
+    claiming the old number. An attached case that was later deleted leaves the
+    FK NULL (``SET_NULL``) and this empty.
+
+    AND IT IS EMPTY AGAIN WHENEVER THIS VIEWER MAY NOT SEE THE CASE. This
+    function used to read ``report.case.doc_no`` off the FK with no filter at
+    all, which made the reports panel the one place in the section that printed
+    a document number to a viewer ``marketing/access.py::case_access_for``
+    refuses — the module docstring's rule, and the one the Cases tab on the very
+    same page already obeys. ``visible_case_ids`` is that decision, made once
+    per list by ``list_reports`` through the SAME ``scope_case_rows`` every case
+    listing here goes through (see ``_visible_case_ids``), and it defaults to
+    the empty set so a caller who does not supply it gets no numbers rather than
+    everyone's.
+
+    WHICH WITHHOLDS THE CASE, NEVER THE REPORT. The report itself is Marketing's
+    own working data, governed by ``_scoped``/``scope``, and if it is in this
+    list the viewer is entitled to it — its text, its options, its author. Only
+    the case attached to it goes unnamed, so ``case_id`` is dropped alongside
+    ``case_doc_no`` (an id is case identity too — see the module docstring) and
+    ``has_case`` is carried instead, purely so the template can say "on a case"
+    without saying WHICH rather than mislabel the row "on the company".
+    """
+    case_visible = report.case_id is not None and report.case_id in visible_case_ids
+    return {
+        "id": report.pk,
+        "text": report.text,
+        "options": [opt.name for opt in report.options.all()],
+        "case_id": report.case_id if case_visible else None,
+        "case_doc_no": report.case.doc_no if case_visible else "",
+        # Whether a case is attached AT ALL — true even when it may not be
+        # named. Not the same question as ``case_id``, which is now the
+        # narrower "attached, and you may see it".
+        "has_case": report.case_id is not None,
+        "author": report.author_display_name,
+        "created_by_id": report.created_by_id,
+        "created_at": report.created_at,
+        # True iff THIS user wrote the row — the same ``removable``-style
+        # ownership flag ``_contact_row`` carries, kept under an honest name
+        # because reports are not removable at all: nothing in this module
+        # deletes one, and a written report is a record, not a draft.
+        "is_own": report.created_by_id == getattr(user, "pk", None),
+    }
+
+
+def list_reports(client: Client, user, scope, *,
+                 case_access: CaseAccess = NO_CASE_ACCESS) -> list:
+    """Every report on ``client`` this viewer may see — see the scoping note.
+
+    Newest first (``CompanyReport.Meta.ordering``). ``select_related`` on the
+    case and ``prefetch_related`` on the options so a list of reports costs a
+    constant number of queries rather than two per row.
+
+    TWO INDEPENDENT DECISIONS, AND THEY ARE NOT THE SAME ONE. ``(user, scope)``
+    decides WHICH REPORTS appear — Marketing's own visibility rule, the scoping
+    note above. ``case_access`` decides only whether the case attached to a
+    report that already appears may be NAMED, which is
+    ``marketing/access.py::case_access_for``'s question and not this module's
+    (see the module docstring on case identity). Neither can stand in for the
+    other: a Supervisor sees every report on the company AND may be refused
+    every case behind them.
+
+    Resolved here, once for the whole list, rather than per row: one
+    ``scope_case_rows`` call over the attached case ids (``_visible_case_ids``)
+    instead of one per report. Defaults to ``NO_CASE_ACCESS`` like every other
+    ``case_access`` argument in this module, and fails the same way — a caller
+    who forgets it gets reports with no document numbers on them.
+    """
+    reports = list(
+        _scoped(
+            CompanyReport.objects.filter(client=client), user, scope,
+        ).select_related("case").prefetch_related("options")
+    )
+    visible = _visible_case_ids([r.case_id for r in reports], case_access)
+    return [_report_row(r, user, visible) for r in reports]
+
+
+def add_report(client: Client, user, *, text: str = "", options=(),
+               case=None) -> CompanyReport:
+    """Record one report on ``client``, written by ``user``.
+
+    Keyword-only past ``client``/``user`` for ``add_contact``'s reason: the
+    remaining arguments are three optional-looking things of three different
+    kinds, and a positional call site would be one silent swap away from filing
+    the case as the text.
+
+    THE AUTHOR'S DISPLAY NAME IS FROZEN HERE, through the same
+    ``cases.services._actor_snapshot`` ``log_client_event`` uses — not a second
+    copy of the same logic. That helper already knows about linked
+    ``people.Person`` rows, vacant seat usernames that must never be frozen onto
+    a record, and the ``Substitute · ...`` prefix a Translate seat earns; see
+    ``log_client_event``'s own docstring for why reusing it is the point. Only
+    the NAME is kept — the role label the helper also returns is dropped,
+    because the owner asked for names without role labels and there is no screen
+    that wants one on a report.
+
+    DELIBERATELY NOT VALIDATED HERE: the "at least one of options / text" rule.
+    It is a FORM-layer rule (see ``marketing/models.py::CompanyReport`` and
+    ``marketing/forms.py::ReportForm``), enforced where a violation can be
+    reported against the fields the person actually left blank — exactly the
+    split ``add_contact`` already documents for ``CompanyContact``'s own
+    "at least one of phone/email" rule, and for exactly those reasons, including
+    not blocking a legitimate direct write (an import, a backfill) that the
+    model itself permits.
+
+    ``options`` may be any iterable of ``ReportOption`` instances or primary
+    keys; it is assigned after the row exists because a many-to-many cannot be
+    set on an unsaved instance. Both are wrapped in one ``transaction.atomic``
+    so a report can never be committed without the options that give it its
+    meaning.
+
+    Writes a ``ClientEvent`` (see ``_try_log``) exactly the way ``add_contact``
+    does. There is no idempotence to check first: writing a report always
+    creates a row (the same person really can report twice on one company on one
+    day), so every call is a real event.
+    """
+    author_name, _role_label = case_services._actor_snapshot(user)
+    with transaction.atomic():
+        report = CompanyReport.objects.create(
+            client=client,
+            case=case,
+            text=(text or "").strip(),
+            created_by=user if getattr(user, "is_authenticated", False) else None,
+            author_name=author_name,
+        )
+        chosen = list(options or ())
+        if chosen:
+            report.options.set(chosen)
+    # ``subject`` is the attached case's document number, frozen at write time
+    # like every other ``ClientEvent`` value, or empty when the writer skipped
+    # the case step — which the owner made an explicit, supported choice rather
+    # than an omission. The report's own TEXT is deliberately not copied onto
+    # the timeline row: the timeline records that a report was written, and the
+    # report itself is where it is read.
+    _try_log(client, user, ClientEventAction.REPORT_ADDED,
+             subject=(getattr(case, "doc_no", "") or "").strip())
+    return report
+
+
+def _resolve_report_options(values):
+    """``values`` (instances and/or primary keys) as a list of ``ReportOption``.
+
+    The same convenience ``_resolve_contact_role`` provides for a single role,
+    for the same reason: a form hands over resolved instances while a plain POST
+    has only the ids its checkboxes submitted, and resolving in one place keeps
+    that from being re-implemented per view. Unknown ids are dropped rather than
+    raised on — an option retired between the page render and the submit must
+    not cost the writer their whole report — and the result is de-duplicated,
+    since a many-to-many cannot hold the same option twice anyway.
+    """
+    resolved, ids = [], []
+    for value in values or ():
+        if isinstance(value, ReportOption):
+            resolved.append(value)
+        elif value not in (None, ""):
+            ids.append(value)
+    if ids:
+        resolved.extend(ReportOption.objects.filter(pk__in=ids))
+    seen, out = set(), []
+    for opt in resolved:
+        if opt.pk not in seen:
+            seen.add(opt.pk)
+            out.append(opt)
+    return out
 
 
 # --------------------------------------------------------------------------- #

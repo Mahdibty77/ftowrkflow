@@ -45,7 +45,8 @@
  *
  *   a) The Inquiry button on any "label" card's own browsing list (pick a
  *      company, click Inquiry) — see the ``inquiryBtn`` listener below.
- *   b) "Case mode" (rcCaseModeWidget/rcCaseModeBanner, home.html) — entering
+ *   b) "Case mode" (rcCaseModeWidget plus the shared #rcModeBanner, both in
+ *      home.html) — entering
  *      it sets the anchor to the case's own real client, playing whatever
  *      role its ``marketing_label`` currently resolves to, WITH a case id
  *      attached (see ``caseMeta``/``withCaseId`` below) so every connection
@@ -434,12 +435,12 @@
   // The active anchor — one (company, role) pair the whole chart is pointed
   // at, set by setActiveAnchor() (the one mechanism behind all three ways to
   // set it — see the module-level comment at the top of this file) and shown
-  // in this small persistent indicator bar, which survives the modal opening
-  // and closing across as many cards as the user visits; only Deactivate (or
-  // the query-clear control, or leaving case mode — all three now share one
-  // teardown, deactivateAnchor()) ever clears it. Reuses the OLD attach
-  // wizard's own fixed-position floating-bar markup/ids in the template
-  // (rcWizardBar et al. → rcAnchorBar et al.) rather than a bespoke element.
+  // in the chart's ONE persistent banner (#rcModeBanner, home.html — the same
+  // banner case mode uses, see updateModeBanner below), which survives the
+  // modal opening and closing across as many cards as the user visits; only
+  // Deactivate (or the query-clear control, or leaving case mode — all three
+  // are now literally the same button, sharing one teardown,
+  // deactivateAnchor()) ever clears it.
   //
   // activeAnchor = {
   //   client: {id, name},  // the COMPANY every "connect" mode below anchors on
@@ -455,27 +456,32 @@
   // null when no anchor is active — the ordinary, unscoped browsing every
   // card already had before this round.
   // ------------------------------------------------------------------------
-  var anchorBar = document.getElementById('rcAnchorBar');
-  var anchorLabelEl = document.getElementById('rcAnchorLabel');
-  var anchorSourceEl = document.getElementById('rcAnchorSource');
-  var anchorRoleEl = document.getElementById('rcAnchorRole');
-  var anchorDeactivateBtn = document.getElementById('rcAnchorDeactivate');
+  // THE ONE BANNER. Every element of it is templated in marketing/home.html
+  // (#rcModeBanner) — nothing is built here — and every one of them is
+  // written by updateModeBanner() below and by nothing else. The small
+  // floating bar these used to be (#rcAnchorBar, in the chart canvas's own
+  // top-left corner) is gone outright, markup and CSS with it.
+  var modeBanner = document.getElementById('rcModeBanner');
+  var modeBannerLabel = document.getElementById('rcModeBannerLabel');
+  var modeBannerText = document.getElementById('rcModeBannerText');
+  var modeBannerRole = document.getElementById('rcModeBannerRole');
+  var modeBannerNote = document.getElementById('rcModeBannerNote');
+  var modeBannerBtn = document.getElementById('rcModeBannerBtn');
 
-  // The bar's own SECOND line, for the one state it has to describe two facts
-  // in — a plain query running OVER a still-active anchor (see
-  // updateAnchorBar). Built here rather than templated, the same "build once
-  // near the top, toggle hidden" convention the "us" cases panel and the
-  // "+ Add company" panel already follow; inserted before the Deactivate
-  // button so the button stays the bar's last child in every state.
-  var anchorNoteEl = null;
-  if (anchorBar && anchorDeactivateBtn) {
-    anchorNoteEl = document.createElement('span');
-    anchorNoteEl.className = 'rc-anchor-note';
-    anchorNoteEl.id = 'rcAnchorNote';
-    anchorNoteEl.hidden = true;
-    anchorNoteEl.setAttribute('dir', 'auto');
-    anchorBar.insertBefore(anchorNoteEl, anchorDeactivateBtn);
+  // The banner is sticky (rolechart.css), and what it has to clear is
+  // .main-sticky-head — the topbar plus, on a day with a work-shift warning,
+  // that strip too (core/templates/base.html) — whose height is not a
+  // constant a stylesheet can know. So it is measured here and written
+  // straight onto the element's own `top`: once at load, and again on every
+  // overlay reflow (see reflowOverlays), which is what a window resize, a
+  // browser zoom or the app's own sidebar collapsing already goes through.
+  function syncBannerStickyTop() {
+    if (!modeBanner) { return; }
+    var head = document.querySelector('.main-sticky-head');
+    var h = head ? head.getBoundingClientRect().height : 0;
+    modeBanner.style.top = h + 'px';
   }
+  syncBannerStickyTop();
 
   var activeAnchor = null;
 
@@ -488,7 +494,7 @@
   // own all-cases list, and the ?case= deep link — so the surviving bar has to
   // cover a query that set no anchor too.
   //
-  // ``clientId``/``field`` exist purely so updateAnchorBar() can tell whether
+  // ``clientId``/``field`` exist purely so updateModeBanner() can tell whether
   // what is lit right now IS the active anchor's own query or some OTHER
   // company's — they are never used to fetch anything. ``clientId`` is null
   // for the one query with no Client behind it at all (runInquiryForUs).
@@ -496,7 +502,7 @@
 
   // The one piece of "case mode" that does NOT fold into activeAnchor
   // itself — the case's own doc number and its own real client's name, kept
-  // purely for the banner's own text (updateCaseModeBanner, below) so a
+  // purely for the banner's own text (updateModeBanner, above) so a
   // later pivot (which moves activeAnchor.client to some OTHER company) does
   // not erase which case the reader is still "inside". Set only by
   // enterCaseMode; cleared only by deactivateAnchor() — never touched by a
@@ -509,10 +515,30 @@
     return node ? node.getAttribute('data-role') : (field || '');
   }
 
+  // Writes the banner's primary line: one main fact, plus (for a company) the
+  // Persian role it is active as, in its own span so it keeps the rtl/muted
+  // treatment every other role name on this chart has. Passing no role hides
+  // that span rather than leaving an empty gap in the flex row.
+  function setBannerText(main, role) {
+    modeBannerText.textContent = main;
+    modeBannerRole.textContent = role || '';
+    modeBannerRole.hidden = !role;
+  }
+
   // THE CHART'S ONE INDICATOR, AND THE TWO FACTS IT HAS TO KEEP STRAIGHT.
   //
-  // There are genuinely two of them, and they are usually — but NOT always —
-  // the same fact:
+  // ONE BANNER FOR BOTH KINDS OF ACTIVATION. There used to be two indicators:
+  // this wide banner for case mode, and a small floating pill over the chart
+  // canvas for an activated company. The owner asked for the banner treatment
+  // to be the single one — a company activation now fills this same banner,
+  // in the same place, with that company's own name/role and its Deactivate
+  // control — and was explicit that the two must never both be on screen:
+  // either a company-with-a-role is active or a case is. That is why the
+  // caseMeta branch below comes FIRST and returns: with a case active there
+  // is no company-style state left to render, because there is only one
+  // element to render it into.
+  //
+  // NOW THE TWO FACTS. They are usually — but NOT always — the same fact:
   //
   //   1. WHICH COMPANY THE LINES ON THE CHART BELONG TO (``queryStatus``);
   //   2. WHICH COMPANY AN EDIT WOULD ATTACH TO (``activeAnchor`` — every
@@ -524,11 +550,17 @@
   // WITHOUT touching the anchor — Quick Inquiry, the admin "us" card's own
   // all-cases list, and the ?case= deep link — so with an anchor set for A,
   // a Quick Inquiry for B repaints the whole chart for B while A is still
-  // what an edit would attach to. This function USED TO return early inside
-  // its ``if (activeAnchor)`` branch, which made the bar read "Active — A"
-  // over a chart drawn entirely for B: a reader could misread which company
-  // the lines belonged to, which is the one thing this indicator must never
-  // allow.
+  // what an edit would attach to. An earlier version of this function
+  // returned early inside its ``if (activeAnchor)`` branch, which made the
+  // indicator read "Active — A" over a chart drawn entirely for B: a reader
+  // could misread which company the lines belonged to, which is the one thing
+  // this indicator must never allow. Folding the case banner in here does not
+  // get to reintroduce that bug, so the caseMeta branch carries the same
+  // discipline: in case mode the primary text is the CASE (that is what the
+  // owner asked to keep unchanged), and anything true beside it — the chart
+  // showing some other company, edits attaching somewhere other than the
+  // case's own client after a pivot — is stated in the note rather than
+  // dropped.
   //
   // WHY BOTH FACTS ARE SHOWN, rather than having a plain Inquiry supersede
   // (clear) the anchor: superseding fixes the lie about the lines by telling
@@ -538,57 +570,77 @@
   // because deactivating drops ``caseId``/``caseMeta`` too. A Quick Inquiry
   // is a look-up gesture; it must not silently destroy the editing context
   // the reader built, and it must not quietly change where writes land. So
-  // the bar shows the QUERY as its primary text (it is what the lines on the
-  // chart mean) and the anchor as a visibly subordinate note beside it, and
-  // the one control clears both — labelled "Clear all" in exactly that state
-  // so it does not read as clearing only the query.
-  function updateAnchorBar() {
-    if (!anchorBar) { return; }
+  // outside case mode the banner shows the QUERY as its primary text (it is
+  // what the lines on the chart mean) and the anchor as a visibly subordinate
+  // note beside it, and the one control clears both — labelled "Clear all" in
+  // exactly that state so it does not read as clearing only the query.
+  function updateModeBanner() {
+    if (!modeBanner) { return; }
     // The anchor's OWN query — same company AND same role — is one fact, not
     // two, and reads exactly as it always did.
     var queryIsAnchor = !!(activeAnchor && queryStatus &&
       queryStatus.clientId === activeAnchor.client.id &&
       queryStatus.field === activeAnchor.field);
-    if (anchorNoteEl) { anchorNoteEl.hidden = true; }
-    if (activeAnchor && (!queryStatus || queryIsAnchor)) {
-      anchorBar.hidden = false;
-      anchorLabelEl.textContent = 'Active';
-      anchorSourceEl.textContent = activeAnchor.client.name;
-      anchorRoleEl.textContent = roleTextFor(activeAnchor.field);
-      anchorDeactivateBtn.textContent = 'Deactivate';
-      return;
-    }
-    if (activeAnchor && queryStatus) {
-      // Two distinct facts. The chart is showing one company; edits still go
-      // to another.
-      anchorBar.hidden = false;
-      anchorLabelEl.textContent = 'Showing';
-      anchorSourceEl.textContent = queryStatus.name;
-      anchorRoleEl.textContent = queryStatus.role || '';
-      if (anchorNoteEl) {
-        anchorNoteEl.textContent = 'edits attach to ' + activeAnchor.client.name +
-          ' — ' + roleTextFor(activeAnchor.field);
-        anchorNoteEl.hidden = false;
-      }
-      anchorDeactivateBtn.textContent = 'Clear all';
-      return;
-    }
-    if (queryStatus) {
-      anchorBar.hidden = false;
-      anchorLabelEl.textContent = 'Query';
-      anchorSourceEl.textContent = queryStatus.name;
-      anchorRoleEl.textContent = queryStatus.role || '';
-      anchorDeactivateBtn.textContent = 'Clear';
-      return;
-    }
-    anchorBar.hidden = true;
-  }
+    var anchorNote = activeAnchor
+      ? 'edits attach to ' + activeAnchor.client.name + ' — ' + roleTextFor(activeAnchor.field)
+      : '';
+    var showingNote = queryStatus
+      ? 'chart is showing ' + queryStatus.name + (queryStatus.role ? ' — ' + queryStatus.role : '')
+      : '';
+    modeBannerNote.hidden = true;
+    modeBannerNote.textContent = '';
 
-  function updateCaseModeBanner() {
-    if (!caseModeBanner) { return; }
-    if (!caseMeta) { caseModeBanner.hidden = true; caseModeBannerText.textContent = ''; return; }
-    caseModeBanner.hidden = false;
-    caseModeBannerText.textContent = 'Editing chart for case ' + caseMeta.docNo + ' — ' + caseMeta.clientName;
+    // 1. CASE MODE — the one state that wins outright, wording unchanged.
+    if (caseMeta) {
+      modeBanner.hidden = false;
+      modeBannerLabel.textContent = 'Case mode';
+      setBannerText('Editing chart for case ' + caseMeta.docNo + ' — ' + caseMeta.clientName, '');
+      // Everything that is ALSO true and cannot be read off that line: a
+      // query painted for someone else (Quick Inquiry over case mode), and/or
+      // an anchor a pivot has moved off the case's own client.
+      var notes = [];
+      if (queryStatus && !queryIsAnchor) { notes.push(showingNote); }
+      if (activeAnchor && activeAnchor.client.id !== caseMeta.clientId) { notes.push(anchorNote); }
+      if (notes.length) {
+        modeBannerNote.textContent = notes.join(' · ');
+        modeBannerNote.hidden = false;
+      }
+      modeBannerBtn.textContent = 'Leave case mode';
+      return;
+    }
+
+    // 2. A COMPANY IS ACTIVE, and the chart is showing its own query.
+    if (activeAnchor && (!queryStatus || queryIsAnchor)) {
+      modeBanner.hidden = false;
+      modeBannerLabel.textContent = 'Active';
+      setBannerText(activeAnchor.client.name, roleTextFor(activeAnchor.field));
+      modeBannerBtn.textContent = 'Deactivate';
+      return;
+    }
+
+    // 3. Two distinct facts. The chart is showing one company; edits still go
+    //    to another.
+    if (activeAnchor && queryStatus) {
+      modeBanner.hidden = false;
+      modeBannerLabel.textContent = 'Showing';
+      setBannerText(queryStatus.name, queryStatus.role || '');
+      modeBannerNote.textContent = anchorNote;
+      modeBannerNote.hidden = false;
+      modeBannerBtn.textContent = 'Clear all';
+      return;
+    }
+
+    // 4. A plain query that set no anchor at all.
+    if (queryStatus) {
+      modeBanner.hidden = false;
+      modeBannerLabel.textContent = 'Query';
+      setBannerText(queryStatus.name, queryStatus.role || '');
+      modeBannerBtn.textContent = 'Clear';
+      return;
+    }
+
+    // 5. Nothing active — no banner at all.
+    modeBanner.hidden = true;
   }
 
   // The ONE mechanism behind all three ways to set the active anchor (see
@@ -607,14 +659,14 @@
       ? opts.caseId
       : (activeAnchor ? activeAnchor.caseId : null);
     activeAnchor = { client: { id: client.id, name: client.name }, field: field, caseId: caseId || null };
-    updateAnchorBar();
+    updateModeBanner();
     runInquiryForClient(client, field, !!opts.isCaseAnchor);
   }
 
   // The one shared teardown every "clear" control now goes through — this
-  // bar's own Deactivate/Clear button (both wordings are the same control —
-  // see updateAnchorBar) and "Leave case mode" — rather than separate
-  // mechanisms. Fully clears the anchor AND the case-mode banner alongside
+  // banner's own Deactivate/Clear/Leave-case-mode button (every one of those
+  // wordings is the same single control now — see updateModeBanner) — rather
+  // than separate mechanisms. Fully clears the anchor and the banner alongside
   // the same visual state clearQueryMarks() already tears down for an
   // ordinary Clear, since the active anchor is always exactly what the
   // current query is showing.
@@ -623,13 +675,16 @@
     caseMeta = null;
     chartRoot.classList.remove('is-query');
     clearQueryMarks();
-    updateAnchorBar();
-    updateCaseModeBanner();
+    updateModeBanner();
     if (caseModeInput) { caseModeInput.value = ''; }
     if (caseModeList) { caseModeList.innerHTML = ''; }
   }
 
-  if (anchorDeactivateBtn) { anchorDeactivateBtn.addEventListener('click', deactivateAnchor); }
+  // THE banner's one control, in every one of its wordings — Deactivate,
+  // Clear, Clear all, Leave case mode. There is no second clear control on
+  // this chart any more: the case banner's own "Leave case mode" button IS
+  // this button, relabelled by updateModeBanner().
+  if (modeBannerBtn) { modeBannerBtn.addEventListener('click', deactivateAnchor); }
 
   // Merges ``case_id: activeAnchor.caseId`` into ``params`` whenever the
   // active anchor carries one, leaving ``params`` untouched otherwise — the
@@ -783,7 +838,7 @@
     // applyLayout({})'s own "restore" path.
     applyLayout({});
     removeCaseAnchorBadge();
-    updateAnchorBar();
+    updateModeBanner();
   }
 
   // ========================================================================
@@ -1608,6 +1663,11 @@
   var reflowTimer = null;
 
   function reflowOverlays() {
+    // The sticky banner's own offset is measured off .main-sticky-head, whose
+    // height can change with the window's width (its contents wrap) — so it
+    // is re-measured here, BEFORE the early return below, since it goes stale
+    // whether or not anything is currently painted over the chart.
+    syncBannerStickyTop();
     // Nothing is painted over the chart — no grown cards, no panel — so
     // there is nothing whose position could have gone stale.
     if (!Object.keys(currentGrowth).length && !usCasesPanelState) { return; }
@@ -1973,11 +2033,12 @@
           drawUsCasesConnector();
         }
       });
-      // The chart's one indicator (the old floating query pill is gone —
-      // see updateAnchorBar): whatever this query is showing names itself
-      // here, WHETHER OR NOT it also set the anchor. The id/field pair is
-      // what lets the bar tell "this is the anchor's own query" from "this
-      // is some other company painted over an anchor that is still active".
+      // The chart's one indicator (the old floating query pill and the old
+      // floating anchor bar are both gone — see updateModeBanner): whatever
+      // this query is showing names itself here, WHETHER OR NOT it also set
+      // the anchor. The id/field pair is what lets the banner tell "this is
+      // the anchor's own query" from "this is some other company painted over
+      // an anchor that is still active".
       queryStatus = {
         clientId: client.id,
         field: focusField,
@@ -1985,7 +2046,7 @@
         role: focusField && nodesByField[focusField]
           ? nodesByField[focusField].getAttribute('data-role') : ''
       };
-      updateAnchorBar();
+      updateModeBanner();
     });
   }
 
@@ -2011,12 +2072,12 @@
       clientId: null, field: 'us', name: 'Us',
       role: focusG ? focusG.getAttribute('data-role') : ''
     };
-    updateAnchorBar();
+    updateModeBanner();
   }
 
   // The old query pill's own Clear button was wired here; it is gone with the
   // pill. Its job (clear a query that set no anchor) is now the same
-  // Deactivate/Clear button on the one indicator bar, wired further up —
+  // Deactivate/Clear button on the one mode banner, wired further up —
   // deactivateAnchor() was always the shared teardown for both.
 
   // ------------------------------------------------------------------------
@@ -2051,9 +2112,9 @@
   // action bars) into a new .rc-modal-columns/.rc-modal-main wrapper — see
   // rolechart.css — so this panel can sit BESIDE them as a second column
   // instead of only ever stacking underneath. The same "build once near the
-  // top of the file, toggle hidden/visible on demand" convention as
-  // #rcAnchorBar / the "us" cases panel above; opening it just widens the
-  // SAME modal (.rc-modal.is-wide) — never a second window.
+  // top of the file, toggle hidden/visible on demand" convention as the "us"
+  // cases panel above; opening it just widens the SAME modal
+  // (.rc-modal.is-wide) — never a second window.
   // ------------------------------------------------------------------------
   var modalEl = overlay.querySelector('.rc-modal');
   var modalHeadEl = overlay.querySelector('.rc-modal-head');
@@ -3200,12 +3261,11 @@
   var caseModeWidget = document.getElementById('rcCaseModeWidget');
   var caseModeInput = document.getElementById('rcCaseModeInput');
   var caseModeList = document.getElementById('rcCaseModeList');
-  var caseModeBanner = document.getElementById('rcCaseModeBanner');
-  var caseModeBannerText = document.getElementById('rcCaseModeBannerText');
-  var caseModeLeaveBtn = document.getElementById('rcCaseModeLeaveBtn');
-
-  if (caseModeWidget && caseModeInput && caseModeList && caseModeBanner &&
-      caseModeBannerText && caseModeLeaveBtn) {
+  // No banner elements of its own any more: the banner this mode shows is the
+  // chart's ONE banner (#rcModeBanner, looked up near the top of this file),
+  // shared with an ordinary company activation and owned by
+  // updateModeBanner(). This block only searches cases and enters the mode.
+  if (caseModeWidget && caseModeInput && caseModeList) {
 
     var caseModeSeq = 0;
     var caseModeDebounce = null;
@@ -3218,8 +3278,8 @@
       // Doc number ONLY — no " — <client_name>" suffix (the owner's own
       // complaint: that combination wrapped awkwardly in this narrow
       // floating dropdown). The client's name is still shown once the case
-      // is picked, in the case-mode banner (updateCaseModeBannerText,
-      // above) — nothing is lost, just not duplicated here too.
+      // is picked, in the mode banner (updateModeBanner, above) — nothing is
+      // lost, just not duplicated here too.
       var name = document.createElement('span');
       name.className = 'rc-row-name';
       name.textContent = c.doc_no;
@@ -3295,19 +3355,22 @@
     // from an earlier open — so re-picking the same case after its
     // marketing_label changed elsewhere always re-anchors on the NEW role.
     function enterCaseMode(c) {
-      caseMeta = { caseId: c.case_id, docNo: c.doc_no, clientName: c.client_name };
+      // ``clientId`` is carried alongside the banner's own text so
+      // updateModeBanner() can tell a later PIVOT (which moves activeAnchor to
+      // some other company while case mode stays on) from the ordinary case
+      // where the anchor still is the case's own client — and say so.
+      caseMeta = { caseId: c.case_id, clientId: c.client_id, docNo: c.doc_no, clientName: c.client_name };
       setActiveAnchor({ id: c.client_id, name: c.client_name }, c.label, { caseId: c.case_id, isCaseAnchor: true });
-      updateCaseModeBanner();
+      updateModeBanner();
       caseModeInput.value = c.doc_no;
       caseModeList.innerHTML = '';
       chartRoot.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    // "Leave case mode" is now just the shared anchor teardown — fully
-    // clears the anchor, the banner, and every query-mode visual, the same
-    // as Deactivate/Clear query — rather than only forgetting the case while
-    // leaving the chart's own highlighted state sitting there stale.
-    caseModeLeaveBtn.addEventListener('click', deactivateAnchor);
+    // "Leave case mode" is not a control of its own any more: it is the one
+    // mode banner's own button, wired to the same shared teardown
+    // (deactivateAnchor) near the top of this file and merely RELABELLED
+    // "Leave case mode" while a case is active — see updateModeBanner().
   }
 
   // ------------------------------------------------------------------------

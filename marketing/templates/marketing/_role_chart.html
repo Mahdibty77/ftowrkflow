@@ -1,16 +1,15 @@
 {% comment %}
   The project role chart — every field is its own clickable card now, so this
-  partial is the whole interface: one inline SVG, one reusable modal, and ONE
-  indicator — the active-anchor bar (see chart_interact.js's setActiveAnchor),
-  which now lives in the chart's own top-left corner and sticks there while
-  the chart is scrolled. There used to be a SECOND indicator beside it, a
-  floating "query pill" (#rcQueryPill/#rcQueryName/#rcQueryClear) showing the
-  same query the anchor bar was already describing; the two overlapped in the
-  same corner and the owner asked for the pill to go entirely, so the anchor
-  bar below absorbed its one unique job — a plain (non-anchor) Inquiry, e.g.
-  Quick Inquiry or the ?case= deep link, still needs something naming it and
-  a control to clear it, and that is now this same bar in its "Query" wording
-  (see updateAnchorBar). There is no separate directory tab any more — see
+  partial is one inline SVG plus one reusable modal, and NO indicator of its
+  own at all. It used to hold two: a floating "query pill"
+  (#rcQueryPill/#rcQueryName/#rcQueryClear), removed an earlier round, and the
+  small floating active-anchor bar (#rcAnchorBar) in the canvas's own top-left
+  corner, removed this one. Everything either of them ever said — a company
+  activated as a role, a case, or a plain (non-anchor) Inquiry such as Quick
+  Inquiry or the ?case= deep link, each with its own clear/deactivate control
+  — is now said by the ONE sticky mode banner above the chart, which lives in
+  marketing/home.html (#rcModeBanner) and is filled by chart_interact.js's
+  updateModeBanner(). There is no separate directory tab any more — see
   marketing/views.py.
 
   Creating a company DOES happen here: the modal's own "+ Add company" panel
@@ -49,27 +48,6 @@
 <div class="rc-chart" id="rcChart">
 
   <div class="rc-canvas" id="rcCanvas">
-
-    {% comment %}
-      The active-anchor indicator's own dock — a zero-height sticky strip at
-      the chart canvas's own top-left corner, so the bar inside it floats OVER
-      the chart (it takes no layout room of its own and never pushes the SVG
-      down) and stays put while the reader scrolls DOWN the chart, without
-      ever rising above the chart's own top edge or outliving it: position
-      sticky is bounded by this element's own containing block, which is
-      .rc-canvas itself, and the page's real scroll container is .main (see
-      static/css/app.css) — a plain page-level scroller, so sticky resolves
-      against it exactly as intended. Nothing here is fixed to the viewport
-      any more; the bar scrolls away with the chart, as asked.
-    {% endcomment %}
-    <div class="rc-anchor-dock">
-      <div class="rc-anchor-bar" id="rcAnchorBar" hidden>
-        <span class="rc-anchor-label" id="rcAnchorLabel">Active</span>
-        <span class="rc-anchor-source" id="rcAnchorSource" dir="auto"></span>
-        <span class="rc-anchor-role" id="rcAnchorRole" dir="auto"></span>
-        <button type="button" class="btn btn-sm btn-ghost" id="rcAnchorDeactivate">Deactivate</button>
-      </div>
-    </div>
 
     <svg id="rcSvg" viewBox="0 0 {{ chart.view_w }} {{ chart.view_h }}"
          data-view-w="{{ chart.view_w }}" data-view-h="{{ chart.view_h }}"
@@ -132,10 +110,9 @@
   </div>
 
   {% comment %}
-    The active-anchor indicator itself now lives INSIDE .rc-canvas above (see
-    .rc-anchor-dock there) rather than as a viewport-fixed bar down here — the
-    owner asked for it in the chart's own top-left corner, sticky with the
-    chart rather than pinned to the window.
+    Nothing floats over the canvas as a status indicator any more. The one
+    banner that describes what is active is #rcModeBanner in home.html, above
+    this whole partial — sticky at the top of the page, not over the chart.
   {% endcomment %}
 
   <div class="rc-modal-overlay" id="rcModalOverlay" hidden>

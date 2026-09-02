@@ -1,10 +1,12 @@
 """The project role chart: its slots, its geometry, and nothing else.
 
 WHAT THIS DRAWS. One project, and every outside party that stands between the
-money and the metal, in a single top-to-bottom flow: sponsor paired with its
-licensor, the owner on its own row beneath them (no longer paired with the
-licensor — see the module's own git history), the project paired with its
-phase, project management, the design chain, the four contract types (drawn
+money and the metal, in a single top-to-bottom flow: licensor paired with its
+sponsor (licensor on the LEFT of that pair, sponsor on the right — swapped
+this round; see ``_ROWS``), the owner on its own row beneath them (no longer
+paired with the licensor — see the module's own git history), the project
+paired with its phase, project management, the design chain, the four
+contract types (drawn
 unconditionally now — there is no contract-model gating any more; see the
 module's own git history if that phrase means nothing to you), a
 subcontractor card under each of the three contract types that can actually
@@ -80,7 +82,7 @@ PAIR = (COL[1], COL[2])         # the two columns a side-by-side pair sits on
 # nothing past this point needed to change by hand for the new spacing to
 # take effect.
 _GAP = 105
-R1 = 18            # sponsor / licensor
+R1 = 18            # licensor / sponsor
 R2 = R1 + _GAP     # owner
 R3 = R2 + _GAP     # project / phase
 R4 = R3 + _GAP     # pmt / mc
@@ -238,8 +240,22 @@ def _kind_of(key):
 # needs; ``build`` walks this once for the nodes and once more, pairwise,
 # for the connectors between one row and the next.
 #
-# This round re-paired three of these rows to shorten the chart: licensor
-# moved up to sit beside sponsor on R1, leaving owner alone on its own row
+# R1'S OWN LEFT/RIGHT ORDER WAS SWAPPED THIS ROUND, and that swap is the
+# whole of it: licensor now takes PAIR[0] (the left column) and sponsor
+# PAIR[1] (the right) — the owner's own request. Nothing else in this module
+# assumed the old order. ``_connect`` is handed a row's x values only and
+# draws the same 2-parents-to-1-child fan into R2 whichever card sits on
+# which column; ``_badge``/``_node``/``_route`` are per-card or per-pair
+# coordinate functions with no notion of a row's shape at all; and every
+# other list that names these two fields (SLOTS, _FIELD_ORDER/ALL_FIELDS,
+# LABEL_KEYS) is its own separate reading order that was never tied to a
+# row's left-to-right layout — SLOTS has always listed sponsor first and
+# licensor sixth even while both shared R1. The template walks _ROWS in this
+# order (via ``rows``/``row_index``), so the CSS's own per-row hue and the
+# chart's JS row model follow the swap for free.
+#
+# An earlier round re-paired three of these rows to shorten the chart:
+# licensor moved up to sit beside sponsor on R1, leaving owner alone on its own row
 # (R2) again instead of paired with licensor; project and phase — previously
 # two separate rows — now share one row (R3), paired the same way
 # sponsor/licensor and pmt/mc already were; and tpi and laboratory —
@@ -260,7 +276,7 @@ def _kind_of(key):
 # is left deliberately empty here — a later phase grows a panel there in the
 # chart's own JS/CSS, so nothing else should be placed at COL[3] on this row.
 _ROWS = (
-    (R1,  (("sponsor", PAIR[0]), ("licensor", PAIR[1]))),
+    (R1,  (("licensor", PAIR[0]), ("sponsor", PAIR[1]))),
     (R2,  (("owner", CEN),)),
     (R3,  (("project", PAIR[0]), ("phase", PAIR[1]))),
     (R4,  (("pmt", PAIR[0]), ("mc", PAIR[1]))),

@@ -1,26 +1,45 @@
 {% extends "base.html" %}
 {% load ft_extras static %}
 {% comment %}
-  ONE COMPANY — its roles, the people to call there, its cases and its history.
+  ONE COMPANY — its roles, the people to call there, its cases, the reports
+  Marketing wrote on it, and its history.
 
   Modelled on cases/templates/cases/case_detail.html so the two pages read as
   siblings, and it borrows that page's markup rather than inventing a parallel
   set of classes:
 
-  * .page-head with the name as the <h1> and the roles as chips beside it —
-    the case page's own "doc number + status tags" header shape.
+  * .page-head with the name as the <h1> — the case page's own header shape.
+    NOTHING BUT THE IDENTITY OF THE COMPANY LIVES THERE. The role chips used to
+    hang loose under the title; the owner asked for a real layout, and a run of
+    tags with no frame around it is not a layout. They have a CARD OF THEIR OWN
+    now (see "Roles & labels" below), exactly the way the case page gives its
+    own facts a titled .card instead of stacking them under the heading.
   * .infobox / .box summary tiles for the case outcome counts, the same tiles
     the case page uses for offer type, kind, status and price type.
+  * .grid.grid-3 of .card panels — the case page's own top row, a wide card
+    beside a narrow one.
   * .tabs / .tab strip over .tab-panel panels — the strip
     cases/_side_section.html uses (Inquiry / Technical Offer / Proforma /
     Timeline). The switching script is marketing/js/directory.js: the case
     page's own switcher is inline in that template and also drives the
-    internal/external side strip, which this page has no equivalent of.
+    internal/external side strip, which this page has no equivalent of. Panels
+    are addressed by id as panel-<data-tab>, which is the contract that script
+    relies on — a tab added here needs a panel with the matching id and
+    nothing else.
   * .card / .card-head panels inside each tab.
   * <ul class="timeline"> with .tl-action / .tl-meta / .tl-comment rows and
     |jalali on every stamp — the case audit timeline, unchanged, plus one icon
     per action kind (see marketing/views.py::_TIMELINE_ICONS) because this
     timeline mixes far more kinds of event than a case's does.
+
+  EVERY ACCESS-DEPENDENT CONTROL IS GATED EXACTLY AS THE VIEW GATES IT, and
+  this template moved markup around without touching one of those tests:
+  "Add contact" and "Add report" are both {% if can_edit %}, which is the same
+  flag marketing/views.py::contact_add and ::report_add refuse on; the per-row
+  contact delete is c.can_remove; and the PI money figure is behind show_money.
+  A hidden control is not a permission — every one of those URLs re-checks for
+  itself — but a drawn control that the server will refuse is a bug, so the
+  two sides are kept saying the same thing.
 
   Nothing here formats a date itself: every stamp goes through the |jalali
   filter from core/templatetags/ft_extras.py, the same filter the case page's
@@ -33,24 +52,15 @@
 {% endblock %}
 {% block content %}
 
+{# The header identifies the company and nothing else — see the note above on  #}
+{# why the role chips are no longer here.                                      #}
 <div class="page-head">
   <div>
     <h1 style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">
       <span dir="auto">{{ client.name }}</span>
       <span class="mono muted" style="font-size:.9rem;">({{ client.code }})</span>
     </h1>
-    {% if labels %}
-    <div class="chips-row" style="margin-top:.45rem;">
-      {% for lab in labels %}
-      <span class="chip{% if lab.source != 'case' %} c-draft{% endif %}"
-            title="{% if lab.source == 'case' %}From this company's cases{% else %}Manually tagged{% endif %}">
-        <i class="fa-solid {% if lab.source == 'case' %}fa-folder-open{% else %}fa-tag{% endif %}"></i>{{ lab.label_fa }}
-      </span>
-      {% endfor %}
-    </div>
-    {% else %}
-    <div class="sub">This company carries no roles yet.</div>
-    {% endif %}
+    <div class="sub">Company directory · Marketing</div>
   </div>
   <div class="row-flex" style="align-items:center;gap:.5rem;flex-wrap:wrap;">
     <a href="{% url 'marketing:directory' %}" class="btn btn-sm">
@@ -86,9 +96,72 @@
   </div>
 </div>
 
+{# The case page's own top row: one wide card beside one narrow one            #}
+{# (.grid.grid-3 with the wide card spanning two columns), which app.css        #}
+{# already collapses to two columns and then to one on smaller screens.        #}
+<div class="grid grid-3">
+
+  {# --------------------------------------------------------- roles & labels #}
+  {# THE ROLES IN A CARD OF THEIR OWN. Same merged, scoped list as before —     #}
+  {# services.labels_for_clients, so these chips cannot disagree with the ones  #}
+  {# on the directory list or on the chart — only now it is a titled panel with #}
+  {# its count and its legend, instead of a loose run of chips under the <h1>.  #}
+  <div class="card dir-roles-card" style="grid-column:span 2;">
+    <div class="card-head">
+      <h3><i class="fa-solid fa-tags" style="color:var(--accent-strong);margin-right:.4rem;"></i>Roles &amp; labels
+        <span class="count">{{ labels|length }}</span>
+      </h3>
+    </div>
+    {% if labels %}
+    <div class="chips-row dir-label-chips">
+      {% for lab in labels %}
+      {# The chip's LOOK carries its source, and the title says it in words:    #}
+      {# a case-derived role is the accent chip, a manually tagged one is the   #}
+      {# quiet c-draft chip. Every other role chip on this page — the "as ROLE" #}
+      {# chip on a connection row in the timeline — uses that same c-draft      #}
+      {# styling, so the page has one vocabulary for "this is a role", not two. #}
+      <span class="chip{% if lab.source != 'case' %} c-draft{% endif %}"
+            title="{% if lab.source == 'case' %}From this company's cases{% else %}Manually tagged{% endif %}">
+        <i class="fa-solid {% if lab.source == 'case' %}fa-folder-open{% else %}fa-tag{% endif %}"></i>{{ lab.label_fa }}
+      </span>
+      {% endfor %}
+    </div>
+    <div class="help dir-label-legend">
+      <span><i class="fa-solid fa-folder-open"></i> from this company's cases</span>
+      <span><i class="fa-solid fa-tag"></i> tagged by hand on the relationship chart</span>
+    </div>
+    {% else %}
+    <div class="empty">This company carries no roles yet.</div>
+    {% endif %}
+  </div>
+
+  {# ---------------------------------------------------------------- at a glance #}
+  {# Deliberately NOT a second copy of the four case numbers above: this names  #}
+  {# the company and counts the two lists the tabs below hold that the .infobox #}
+  {# does not count. Both counts are of the rows THIS viewer is shown, which is #}
+  {# why each is stated as such — the same honesty the two "you see …" lines in #}
+  {# the panels below apply to the lists themselves.                           #}
+  <div class="card">
+    <div class="card-head">
+      <h3><i class="fa-solid fa-building" style="color:var(--accent-strong);margin-right:.4rem;"></i>Company</h3>
+    </div>
+    <dl class="kv-ic compact">
+      <dt><i class="fa-solid fa-building"></i>Name</dt>
+      <dd><span dir="auto">{{ client.name }}</span></dd>
+      <dt><i class="fa-solid fa-hashtag"></i>Code</dt>
+      <dd><span class="mono">{{ client.code }}</span></dd>
+      <dt><i class="fa-solid fa-users"></i>Contacts</dt>
+      <dd>{{ contacts|length }}</dd>
+      <dt><i class="fa-solid fa-file-lines"></i>Reports</dt>
+      <dd>{{ reports|length }}</dd>
+    </dl>
+  </div>
+</div>
+
 <div class="tabs side-tabs" id="companyTabs">
   <div class="tab active" data-tab="contacts"><i class="fa-solid fa-users"></i> Contacts</div>
   <div class="tab" data-tab="cases"><i class="fa-solid fa-folder-open"></i> Cases</div>
+  <div class="tab" data-tab="reports"><i class="fa-solid fa-file-lines"></i> Reports</div>
   <div class="tab" data-tab="timeline"><i class="fa-solid fa-clock-rotate-left"></i> Timeline</div>
 </div>
 
@@ -182,6 +255,29 @@
       </span>
     </div>
 
+    {# THE MONEY, WORDED AND GATED EXACTLY AS THE ARCHIVE WORDS AND GATES ITS   #}
+    {# OWN. cases/templates/cases/archive.html prints its drill-down banner as  #}
+    {# `{% if show_money and drill_grand_total_display %} · Grand total (all    #}
+    {# PI): <strong class="mono">…</strong>`, and this is that same test on     #}
+    {# this page's own pair of context values (see                              #}
+    {# marketing/views.py::_pi_money_total, which computes it through the       #}
+    {# archive's own helpers). TWO conditions, not one, and both matter:        #}
+    {# show_money is whether this viewer may be shown money at all, and         #}
+    {# pi_total_display is "" when there is no figure to draw — a viewer with   #}
+    {# no money visibility gets NOTHING here, not a zero, because a zero is a   #}
+    {# claim about this company's cases and silence is not.                     #}
+    {#                                                                          #}
+    {# It sits inside the Cases card on purpose: the total is over exactly the  #}
+    {# rows in the table below it, and a money figure floating anywhere else on #}
+    {# the page would not say which cases it had added up.                      #}
+    {% if show_money and pi_total_display %}
+    <div class="dir-money">
+      <span class="dir-money-l"><i class="fa-solid fa-coins"></i> Grand total (all PI)</span>
+      <strong class="mono dir-money-v">{{ pi_total_display }}</strong>
+      <span class="dir-money-note">over the {{ counts.total }} case{{ counts.total|pluralize }} listed below</span>
+    </div>
+    {% endif %}
+
     {% if hidden_case_count %}
     {# Honest rather than silent: the rows are scoped (see                      #}
     {# marketing/views.py::_visible_case_rows) and a reader comparing this page #}
@@ -220,6 +316,101 @@
   </div>
 </div>
 
+{# ----------------------------------------------------------------- reports #}
+{# The reports a Marketing person wrote on this company. Rows come from        #}
+{# services.list_reports, which enforces its own visibility rule through the   #}
+{# SAME _scoped helper contacts use — an ordinary Marketing seat sees the      #}
+{# reports it wrote, a Supervisor / the GM / the admin see every one — so this #}
+{# panel filters nothing a second time and only says, in words, which of the   #}
+{# two lists the reader is looking at.                                        #}
+<div class="tab-panel" id="panel-reports">
+  <div class="card">
+    <div class="card-head">
+      <h3><i class="fa-solid fa-file-lines" style="color:var(--accent-strong);margin-right:.4rem;"></i>Reports
+        <span class="count">{{ reports|length }}</span>
+      </h3>
+      {# THE SAME GATE AS "Add contact" ABOVE — can_edit — because it is the    #}
+      {# same gate marketing/views.py::report_add and ::report_create refuse    #}
+      {# on, exactly as contact_add does. The view-only tier (the General       #}
+      {# Manager and the platform admin) gets can_edit False and no button,     #}
+      {# and would be answered 403 by both report URLs even if it forged one.   #}
+      {% if can_edit %}
+      <a href="{% url 'marketing:report_add' client.pk %}" class="btn btn-sm btn-primary">
+        <i class="fa-solid fa-file-pen"></i> Add report
+      </a>
+      {% endif %}
+    </div>
+
+    {# Contacts' own sentence, for reports, decided by the same thing: the      #}
+    {# SCOPE, not can_edit — see marketing/views.py::company_detail on          #}
+    {# sees_all_reports.                                                        #}
+    <div class="help" style="margin:-.35rem 0 .7rem;">
+      {% if sees_all_reports %}You see every report written on this company.{% else %}You see the reports you wrote yourself.{% endif %}
+    </div>
+
+    <ul class="dir-reports">
+      {% for r in reports %}
+      <li class="dir-report">
+        <div class="dir-report-head">
+          {# The FROZEN author name (services._report_row -> CompanyReport      #}
+          {# .author_display_name), never a live lookup — a rename must not     #}
+          {# rewrite who a report says wrote it. The stamp beside it goes       #}
+          {# through |jalali exactly as every timeline row on this page does,   #}
+          {# so a report and the timeline row recording it print the same       #}
+          {# calendar in the same shape.                                        #}
+          <span class="dir-report-who" dir="auto">{{ r.author|default:"—" }}</span>
+          <span class="dir-report-when">{{ r.created_at|jalali:"Y.m.d H:i" }}</span>
+          {% if r.case_doc_no %}
+          <span class="chip"><i class="fa-solid fa-folder-open"></i>{{ r.case_doc_no }}</span>
+          {% elif r.has_case %}
+          {# ATTACHED TO A CASE THIS VIEWER MAY NOT SEE. services._report_row    #}
+          {# blanks the document number (and the id) for anyone                  #}
+          {# marketing/access.py::case_access_for refuses that case — a doc no.  #}
+          {# is case identity, exactly as on the Cases tab above. The report     #}
+          {# itself is this viewer's to read, so the row stays; only the case is #}
+          {# unnamed. It must NOT fall through to "On the company" below, which  #}
+          {# would be a plain untruth about a report that IS filed on a case.    #}
+          <span class="chip c-draft"><i class="fa-solid fa-folder-open"></i>On a case</span>
+          {% else %}
+          {# Not an omission — skipping the case step is a supported choice in  #}
+          {# the two-step flow (see marketing/templates/marketing/report_case   #}
+          {# .html), so the row says so rather than leaving a gap.              #}
+          <span class="chip c-draft"><i class="fa-solid fa-building"></i>On the company</span>
+          {% endif %}
+          {% if r.is_own %}<span class="chip c-draft"><i class="fa-solid fa-user"></i>Yours</span>{% endif %}
+        </div>
+
+        {% if r.options %}
+        {# The preset options, as the same kind of chip the roles card above    #}
+        {# draws — one visual vocabulary for "a short tagged fact" on this      #}
+        {# page. r.options is already the option NAMES (services._report_row).  #}
+        <div class="chips-row">
+          {% for opt in r.options %}
+          <span class="chip c-draft" dir="auto"><i class="fa-solid fa-check"></i>{{ opt }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {# Free text, kept as written: the line breaks the author typed are     #}
+        {# preserved by white-space in directory.css rather than by turning     #}
+        {# them into markup here.                                               #}
+        {% if r.text %}<div class="dir-report-text" dir="auto">{{ r.text }}</div>{% endif %}
+      </li>
+      {% empty %}
+      <li class="empty">
+        {% if can_edit %}
+          No reports have been written on this company yet — use “Add report” to write the first one.
+        {% elif sees_all_reports %}
+          No reports have been written on this company yet.
+        {% else %}
+          You have not written any reports on this company yet.
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+
 {# ---------------------------------------------------------------- timeline #}
 <div class="tab-panel" id="panel-timeline">
   <div class="card">
@@ -228,9 +419,21 @@
     </div>
     {# The case audit timeline's own markup: <ul class="timeline"> with a       #}
     {# .tl-action sentence, a .tl-meta actor+stamp line and an optional         #}
-    {# .tl-comment note. Two things are added on top of it, both asked for:     #}
-    {# an icon per action kind (chosen in the view, one lookup, never here),    #}
-    {# and the actor's frozen role label beside their frozen name.              #}
+    {# .tl-comment note, plus one thing on top of it: an icon per action kind   #}
+    {# (chosen in the view, one lookup, never here).                            #}
+    {#                                                                          #}
+    {# THE ACTOR'S ROLE LABEL IS DELIBERATELY NOT PRINTED. It used to sit in a  #}
+    {# .dir-tl-role span beside the name ("Commercial · Manager"); the owner    #}
+    {# asked for the NAME alone. The field is still written and still frozen on #}
+    {# every row (see marketing/models.py::ClientEvent) — it is an audit value  #}
+    {# and something may want it later — it is simply not rendered here, and    #}
+    {# the span's styling went out of directory.css with it rather than being   #}
+    {# left behind as a rule nothing can match.                                 #}
+    {#                                                                          #}
+    {# THERE IS NO "a case was opened" ROW ANY MORE either: the owner removed   #}
+    {# the derived CASE_CREATED half of the timeline outright, so this chain    #}
+    {# has no branch for it and services.client_timeline emits none. A          #}
+    {# company's cases are the Cases tab above, with its own scoping.           #}
     {#                                                                          #}
     {# Every row below is written as a real sentence about what happened, with  #}
     {# the subject the event froze at write time — never "LABEL_ADDED · x".     #}
@@ -248,35 +451,42 @@
           {% elif ev.action == 'LABEL_REMOVED' %}
             Removed the <strong dir="auto">{{ ev.subject }}</strong> tag from this company
           {% elif ev.action == 'CONNECTION_ADDED' %}
-            Connected this company to <strong dir="auto">{{ ev.subject }}</strong>
+            {# "as <ROLE>" as its own chip, never buried in the .tl-comment     #}
+            {# note below — the owner's own wording. ev.subject_role is FROZEN  #}
+            {# text captured when the connection was made (see                  #}
+            {# marketing/models.py::ClientEvent), not a role looked up now, so  #}
+            {# renaming a role later cannot rewrite what this row says. Rows    #}
+            {# written before that column existed simply have none, and the     #}
+            {# sentence still reads correctly without the chip. The chip is the #}
+            {# c-draft chip the roles card at the top of this page uses, so a   #}
+            {# role reads the same wherever it appears here.                    #}
+            Connected this company to <strong dir="auto">{{ ev.subject }}</strong>{% if ev.subject_role %}
+            as <span class="chip c-draft" dir="auto"><i class="fa-solid fa-tag"></i>{{ ev.subject_role }}</span>{% endif %}
           {% elif ev.action == 'CONNECTION_REMOVED' %}
-            Removed the connection to <strong dir="auto">{{ ev.subject }}</strong>
+            Removed the connection to <strong dir="auto">{{ ev.subject }}</strong>{% if ev.subject_role %}
+            as <span class="chip c-draft" dir="auto"><i class="fa-solid fa-tag"></i>{{ ev.subject_role }}</span>{% endif %}
           {% elif ev.action == 'CONTACT_ADDED' %}
             Added <strong dir="auto">{{ ev.subject }}</strong> as a contact at this company
           {% elif ev.action == 'CONTACT_REMOVED' %}
             Removed the contact <strong dir="auto">{{ ev.subject }}</strong>
-          {% elif ev.action == 'CASE_CREATED' %}
-            {# ev.open_url, not a bare {% url 'cases:case_detail' %} — the      #}
-            {# same reason the Cases tab above uses row.open_url: a viewer who  #}
-            {# holds this case through a SECOND (Commercial) seat has to pass   #}
-            {# through that seat to open it, and a bare link skips exactly the  #}
-            {# switch that makes the case openable. Built per row in            #}
-            {# services.client_timeline via access.case_open_url. Rows for      #}
-            {# cases this viewer may not see never reach this template at all.  #}
-            Case <a href="{{ ev.open_url }}" class="mono">{{ ev.doc_no }}</a> was opened for this company
+          {% elif ev.action == 'REPORT_ADDED' %}
+            {# ev.subject is the attached case's document number, frozen when   #}
+            {# the report was written, or empty when the writer skipped the     #}
+            {# case step — which is a supported choice, not an omission.        #}
+            Wrote a report on this company{% if ev.subject %} about case <span class="mono">{{ ev.subject }}</span>{% endif %}
           {% else %}
             {# A row written before an action was renamed still has to render — #}
             {# the same forgiving fallback ClientEvent.action_label uses.       #}
             {{ ev.action_label }}{% if ev.subject %} · <span dir="auto">{{ ev.subject }}</span>{% endif %}
           {% endif %}
         </div>
-        {# The frozen actor snapshot, never a live lookup — see                 #}
-        {# marketing/models.py::ClientEvent on why the two CharFields exist.    #}
-        {# Only the name is dir="auto"; the stamp beside it is ours and stays   #}
-        {# left-to-right, exactly as on the case timeline.                      #}
+        {# The frozen actor NAME, never a live lookup — see                     #}
+        {# marketing/models.py::ClientEvent on why that CharField exists. The   #}
+        {# frozen role label beside it is deliberately not printed; see the     #}
+        {# note above the list. Only the name is dir="auto"; the stamp beside   #}
+        {# it is ours and stays left-to-right, exactly as on the case timeline. #}
         <div class="tl-meta">
           <span dir="auto">{{ ev.actor_name|default:"—" }}</span>
-          {% if ev.actor_role_label %}<span class="dir-tl-role">{{ ev.actor_role_label }}</span>{% endif %}
           · {{ ev.created_at|jalali:"Y.m.d H:i" }}
         </div>
         {% if ev.comment %}<div class="tl-comment" dir="auto">{{ ev.comment }}</div>{% endif %}

@@ -39,26 +39,123 @@
   flex:0 0 auto;
 }
 
-/* The actor's FROZEN role label, beside their frozen name on a timeline row
-   (see marketing/models.py::ClientEvent for why both are snapshots). A quiet
-   outline rather than a filled chip: it is context for the name, not a status
-   of its own, and it must not out-shout the sentence above it. Mirrors the
-   proportions of app.css's .tl-ver, which does the same job for a form
-   version number on the case timeline. */
-.dir-tl-role{
-  display:inline-block;
-  padding:.02rem .4rem;
-  border:1px solid var(--line);
-  border-radius:6px;
-  font-size:.66rem;
-  font-weight:600;
-  color:var(--muted);
-  white-space:nowrap;
+/* THERE IS NO .dir-tl-role RULE ANY MORE. It styled the actor's frozen role
+   label ("Commercial · Manager") beside their frozen name on a timeline row;
+   the owner asked for the name alone, the template stopped rendering that
+   span, and the rule went with it rather than sitting here matching nothing.
+   The value itself is untouched — it is still frozen on every ClientEvent
+   (see marketing/models.py), it is simply not drawn. The role that IS drawn
+   on a timeline row now is the connection's own frozen role, and it uses
+   app.css's .chip.c-draft — the same chip the roles card at the top of the
+   company page uses — so it needs no rule of its own here either. */
+
+/* The roles card on the company detail page: the chips get a little more air
+   than a table cell's row of them, and the legend under them is a quiet
+   two-item row rather than a paragraph. */
+.dir-label-chips{ gap:.4rem; }
+.dir-label-legend{
+  display:flex;
+  flex-wrap:wrap;
+  gap:.35rem 1rem;
+  margin-top:.7rem;
 }
+.dir-label-legend i{ color:var(--accent-strong); margin-right:.25rem; }
+/* app.css's .empty is sized for a full-width table with nothing in it; this
+   card is one panel in a two-panel row, and the same 2.5rem of air makes an
+   untagged company's card twice the height of the one beside it. */
+.dir-roles-card .empty{ padding:1.35rem 1rem; }
+
+/* The PI money total inside the Cases card — the figure the case archive
+   prints as "Grand total (all PI)", over exactly the rows in the table below
+   it (see marketing/views.py::_pi_money_total). A band rather than another
+   .infobox tile: it belongs to that one table, and a tile up beside the case
+   counts would not say which cases it had added up. Drawn only when there is
+   a figure to draw; a viewer with no money visibility gets no band at all. */
+.dir-money{
+  display:flex;
+  align-items:baseline;
+  flex-wrap:wrap;
+  gap:.35rem .7rem;
+  margin:0 0 .8rem;
+  padding:.55rem .8rem;
+  border:1px solid var(--accent);
+  border-radius:var(--radius);
+  background:var(--accent-soft);
+}
+.dir-money-l{
+  font-size:.68rem;
+  text-transform:uppercase;
+  letter-spacing:.5px;
+  color:var(--accent-strong);
+  font-weight:700;
+}
+.dir-money-l i{ margin-right:.3rem; }
+.dir-money-v{
+  font-size:1rem;
+  font-weight:800;
+  overflow-wrap:anywhere;
+  min-width:0;
+}
+.dir-money-note{
+  font-size:.72rem;
+  color:var(--muted);
+  margin-left:auto;
+}
+
+/* The reports list. One block per report — who wrote it and when, the case it
+   was filed against (or that it was filed on the company itself), the preset
+   options as chips, and the free text last. Bordered blocks rather than table
+   rows because a report's own text is a paragraph, not a cell. */
+.dir-reports{
+  list-style:none;
+  margin:0;
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  gap:.7rem;
+}
+.dir-report{
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  background:var(--cloud);
+  padding:.7rem .85rem;
+}
+.dir-report-head{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:.35rem .6rem;
+  margin-bottom:.45rem;
+}
+.dir-report-who{ font-weight:700; font-size:.85rem; }
+.dir-report-when{ font-size:.72rem; color:var(--muted); }
+.dir-report .chips-row{ margin-top:0; }
+/* The author's own line breaks, kept as typed — the text is stored and
+   escaped as plain text, so the breaks are honoured here rather than being
+   turned into markup in the template. */
+.dir-report-text{
+  margin-top:.5rem;
+  font-size:.84rem;
+  color:var(--slate);
+  white-space:pre-line;
+  overflow-wrap:anywhere;
+  background:var(--paper);
+  border:1px solid var(--line-soft);
+  border-radius:8px;
+  padding:.45rem .6rem;
+}
+/* An empty reports list uses app.css's .empty, which is centred padding with
+   no box of its own — it is an <li> here rather than a table cell, so it only
+   needs its bullet suppressed. */
+.dir-reports .empty{ list-style:none; }
 
 /* A narrow screen: the label column's cap is what stops the table scrolling
    sideways, so it goes away entirely once there is no room for the two
    columns beside it either. */
 @media (max-width:760px){
   .dir-labels-cell{ max-width:none; }
+  /* The money band's note is pushed to the far end by margin-left:auto on a
+     wide row; once the band wraps onto two lines that push is meaningless, so
+     it drops back to sitting under the figure. */
+  .dir-money-note{ margin-left:0; }
 }

@@ -15,11 +15,26 @@
    rolechart.py's module docstring. Most colour below is still a plain
    neutral from the platform's own tokens (static/css/app.css), with two
    deliberate exceptions: the query-mode highlight, which uses the viewer's
-   own --accent (see that section for why), and a NARROWER version of the old
-   per-field colour brought back — the owner's own follow-up request — as a
-   per-ROW (not per-field) tint on cards that actually hold a company; see
-   "Per-row colour coding" below for why row, not field, and why a related
-   range of hues rather than a family of arbitrary ones.
+   own --accent (see that section for why), and a per-ROW (not per-field)
+   tint — see "Per-row colour coding" below for why row, not field.
+
+   WHAT COLOUR NOW MEANS: "CONNECTED TO THE ACTIVE CARD", NOT "HOLDS VALUES".
+   This is the round's own headline change and it splits into exactly two
+   states, both defined below:
+
+     * NOTHING ACTIVE (no .is-query on .rc-chart) — unchanged from before:
+       every card that holds at least one company carries its own row's tint.
+     * A CARD IS ACTIVE — only the cards this query actually reached
+       (.is-focus / .is-lit, the ones a query line was drawn to) keep colour;
+       EVERY other card goes white, however many companies it holds and
+       whatever its badge says. See "Colour means connected" in the
+       query-mode section.
+
+   White here means WHITE, not disabled: full opacity, full-strength text,
+   still hoverable and still clickable (the reader is meant to open one and
+   add a company to it — that is the whole point of the treatment). The
+   opacity dimming an earlier round removed is NOT coming back; see the
+   query-mode section's own note.
    =========================================================================== */
 
 /* The tab strip that used to live here is gone: the workspace has only the
@@ -130,29 +145,84 @@
   .rc-quick-row{ flex-direction:column; }
 }
 
-/* ---- The "case mode" banner --------------------------------------------------
-   Sits at the TOP of the Relationship Map panel itself (home.html, just
-   above the {% include %} that renders .rc-chart below) — the chart's own
-   state, not the search widget's, so it lives with the chart rather than up
-   in .page-head next to rcCaseModeWidget. Hidden until a case is confirmed
-   there; shown/filled/cleared entirely by chart_interact.js
-   (updateCaseModeBanner). A plain inline strip, not a floating pill like
-   .rc-query-pill/.rc-anchor-bar below (those float OVER the canvas; this
-   banner is page flow, always visible above it without covering anything),
-   using the same --accent-bordered "you are in a mode" language as those
-   two anyway (an accent border, not a full accent fill) so it still reads
-   as one family of "active mode" indicator across the page. */
-.rc-case-mode-banner{
+/* ---- THE CHART'S ONE MODE BANNER --------------------------------------------
+   ONE banner, for both kinds of "something is active" — a company activated
+   as a role, or a case. There used to be two indicators for this: this wide
+   banner for case mode, and a small floating "Active / name / role /
+   Deactivate" pill in the canvas's own top-left corner (.rc-anchor-dock /
+   .rc-anchor-bar) for a company. The owner asked for the banner treatment to
+   be the single one, so the pill is gone outright — markup, styles and JS —
+   and every state it used to describe is described here instead. They are
+   never both on screen because there is no longer a second thing to be on
+   screen: see chart_interact.js's updateModeBanner() for the one state
+   machine that fills this, and for how it still tells the truth when a plain
+   Quick Inquiry has repainted the chart for a company OTHER than the one
+   edits attach to.
+
+   Sits at the TOP of the Relationship Map panel itself (home.html, just above
+   the {% include %} that renders .rc-chart below) — the chart's own state, not
+   the search widget's, so it lives with the chart rather than up in .page-head
+   next to rcCaseModeWidget. Hidden until something is active; shown, filled
+   and cleared entirely by chart_interact.js.
+
+   FROZEN AT THE TOP, as asked: position:sticky against the page's own scroll
+   container (.main — static/css/app.css), so it stays put while the reader
+   scrolls the chart under it, and scrolls away only with the panel that
+   contains it. Its `top` is set INLINE by chart_interact.js
+   (syncBannerStickyTop) rather than hardcoded here, because what it must clear
+   is .main-sticky-head — the topbar plus, some days, the work-shift banner —
+   whose height is not a constant this stylesheet can know. z-index sits above
+   everything drawn over the canvas (the "us" panel at 6, the query lines)
+   and below both .main-sticky-head (30) and the modal overlay (200).
+   The background must be OPAQUE: the chart scrolls UNDER this now and must
+   not show through it. --accent-soft cannot be used alone for that, because
+   the dark theme redefines it as color-mix(... , transparent) - literally
+   26% alpha - so the sticky banner went see-through in dark mode while
+   looking correct in light. Mixing the token over --paper restores a solid
+   colour in BOTH themes while keeping the accent tint the banner is meant to
+   have. */
+.rc-mode-banner{
+  position:sticky; top:0; z-index:20;
   display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;
-  background:var(--accent-soft); border:1px solid var(--accent); border-radius:var(--radius-sm);
+  background:color-mix(in srgb, var(--accent-soft) 100%, var(--paper));
+  border:1px solid var(--accent); border-radius:var(--radius-sm);
   padding:.5rem .8rem; margin:0 0 .8rem;
+  box-shadow:var(--shadow-sm, 0 1px 2px rgba(15,23,42,.04));
 }
-.rc-case-mode-banner[hidden]{ display:none; }
-.rc-case-mode-banner-label{
+.rc-mode-banner[hidden]{ display:none; }
+.rc-mode-banner-label{
   font-size:.7rem; font-weight:800; letter-spacing:.04em; color:var(--accent-strong, var(--accent));
   text-transform:uppercase;
 }
-.rc-case-mode-banner-text{ flex:1; min-width:0; font-size:.84rem; font-weight:700; color:var(--ink); }
+/* The banner's primary fact — the case's own "case DOCNO — CLIENT" line, or,
+   for a company, that company's own name. Keeps the case banner's own text
+   treatment exactly as it was, since a company activation now uses the same
+   banner and should read the same way. */
+.rc-mode-banner-text{ min-width:0; font-size:.84rem; font-weight:700; color:var(--ink); overflow-wrap:anywhere; }
+/* The role a company was activated AS, beside its name — Persian, so it gets
+   the same plaintext/rtl treatment every other role name on this chart does.
+   Empty (and hidden) for the case-mode state, whose primary text already
+   carries everything. */
+.rc-mode-banner-role{ font-size:.76rem; color:var(--muted); direction:rtl; unicode-bidi:plaintext; }
+.rc-mode-banner-role[hidden]{ display:none; }
+/* The banner's SECOND line — the states where two facts have to be kept
+   straight at once (a plain query running over a still-active anchor, or a
+   pivot away from the case's own client while still in case mode). Same
+   subordinate treatment the old floating bar's own note had: smaller, muted,
+   set off in its own soft pill, so the primary text always reads first and
+   the two can never be confused. It takes only the width it needs — the
+   spacer below claims the leftover and keeps the button hard right — and
+   shrinks/wraps rather than pushing that button off the banner. */
+.rc-mode-banner-note{
+  flex:0 1 auto; min-width:0;
+  font-size:.7rem; font-weight:600; color:var(--muted);
+  background:var(--paper); border-radius:100px; padding:.12rem .5rem;
+  overflow-wrap:anywhere; unicode-bidi:plaintext;
+}
+.rc-mode-banner-note[hidden]{ display:none; }
+/* With no note showing, this spacer is what still pushes the single control
+   (Deactivate / Leave case mode / Clear) to the banner's right edge. */
+.rc-mode-banner-spacer{ flex:1; min-width:0; }
 
 /* ---- Chart tokens ---------------------------------------------------------
    --rc-card leans on --paper, which already flips per theme (see
@@ -217,15 +287,17 @@
   stroke:color-mix(in srgb, var(--muted) 55%, transparent);
   stroke-width:1.2; stroke-dasharray:4 4;
 }
-/* A FILLED card gets a confident, saturated border in its own row's hue (see
-   the per-row block below for the hue itself and for why it is per row) —
-   not the neutral --line an empty card used to share with it. */
+/* A FILLED card gets a confident border in its own row's hue (see the per-row
+   block below for the hue itself and for why it is per row) — not the neutral
+   --line an empty card used to share with it. While a card is active this is
+   overridden for every card the query did NOT reach — see "Colour means
+   connected" in the query-mode section. */
 .rc-node.has-entries .rc-box{
-  stroke:hsl(var(--rc-row-hue, 220) 45% 42%); stroke-width:1.8;
+  stroke:hsl(var(--rc-row-h, 220) var(--rc-row-s, 42%) 40%); stroke-width:1.8;
 }
 [data-mode="dark"] .rc-node.has-entries .rc-box,
 [data-theme="dark"] .rc-node.has-entries .rc-box{
-  stroke:hsl(var(--rc-row-hue, 220) 55% 66%);
+  stroke:hsl(var(--rc-row-h, 220) var(--rc-row-s, 42%) 68%);
 }
 
 .rc-node text{ font-family:var(--sans); }
@@ -266,42 +338,56 @@
    distinct high-contrast black/white plate instead of a row hue, further
    down this file.
 
-   "In a range," the owner's own word, means related tones, not a rainbow —
-   ten hues (one per row) spaced across one restrained blue-to-violet arc,
-   same saturation/lightness for every one of them, each set as one
-   --rc-row-hue custom property per data-row-index value, then mixed into
-   --paper with color-mix the same way this file already mixes --accent into
-   --paper elsewhere (e.g. is-focus's own .rc-box fill above) — one shared
-   color-mix rule reads whichever hue the card's own row set, rather than ten
-   near-duplicate fill rules. */
-.rc-node[data-row-index="0"]{ --rc-row-hue:206; }
-.rc-node[data-row-index="1"]{ --rc-row-hue:218; }
-.rc-node[data-row-index="2"]{ --rc-row-hue:230; }
-.rc-node[data-row-index="3"]{ --rc-row-hue:242; }
-.rc-node[data-row-index="4"]{ --rc-row-hue:254; }
-.rc-node[data-row-index="5"]{ --rc-row-hue:266; }
-.rc-node[data-row-index="6"]{ --rc-row-hue:278; }
-.rc-node[data-row-index="7"]{ --rc-row-hue:290; }
-.rc-node[data-row-index="8"]{ --rc-row-hue:302; }
-.rc-node[data-row-index="9"]{ --rc-row-hue:314; }
-/* A filled card is deliberately SATURATED now (the owner's own follow-up:
-   filled cards should "look rich", and an empty one should be obvious beside
-   them at a glance) — the mix against --paper went from a barely-there 16%
-   to 34%, and the hue itself is a stronger 62%/48% rather than 60%/46%. The
-   confident border that goes with it is on .rc-node.has-entries .rc-box
-   further up (it reads the same --rc-row-hue), so a filled card differs from
-   an empty one in fill, stroke colour, stroke weight AND dash pattern, not
-   in a single faint tint. */
+   THE PALETTE ITSELF WAS REPLACED THIS ROUND. It used to be ten hues on one
+   narrow blue-to-violet arc at a single shared saturation — the owner has
+   since lifted that restriction ("greens, blues and so on are fine") while
+   keeping the two rules that mattered: not harsh, not lifeless, and one
+   colour per ROW. So this is now a deliberate ten-stop walk once around the
+   wheel, top of the chart to bottom — teal, sky, indigo, violet, plum, rose,
+   clay, amber, moss, green — which gives the chart a readable sense of
+   descent as well as ten distinguishable neighbours.
+
+   NOT GARISH, AND NOT DEAD, is bought per hue rather than by one global
+   number: each row sets BOTH its hue (--rc-row-h) and its own saturation
+   (--rc-row-s), because equal saturation does not read equally across the
+   wheel — a 48% amber is lively where a 48% plum is lurid. Saturations sit
+   between 32% and 48%: high enough that a card reads as coloured at a
+   glance from across the chart, low enough that twenty of them together are
+   calm. Lightness is NOT per row (48% light / 58% dark), so the whole
+   palette keeps one consistent weight and the same text contrast on every
+   card.
+
+   Both custom properties are then read by the shared color-mix fill/stroke
+   rules (here and on .rc-node.has-entries .rc-box above), so there are two
+   fill rules for ten rows rather than ten near-duplicates. */
+.rc-node[data-row-index="0"]{ --rc-row-h:174; --rc-row-s:42%; }  /* licensor / sponsor — teal   */
+.rc-node[data-row-index="1"]{ --rc-row-h:205; --rc-row-s:48%; }  /* owner              — sky    */
+.rc-node[data-row-index="2"]{ --rc-row-h:232; --rc-row-s:44%; }  /* project / phase    — indigo */
+.rc-node[data-row-index="3"]{ --rc-row-h:266; --rc-row-s:36%; }  /* pmt / mc           — violet */
+.rc-node[data-row-index="4"]{ --rc-row-h:310; --rc-row-s:32%; }  /* design / superv.   — plum   */
+.rc-node[data-row-index="5"]{ --rc-row-h:344; --rc-row-s:40%; }  /* c / p / pc / epc   — rose   */
+.rc-node[data-row-index="6"]{ --rc-row-h:16;  --rc-row-s:46%; }  /* the subcontractors — clay   */
+.rc-node[data-row-index="7"]{ --rc-row-h:38;  --rc-row-s:48%; }  /* tpi / laboratory   — amber  */
+.rc-node[data-row-index="8"]{ --rc-row-h:92;  --rc-row-s:34%; }  /* us                 — moss   */
+.rc-node[data-row-index="9"]{ --rc-row-h:150; --rc-row-s:38%; }  /* rival / supplier   — green  */
+/* A filled card is deliberately saturated (the owner's own follow-up: filled
+   cards should "look rich", and an empty one should be obvious beside them at
+   a glance). The confident border that goes with it is on
+   .rc-node.has-entries .rc-box further up (it reads the same two properties),
+   so a filled card differs from an empty one in fill, stroke colour, stroke
+   weight AND dash pattern, not in a single faint tint. */
 .rc-node.has-entries[data-kind="label"] .rc-box{
-  fill:color-mix(in srgb, hsl(var(--rc-row-hue) 62% 48%) 34%, var(--paper));
+  fill:color-mix(in srgb, hsl(var(--rc-row-h) var(--rc-row-s) 48%) 32%, var(--paper));
 }
-/* Dark: the same hue, mixed a little stronger against the theme's own
-   darker --paper so it still reads clearly rather than washing out — the
-   same reasoning the query-mode is-focus/is-lit dark block already uses for
-   its own --accent mix, just applied to --rc-row-hue here. */
+/* Dark: the same hue at a lighter 58% against the theme's own dark --paper
+   (#1e293b), mixed at the same 32%. Measured, not assumed: that lands every
+   one of the ten rows between roughly 5.5:1 and 7:1 against --ink (#e2e8f0),
+   the text sitting on it — comfortably past 4.5:1 for the palette's lightest
+   member (amber) as well as its darkest. Pushing the mix higher (the old rule
+   used 38%) is what would start eating that margin on the warm end. */
 [data-mode="dark"] .rc-node.has-entries[data-kind="label"] .rc-box,
 [data-theme="dark"] .rc-node.has-entries[data-kind="label"] .rc-box{
-  fill:color-mix(in srgb, hsl(var(--rc-row-hue) 58% 60%) 38%, var(--paper));
+  fill:color-mix(in srgb, hsl(var(--rc-row-h) var(--rc-row-s) 58%) 32%, var(--paper));
 }
 /* is-focus/is-lit/is-case-anchor (query mode, further down this file) must
    still read clearly on TOP of a row-tinted card, not get muddied by it —
@@ -396,6 +482,68 @@
    untouched. */
 .rc-chart.is-query .rc-node.is-focus .rc-box{
   fill:color-mix(in srgb, var(--accent) 12%, var(--paper));
+}
+
+/* ---- COLOUR MEANS "CONNECTED TO THE ACTIVE CARD" ---------------------------
+   The owner's own objection: with a card active, a card holding companies
+   stayed tinted whether or not the query had anything to do with it, so
+   colour read as "has values" — a fact the badge already states — instead of
+   as "is part of what you are looking at". The rule now:
+
+     * a card the query REACHED (.is-focus, and every .is-lit card a query
+       line was drawn to) keeps — and slightly deepens — its own row's colour,
+       on top of the accent ring/glow above, so the connected set reads as
+       genuinely alive;
+     * EVERY other card goes white: no row tint, whatever its badge says.
+
+   WHITE, NOT DISABLED. The intent is that a white card reads as a GAP the
+   reader wants to go and fill in — the chart should feel incomplete and
+   invite completion — so an unreached card keeps full opacity, its ordinary
+   --ink role/abbr text, its badge, its hover lift and its click handler; the
+   ONLY thing it loses is the hue. (The opacity dimming an earlier round
+   removed on the owner's explicit instruction — "کارت‌های خاموش نباید حالت
+   شیشه‌ای داشته باشند" — is emphatically not what this is; nothing here
+   touches opacity at all.)
+
+   Both rules are token-based (--paper/--muted/--ink all flip with the theme,
+   and the tint reads the same per-row --rc-row-h/--rc-row-s the idle chart
+   uses), so light and dark need only the one lightness swap each already has
+   above rather than a second pair of selectors here. */
+.rc-chart.is-query .rc-node.is-lit[data-kind="label"] .rc-box{
+  fill:color-mix(in srgb, hsl(var(--rc-row-h) var(--rc-row-s) 48%) 44%, var(--paper));
+}
+[data-mode="dark"] .rc-chart.is-query .rc-node.is-lit[data-kind="label"] .rc-box,
+[data-theme="dark"] .rc-chart.is-query .rc-node.is-lit[data-kind="label"] .rc-box{
+  fill:color-mix(in srgb, hsl(var(--rc-row-h) var(--rc-row-s) 58%) 42%, var(--paper));
+}
+/* The white-out. Scoped to .has-entries because an .is-empty card is already
+   the plain dashed --paper plate this is aiming at and must keep its own
+   "waiting to be filled" dash; [data-kind="us"] is excluded because "us" is
+   not a row-tinted card at all — it is the chart's one deliberate
+   black/white plate (see its own block below) and going "white" for it would
+   mean erasing the one card whose identity is that plate. The border drops to
+   a quiet neutral rather than vanishing: this is still a real card holding
+   real companies, just not one this query reached. */
+.rc-chart.is-query .rc-node.has-entries:not(.is-focus):not(.is-lit):not([data-kind="us"]) .rc-box{
+  fill:var(--paper);
+  stroke:color-mix(in srgb, var(--muted) 45%, transparent);
+  stroke-width:1.4;
+}
+[data-mode="dark"] .rc-chart.is-query .rc-node.has-entries:not(.is-focus):not(.is-lit):not([data-kind="us"]) .rc-box,
+[data-theme="dark"] .rc-chart.is-query .rc-node.has-entries:not(.is-focus):not(.is-lit):not([data-kind="us"]) .rc-box{
+  /* A 45% muted line disappears into a dark plate; the same border needs to
+     be carried at closer to full strength there to read as an outline at
+     all. */
+  stroke:color-mix(in srgb, var(--muted) 70%, transparent);
+}
+/* A white card is still a control, and must still SAY so on hover/keyboard
+   focus. The shared .rc-node:hover .rc-box accent stroke is far less specific
+   than the white-out above and would otherwise lose to it, leaving the one
+   set of cards the owner most wants clicked as the only ones with no hover
+   feedback. */
+.rc-chart.is-query .rc-node.has-entries:not(.is-focus):not(.is-lit):not([data-kind="us"]):hover .rc-box,
+.rc-chart.is-query .rc-node.has-entries:not(.is-focus):not(.is-lit):not([data-kind="us"]):focus-visible .rc-box{
+  stroke:var(--accent);
 }
 /* The path shape itself (a rounded orthogonal elbow through the chart's own
    centre lane, not a diagonal) and its one-shot "fluid filling it"
@@ -531,10 +679,11 @@
 
 /* The old floating query pill (.rc-query-pill/#rcQueryName/#rcQueryClear) used
    to sit here, in this exact corner — a SECOND indicator overlapping the
-   active-anchor bar that already said the same thing. It is gone entirely
-   (markup, styles and JS); the anchor bar below is the one indicator now, and
-   it took over the pill's own "a plain query with no anchor still needs a name
-   and a Clear control" job — see .rc-anchor-dock/.rc-anchor-bar. */
+   floating active-anchor bar that already said the same thing. Both are gone
+   now (markup, styles and JS): .rc-mode-banner near the top of this file is
+   the chart's one indicator, and it carries the pill's own "a plain query with
+   no anchor still needs a name and a Clear control" job along with everything
+   the anchor bar used to say. */
 
 /* ---- In-card growth + the chart relayout that pays for it (query mode) ------
    While an Inquiry is active, every TOUCHED card GROWS ITS OWN SVG BOX taller
@@ -597,7 +746,7 @@
    company has at least one case) — built, positioned and hidden entirely by
    chart_interact.js's openUsCasesPanel()/hideUsCasesPanel(); cleared by the
    same clearQueryMarks()/Clear flow as every other query-mode visual. Floats
-   over the canvas the same way .rc-anchor-bar already does — --paper
+   over the canvas in the platform's own floating-panel language — --paper
    background, a border, --shadow-lg — rather than a new visual language of
    its own.
 
@@ -705,54 +854,12 @@
   .rc-us-cases-panel{ width:320px; right:1rem; max-width:calc(100% - 2rem); }
 }
 
-/* ---- The active-anchor indicator bar ---------------------------------------
-   The chart's ONE indicator (the old .rc-query-pill that used to overlap it is
-   gone — see the note where it used to be defined), now in the chart's own
-   top-left corner instead of pinned to the viewport's bottom edge.
-
-   STICKY, not fixed: the dock below is a zero-height sticky strip that is the
-   FIRST child of .rc-canvas, so
-     * it takes no layout room of its own — the bar inside it is positioned
-       absolutely and simply floats over the chart's top-left corner;
-     * `top` pins it just inside the canvas while the reader scrolls DOWN the
-       chart (the real scroll container is .main — static/css/app.css — a
-       plain page-level scroller, which is what sticky resolves against);
-     * it can never rise ABOVE the chart's own top edge, because sticky never
-       moves an element before its own normal-flow position; and
-     * it scrolls away with the chart, because sticky is bounded by its
-       containing block, which is .rc-canvas itself.
-   z-index sits above the query lines/panels drawn over the canvas but below
-   the modal overlay (z-index 200). */
-.rc-anchor-dock{ position:sticky; top:.55rem; height:0; z-index:8; }
-.rc-anchor-bar{
-  position:absolute; top:0; left:.6rem;
-  display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;
-  /* Never wider than the canvas itself on a narrow screen — the bar wraps its
-     own contents onto a second line rather than running off the chart. */
-  max-width:calc(100% - 1.2rem); box-sizing:border-box;
-  background:var(--paper); border:1px solid var(--accent); border-radius:100px;
-  padding:.35rem .4rem .35rem .9rem; box-shadow:var(--shadow-lg);
-}
-.rc-anchor-bar[hidden]{ display:none; }
-.rc-anchor-label{ font-size:.72rem; font-weight:800; letter-spacing:.04em; color:var(--accent); text-transform:uppercase; }
-.rc-anchor-source{ font-size:.84rem; font-weight:700; color:var(--ink); min-width:0; overflow-wrap:anywhere; }
-.rc-anchor-role{ font-size:.76rem; color:var(--muted); direction:rtl; unicode-bidi:plaintext; }
-/* The bar's second fact, shown ONLY when the chart is displaying one company
-   while a DIFFERENT one is still the active anchor (a Quick Inquiry run over
-   an anchor — see chart_interact.js's updateAnchorBar for why both are shown
-   rather than one silently replacing the other). Deliberately subordinate to
-   the primary "Showing <company>" text beside it — smaller, muted, and set
-   off in its own soft pill — so the company the LINES belong to always reads
-   first and the two can never be confused for one another. */
-.rc-anchor-note{
-  font-size:.7rem; font-weight:600; color:var(--muted);
-  background:var(--cloud); border-radius:100px; padding:.12rem .5rem;
-  min-width:0; overflow-wrap:anywhere; unicode-bidi:plaintext;
-}
-.rc-anchor-note[hidden]{ display:none; }
-@media (max-width:640px){
-  .rc-anchor-bar{ border-radius:var(--radius-sm); left:.4rem; max-width:calc(100% - .8rem); }
-}
+/* The floating active-anchor bar (.rc-anchor-dock / .rc-anchor-bar and its
+   own label/source/role/note spans) used to be defined here — a small pill in
+   the canvas's own top-left corner naming the active company. It is gone with
+   the round that made the case banner the ONE indicator for both kinds of
+   activation: see .rc-mode-banner near the top of this file. Nothing on the
+   page carries .rc-anchor-* any more, in markup or in JS. */
 
 /* ---- The modal --------------------------------------------------------------
    One shell, reused for every field and for both of its modes — see
@@ -899,8 +1006,7 @@
 /* ---- The "+ Add company" panel (change 2) -----------------------------------
    A reusable right-side sub-panel, built once and appended into
    .rc-modal-columns (chart_interact.js), toggled hidden/visible exactly like
-   every other once-built piece of this file (the anchor bar, the "us" cases
-   panel). Opening it just widens the SAME modal (.rc-modal.is-wide, above) —
+   every other once-built piece of this file (the "us" cases panel). Opening it just widens the SAME modal (.rc-modal.is-wide, above) —
    never a second window — and this panel occupies the freed width as a
    second column beside .rc-modal-main. Available from every label card's
    modal, in both default browsing and "connect" mode alike — see

@@ -22,11 +22,21 @@ shaped the same way:
     directory/<pk>/contacts/add/    add a contact     -> marketing:contact_add
     directory/<pk>/contacts/<id>/remove/
                                     remove a contact  -> marketing:contact_remove
+    directory/<pk>/reports/add/     report, step 1    -> marketing:report_add
+    directory/<pk>/reports/create/  report, step 2    -> marketing:report_create
 
 The removal route is POST-only (see ``views.contact_remove``) and carries the
 contact's own id in the path rather than in the body, so the two ids a removal
 is about — which company, which person — are both part of the address and
 neither can be swapped by a body parameter the view forgot to re-check.
+
+THE TWO REPORT ROUTES ARE THE OWNER'S TWO STEPS, and they are two URLs for the
+same reason the archive and a case detail page are: ``report_add`` is a screen a
+reader opens, reloads and comes back to (it only asks which case, if any, the
+report is about), while ``report_create`` is the write and is POST-only (see
+``views.report_create``). A single URL switching on the request method would
+have made the writing step reachable by GET, which is precisely what
+``contact_remove`` is shaped to avoid.
 
 The ``<int:pk>`` is a ``cases.Client`` id — the SAME shared directory the chart
 and Commercial both use, not a Marketing-only mirror of it (see
@@ -49,6 +59,9 @@ urlpatterns = [
     path("directory/<int:pk>/contacts/add/", views.contact_add, name="contact_add"),
     path("directory/<int:pk>/contacts/<int:contact_id>/remove/",
          views.contact_remove, name="contact_remove"),
+    path("directory/<int:pk>/reports/add/", views.report_add, name="report_add"),
+    path("directory/<int:pk>/reports/create/",
+         views.report_create, name="report_create"),
     path("entities/clients/search/", views.client_search, name="client_search"),
     path("entities/clients/create/", views.client_create, name="client_create"),
     path("entities/clients/connections/", views.client_connections, name="client_connections"),

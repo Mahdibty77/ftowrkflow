@@ -243,26 +243,80 @@ class CaseAccess:
     """Which CASES a Marketing viewer may see listed, and open.
 
     ``can_open`` — may this viewer see case rows / follow one to its detail page
-    at all. ``all_cases`` — True only for the admin/GM tier. ``own_user_ids`` —
+    at all. ``all_cases`` — True for the admin/GM tier AND for a person holding
+    a Commercial MANAGER seat (see :func:`case_access_for`). ``own_user_ids`` —
     the User primary keys that "their own commercial cases" is measured against
     (see :func:`case_access_for`); empty when ``all_cases`` is True, because
     there is then nothing to measure. ``seat_role_id`` — the Commercial
     ``PersonRole`` that has to be made active before a case detail page will
     open, or None when the viewer can open one from where they already sit.
+
+    ``substitute_user_ids`` — the subset of ``own_user_ids`` whose Commercial
+    seat is currently being worked as a SUBSTITUTE (an open
+    ``people.models.SeatTenure`` of kind SUBSTITUTE on that seat User). Cases
+    created on one of those seats are shown ONLY while they are still running:
+    a terminal one (``cases.constants.CaseStatus.ENDED``) is withheld, which is
+    verbatim what ``cases/services.py::archive_scope`` does for the same seat
+    (``if ctx.is_substitute: qs = qs.exclude(status__in=CaseStatus.ENDED)``).
+    A tuple rather than a single boolean because one person can hold SEVERAL
+    Commercial seats and ``archive_scope`` only ever reasons about the one seat
+    it is active on: a boolean would either hide a non-substituted seat's
+    finished cases or show a substituted seat's, and both would be a different
+    answer from the archive's. Empty for every other viewer — the admin/GM tier
+    and a Commercial MANAGER never reach it (see :func:`case_access_for`), so
+    nothing about it can narrow a seat the archive does not narrow.
+
+    ``show_money`` — may this viewer be shown PI money figures over those cases.
+    It is NOT a new permission: it is verbatim the expression
+    ``cases/services.py::archive_scope`` already computes for its own
+    ``ArchiveScope.show_money`` (admin, General Manager, or a login whose
+    PROFILE unit is Commercial), evaluated here because ``archive_scope``
+    itself cannot be called from this app — it returns ``None`` outright for a
+    unit outside the TO/PI workflow, which is exactly the seat a Marketing
+    viewer is sitting in. It lives on ``CaseAccess`` rather than on
+    :class:`Access` because it is a question about CASE data, not about
+    Marketing's own directory, and it is deliberately read from the LOGIN
+    PROFILE and not from the active seat — precisely as ``archive_scope``
+    reads it — so a Marketing-only login (``profile.unit == MARKETING``) gets
+    False and no money is rendered for them anywhere in this section.
     """
 
     can_open: bool
     all_cases: bool
     own_user_ids: tuple = ()
+    substitute_user_ids: tuple = ()
     seat_role_id: int | None = None
+    show_money: bool = False
+
+
+def _commercial_seat_roles(roles):
+    """The person's real Commercial ``PersonRole`` rows, in seat order.
+
+    "Real" excludes the admin and General Manager rows, which carry no unit of
+    their own and are answered a whole branch earlier in
+    :func:`case_access_for`. Factored out because both questions this module
+    asks of a Commercial seat — which seat USER owns its cases, and whether any
+    of those seats is a MANAGER — have to walk the identical list, and two
+    copies of that filter would be two chances to disagree about which rows
+    count.
+    """
+    out = []
+    for role in roles:
+        if role.is_admin or role.is_general_manager:
+            continue
+        if (getattr(role, "unit", "") or "").strip() != Unit.COMMERCIAL:
+            continue
+        out.append(role)
+    return out
 
 
 def _own_commercial_seat_users(request, roles) -> tuple:
     """User pks whose ``Case.created_by`` counts as THIS viewer's own.
 
-    MIRRORS, rather than calls, ``cases/services.py::archive_scope``. That
-    function is the one definition of what a Commercial viewer owns —
-    ``qs.filter(created_by=seat_user)``, the seat user resolved through
+    MIRRORS, rather than calls, the EXPERT branch of
+    ``cases/services.py::archive_scope``. That function is the one definition of
+    what a Commercial viewer owns — for an expert, ``qs.filter(created_by=
+    seat_user)`` with the seat user resolved through
     ``people.role_nav.work_context`` — and this reproduces exactly that filter.
     It cannot be reused directly for two independent reasons:
 
@@ -274,20 +328,27 @@ def _own_commercial_seat_users(request, roles) -> tuple:
       than for the Commercial one whose cases the owner is asking about.
 
     So the ownership TEST is copied and the seat it is applied to is widened
-    from "the active seat" to "every Commercial seat this person holds". The
-    Commercial MANAGER's "Only my cases" toggle is not carried over: that is a
-    control on the archive page, not a second definition of ownership, and the
-    owner's rule here says only the admin and the General Manager ever see
-    everyone's cases.
+    from "the active seat" to "every Commercial seat this person holds".
+
+    THIS FUNCTION ANSWERS ONLY THE EXPERT HALF OF ``archive_scope``'s table,
+    and that is the whole of its job. It used to be the whole of the RULE too,
+    on a docstring that claimed "the Commercial MANAGER's 'Only my cases'
+    toggle is not carried over ... only the admin and the General Manager ever
+    see everyone's cases". That inference was wrong, and the owner corrected it:
+    ``archive_scope``'s own table reads "commercial manager (off) -> the entire
+    archive (incl. experts' cases)", with the toggle merely NARROWING a manager
+    who asks for it. A Commercial MANAGER therefore gets the whole archive here
+    too — decided by :func:`_holds_commercial_manager_seat` in
+    :func:`case_access_for`, which never consults this function's result for
+    that answer. Nothing about the widening reaches a seat this function was
+    already returning nothing for: a Marketing-only seat still holds no
+    Commercial ``PersonRole`` at all, so it is still the empty tuple, and
+    ``case_access_for`` still refuses it every case row.
     """
     user = getattr(request, "user", None)
     login_pk = getattr(user, "pk", None)
     ids = set()
-    for role in roles:
-        if role.is_admin or role.is_general_manager:
-            continue
-        if (getattr(role, "unit", "") or "").strip() != Unit.COMMERCIAL:
-            continue
+    for role in _commercial_seat_roles(roles):
         # A role's own seat User is what ``created_by`` was stamped with; a role
         # with no source seat can only be the login's own.
         ids.add(getattr(role, "source_user_id", None) or login_pk)
@@ -312,29 +373,237 @@ def _own_commercial_seat_users(request, roles) -> tuple:
     return tuple(sorted(ids))
 
 
+def _substituted_seat_users(request, user_ids) -> tuple:
+    """Which of ``user_ids`` are seats currently held by a SUBSTITUTE.
+
+    MIRRORS THE ONE CLAUSE OF ``cases/services.py::archive_scope`` THAT THIS
+    MODULE OTHERWISE MISSED. That function's Commercial-expert branch is two
+    statements, not one::
+
+        elif profile_unit == Unit.COMMERCIAL:
+            qs = qs.filter(created_by=seat_user)
+            # Substitutes do not see fully closed / terminal archive rows.
+            if ctx.is_substitute:
+                qs = qs.exclude(status__in=CaseStatus.ENDED)
+
+    :func:`_own_commercial_seat_users` reproduces the first statement; this
+    reproduces the second. Without it the marketing side listed a substitute's
+    finished cases while the archive, one click away, did not — two screens in
+    one platform contradicting each other about the same viewer, which is the
+    exact failure :func:`case_access_for`'s "exactly what the CASE ARCHIVE would
+    show them, and nothing more" promise exists to prevent.
+
+    ``ctx.is_substitute`` IS A FACT ABOUT THE SEAT, NOT ABOUT THE SESSION —
+    ``people.role_nav._work_context_uncached`` sets it from
+    ``open_substitute_tenure(seat_user)``, i.e. an open SUBSTITUTE
+    ``people.models.SeatTenure`` on the seat User itself — which is the only
+    reason the same question can be asked from here at all. A Marketing viewer
+    is by definition sitting in their MARKETING seat (see this half of the
+    module's section header), so ``work_context`` would report the substitution
+    state of the wrong seat entirely; the tenure is therefore looked up per
+    COMMERCIAL seat user, exactly the seats whose cases ``own_user_ids`` admits.
+
+    ``open_substitute_tenure`` is CALLED, not copied — unlike ``archive_scope``
+    itself, which cannot be reached from a Marketing seat at all (it returns
+    ``None`` outright for this unit), that helper is seat-keyed, request-cached
+    and perfectly happy to answer about a seat nobody is sitting in. Passing
+    ``request`` shares the per-request tenure memo the sidebar accordion has
+    usually already filled.
+
+    FAILS CLOSED, like every other seat-layer read in this module: if the seat
+    layer cannot answer, every contributing seat is treated as substituted, so
+    the viewer gets the NARROWER list (running cases only) rather than silently
+    being handed terminal rows the archive might be withholding.
+    """
+    ids = tuple(user_ids or ())
+    if not ids:
+        return ()
+    try:
+        from people.role_nav import open_substitute_tenure
+        from django.contrib.auth.models import User
+        users = {u.pk: u for u in User.objects.filter(pk__in=ids)}
+        return tuple(
+            pk for pk in ids
+            if open_substitute_tenure(users.get(pk), request=request) is not None
+        )
+    except Exception:
+        return ids
+
+
+def _holds_commercial_manager_seat(request, roles) -> bool:
+    """Does this person hold a Commercial MANAGER seat — active or not?
+
+    THE FLAG THAT DECIDES IT IS ``role.role == accounts.constants.Role.MANAGER``
+    on a ``people.models.PersonRole`` whose ``unit`` is
+    ``Unit.COMMERCIAL`` — the same pair ``cases/services.py::archive_scope``
+    tests (``profile_unit == Unit.COMMERCIAL and profile_role == Role.MANAGER``)
+    for the branch of its table that reads "commercial manager (off) -> the
+    entire archive (incl. experts' cases)". It is NOT ``PersonRole.is_admin``
+    and NOT ``is_general_manager``: those two are their own seat kind, carry no
+    unit, and are already answered before this function is ever reached.
+
+    Read from the WHOLE seat list rather than the active seat, for exactly the
+    reason this half of the module exists (see the section header above): the
+    person asking is by definition sitting in their MARKETING seat while looking
+    at the chart, so the active seat would answer "not a manager" for precisely
+    the person the rule is about — which is the bug the owner hit.
+
+    The same three sources :func:`_own_commercial_seat_users` reads, in the same
+    order and for the same reasons, so the two answers cannot be drawn from
+    different pictures of the same person:
+
+    * the person's ``PersonRole`` rows;
+    * the login ``Profile`` alone, when there are no ``PersonRole`` rows at all
+      (most logins — the profile then describes the only seat there is); and
+    * the ACTIVE seat via ``work_context``, which is how a translated /
+      substituted Commercial seat presents itself, since such a seat is worked
+      through ``ctx.role`` rather than through a row of this person's own.
+
+    Nothing here can widen a non-Commercial viewer: every branch requires the
+    unit to be Commercial before the role is even looked at, so a Marketing
+    Supervisor (``Role.SUPERVISOR`` under ``Unit.MARKETING``) and a Marketing
+    seat holding ``Role.MANAGER`` under ``Unit.MARKETING`` both answer False.
+    """
+    for role in _commercial_seat_roles(roles):
+        if (getattr(role, "role", "") or "").strip() == Role.MANAGER:
+            return True
+    if not roles:
+        profile = getattr(getattr(request, "user", None), "profile", None)
+        if ((getattr(profile, "unit", "") or "").strip() == Unit.COMMERCIAL
+                and (getattr(profile, "role", "") or "").strip() == Role.MANAGER):
+            return True
+    try:
+        from people.role_nav import work_context
+        ctx = work_context(request)
+        role = ctx.role
+        if (role is not None and not role.is_admin and not role.is_general_manager
+                and (role.unit or "").strip() == Unit.COMMERCIAL
+                and (role.role or "").strip() == Role.MANAGER):
+            return True
+    except Exception:
+        # Same swallow, same reason, as everywhere else the seat layer is read
+        # in this module: it is an enhancement over the login profile, never a
+        # precondition for it, and a malformed seat row must not take a page
+        # down. Failing here fails CLOSED — the viewer keeps the narrower
+        # created_by scoping rather than silently gaining the whole archive.
+        pass
+    return False
+
+
+def _commercial_seat_role(roles):
+    """The Commercial ``PersonRole`` a case link should switch into, or None.
+
+    MANAGER FIRST, then whatever comes next. The seat this returns is the one
+    ``case_open_url`` sends the viewer through before the case detail page
+    opens, and that page runs its OWN check afterwards
+    (``cases/services.py::user_can_view_case``), which asks the ACTIVE seat's
+    unit/role. A person who holds both a Commercial manager seat and a
+    Commercial expert seat is being listed the manager's whole archive here, so
+    landing them on the expert seat would offer rows that then refuse to open —
+    the link has to arrive under the authority the list was built with.
+    """
+    commercial = _commercial_seat_roles(roles)
+    for role in commercial:
+        if (getattr(role, "role", "") or "").strip() == Role.MANAGER:
+            return role
+    return commercial[0] if commercial else None
+
+
+def _case_money_visible(request) -> bool:
+    """``ArchiveScope.show_money``'s own rule, for this login. NOT a new grant.
+
+    Copied verbatim from ``cases/services.py::archive_scope``::
+
+        show_money = bool(
+            profile.is_admin or profile.is_general_manager
+            or profile.unit == Unit.COMMERCIAL
+        )
+
+    and it is copied rather than called for the reason
+    :func:`_own_commercial_seat_users` already gives about that function: it
+    returns ``None`` for a unit outside the TO/PI workflow, so a Marketing seat
+    can never get an ``ArchiveScope`` out of it to read this off.
+
+    READ FROM THE LOGIN PROFILE, NOT THE ACTIVE SEAT, deliberately — that is
+    what ``archive_scope`` does with this one expression (it resolves
+    unit/role from the active seat for its queryset branches, and still reads
+    ``profile.unit`` here), and matching it exactly is the point. The
+    consequence, stated plainly: a MARKETING-ONLY login has
+    ``profile.unit == Unit.MARKETING`` and therefore NO money visibility, on
+    the company detail page or anywhere else. That is the existing rule, not a
+    decision taken here; the dual-seat Commercial person the owner is (whose
+    login profile is the Commercial one, with Marketing as a secondary
+    ``PersonRole``) keeps the money they already see in the archive.
+    """
+    profile = getattr(getattr(request, "user", None), "profile", None)
+    if profile is None:
+        return False
+    return bool(
+        profile.is_admin or profile.is_general_manager
+        or (getattr(profile, "unit", "") or "").strip() == Unit.COMMERCIAL
+    )
+
+
 def case_access_for(request, access: Access | None = None) -> CaseAccess:
     """May this viewer see case detail, and if so which cases? The owner's rule:
 
         A Marketing expert who ALSO holds a Commercial seat may move freely
         between the chart and case details in both directions — but wherever
-        the marketing side lists CASES, that person sees only the cases that
-        are theirs on the commercial side, never everyone's; the platform admin
-        and the General Manager see all cases.
+        the marketing side lists CASES, that person sees exactly what the CASE
+        ARCHIVE would show them on that Commercial seat, and nothing more; the
+        platform admin and the General Manager see all cases.
 
-    Resolved to three answers, and this is the ONLY place they are decided:
+    "Exactly what the case archive would show them" is not a paraphrase — it is
+    the deliberate design of this function, and ``cases/services.py::
+    archive_scope`` is the authority it defers to. That function's own docstring
+    table is the rule, quoted here in the two lines that reach a Commercial seat
+    looking at the marketing side:
 
-        admin / General Manager   -> can_open, all_cases
-        holds a Commercial seat   -> can_open, only cases created on that seat
-        Marketing seat only       -> no case rows at all
+        commercial manager (off)    -> the entire archive (incl. experts' cases)
+        commercial expert           -> only cases they personally created
 
-    THE THIRD LINE IS NOT A GAP. A viewer with no Commercial seat has created no
+    THAT SECOND LINE HAS A RIDER IN ``archive_scope``'S BODY that its own table
+    does not spell out, and this function reproduces it too: when the Commercial
+    seat is being worked as a SUBSTITUTE, terminal cases are excluded on top of
+    the ``created_by`` filter ("Substitutes do not see fully closed / terminal
+    archive rows"). It was the one clause of that branch the mirror here did not
+    carry, so a substitute saw finished cases on the marketing side that the
+    archive hid — see :func:`_substituted_seat_users`, which is where the
+    exclusion is decided, and ``CaseAccess.substitute_user_ids``, which carries
+    it to :func:`scope_case_rows`. It touches nothing else: a non-substituted
+    seat contributes no id, and neither the manager line above nor the admin/GM
+    line ever reaches it.
+
+    Resolved to four answers, and this is the ONLY place they are decided:
+
+        admin / General Manager    -> can_open, all_cases
+        Commercial MANAGER seat    -> can_open, all_cases
+        other Commercial seat      -> can_open, only cases created on that seat
+        Marketing seat only        -> no case rows at all
+
+    THE SECOND LINE IS THIS ROUND'S CORRECTION. It used to be absent, and a
+    person holding both a Marketing seat and a Commercial MANAGER seat was given
+    the EXPERT's ``created_by`` scoping — so the chart and the company detail
+    page showed them the two cases they had personally created while the case
+    archive, one click away, correctly showed them every case in the unit. Two
+    screens in one platform contradicting each other about the same viewer is
+    the bug; ``archive_scope`` is the tie-breaker, and its table says the
+    manager sees everything. The archive's "Only my cases" toggle is what
+    NARROWS a manager who asks for it — a control on that page, not a second
+    definition of what a manager may see — so it has no counterpart here, and
+    the manager's default (toggle off) is the answer this function gives.
+
+    THE FOURTH LINE IS NOT A GAP. A viewer with no Commercial seat has created no
     cases, so "their own commercial cases" is the empty set, and the honest
     rendering of an empty set is an empty list — not everyone's cases. It is
     also exactly what the placeholder this function replaces
     (``marketing/views.py::_visible_case_rows``) already did on the company
     detail page; what changes is that the chart's own panels and the all-cases
     search now obey the same rule instead of showing every case in the system to
-    every Marketing viewer.
+    every Marketing viewer. NOTHING IN THIS ROUND'S WIDENING TOUCHES IT: a
+    Marketing-only seat holds no Commercial ``PersonRole``, so it is neither a
+    manager (:func:`_holds_commercial_manager_seat`) nor an owner of any seat
+    user (:func:`_own_commercial_seat_users`), and it still gets nothing.
 
     WHICH USER "OWN" IS MEASURED AGAINST is the subtle half, and it is not the
     login. One person's Marketing and Commercial seats are two different ``User``
@@ -355,23 +624,38 @@ def case_access_for(request, access: Access | None = None) -> CaseAccess:
     the case.
     """
     access = access or access_for(request)
+    show_money = _case_money_visible(request)
     if not access.can_view:
         return CaseAccess(can_open=False, all_cases=False)
     if access.is_gm_or_admin:
-        return CaseAccess(can_open=True, all_cases=True)
+        return CaseAccess(can_open=True, all_cases=True, show_money=show_money)
     roles = _person_roles(request)
     own = _own_commercial_seat_users(request, roles)
     if not own:
         return CaseAccess(can_open=False, all_cases=False)
-    seat_role = next(
-        (r for r in roles
-         if not r.is_admin and not r.is_general_manager
-         and (getattr(r, "unit", "") or "").strip() == Unit.COMMERCIAL),
-        None,
-    )
+    seat_role = _commercial_seat_role(roles)
+    seat_role_id = getattr(seat_role, "pk", None)
+    # ``own`` is still computed and still checked FIRST, manager or not, and it
+    # is what keeps this widening from reaching anybody new: only a person with
+    # at least one real Commercial seat gets past the guard above, and
+    # ``_holds_commercial_manager_seat`` can only ever answer True for someone
+    # who already has one. A manager always contributes a seat user of their
+    # own, so the guard can never swallow them.
+    if _holds_commercial_manager_seat(request, roles):
+        # ``own_user_ids`` is left empty deliberately: with ``all_cases`` True
+        # there is nothing left to measure ownership against (see
+        # :class:`CaseAccess`), and ``scope_case_rows`` returns every row
+        # untouched before it would ever read the tuple.
+        return CaseAccess(can_open=True, all_cases=True,
+                          seat_role_id=seat_role_id, show_money=show_money)
+    # The second half of ``archive_scope``'s Commercial-expert branch, and the
+    # ONLY branch that gets it — exactly as over there, where the manager line
+    # and the admin/GM line above it both return before it is reached. See
+    # :func:`_substituted_seat_users`.
     return CaseAccess(
         can_open=True, all_cases=False, own_user_ids=own,
-        seat_role_id=getattr(seat_role, "pk", None),
+        substitute_user_ids=_substituted_seat_users(request, own),
+        seat_role_id=seat_role_id, show_money=show_money,
     )
 
 
@@ -383,6 +667,16 @@ def scope_case_rows(rows, case_access: CaseAccess) -> list:
     rows themselves are returned untouched and in their original order — this
     only decides which of them survive, so every caller keeps whatever extra
     keys its own producer put on them.
+
+    THE ``exclude`` BELOW IS THE SUBSTITUTE RULE, and it is the same one query:
+    a seat listed in ``substitute_user_ids`` is being worked by a stand-in, and
+    ``cases/services.py::archive_scope`` withholds that seat's terminal rows
+    from them (see :func:`_substituted_seat_users`). Both conditions sit in ONE
+    ``exclude`` call deliberately — that means "created on a substituted seat
+    AND finished", so a running case on a substituted seat and a finished case
+    on an ordinary one both survive. The tuple is empty for every viewer the
+    rule does not name, and an empty ``__in`` would exclude nothing anyway; the
+    guard is there so the SQL stays exactly what it was for them.
     """
     if not case_access.can_open:
         return []
@@ -392,12 +686,17 @@ def scope_case_rows(rows, case_access: CaseAccess) -> list:
     ids = [row.get("case_id") for row in rows if row.get("case_id") is not None]
     if not ids or not case_access.own_user_ids:
         return []
+    from cases.constants import CaseStatus
     from cases.models import Case
-    allowed = set(
-        Case.objects.filter(
-            pk__in=ids, created_by_id__in=case_access.own_user_ids,
-        ).values_list("pk", flat=True)
+    qs = Case.objects.filter(
+        pk__in=ids, created_by_id__in=case_access.own_user_ids,
     )
+    if case_access.substitute_user_ids:
+        qs = qs.exclude(
+            created_by_id__in=case_access.substitute_user_ids,
+            status__in=CaseStatus.ENDED,
+        )
+    allowed = set(qs.values_list("pk", flat=True))
     return [row for row in rows if row.get("case_id") in allowed]
 
 
