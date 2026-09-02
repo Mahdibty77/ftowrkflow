@@ -26,6 +26,14 @@ of one:
   page is the case detail page (same ``.card``/``.card-head`` panels, same tab
   strip, same ``.timeline`` markup and the same ``|jalali`` stamp on every
   row).
+* REMINDERS (``reminder_add``, ``reminder_list``, ``reminder_retime``,
+  ``reminder_done``) — a person's own private notes-to-self about a company,
+  set from the company detail page and listed on a screen of their own. They
+  hang off the same directory and follow the same screen conventions, but they
+  are the one thing in this app that NOBODY else can see, including a
+  Supervisor, the General Manager and the platform admin — see the section
+  above those views, ``marketing/models.py::Reminder``, and
+  ``marketing/reminders.py``, which owns the due check and its cache.
 
 WHO MAY OPEN IT, AND HOW MUCH THEY GET. See ``marketing/access.py`` for the
 actual decision (``access_for``) — this is the plain-language version of it:
@@ -71,13 +79,13 @@ from django.views.decorators.http import require_POST
 
 from cases.models import Case, Client
 
-from . import rolechart, services
+from . import reminders, rolechart, services
 from .access import (
-    access_for, case_access_for, case_open_url, marketing_seat_role,
-    scope_case_rows,
+    access_for, can_reach_marketing, case_access_for, case_open_url,
+    marketing_seat_role, scope_case_rows,
 )
-from .forms import ContactForm, ReportForm
-from .models import ClientEventAction, ContactRole, ReportOption
+from .forms import ContactForm, ReminderForm, ReminderTimeForm, ReportForm
+from .models import ClientEventAction, ContactRole, ReminderState, ReportOption
 
 
 def _int_or_none(raw):
@@ -822,8 +830,11 @@ def _pi_money_total(case_rows, case_access) -> str:
     honest answer for them.
 
     RETURNS "" — not "0", not "—" — WHEN THIS VIEWER MAY NOT SEE MONEY AT ALL.
-    ``case_access.show_money`` is ``ArchiveScope.show_money``'s own rule (see
-    ``access._case_money_visible``), and the empty string is what tells the
+    ``case_access.show_money`` is "money follows the cases" (see
+    ``access._case_money_visible``): a viewer who may see these case rows may
+    see what they are worth, and one who may see no case rows gets no figure —
+    which is the same answer the empty ``ids`` guard below would have reached
+    anyway, from the other direction. The empty string is what tells the
     template there is no figure to draw, as opposed to a figure that happens to
     be nothing. ``archive_attach_money`` is not called at all in that case —
     the same short-circuit ``cases/views.py::archive`` uses, so the expensive
@@ -971,10 +982,12 @@ def company_detail(request, pk):
     AND THE MONEY. ``pi_total_display`` is the total PI money over exactly the
     case rows above — see ``_pi_money_total``, which reuses the case archive's
     own ``archive_attach_money`` / ``format_money_amount`` rather than computing
-    money a second time, and returns "" for a viewer the existing
-    ``ArchiveScope.show_money`` rule does not show money to (which includes a
-    MARKETING-ONLY login; see ``access._case_money_visible`` for why that is the
-    existing rule and not a decision taken here).
+    money a second time. It is drawn for exactly the viewers the Cases tab draws
+    rows for: ``access._case_money_visible`` ties money visibility to case
+    visibility, so a seat with cases here gets the total over them and a seat
+    with no cases here (a Marketing-only seat) gets neither the rows nor a
+    figure. Both context values below are what the template's own two-condition
+    gate reads; see it for why it tests both.
     """
     access = access_for(request)
     if not access.can_view:
@@ -1323,3 +1336,232 @@ def report_create(request, pk):
             (r for r in case_choices if r["case_id"] == kept_id), None),
         "can_manage_options": can_manage_options,
     })
+
+
+# --------------------------------------------------------------------------- #
+# Reminders — set one on a company, and the person's own list of them
+# --------------------------------------------------------------------------- #
+# THREE SCREENS' WORTH OF ROUTES, AND ONE RULE THAT IS NOT LIKE THE REST OF THIS
+# FILE: a reminder belongs to exactly one person and nobody else ever reads it —
+# not a Marketing Supervisor, not the General Manager, not the platform admin.
+# See ``marketing/models.py::Reminder`` for the owner's own wording and for why
+# the Supervisor/GM/admin precedent that CONTACTS and REPORTS follow is
+# deliberately not followed here. Nothing below takes an ``access.scope``,
+# because there is no wider list for a scope to widen to; ownership is enforced
+# inside ``marketing/reminders.py``, in one place, for both mutations.
+#
+# WHO MAY OPEN THEM is still an ordinary question, and it is answered by the two
+# gates this file already uses:
+#
+#   * SETTING one (``reminder_add``) is a write about a COMPANY, so it is gated
+#     exactly like ``contact_add`` and ``report_add`` — ``can_view and
+#     can_edit`` — and the view-only tier (the GM and the platform admin) is
+#     refused, on the URL and not merely in the template.
+#   * READING and RE-TIMING your own list is gated on
+#     ``access.can_reach_marketing`` instead, which is the existing union "may
+#     open the section now, OR holds a Marketing seat they are not sitting in".
+#     That is deliberately the WIDER of the two tests and it grants nothing
+#     extra: the page shows the signed-in person their own rows and no company
+#     data at all, and the notification that links here is rendered for exactly
+#     that same population (see ``marketing/context_processors.py``). Gating it
+#     on ``access_for`` instead would answer 403 to a dual-seat person who
+#     clicked their own notification from a case screen — a permission wall in
+#     front of their own note to self.
+
+
+def _reminder_case_choices(client, request, case_access) -> list:
+    """The cases the reminder screen may offer, as ``_visible_case_rows`` rows.
+
+    THE SAME HELPER, FOR THE SAME REASON ``_report_case_choices`` GIVES: never
+    offer a case this viewer cannot open. A picker that lists a case is telling
+    the reader that case exists, and a document number is case identity. Reusing
+    the Cases tab's own rows also means the two lists on one company can never
+    disagree.
+
+    ``ReminderForm`` turns these into its ``case_id`` choices, so an id outside
+    them is refused by form validation as well; ``reminder_add`` still re-derives
+    the list and checks the cleaned value against it before writing, because a
+    ``<select>`` is a value the browser sends and not a fact.
+    """
+    return _visible_case_rows(client, request, case_access)
+
+
+@login_required
+def reminder_add(request, pk):
+    """Set a reminder for yourself on this company — one page, one POST.
+
+    A FULL PAGE, like ``contact_add``, and for its reasons. One screen rather
+    than the report flow's two: see ``marketing/forms.py::ReminderForm``.
+
+    GATED ON ``can_view and can_edit``, checked here and not merely hidden on
+    the company page — the same gate ``contact_add`` and ``report_add`` carry,
+    because this is a write reached from the company's own screen and the
+    view-only tier does not write in this section. That the ROW is private to
+    its owner is a separate question, answered by the model and by
+    ``marketing/reminders.py``; it does not make the section's own gate
+    irrelevant.
+
+    ``marketing/reminders.py::create`` does the writing (and clears this
+    person's cached notification), so there is exactly one place in the app that
+    creates a ``Reminder``.
+    """
+    access = access_for(request)
+    if not access.can_view or not access.can_edit:
+        return render(request, "marketing/denied.html", status=403)
+
+    client = get_object_or_404(Client, pk=pk)
+    case_access = case_access_for(request, access)
+    case_choices = _reminder_case_choices(client, request, case_access)
+
+    if request.method == "POST":
+        form = ReminderForm(request.POST, case_choices=case_choices)
+        if form.is_valid():
+            data = form.cleaned_data
+            # Re-resolved against this viewer's own visible rows, exactly as
+            # ``report_create`` re-resolves its own hidden field. The form's
+            # ChoiceField has already refused an id outside the offered list;
+            # this is what turns the surviving id into a real ``Case``, and it
+            # falls back to None rather than 404ing on a case that vanished
+            # between the render and the submit — a reminder on the company
+            # itself is a supported answer.
+            allowed = {row["case_id"] for row in case_choices}
+            case_id = data.get("case_id")
+            case = (Case.objects.filter(pk=case_id).first()
+                    if case_id in allowed else None)
+            reminders.create(
+                request.user, client,
+                note=data["note"], due_at=data["due_at"], case=case,
+            )
+            return redirect("marketing:company_detail", pk=client.pk)
+    else:
+        form = ReminderForm(case_choices=case_choices)
+
+    return render(request, "marketing/reminder_form.html", {
+        "client": client,
+        "form": form,
+    })
+
+
+def _reminder_rows(request) -> list:
+    """This person's own reminders, each carrying whether it is DUE right now
+    and whether its attached case may still be NAMED to them.
+
+    ``due`` is derived, never stored — ``marketing/models.py::ReminderState``
+    explains why at length, and the short version is that storing it would need
+    something to run at the moment it became true. One ``timezone.now()`` for
+    the whole page rather than one per row, so two rows a millisecond apart
+    cannot be judged against two different "now"s.
+
+    ONE QUERY for the whole list (``reminders.list_for_user`` select_relates the
+    company and the case), plus ONE for the visibility check below.
+
+    THE DOCUMENT NUMBER GOES THROUGH ``case_access_for`` LIKE EVERY OTHER ONE.
+    This function used to render it straight off the row, on the argument that a
+    reminder has a single reader who was shown that number by the scoped picker
+    when they chose it. That argument missed a real case: a seat can LOSE case
+    access after the reminder is set (its Commercial PersonRole is removed), and
+    the number then went on being printed here and in the top-of-page banner
+    while the company page's own Cases tab showed that same person nothing — two
+    screens contradicting each other about one viewer, which is the exact thing
+    ``access.case_access_for`` exists to prevent. ``show_case_no`` is what the
+    template reads; the row itself is always kept, because it is the person's own
+    note and only the case identity on it is in question.
+    """
+    from django.utils import timezone
+
+    now = timezone.now()
+    rows = reminders.list_for_user(request.user)
+    visible = services._visible_case_ids(
+        [r.case_id for r in rows], case_access_for(request))
+    for row in rows:
+        row.is_due = (row.state == ReminderState.OPEN and row.due_at <= now)
+        row.show_case_no = (row.case_id is not None and row.case_id in visible)
+    return rows
+
+
+def _render_reminder_list(request, *, time_form=None, retime_id=None):
+    """The reminders list page, rendered from one place.
+
+    Two routes end here — the list itself and both mutations' re-render or
+    redirect paths — and factoring it out is what keeps a failed re-time from
+    having to rebuild the page a second, slightly different way.
+
+    ``time_form`` is a BOUND ``ReminderTimeForm`` carrying an error, and
+    ``retime_id`` is the row it belongs to, so the template can print the
+    message under that row's own box instead of at the top of a list where it
+    would not say which reminder it was about.
+    """
+    return render(request, "marketing/reminder_list.html", {
+        "rows": _reminder_rows(request),
+        "retime_error": (time_form.errors.get("due_at")
+                         if time_form is not None else None),
+        "retime_id": retime_id,
+    })
+
+
+@login_required
+def reminder_list(request):
+    """Your own reminders — every one you set, soonest first.
+
+    THE DESTINATION THE NOTIFICATION LINKS TO. The owner's flow is: the banner
+    appears, you click it, you land here, you set a new time (or mark the thing
+    dealt with) and the banner goes. Both controls are on this page and nowhere
+    else.
+
+    SHOWS YOUR OWN ROWS AND ONLY YOUR OWN — ``reminders.list_for_user`` filters
+    on ``owner`` and takes no scope at all. There is no supervisor view of this
+    page and no admin view; see the section header above.
+
+    Gated on ``can_reach_marketing`` rather than ``access_for`` — see the
+    section header for why the wider of the two tests is the right one for a
+    page that shows the viewer nothing but their own notes.
+    """
+    if not can_reach_marketing(request):
+        return render(request, "marketing/denied.html", status=403)
+    return _render_reminder_list(request)
+
+
+@login_required
+@require_POST
+def reminder_retime(request, reminder_id):
+    """Set a new time on one of your own reminders.
+
+    POST-ONLY, from a real form with a CSRF token, for ``contact_remove``'s
+    reason: it changes a row, and a mutation behind a GET is one prefetching
+    browser away from doing itself.
+
+    THIS IS THE LOOP THE OWNER DESCRIBED — reminded, report written, next
+    reminder set — so it also REOPENS a row that had been marked dealt with;
+    see ``reminders.reschedule``, which is where that rule lives.
+
+    A reminder id belonging to someone else is indistinguishable from one that
+    does not exist: ``reminders.reschedule`` answers False to both and this
+    redirects exactly as it would on success, so the response cannot be used to
+    discover that another person's reminder exists.
+    """
+    if not can_reach_marketing(request):
+        return render(request, "marketing/denied.html", status=403)
+    form = ReminderTimeForm(request.POST)
+    if not form.is_valid():
+        # Re-rendered rather than redirected, because a redirect would drop the
+        # message telling the person what was wrong with what they typed.
+        return _render_reminder_list(
+            request, time_form=form, retime_id=_int_or_none(reminder_id))
+    reminders.reschedule(request.user, reminder_id, form.cleaned_data["due_at"])
+    return redirect("marketing:reminder_list")
+
+
+@login_required
+@require_POST
+def reminder_done(request, reminder_id):
+    """Mark one of your own reminders dealt with.
+
+    The other way to act on the notification, and the one that ends the loop
+    rather than continuing it. POST-only and ownership-checked exactly as
+    ``reminder_retime`` above; the row is kept rather than deleted, because this
+    person's own list is where they see what they have already handled.
+    """
+    if not can_reach_marketing(request):
+        return render(request, "marketing/denied.html", status=403)
+    reminders.mark_done(request.user, reminder_id)
+    return redirect("marketing:reminder_list")

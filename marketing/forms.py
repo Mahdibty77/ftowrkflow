@@ -1,4 +1,5 @@
-"""Forms for the Marketing company directory: adding a contact, writing a report.
+"""Forms for the Marketing company directory: adding a contact, writing a
+report, setting a reminder.
 
 WHY A FORM AT ALL, when ``marketing/services.py::add_contact`` already exists
 and already validates. The two layers deliberately check different things, and
@@ -43,6 +44,13 @@ all (they are not ``is_staff``) even though
 ``marketing/access.py::Access.can_manage_config`` names them as one of the two
 seats that administer it — and the report screen told them to go there anyway.
 One capability governing two vocabularies now has one mechanism for both.
+
+:class:`ReminderForm` and :class:`ReminderTimeForm` are the third and fourth,
+and they follow the same split again — they validate, they never write
+(``marketing/reminders.py`` does) — with one thing the other two do not need:
+they are the only forms in this app that take a Jalali DATE AND TIME. See
+``_clean_jalali_datetime`` for why that parse lives here rather than being
+borrowed from ``cases/forms.py``, and why it is written once for both.
 """
 from __future__ import annotations
 
@@ -361,3 +369,221 @@ class ReportForm(forms.Form):
                 "write the report yourself, or do both."
             )
         return cleaned
+
+
+# --------------------------------------------------------------------------- #
+# Reminders — one screen to set one, and the one-field form that re-times it
+# --------------------------------------------------------------------------- #
+# TWO FORMS, ONE DATE. The creation screen and the "set a new time" control on
+# the reminders list both take a Jalali date and time, from the same picker, in
+# the same text. The field and the parse are therefore written ONCE, here, and
+# both forms use them — a second copy would be a second chance for the two
+# boxes to disagree about what "1405-03-27 14:30" means, which is the same
+# argument this codebase already makes for having one Jalali implementation.
+
+
+def _due_at_field(label: str = "Remind me at (Jalali date and time)"):
+    """The Jalali date-and-time box, built the same way for both forms below.
+
+    A plain ``CharField``, NOT a ``DateTimeField``: the box is filled by
+    ``static/js/jalali_picker.js``, which writes JALALI text
+    ("1405-03-27 14:30"). A ``DateTimeField`` would read that as Gregorian and
+    either reject it outright or — far worse — silently accept a year-1405
+    date. The conversion is :func:`_clean_jalali_datetime`'s job.
+
+    ``data-jalali-datetime`` is what attaches the picker (the same attribute
+    ``cases/forms.py``'s deadline field and the archive's date filters carry),
+    and ``data-required`` is how a screen in this platform marks a box as
+    required given that the native attribute is deliberately not emitted — see
+    ``use_required_attribute`` on the forms above.
+    """
+    return forms.CharField(
+        required=True, label=label,
+        widget=forms.TextInput(attrs={
+            "data-jalali-datetime": "1", "autocomplete": "off",
+            "data-required": "1",
+        }),
+    )
+
+
+def _clean_jalali_datetime(raw):
+    """The Jalali "YYYY-MM-DD HH:MM" the picker writes, as an aware datetime.
+
+    PARSED HERE RATHER THAN BORROWED FROM ``cases/forms.py``. That module's
+    ``CaseCreateForm.clean_deadline`` reads the identical text and is the
+    obvious thing to reuse, but it is a bound method of a form about cases and
+    it carries a rule these screens must not inherit: a deadline may not be in
+    the past. A reminder legitimately may be — "remind me about this now" is a
+    coherent thing to ask for, a time that has just gone by makes a reminder DUE
+    rather than invalid, and refusing it would make the re-time control on the
+    list page reject the fastest way to bring something back.
+
+    WHAT IS SHARED IS THE ARITHMETIC. ``cases.jalali`` is imported and called,
+    exactly as ``people/fields.py`` and ``reports/views.py`` call it, so there
+    is one Jalali implementation in this codebase and this is not a second one.
+
+    THE ROUND-TRIP CHECK IS THE POINT OF THE ``try`` BLOCK, and it is taken from
+    both of those callers: ``jalali_to_gregorian`` does no range checking of its
+    own, so month 13, or Esfand 30 in a year that is not a leap year, comes back
+    as a real date somewhere else in the calendar rather than as an error.
+    Converting the result back and comparing is what turns that into a message
+    the person can act on.
+
+    The time part is optional and defaults to midnight — the picker always
+    writes one, but a value typed by hand may not, and "the 27th" is a perfectly
+    clear thing to mean. An empty string returns ``None`` rather than raising;
+    the FIELD's own ``required=True`` is what reports a blank box, and reporting
+    it twice would put two errors under one control.
+    """
+    import datetime as _dt
+
+    from django.utils import timezone
+
+    from cases.jalali import gregorian_to_jalali, jalali_to_gregorian
+
+    text = (raw or "").strip()
+    if not text:
+        return None
+    try:
+        date_part, _, time_part = text.partition(" ")
+        # Dot, slash and dash are all accepted: the picker writes dashes, the
+        # rendered stamps on every other screen print dots, and a person
+        # retyping one should not have to notice the difference.
+        norm = date_part.replace("/", "-").replace(".", "-")
+        jy, jm, jd = (int(x) for x in norm.split("-"))
+        if time_part:
+            hh, mm = (int(x) for x in (time_part.split(":") + ["0", "0"])[:2])
+        else:
+            hh, mm = 0, 0
+        if not (1 <= jm <= 12 and 1 <= jd <= 31
+                and 0 <= hh <= 23 and 0 <= mm <= 59):
+            raise ValueError("out of range")
+        gy, gm, gd = jalali_to_gregorian(jy, jm, jd)
+        if gregorian_to_jalali(gy, gm, gd) != (jy, jm, jd):
+            raise ValueError("no such Jalali date")
+        naive = _dt.datetime(gy, gm, gd, hh, mm)
+    except (ValueError, TypeError, OverflowError):
+        raise forms.ValidationError(
+            "Enter the date and time as a Jalali value, e.g. 1405-03-27 14:30.")
+    tz = timezone.get_current_timezone()
+    return (timezone.make_aware(naive, tz)
+            if timezone.is_naive(naive) else naive)
+
+
+class ReminderForm(forms.Form):
+    """Set a reminder on a company: when, what about, and optionally which case.
+
+    ONE SCREEN, NOT TWO. The report flow is a two-step wizard because the owner
+    described it that way and because picking a case there is a decision the
+    writer makes before they know what they are going to write. A reminder is
+    three fields the person already has in their head when they press the
+    button, so splitting it would be ceremony. Everything else follows the
+    conventions of ``ContactForm``'s screen — a ``method="post"`` form in a
+    ``.card``, ``.field`` rows, a ``.btn-row`` at the bottom.
+
+    ``case_choices`` (keyword-only) is the list of scoped case rows the VIEW
+    resolved — the very same ``marketing/views.py::_visible_case_rows`` the
+    company page's Cases tab renders. It becomes this form's ``case_id``
+    choices, which means an id outside that list is refused by ordinary form
+    validation rather than by a hand-written check: NEVER OFFER A CASE THE
+    VIEWER CANNOT OPEN is a rule this app has had to repair twice, so the
+    offered list and the accepted list are deliberately the same object. The
+    view re-resolves it and checks again before writing — a ``<select>`` is a
+    value the browser sends, not a fact — but the form can no longer be the
+    weaker of the two.
+
+    Gating a field by ABSENCE, the way ``ContactForm`` gates ``new_role``, has
+    no counterpart here: there is no shared vocabulary to extend on this screen,
+    only the person's own private note.
+    """
+
+    def use_required_attribute(self, field):
+        # ``ContactForm``'s override, for its reason: the case <select> below
+        # carries ``data-combo`` and static/js/ui.js hides it behind a drawn
+        # combo, and a hidden control carrying the native ``required`` attribute
+        # makes the browser refuse to submit with an error nobody can act on.
+        # Every requirement here is still enforced on the server.
+        return False
+
+    note = forms.CharField(
+        required=True, label="Reminder note",
+        widget=forms.Textarea(attrs={
+            "rows": 4, "dir": "auto", "autocomplete": "off",
+            "placeholder": "What should you do when this comes up?",
+        }),
+    )
+    due_at = _due_at_field()
+    case_id = forms.ChoiceField(
+        required=False, label="About one specific case (optional)",
+        widget=forms.Select(attrs={
+            "data-combo": "1", "data-placeholder": "Search a case...",
+        }),
+    )
+
+    def __init__(self, *args, case_choices=(), **kwargs):
+        super().__init__(*args, **kwargs)
+        rows = list(case_choices or ())
+        # The empty option first, because attaching a case is optional by the
+        # owner's own wording and the default has to be the optional answer.
+        self.fields["case_id"].choices = [("", "- No case -")] + [
+            (str(row["case_id"]),
+             "%s · %s · %s" % (row.get("doc_no", ""),
+                               row.get("label_fa") or row.get("label", ""),
+                               row.get("status_fa", "")))
+            for row in rows
+        ]
+        # The template says so in words when this is empty: "no cases you may
+        # see", which is not the same statement as "no cases exist" — the list
+        # is scoped. ``ContactForm.roles_available`` is the same idiom.
+        self.cases_available = bool(rows)
+
+    def clean_note(self):
+        """The typed note, stripped.
+
+        Whitespace is not a note: without this a stray newline would satisfy
+        ``required`` and store a reminder that says nothing, which is exactly
+        the failure ``ReportForm.clean_text`` exists to prevent on the other
+        screen.
+        """
+        return (self.cleaned_data.get("note") or "").strip()
+
+    def clean_case_id(self):
+        """The chosen case id as an int, or None.
+
+        ``ChoiceField`` has already refused anything that is not one of the rows
+        this viewer was offered (see the class docstring), so all that is left
+        here is turning the submitted string into a number. Empty means "no
+        case", which is a supported answer and not an error.
+        """
+        raw = (self.cleaned_data.get("case_id") or "").strip()
+        if not raw:
+            return None
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return None
+
+    def clean_due_at(self):
+        return _clean_jalali_datetime(self.cleaned_data.get("due_at"))
+
+
+class ReminderTimeForm(forms.Form):
+    """Just the time — the "set a new time" control on the reminders list page.
+
+    ONE FIELD, BUILT BY THE SAME FACTORY AND PARSED BY THE SAME FUNCTION as
+    :class:`ReminderForm`'s, for the reason given at the top of this section.
+
+    A form class rather than a bare ``request.POST`` read in the view because
+    the parse CAN fail, and a failure needs somewhere to put its message: the
+    list page re-renders carrying it, exactly as every other screen in this
+    section does.
+    """
+
+    def use_required_attribute(self, field):
+        # Same override, same reason, as the two forms above.
+        return False
+
+    due_at = _due_at_field(label="New time")
+
+    def clean_due_at(self):
+        return _clean_jalali_datetime(self.cleaned_data.get("due_at"))

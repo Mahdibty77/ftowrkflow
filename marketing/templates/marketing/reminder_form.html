@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  SET A REMINDER on this company — one screen, three fields.
+
+  Same shape as marketing/contact_form.html and every other Django-form screen
+  in this platform (marketing/report_form.html, cases/client_form.html,
+  accounts/user_form.html, people/person_form.html): a method="post" form in a
+  .card.form-narrow, each control in a .field with its label, field errors in a
+  ul.errorlist under the control, form-level errors in a .flash.flash-error
+  above them, a .btn-row at the bottom.
+
+  ONE PAGE RATHER THAN THE REPORT FLOW'S TWO — see marketing/forms.py's
+  ReminderForm for why: the case picker there is a decision taken before the
+  writer knows what they are going to write, and here all three answers are
+  already in the person's head when they press the button.
+
+  THE CASE LIST IS ALREADY SCOPED before it reaches this template. It is built
+  from the same _visible_case_rows the company page's Cases tab uses (see
+  marketing/views.py::_reminder_case_choices), so a person is never offered a
+  case they could not open one tab away — and unlike report step 1, the offered
+  list IS the accepted list here, because it is the field's own choices.
+
+  THE DATE BOX carries data-jalali-datetime, which is what attaches
+  static/js/jalali_picker.js — the same picker the case deadline and the
+  archive's date filters use. It writes Jalali text back into the box, and
+  marketing/forms.py::_clean_jalali_datetime is what reads it.
+
+  THE ROW IS PRIVATE. The help text says so in words rather than leaving the
+  person to guess whether their supervisor will read it — see
+  marketing/models.py::Reminder for the rule and the owner's wording behind it.
+{% endcomment %}
+{% block title %}Set a reminder · {{ client.name }} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Set a reminder{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'marketing/css/directory.css' %}">
+{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1>Set a reminder</h1>
+    <div class="sub">on <span dir="auto">{{ client.name }}</span> <span class="mono">({{ client.code }})</span></div>
+  </div>
+  <div class="row-flex" style="align-items:center;gap:.5rem;flex-wrap:wrap;">
+    <a href="{% url 'marketing:reminder_list' %}" class="btn btn-sm">
+      <i class="fa-solid fa-bell"></i> My reminders
+    </a>
+    <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-sm">
+      <i class="fa-solid fa-arrow-left"></i> Back to company
+    </a>
+  </div>
+</div>
+
+<form method="post" class="card form-narrow" autocomplete="off">
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+  <div class="flash flash-error">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <span>{% for e in form.non_field_errors %}{{ e }}{% endfor %}</span>
+  </div>
+  {% endif %}
+
+  <div class="help" style="margin-bottom:.8rem;">
+    <i class="fa-solid fa-lock"></i>
+    This reminder is yours alone — nobody else in Marketing sees it, and it is
+    not recorded on the company's timeline.
+  </div>
+
+  <div class="field">
+    <label for="{{ form.due_at.id_for_label }}"><i class="fa-regular fa-clock"></i> {{ form.due_at.label }}</label>
+    {{ form.due_at }}
+    {% if form.due_at.errors %}<ul class="errorlist">{% for e in form.due_at.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    <div class="help">When this time passes, a notification appears at the top of your screen and stays there until you act on it.</div>
+  </div>
+
+  <div class="field">
+    <label for="{{ form.case_id.id_for_label }}"><i class="fa-solid fa-folder-open"></i> {{ form.case_id.label }}</label>
+    {{ form.case_id }}
+    {% if form.case_id.errors %}<ul class="errorlist">{% for e in form.case_id.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    {% if not form.cases_available %}
+    {# Said in words rather than left as an empty dropdown: the list is scoped, #}
+    {# so "none" here means "none you may see", not necessarily "none exist" —  #}
+    {# and the reminder is perfectly usable on the company itself.              #}
+    <div class="help">There are no cases on this company that your seat may see. The reminder will be about the company itself.</div>
+    {% endif %}
+  </div>
+
+  <div class="field">
+    <label for="{{ form.note.id_for_label }}"><i class="fa-solid fa-pen"></i> {{ form.note.label }}</label>
+    {{ form.note }}
+    {% if form.note.errors %}<ul class="errorlist">{% for e in form.note.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+  </div>
+
+  <div class="btn-row">
+    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-bell"></i> Set reminder</button>
+    <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-ghost">Cancel</a>
+  </div>
+</form>
+{% endblock %}

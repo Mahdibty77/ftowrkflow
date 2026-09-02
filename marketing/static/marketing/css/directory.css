@@ -159,3 +159,81 @@
      it drops back to sitting under the figure. */
   .dir-money-note{ margin-left:0; }
 }
+
+/* ---------------------------------------------------------------------------
+   MY REMINDERS — the per-person list (marketing/reminder_list.html).
+
+   Built on the report list above rather than beside it: .dir-reminders is
+   .dir-reports' own flex column, and the head row inside each item reuses
+   .dir-report-head verbatim (the template says so), because a reminder and a
+   report are the same visual object — a few facts as chips over a block of
+   free text. Only the two things a reminder has and a report does not get
+   rules of their own here: the "this one has come due" emphasis, and the row
+   of controls, since a reminder is a thing you act on.
+
+   No literal colours, exactly as the header of this file promises: every value
+   below is a token app.css already redefines for dark mode, which is what
+   makes this screen correct in both themes with no second set of rules.
+   --------------------------------------------------------------------------- */
+.dir-reminders{
+  list-style:none;
+  margin:0;
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  gap:.7rem;
+}
+.dir-reminder{
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  background:var(--cloud);
+  padding:.7rem .85rem;
+}
+/* A due reminder is the one the notification at the top of the screen is
+   about, so the list has to make it findable at a glance. A left border in the
+   warning accent, matching the .flash-warning banner that sent the reader
+   here — not a background wash, which would fight the chips inside the row. */
+.dir-reminder.is-due{
+  border-color:var(--warnline);
+  border-left:3px solid var(--warn);
+}
+/* The company chip is a real link. .chip is written for a <span>, so an <a>
+   wearing it picks up the browser's link colour and underline; both are undone
+   here rather than with inline styles on every occurrence. */
+.dir-reminder a.chip{ text-decoration:none; color:inherit; }
+.dir-reminder a.chip:hover{ border-color:var(--accent-strong); }
+/* The note as typed — .dir-report-text's rule, for the same reason it has it:
+   the text is stored and escaped as plain text, so the writer's own line
+   breaks are honoured by white-space here instead of being turned into markup
+   in the template. */
+.dir-reminder-text{
+  margin-top:.5rem;
+  font-size:.84rem;
+  color:var(--slate);
+  white-space:pre-line;
+  overflow-wrap:anywhere;
+  background:var(--paper);
+  border:1px solid var(--line-soft);
+  border-radius:8px;
+  padding:.5rem .6rem;
+}
+.dir-reminder-actions{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:.4rem .6rem;
+  margin-top:.6rem;
+}
+/* The re-time box and its button read as one control, so they sit in their own
+   flex row inside the actions row. The input is given a modest cap rather than
+   the field's natural full width: static/js/jalali_picker.js copies the input's
+   own class list onto the visible box it draws, so whatever width this sets is
+   what the reader actually sees. */
+.dir-reminder-retime{
+  display:flex;
+  align-items:center;
+  gap:.4rem;
+  margin:0;
+}
+.dir-reminder-retime input{ max-width:190px; }
+.dir-reminders .empty{ list-style:none; }

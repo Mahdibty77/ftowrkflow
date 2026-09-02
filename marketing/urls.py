@@ -24,6 +24,27 @@ shaped the same way:
                                     remove a contact  -> marketing:contact_remove
     directory/<pk>/reports/add/     report, step 1    -> marketing:report_add
     directory/<pk>/reports/create/  report, step 2    -> marketing:report_create
+    directory/<pk>/reminders/add/   set a reminder    -> marketing:reminder_add
+    reminders/                      YOUR own list     -> marketing:reminder_list
+    reminders/<id>/time/            set a new time    -> marketing:reminder_retime
+    reminders/<id>/done/            mark dealt with   -> marketing:reminder_done
+
+THE REMINDER LIST IS NOT UNDER ``directory/``, AND THAT IS THE POINT OF ITS
+ADDRESS. Everything under ``directory/`` is about a COMPANY and carries that
+company's id; a person's reminder list is about the PERSON — it spans every
+company they have set one on — so it hangs off the section root instead, with no
+id in the path at all. Whose list it is comes from the session and can never
+come from the URL, which is the whole of the visibility rule (see
+``marketing/models.py::Reminder``). SETTING one is the other way round: it is
+reached from one company's page and is about that company, so it lives under
+``directory/<pk>/`` beside the contact and report flows it is modelled on.
+
+The two mutating reminder routes are POST-only (see ``views.reminder_retime`` /
+``views.reminder_done``) and carry the reminder's own id in the path, exactly as
+the contact-removal route does — the id a mutation is about belongs in the
+address, not in a body parameter the view might forget to re-check. Neither
+route carries an owner: the signed-in person IS the owner, and a route that
+could name a different one would be a route that has to be checked for it.
 
 The removal route is POST-only (see ``views.contact_remove``) and carries the
 contact's own id in the path rather than in the body, so the two ids a removal
@@ -62,6 +83,13 @@ urlpatterns = [
     path("directory/<int:pk>/reports/add/", views.report_add, name="report_add"),
     path("directory/<int:pk>/reports/create/",
          views.report_create, name="report_create"),
+    path("directory/<int:pk>/reminders/add/",
+         views.reminder_add, name="reminder_add"),
+    path("reminders/", views.reminder_list, name="reminder_list"),
+    path("reminders/<int:reminder_id>/time/",
+         views.reminder_retime, name="reminder_retime"),
+    path("reminders/<int:reminder_id>/done/",
+         views.reminder_done, name="reminder_done"),
     path("entities/clients/search/", views.client_search, name="client_search"),
     path("entities/clients/create/", views.client_create, name="client_create"),
     path("entities/clients/connections/", views.client_connections, name="client_connections"),

@@ -267,18 +267,15 @@ class CaseAccess:
     nothing about it can narrow a seat the archive does not narrow.
 
     ``show_money`` — may this viewer be shown PI money figures over those cases.
-    It is NOT a new permission: it is verbatim the expression
-    ``cases/services.py::archive_scope`` already computes for its own
-    ``ArchiveScope.show_money`` (admin, General Manager, or a login whose
-    PROFILE unit is Commercial), evaluated here because ``archive_scope``
-    itself cannot be called from this app — it returns ``None`` outright for a
-    unit outside the TO/PI workflow, which is exactly the seat a Marketing
-    viewer is sitting in. It lives on ``CaseAccess`` rather than on
-    :class:`Access` because it is a question about CASE data, not about
-    Marketing's own directory, and it is deliberately read from the LOGIN
-    PROFILE and not from the active seat — precisely as ``archive_scope``
-    reads it — so a Marketing-only login (``profile.unit == MARKETING``) gets
-    False and no money is rendered for them anywhere in this section.
+    MONEY FOLLOWS THE CASES: it is decided from the same two facts the case
+    rows themselves are decided from (the admin/GM tier, or holding a real
+    Commercial seat), so on this side of the platform it answers True for
+    exactly the viewers ``can_open`` answers True for and False for everyone
+    else — see :func:`_case_money_visible` for why that is the defensible rule
+    and what it deliberately changes. It stays its own field rather than being
+    folded into ``can_open`` because it is a different question about the same
+    rows ("may you see these cases" is not "may you see what they are worth"),
+    and the company page gates a different piece of markup on each.
     """
 
     can_open: bool
@@ -509,39 +506,75 @@ def _commercial_seat_role(roles):
     return commercial[0] if commercial else None
 
 
-def _case_money_visible(request) -> bool:
-    """``ArchiveScope.show_money``'s own rule, for this login. NOT a new grant.
+def _case_money_visible(access: Access, own_user_ids) -> bool:
+    """MONEY FOLLOWS THE CASES. A DECISION TAKEN HERE, and here is the argument.
 
-    Copied verbatim from ``cases/services.py::archive_scope``::
+    THE RULE: if this viewer may see a case at all on the Marketing side, they
+    may see that case's money. So this is decided from EXACTLY the two facts
+    :func:`case_access_for` decides the case rows themselves from — the
+    admin/GM tier (``access.is_gm_or_admin``), or holding at least one real
+    Commercial seat (``own_user_ids``, from
+    :func:`_own_commercial_seat_users`) — and from nothing else.
+
+    THIS IS A DELIBERATE CHANGE, NOT A RESTORED COPY. This function used to
+    reproduce ``cases/services.py::archive_scope``'s own one-line expression
+    verbatim::
 
         show_money = bool(
             profile.is_admin or profile.is_general_manager
             or profile.unit == Unit.COMMERCIAL
         )
 
-    and it is copied rather than called for the reason
-    :func:`_own_commercial_seat_users` already gives about that function: it
-    returns ``None`` for a unit outside the TO/PI workflow, so a Marketing seat
-    can never get an ``ArchiveScope`` out of it to read this off.
+    read — as over there — from the LOGIN PROFILE. Its docstring argued at
+    length that the consequence (a Marketing login sees no money) was "the
+    existing rule, not a decision taken here". That was true of the expression
+    and false of the outcome: the archive reads ``profile.unit`` while sitting
+    in the seat that unit describes, and this app reads it while the viewer is
+    sitting in their MARKETING seat, so the same words mean a different thing
+    here. The result was that the company detail page's PI total rendered for
+    nobody who actually uses that page — the owner asked for the figure twice
+    and never saw it — because a Marketing seat's login profile says MARKETING
+    even when the same person holds the Commercial seat whose cases the page is
+    listing. Answering "the archive said so" to that is quoting a rule that was
+    never asked this question. So the rule for this app is decided here, and
+    this docstring says so plainly.
 
-    READ FROM THE LOGIN PROFILE, NOT THE ACTIVE SEAT, deliberately — that is
-    what ``archive_scope`` does with this one expression (it resolves
-    unit/role from the active seat for its queryset branches, and still reads
-    ``profile.unit`` here), and matching it exactly is the point. The
-    consequence, stated plainly: a MARKETING-ONLY login has
-    ``profile.unit == Unit.MARKETING`` and therefore NO money visibility, on
-    the company detail page or anywhere else. That is the existing rule, not a
-    decision taken here; the dual-seat Commercial person the owner is (whose
-    login profile is the Commercial one, with Marketing as a secondary
-    ``PersonRole``) keeps the money they already see in the archive.
+    WHY THIS IS THE DEFENSIBLE ANSWER RATHER THAN SIMPLY DELETING THE GATE.
+    The seat that puts a case row on this page is the same seat
+    :func:`case_open_url` switches the viewer into one click later — and on the
+    other side of that switch the case archive shows them that case's money
+    already, under ``archive_scope``'s own rule, because they are then sitting
+    in the Commercial seat it reads. Withholding the total here hides a number
+    the very next click reveals; showing it to someone with no such seat would
+    be a real widening. Tying money to case visibility is what keeps the two
+    screens saying the same thing about the same viewer, which is the promise
+    ``case_access_for`` is built on.
+
+    THE CONSEQUENCES, CHECKED RATHER THAN ASSUMED:
+
+    * A MARKETING-ONLY SEAT STILL SEES NOTHING. It holds no Commercial
+      ``PersonRole``, so ``own_user_ids`` is the empty tuple, so
+      :func:`case_access_for` already refuses it every case row
+      (``can_open=False``) — and this function answers False for the same
+      reason, off the same value. Nothing is exposed to them that was not
+      before: not the figure, and not the rows it would have been computed
+      over.
+    * A DUAL-SEAT PERSON'S TOTAL COVERS EXACTLY THE CASES THEY ARE ALREADY
+      SHOWN, because the caller computes it over exactly the scoped rows (see
+      ``marketing/views.py::_pi_money_total``) and this function does not touch
+      which rows those are.
+    * ONE POPULATION IS NARROWED, AND VISIBLY NOTHING CHANGES FOR THEM: a login
+      whose PROFILE unit is Commercial but who holds no Commercial seat and is
+      not admin/GM (their ``PersonRole`` rows are all Marketing) used to answer
+      True here. They also get no case rows at all, and
+      ``_pi_money_total`` returns "" for an empty row set before it looks at
+      this flag, so the figure was already blank for them and still is.
+
+    Takes the values rather than the request so it cannot be computed from a
+    different picture of the person than the branches beside it — see
+    :func:`case_access_for`, which passes what it has already resolved.
     """
-    profile = getattr(getattr(request, "user", None), "profile", None)
-    if profile is None:
-        return False
-    return bool(
-        profile.is_admin or profile.is_general_manager
-        or (getattr(profile, "unit", "") or "").strip() == Unit.COMMERCIAL
-    )
+    return bool(access.is_gm_or_admin or own_user_ids)
 
 
 def case_access_for(request, access: Access | None = None) -> CaseAccess:
@@ -614,6 +647,13 @@ def case_access_for(request, access: Access | None = None) -> CaseAccess:
     for exactly the person this rule exists for. See
     :func:`_own_commercial_seat_users`.
 
+    MONEY IS ANSWERED ALONGSIDE, FROM THE SAME FACTS. ``show_money`` is not a
+    fifth line of its own table: it is decided by :func:`_case_money_visible`
+    from ``access.is_gm_or_admin`` and from the very ``own_user_ids`` the rows
+    are scoped with, so every viewer this function grants case rows to may also
+    be shown what those rows are worth, and no other viewer can be. Read that
+    function for why the rule changed and what it does — and does not — expose.
+
     ``access`` may be passed in by a caller that already computed it (every view
     in this app has); it is only read for ``is_gm_or_admin`` / ``can_view``.
 
@@ -624,15 +664,25 @@ def case_access_for(request, access: Access | None = None) -> CaseAccess:
     the case.
     """
     access = access or access_for(request)
-    show_money = _case_money_visible(request)
     if not access.can_view:
         return CaseAccess(can_open=False, all_cases=False)
     if access.is_gm_or_admin:
-        return CaseAccess(can_open=True, all_cases=True, show_money=show_money)
+        # ``own_user_ids`` is not resolved on this branch at all (there is
+        # nothing to measure ownership against — see :class:`CaseAccess`), so
+        # the money question is asked with the empty tuple; the admin/GM half
+        # of :func:`_case_money_visible` is what answers it.
+        return CaseAccess(can_open=True, all_cases=True,
+                          show_money=_case_money_visible(access, ()))
     roles = _person_roles(request)
     own = _own_commercial_seat_users(request, roles)
     if not own:
         return CaseAccess(can_open=False, all_cases=False)
+    # Computed from the SAME ``own`` the two branches below scope their rows
+    # with, and after the guard that has already refused everyone it is empty
+    # for — that is the whole of "money follows the cases", and why it is
+    # resolved here rather than at the top of the function where it used to sit
+    # (before the guard, off the login profile, for every caller alike).
+    show_money = _case_money_visible(access, own)
     seat_role = _commercial_seat_role(roles)
     seat_role_id = getattr(seat_role, "pk", None)
     # ``own`` is still computed and still checked FIRST, manager or not, and it

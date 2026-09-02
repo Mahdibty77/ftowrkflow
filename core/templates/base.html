@@ -1,4 +1,8 @@
-{% load static %}
+{% load static ft_extras %}
+{# ft_extras is loaded for the |jalali filter used by the reminder banner       #}
+{# below. It is the same filter every date on every other screen goes through,  #}
+{# so a reminder's due time prints the same calendar in the same shape as the   #}
+{# stamp on the reminders list it links to.                                     #}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -590,6 +594,47 @@
           <div class="flash flash-{{ message.tags }}"><i class="fa-solid fa-circle-info"></i><span>{{ message }}</span></div>
         {% endfor %}
       </div>
+    {% endif %}
+
+    {% comment %}
+      "ONE OF YOUR REMINDERS IS DUE" — the Marketing reminders notification.
+
+      Fed by marketing/context_processors.py::reminder_notice, which is
+      registered in settings.TEMPLATES alongside the four context processors
+      that already feed this area (theme, impersonation, work shift, licence).
+      It is present ONLY for a person who can hold a reminder, and only when one
+      of THEIR OWN is due — nobody ever sees anybody else's here.
+
+      A .flash.flash-warning rather than the hand-styled banners below it: those
+      two predate the theme tokens and hard-code light-mode colours, which is
+      why they read badly in dark mode. .flash-warning is defined once in
+      static/css/app.css out of --warnbg / --warnline / --warn, so this banner
+      follows the viewer's skin and light/dark setting with no colours of its
+      own. The whole strip is the link — clicking anywhere on it lands on the
+      reminders list, which is where both ways of acting on it live (set a new
+      time, or mark it dealt with). It stays until one of those happens: nothing
+      here dismisses it, because a banner that can be waved away is a reminder
+      you can forget twice.
+    {% endcomment %}
+    {% if reminder_notice %}
+      <a class="flash flash-warning" href="{% url 'marketing:reminder_list' %}"
+         style="text-decoration:none;color:inherit;">
+        <i class="fa-solid fa-bell"></i>
+        <span>
+          <strong>Reminder due</strong> ·
+          <span dir="auto">{{ reminder_notice.client_name }}</span>
+          {% if reminder_notice.case_doc_no %}
+          · <span class="mono">{{ reminder_notice.case_doc_no }}</span>
+          {% endif %}
+          · {{ reminder_notice.due_at|jalali:"Y.m.d H:i" }}
+          {% if reminder_notice.note %}
+          — <span dir="auto">{{ reminder_notice.note|truncatechars:120 }}</span>
+          {% endif %}
+          {% if reminder_notice.others %}
+          <span class="count">+{{ reminder_notice.others }} more due</span>
+          {% endif %}
+        </span>
+      </a>
     {% endif %}
 
     {% if is_impersonating %}

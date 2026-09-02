@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% load ft_extras static %}
+{% comment %}
+  MY REMINDERS — the signed-in person's own list, and the two ways to act on one.
+
+  Structure borrowed from the Reports panel on marketing/company_detail.html
+  rather than from the directory TABLE, and deliberately: a reminder is a block
+  of free text with a few facts attached, which is exactly what a report row is,
+  and neither fits a fixed set of columns. So this is that panel's own markup —
+  a .card with a .card-head and a count, a <ul class="dir-reminders"> of
+  <li class="dir-reminder"> blocks, a head row of chips over the note text —
+  with one addition a report has no need of: a controls row per item, because a
+  reminder is a thing you DO something to.
+
+  EVERY DATE GOES THROUGH |jalali, the same filter the company page, the case
+  page and the notification banner in base.html all use, so one reminder prints
+  the same way wherever it appears.
+
+  THIS PAGE SHOWS THE VIEWER'S OWN ROWS AND NOTHING ELSE. There is no scope
+  here, no "you are seeing everyone's" sentence like the contacts and reports
+  panels carry, and no supervisor variant of this screen — see
+  marketing/models.py::Reminder for the owner's wording behind that.
+
+  BOTH CONTROLS ARE REAL POST FORMS with a CSRF token, not links: each changes a
+  row (see marketing/views.py::reminder_retime / ::reminder_done). The re-time
+  box carries data-jalali-datetime, so static/js/jalali_picker.js attaches the
+  same picker the creation screen uses — one box per row, which that script
+  handles because it builds per input and holds no page-level state.
+{% endcomment %}
+{% block title %}My reminders · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}My reminders{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'marketing/css/directory.css' %}">
+{% endblock %}
+{% block content %}
+
+<div class="page-head" style="align-items:center;">
+  <div>
+    <h1>My reminders</h1>
+    <div class="sub">Your own notes to yourself, on the companies you follow. Nobody else can see them.</div>
+  </div>
+  <div class="row-flex" style="align-items:center;gap:1rem;flex-wrap:wrap;">
+    <a href="{% url 'marketing:directory' %}" class="btn btn-sm">
+      <i class="fa-solid fa-building"></i> Company Directory
+    </a>
+    <span class="count">{{ rows|length }}</span>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h3><i class="fa-solid fa-bell" style="color:var(--accent-strong);margin-right:.4rem;"></i>Reminders
+      <span class="count">{{ rows|length }}</span>
+    </h3>
+  </div>
+
+  <div class="help" style="margin:-.35rem 0 .7rem;">
+    Soonest first. A reminder that has come due shows a notification at the top
+    of every screen until you set a new time for it or mark it dealt with.
+  </div>
+
+  <ul class="dir-reminders">
+    {% for r in rows %}
+    <li class="dir-reminder{% if r.is_due %} is-due{% endif %}">
+      <div class="dir-report-head">
+        {# The due stamp is the headline fact — it is what the whole row is    #}
+        {# about — so it leads, with the state said beside it rather than left #}
+        {# to be inferred from the date. "Due" is derived from the clock, not  #}
+        {# stored; see marketing/models.py::ReminderState.                     #}
+        <span class="dir-report-who mono">{{ r.due_at|jalali:"Y.m.d H:i" }}</span>
+        {% if r.is_done %}
+        <span class="chip c-ok"><i class="fa-solid fa-check"></i>Dealt with</span>
+        {% elif r.is_due %}
+        <span class="chip c-rej"><i class="fa-solid fa-bell"></i>Due</span>
+        {% else %}
+        <span class="chip c-draft"><i class="fa-regular fa-clock"></i>Waiting</span>
+        {% endif %}
+        <a class="chip" href="{% url 'marketing:company_detail' r.client_id %}">
+          <i class="fa-solid fa-building"></i><span dir="auto">{{ r.client.name }}</span>
+        </a>
+        {% comment %}
+          r.show_case_no, not r.case: the reminder still belongs to this person
+          and still names a case, but a seat can lose the case access it had
+          when the reminder was set, and this app's rule is that a document
+          number is case identity. So the chip stays (the note IS about a case)
+          and only the number is withheld - the same shape the reports panel
+          uses. See marketing/views.py::_reminder_rows.
+        {% endcomment %}
+        {% if r.case %}
+        <span class="chip"><i class="fa-solid fa-folder-open"></i>{% if r.show_case_no %}{{ r.case.doc_no }}{% else %}On a case{% endif %}</span>
+        {% endif %}
+      </div>
+
+      {# The note as typed, line breaks and all — .dir-reminder-text keeps them #}
+      {# with white-space, exactly as the reports panel keeps a report's.       #}
+      <div class="dir-reminder-text" dir="auto">{{ r.note }}</div>
+
+      <div class="dir-reminder-actions">
+        <form method="post" action="{% url 'marketing:reminder_retime' r.pk %}"
+              class="dir-reminder-retime">
+          {% csrf_token %}
+          <input type="text" name="due_at" data-jalali-datetime autocomplete="off"
+                 placeholder="Pick a new time"
+                 value="{{ r.due_at|jalali:'Y-m-d H:i' }}">
+          <button type="submit" class="btn btn-sm btn-primary">
+            <i class="fa-regular fa-clock"></i> Set new time
+          </button>
+        </form>
+        {% if not r.is_done %}
+        <form method="post" action="{% url 'marketing:reminder_done' r.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-ghost">
+            <i class="fa-solid fa-check"></i> Mark dealt with
+          </button>
+        </form>
+        {% endif %}
+      </div>
+
+      {# The re-time error belongs UNDER THE ROW IT IS ABOUT. The view          #}
+      {# re-renders this whole page on a bad date (a redirect would drop the    #}
+      {# message), and retime_id is which row's box was wrong — printed at the  #}
+      {# top of a list it would not say which reminder it meant.                #}
+      {% if retime_error and retime_id == r.pk %}
+      <ul class="errorlist">{% for e in retime_error %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
+    </li>
+    {% empty %}
+    <li class="empty">
+      You have not set any reminders yet. Open a company in the directory and
+      use “Set reminder” on it.
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

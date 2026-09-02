@@ -63,6 +63,20 @@
     <div class="sub">Company directory · Marketing</div>
   </div>
   <div class="row-flex" style="align-items:center;gap:.5rem;flex-wrap:wrap;">
+    {# SET A REMINDER lives in the page head, not in a tab, because — unlike a  #}
+    {# contact or a report — a reminder is NOT part of this company's record.   #}
+    {# It is the viewer's own private note (marketing/models.py::Reminder), so  #}
+    {# there is no per-company panel listing them and nothing here to add a row #}
+    {# to; the list lives on its own screen, per person. The gate is the same   #}
+    {# can_edit "Add contact" and "Add report" carry, because it is the same    #}
+    {# gate marketing/views.py::reminder_add refuses on — the view-only tier    #}
+    {# (the General Manager and the platform admin) gets no button and would be #}
+    {# answered 403 by the URL even if it forged one.                           #}
+    {% if can_edit %}
+    <a href="{% url 'marketing:reminder_add' client.pk %}" class="btn btn-sm">
+      <i class="fa-solid fa-bell"></i> Set reminder
+    </a>
+    {% endif %}
     <a href="{% url 'marketing:directory' %}" class="btn btn-sm">
       <i class="fa-solid fa-arrow-left"></i> Directory
     </a>

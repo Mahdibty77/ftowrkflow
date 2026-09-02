@@ -719,3 +719,134 @@ class CompanyReport(models.Model):
         if self.created_by_id and self.created_by:
             return self.created_by.get_full_name() or self.created_by.username
         return ""
+
+
+class ReminderState:
+    """The two states a :class:`Reminder` is actually STORED in.
+
+    THREE STATES ARE VISIBLE TO THE PERSON, AND ONLY TWO ARE STORED. The owner
+    asked to be able to tell "still waiting", "due and not yet dealt with" and
+    "dealt with" apart, and the first two are the SAME stored state seen from
+    two sides of one moment: an open reminder whose ``due_at`` is still in the
+    future is waiting, and the same row is due the instant the clock passes it.
+    Storing a third value would mean something has to WRITE it when that moment
+    arrives — a scheduler, a cron job, or a save on every page load — which is
+    exactly the background machinery the owner ruled out ("this must not make
+    the site slow or heavy"). Comparing a timestamp costs nothing and can never
+    be stale, so "due" is derived and never stored. See
+    ``marketing/reminders.py::due_notification``, which is that comparison.
+
+    A ``CharField`` rather than a boolean, deliberately: the owner said they
+    will specify more detail later, and a two-value character column can grow a
+    third state (a dismissal, a snooze that is not a reschedule) with one
+    migration and no rewrite of every ``is_done`` test in the codebase. It also
+    reads correctly in the composite index this model carries — see
+    :class:`Reminder`.
+    """
+
+    OPEN = "OPEN"
+    DONE = "DONE"
+
+    CHOICES = [
+        (OPEN, "Open"),
+        (DONE, "Dealt with"),
+    ]
+    LABELS = dict(CHOICES)
+
+
+class Reminder(models.Model):
+    """One person's private note to themselves about a company, at a time.
+
+    The owner's description, in full: "a marketing person sets a reminder for
+    themselves against a company — and optionally against one specific case of
+    that company — by picking a date and time and writing a note. Each person
+    sees only their OWN reminders. When one falls due a notification appears at
+    the top of their screen; it stays until they act on it, and it takes them to
+    their reminders list where they can set a new time." The working rhythm
+    behind it is a loop: a case gets a reminder, the person is reminded, they
+    write a report, they set the next reminder, until the case ends.
+
+    PRIVATE TO ``owner``, AND THAT IS A DEPARTURE FROM EVERY OTHER MODEL IN THIS
+    FILE. :class:`CompanyContact` and :class:`CompanyReport` are scoped by
+    ``created_by`` through ``marketing/services.py::_scoped``, which means an
+    ordinary seat sees its own rows and a Supervisor, the General Manager and
+    the platform admin see everyone's. Reminders deliberately do NOT reuse that
+    helper and are not offered to those three: the owner's wording is "هر شخص
+    لیست یادآور خود را می‌تواند ببیند" — each person can see THEIR OWN reminder
+    list — and a reminder is not a record of work done on a company (which is
+    what a report is, and why a supervisor reads those) but a note to self about
+    what to do next. Supervision over someone's private to-do list is a
+    different product decision from supervision over their output, and it was
+    not asked for. ``marketing/reminders.py`` is therefore the only reader, and
+    every query in it filters on ``owner`` with no scope argument at all — there
+    is nothing for a scope to widen. This model is also deliberately absent from
+    ``marketing/admin.py`` for the same reason.
+
+    ``owner`` CASCADES, unlike the ``created_by`` on every other model here,
+    which is ``SET_NULL``. Those columns are audit: who added this contact, who
+    wrote this report — the fact outlives the account, so the row must survive
+    the user's deletion with a NULL actor. A reminder is the opposite kind of
+    object: it has no meaning apart from the person it belongs to, and an
+    ownerless private note is a row nobody can ever see, act on or delete.
+    ``related_name="marketing_reminders"`` keeps this app's ``marketing_*``
+    prefix on the reverse accessor, exactly as ``ClientLabel`` and
+    ``CompanyContact`` do.
+
+    ``case`` IS OPTIONAL, by the owner's own wording, and ``SET_NULL`` for
+    :class:`CompanyReport`'s reason: the reminder is still a real note about
+    the company even if the case that prompted it is later removed. WHICH cases
+    may be attached is not this model's decision and is not enforceable here —
+    it is ``marketing/access.py::case_access_for``'s, applied by the view over
+    the same scoped rows the company page's Cases tab lists (see
+    ``marketing/views.py::reminder_add``), because never offering a case the
+    viewer cannot open is a rule this app has had to repair twice already.
+
+    ``due_at`` IS INDEXED ONLY AS PART OF THE COMPOSITE BELOW, never alone. The
+    one query that reads this table in anger is the due check that renders the
+    notification, and it is always the same shape: this owner, still open,
+    due at or before now. ``(owner, state, due_at)`` is that query's exact
+    column order — the two equalities first, the range last — so it is served
+    by an index range scan over one person's open rows and never scans the
+    table. A separate index on ``due_at`` alone would earn nothing: no screen
+    asks "what is due for everybody", because there is no screen that shows one
+    person another person's reminders.
+
+    ``Meta.ordering`` is soonest-first, which is the order the list page wants
+    (what should I deal with next). The notification asks for the opposite —
+    the most RECENTLY due row — and orders explicitly for it rather than
+    relying on the default; see ``marketing/reminders.py``.
+    """
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="marketing_reminders",
+    )
+    client = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name="marketing_reminders")
+    case = models.ForeignKey(
+        "cases.Case", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="marketing_reminders",
+    )
+    note = models.TextField()
+    due_at = models.DateTimeField()
+    state = models.CharField(
+        max_length=8, choices=ReminderState.CHOICES,
+        default=ReminderState.OPEN,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["due_at", "pk"]
+        indexes = [
+            models.Index(
+                fields=["owner", "state", "due_at"],
+                name="marketing_reminder_due_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.client_id} · reminder for {self.owner_id} at {self.due_at:%Y-%m-%d %H:%M}"
+
+    @property
+    def is_done(self) -> bool:
+        return self.state == ReminderState.DONE

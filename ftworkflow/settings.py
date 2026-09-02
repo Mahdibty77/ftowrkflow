@@ -187,6 +187,10 @@ TEMPLATES = [
                 "people.context_processors.work_shift_banner",
                 # Adds license_status (+ kartabl warning flag) to every template.
                 "licensing.context_processors.license_status",
+                # The "one of your reminders is due" banner. Gated on the
+                # Marketing seat test before it looks at anything, and served
+                # from the shared cache when it can be — see that module.
+                "marketing.context_processors.reminder_notice",
             ],
         },
     },

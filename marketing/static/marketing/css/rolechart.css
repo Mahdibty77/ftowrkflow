@@ -512,6 +512,19 @@
 .rc-chart.is-query .rc-node.is-lit[data-kind="label"] .rc-box{
   fill:color-mix(in srgb, hsl(var(--rc-row-h) var(--rc-row-s) 48%) 44%, var(--paper));
 }
+/* A card the query REACHED is never drawn with the empty card's dashed
+   "waiting to be filled" outline, even when it is itself .is-empty.
+   That combination is real and common: connections_of_client reports a label
+   purely because the active company is CONNECTED to somebody under it, so the
+   card lights up while its own badge is still 0 and the server still calls it
+   .is-empty. Leaving the dash there told the reader "nothing here" about the
+   one card the line they are looking at points AT. Solid from here on; the
+   dash goes back the moment the query clears. Applies to the focus card too,
+   which can be .is-empty for the same reason. */
+.rc-chart.is-query .rc-node.is-lit .rc-box,
+.rc-chart.is-query .rc-node.is-focus .rc-box{
+  stroke-dasharray:none;
+}
 [data-mode="dark"] .rc-chart.is-query .rc-node.is-lit[data-kind="label"] .rc-box,
 [data-theme="dark"] .rc-chart.is-query .rc-node.is-lit[data-kind="label"] .rc-box{
   fill:color-mix(in srgb, hsl(var(--rc-row-h) var(--rc-row-s) 58%) 42%, var(--paper));
