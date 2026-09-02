@@ -121,10 +121,10 @@
   // turn free text into a picked/created Client (the "+ Add company" panel
   // below, and the top-of-page Quick Inquiry card further down) builds one
   // instance of this against its own {list, input} pair rather than each
-  // re-implementing its own search/create/debounce logic. Mirrors
-  // CFG.clientSearchUrl's row shape and companies.js's own "+ Add ..." rule
-  // exactly (an exact-name match already in the results suppresses the
-  // create row) — both call sites end up with visually identical rows
+  // re-implementing its own search/create/debounce logic. Renders
+  // CFG.clientSearchUrl's row shape, and suppresses the "+ Add ..." create
+  // row whenever an exact-name match is already among the results — both
+  // call sites end up with visually identical rows
   // because both go through buildRow/buildCreateRow here, never their own.
   //
   // Deliberately dumb about WHEN a search fires or WHERE the results are
@@ -133,15 +133,47 @@
   // etc.); the debounced live-as-you-type search on the input itself is the
   // one behaviour every caller wants unconditionally, so that alone is
   // wired here.
+  //
+  // ``opts.multi`` turns the SAME picker into a MULTI-SELECT one: rows become
+  // tick rows (the .mc-panel-check glyph plus .rc-row.is-checked — the exact
+  // tick-row language this file's own "connect" mode already uses, not a
+  // second one), a click toggles instead of replacing, and the picked set
+  // survives both a new search and a "+ Add" create, so a reader can tick one
+  // company, search for another, tick that too, and press Add once. Only the
+  // "+ Add company" panel asks for it (the owner's own request: ticking
+  // several and adding them in one go); the Quick Inquiry company field stays
+  // single-select, where "at most one company" is the whole point.
   // ------------------------------------------------------------------------
-  function createCompanyPicker(listEl, inputEl, onSelect) {
+  function createCompanyPicker(listEl, inputEl, onSelect, opts) {
+    var multi = !!(opts && opts.multi);
     var selected = null;
+    // multi mode only — {clientId: {id, name, code}}, insertion order is what
+    // Add commits in. Kept across searches on purpose (see above).
+    var picked = {};
     var seq = 0;
     var debounce = null;
 
+    function pickedList() {
+      return Object.keys(picked).map(function (id) { return picked[id]; });
+    }
+
+    // Single mode reports the one client (or null); multi mode reports the
+    // whole ticked list, so one ``onSelect`` contract covers both and the
+    // caller's own "is the Add button live?" check is the same shape either
+    // way.
+    function notify() {
+      onSelect(multi ? pickedList() : selected);
+    }
+
     function select(client) {
       selected = client;
-      onSelect(client);
+      notify();
+    }
+
+    function toggle(client, nowChecked) {
+      if (nowChecked) { picked[client.id] = { id: client.id, name: client.name, code: client.code }; }
+      else { delete picked[client.id]; }
+      notify();
     }
 
     function search(query) {
@@ -192,13 +224,39 @@
     function buildRow(company) {
       var row = document.createElement('div');
       row.className = 'rc-row';
-      if (selected && selected.id === company.id) { row.classList.add('is-selected'); }
+      var checked = multi
+        ? Object.prototype.hasOwnProperty.call(picked, company.id)
+        : !!(selected && selected.id === company.id);
+      var check = null;
+      if (multi) {
+        // The same tick glyph + is-checked tint "connect" mode's own rows use
+        // (buildLabelRow's connectCtx branch, further down this file) — one
+        // tick-row language on this chart, not two.
+        check = document.createElement('span');
+        check.className = 'mc-panel-check';
+        check.setAttribute('aria-hidden', 'true');
+        check.textContent = checked ? '✓' : '';
+        row.appendChild(check);
+        row.classList.toggle('is-checked', checked);
+        row.setAttribute('role', 'checkbox');
+        row.setAttribute('aria-checked', checked ? 'true' : 'false');
+      } else if (checked) {
+        row.classList.add('is-selected');
+      }
       var name = document.createElement('span');
       name.className = 'rc-row-name';
       name.textContent = company.name;
       name.setAttribute('dir', 'auto');
       row.appendChild(name);
       function activate() {
+        if (multi) {
+          var nowChecked = !row.classList.contains('is-checked');
+          row.classList.toggle('is-checked', nowChecked);
+          row.setAttribute('aria-checked', nowChecked ? 'true' : 'false');
+          check.textContent = nowChecked ? '✓' : '';
+          toggle({ id: company.id, name: company.name, code: company.code }, nowChecked);
+          return;
+        }
         select({ id: company.id, name: company.name, code: company.code });
         Array.prototype.forEach.call(listEl.querySelectorAll('.rc-row'), function (r) {
           r.classList.remove('is-selected');
@@ -220,10 +278,13 @@
           // Whatever came back — brand new, or an existing near-duplicate the
           // server matched instead — is treated identically: stage it as the
           // selected company and re-list so it shows (and reads as selected)
-          // among the real results too.
+          // among the real results too. In multi mode it joins the ticked set
+          // instead of replacing it, so a just-created company can be added
+          // alongside the ones already ticked in one press of Add.
+          var created = { id: data.client.id, name: data.client.name, code: data.client.code };
+          if (multi) { toggle(created, true); } else { select(created); }
           inputEl.value = '';
           search('');
-          select({ id: data.client.id, name: data.client.name, code: data.client.code });
         });
       }
       row.addEventListener('click', activate);
@@ -233,10 +294,13 @@
 
     inputEl.addEventListener('input', function () {
       var q = inputEl.value;
-      if (selected) { select(null); }
-      // Same debounce timing as companies.js's own "All" tab search and this
-      // file's own admin "us" search — reused here rather than a third
-      // value (US_SEARCH_DEBOUNCE_MS is declared further down this file, but
+      // Typing drops the single-mode pick (it no longer matches what is being
+      // searched for) but NEVER the multi-mode ticked set — searching for the
+      // second company to tick must not silently untick the first.
+      if (!multi && selected) { select(null); }
+      // Same debounce timing as this file's own admin "us" search — reused
+      // here rather than a second value (US_SEARCH_DEBOUNCE_MS is declared
+      // further down this file, but
       // already has its value by the time this callback ever actually runs).
       window.clearTimeout(debounce);
       debounce = window.setTimeout(function () { search(q); }, US_SEARCH_DEBOUNCE_MS);
@@ -246,11 +310,15 @@
       search: search,
       reset: function () {
         inputEl.value = '';
-        if (selected) { select(null); }
+        picked = {};
+        if (multi) { notify(); } else if (selected) { select(null); }
         listEl.innerHTML = '';
         window.clearTimeout(debounce);
       },
-      selected: function () { return selected; }
+      selected: function () { return selected; },
+      // Multi mode only — every currently ticked company, in the order they
+      // were ticked. Empty (never null) when nothing is ticked.
+      selectedMany: function () { return pickedList(); }
     };
   }
 
@@ -388,11 +456,43 @@
   // card already had before this round.
   // ------------------------------------------------------------------------
   var anchorBar = document.getElementById('rcAnchorBar');
+  var anchorLabelEl = document.getElementById('rcAnchorLabel');
   var anchorSourceEl = document.getElementById('rcAnchorSource');
   var anchorRoleEl = document.getElementById('rcAnchorRole');
   var anchorDeactivateBtn = document.getElementById('rcAnchorDeactivate');
 
+  // The bar's own SECOND line, for the one state it has to describe two facts
+  // in — a plain query running OVER a still-active anchor (see
+  // updateAnchorBar). Built here rather than templated, the same "build once
+  // near the top, toggle hidden" convention the "us" cases panel and the
+  // "+ Add company" panel already follow; inserted before the Deactivate
+  // button so the button stays the bar's last child in every state.
+  var anchorNoteEl = null;
+  if (anchorBar && anchorDeactivateBtn) {
+    anchorNoteEl = document.createElement('span');
+    anchorNoteEl.className = 'rc-anchor-note';
+    anchorNoteEl.id = 'rcAnchorNote';
+    anchorNoteEl.hidden = true;
+    anchorNoteEl.setAttribute('dir', 'auto');
+    anchorBar.insertBefore(anchorNoteEl, anchorDeactivateBtn);
+  }
+
   var activeAnchor = null;
+
+  // WHAT THE CHART IS CURRENTLY SHOWING — {clientId, field, name, role}, set
+  // right where the query itself is run and cleared by clearQueryMarks() like
+  // every other query visual. The chart used to carry a second indicator for
+  // exactly this (the floating .rc-query-pill, in the very same corner), which
+  // the owner asked to have removed outright; but three real flows run an
+  // Inquiry WITHOUT setting an anchor — Quick Inquiry, the admin "us" card's
+  // own all-cases list, and the ?case= deep link — so the surviving bar has to
+  // cover a query that set no anchor too.
+  //
+  // ``clientId``/``field`` exist purely so updateAnchorBar() can tell whether
+  // what is lit right now IS the active anchor's own query or some OTHER
+  // company's — they are never used to fetch anything. ``clientId`` is null
+  // for the one query with no Client behind it at all (runInquiryForUs).
+  var queryStatus = null;
 
   // The one piece of "case mode" that does NOT fold into activeAnchor
   // itself — the case's own doc number and its own real client's name, kept
@@ -404,13 +504,84 @@
   // activeAnchor.caseId, not this.
   var caseMeta = null;
 
+  function roleTextFor(field) {
+    var node = field ? nodesByField[field] : null;
+    return node ? node.getAttribute('data-role') : (field || '');
+  }
+
+  // THE CHART'S ONE INDICATOR, AND THE TWO FACTS IT HAS TO KEEP STRAIGHT.
+  //
+  // There are genuinely two of them, and they are usually — but NOT always —
+  // the same fact:
+  //
+  //   1. WHICH COMPANY THE LINES ON THE CHART BELONG TO (``queryStatus``);
+  //   2. WHICH COMPANY AN EDIT WOULD ATTACH TO (``activeAnchor`` — every
+  //      other label card opens in "connect" mode against it, and every write
+  //      it makes carries its own case scope through withCaseId()).
+  //
+  // Setting an anchor runs its own query, so normally both name the same
+  // company and one line says everything. But three flows run an Inquiry
+  // WITHOUT touching the anchor — Quick Inquiry, the admin "us" card's own
+  // all-cases list, and the ?case= deep link — so with an anchor set for A,
+  // a Quick Inquiry for B repaints the whole chart for B while A is still
+  // what an edit would attach to. This function USED TO return early inside
+  // its ``if (activeAnchor)`` branch, which made the bar read "Active — A"
+  // over a chart drawn entirely for B: a reader could misread which company
+  // the lines belonged to, which is the one thing this indicator must never
+  // allow.
+  //
+  // WHY BOTH FACTS ARE SHOWN, rather than having a plain Inquiry supersede
+  // (clear) the anchor: superseding fixes the lie about the lines by telling
+  // a second one. The anchor would be gone, but a reader who then opens any
+  // label card would find plain browsing where connect mode was, and — in
+  // case mode — every subsequent write silently unscoped from the case,
+  // because deactivating drops ``caseId``/``caseMeta`` too. A Quick Inquiry
+  // is a look-up gesture; it must not silently destroy the editing context
+  // the reader built, and it must not quietly change where writes land. So
+  // the bar shows the QUERY as its primary text (it is what the lines on the
+  // chart mean) and the anchor as a visibly subordinate note beside it, and
+  // the one control clears both — labelled "Clear all" in exactly that state
+  // so it does not read as clearing only the query.
   function updateAnchorBar() {
     if (!anchorBar) { return; }
-    if (!activeAnchor) { anchorBar.hidden = true; return; }
-    anchorBar.hidden = false;
-    anchorSourceEl.textContent = activeAnchor.client.name;
-    var node = nodesByField[activeAnchor.field];
-    anchorRoleEl.textContent = node ? node.getAttribute('data-role') : activeAnchor.field;
+    // The anchor's OWN query — same company AND same role — is one fact, not
+    // two, and reads exactly as it always did.
+    var queryIsAnchor = !!(activeAnchor && queryStatus &&
+      queryStatus.clientId === activeAnchor.client.id &&
+      queryStatus.field === activeAnchor.field);
+    if (anchorNoteEl) { anchorNoteEl.hidden = true; }
+    if (activeAnchor && (!queryStatus || queryIsAnchor)) {
+      anchorBar.hidden = false;
+      anchorLabelEl.textContent = 'Active';
+      anchorSourceEl.textContent = activeAnchor.client.name;
+      anchorRoleEl.textContent = roleTextFor(activeAnchor.field);
+      anchorDeactivateBtn.textContent = 'Deactivate';
+      return;
+    }
+    if (activeAnchor && queryStatus) {
+      // Two distinct facts. The chart is showing one company; edits still go
+      // to another.
+      anchorBar.hidden = false;
+      anchorLabelEl.textContent = 'Showing';
+      anchorSourceEl.textContent = queryStatus.name;
+      anchorRoleEl.textContent = queryStatus.role || '';
+      if (anchorNoteEl) {
+        anchorNoteEl.textContent = 'edits attach to ' + activeAnchor.client.name +
+          ' — ' + roleTextFor(activeAnchor.field);
+        anchorNoteEl.hidden = false;
+      }
+      anchorDeactivateBtn.textContent = 'Clear all';
+      return;
+    }
+    if (queryStatus) {
+      anchorBar.hidden = false;
+      anchorLabelEl.textContent = 'Query';
+      anchorSourceEl.textContent = queryStatus.name;
+      anchorRoleEl.textContent = queryStatus.role || '';
+      anchorDeactivateBtn.textContent = 'Clear';
+      return;
+    }
+    anchorBar.hidden = true;
   }
 
   function updateCaseModeBanner() {
@@ -440,19 +611,18 @@
     runInquiryForClient(client, field, !!opts.isCaseAnchor);
   }
 
-  // The one shared teardown every "clear" control now goes through —
-  // Deactivate (this bar's own button, below), "Leave case mode", and the
-  // query pill's own Clear button (see the query overlay section next) —
-  // rather than three separate mechanisms. Fully clears the anchor AND the
-  // case-mode banner alongside the same visual state clearQueryMarks()
-  // already tears down for an ordinary Clear, since the active anchor is
-  // always exactly what the current query is showing.
+  // The one shared teardown every "clear" control now goes through — this
+  // bar's own Deactivate/Clear button (both wordings are the same control —
+  // see updateAnchorBar) and "Leave case mode" — rather than separate
+  // mechanisms. Fully clears the anchor AND the case-mode banner alongside
+  // the same visual state clearQueryMarks() already tears down for an
+  // ordinary Clear, since the active anchor is always exactly what the
+  // current query is showing.
   function deactivateAnchor() {
     activeAnchor = null;
     caseMeta = null;
     chartRoot.classList.remove('is-query');
     clearQueryMarks();
-    queryPill.hidden = true;
     updateAnchorBar();
     updateCaseModeBanner();
     if (caseModeInput) { caseModeInput.value = ''; }
@@ -473,18 +643,38 @@
   // ------------------------------------------------------------------------
   // The query (Inquiry) overlay.
   // ------------------------------------------------------------------------
-  var queryPill = document.getElementById('rcQueryPill');
-  var queryName = document.getElementById('rcQueryName');
-  var queryClearBtn = document.getElementById('rcQueryClear');
-
+  // A node's box in the SVG's own viewBox coordinates, INCLUDING whatever
+  // vertical shift its row currently carries (see the layout model below) and
+  // whatever height it has currently grown to. Read off the <rect>'s own
+  // attributes rather than getBBox(): getBBox() reports an element's box in
+  // its own user space and knows nothing about the translate() sitting on its
+  // parent row group, so mid-query it would answer with the row's ORIGINAL
+  // position and every query line drawn from it would point at where that
+  // card used to be. Everything drawn into #rcQueryLines lives OUTSIDE the
+  // row groups, so it needs these absolute coordinates; the one thing that
+  // does not is the case-anchor badge, which is appended INSIDE the node's
+  // own group and therefore inherits the transform — see rawNodeRect().
   function nodeRect(field) {
+    var r = rawNodeRect(field);
+    if (!r) { return null; }
+    var off = rowOffsetForField(field);
+    r.y += off;
+    r.cy += off;
+    return r;
+  }
+
+  // The same box WITHOUT the row shift — for anything drawn as a child of the
+  // node's own <g>, which already inherits that shift.
+  function rawNodeRect(field) {
     var g = nodesByField[field];
     if (!g) { return null; }
-    var box = g.querySelector('.rc-box').getBBox();
-    return {
-      x: box.x, y: box.y, w: box.width, h: box.height,
-      cx: box.x + box.width / 2, cy: box.y + box.height / 2
-    };
+    var box = g.querySelector('.rc-box');
+    if (!box) { return null; }
+    var x = parseFloat(box.getAttribute('x'));
+    var y = parseFloat(box.getAttribute('y'));
+    var w = parseFloat(box.getAttribute('width'));
+    var h = parseFloat(box.getAttribute('height'));
+    return { x: x, y: y, w: w, h: h, cx: x + w / 2, cy: y + h / 2 };
   }
 
   // The case-mode anchor's own extra mark on top of is-focus — see
@@ -495,14 +685,17 @@
   // "small clickable card is an SVG group" shape every other per-node
   // decoration on this chart already is (compare ``.rc-badge``/
   // ``.rc-badge-text``, drawn once in rolechart.py) — rather than an HTML
-  // overlay like ``.rc-card-grow``, since this sits INSIDE the box itself at
-  // a fixed corner, not stacked below it. ``caseAnchorField`` remembers which
+  // overlay like ``.rc-card-names``, since this sits INSIDE the box itself at
+  // a fixed corner and moves with the box when its row shifts. ``caseAnchorField`` remembers which
   // node currently carries it so clearQueryMarks() can always remove it
   // again, whether or not that field is still lit at the time.
   var caseAnchorField = null;
 
   function addCaseAnchorBadge(field) {
-    var rect = nodeRect(field);
+    // rawNodeRect, not nodeRect: this badge is appended INSIDE the node's own
+    // <g>, so it already inherits its row's own shift — using the shifted
+    // coordinates here would apply that shift twice.
+    var rect = rawNodeRect(field);
     if (!rect) { return; }
     var ns = 'http://www.w3.org/2000/svg';
     var g = document.createElementNS(ns, 'g');
@@ -582,131 +775,348 @@
     });
     restoreContextualBadges();
     lastQueryData = null;
+    queryStatus = null;
     queryLinesG.innerHTML = '';
     hideUsCasesPanel();
-    clearCardGrowth();
+    // Puts every row, every box height, every role title, every edge and the
+    // viewBox itself back exactly where the server drew them — see
+    // applyLayout({})'s own "restore" path.
+    applyLayout({});
     removeCaseAnchorBadge();
+    updateAnchorBar();
   }
 
-  // ------------------------------------------------------------------------
-  // In-place card growth — while an Inquiry is active, every TOUCHED card
-  // (the focus card AND every lit card it connects to) grows its own box
-  // taller to show the queried company's own "connected" name(s) (possibly
-  // several — see marketing/services.py::connections_of_client's own
-  // ``connected`` field, and runInquiryForClient's own per-field
-  // namesByField construction below) INSIDE the card itself, so it reads as
-  // one taller card rather than a second floating box stacked underneath it
-  // (an earlier round tried exactly that — a separate .rc-node-overlay div —
-  // and the owner rejected it outright).
+  // ========================================================================
+  // THE LAYOUT MODEL, IN-CARD GROWTH, AND THE REAL RELAYOUT THAT PAYS FOR IT
+  // ========================================================================
+  // While an Inquiry is active every TOUCHED card (the focus card AND every
+  // lit card it connects to) has to show the queried company's own
+  // "connected" name(s) — see marketing/services.py::connections_of_client's
+  // ``connected`` field and runInquiryForClient's own namesByField below.
+  // Two earlier shapes for that were rejected outright by the owner: a
+  // separate floating box stacked below the card, then an HTML slab flush
+  // against the card's own bottom edge. What is built here instead is what
+  // was actually asked for:
   //
-  // Built as a plain HTML element (position:absolute inside #rcCanvas, the
-  // same containing block #rcQueryPill/#rcUsCasesPanel already use) rather
-  // than growing the SVG <rect> itself: the box's own text elements
-  // (rc-role/rc-abbr/the badge) would all need repositioning too, and every
-  // OTHER row's fixed Y coordinate comes straight from rolechart.py's own
-  // pre-computed layout — reflowing that from here would mean duplicating
-  // its geometry rather than just reading it. An HTML slab positioned flush
-  // against the box's own bottom edge, sharing its exact left/right extent
-  // and its own resolved fill/stroke (read live off the box via
-  // getComputedStyle, not re-derived from rolechart.css's own state rules a
-  // second time — see growCard below), reads as a seamless continuation of
-  // the same card instead, with the card's existing Persian role title
-  // staying exactly where it already sits, at the top of the (unchanged)
-  // box above this.
+  //   * THE CARD'S OWN SVG BOX GROWS TALLER (its <rect> height attribute);
+  //   * its Persian role title moves to the TOP of the grown box;
+  //   * its English abbreviation is removed while grown (.is-grown, see
+  //     rolechart.css) — there is no room for a second heading;
+  //   * the connected names are listed INSIDE the box, with room for five
+  //     before the list scrolls internally.
   //
-  // How tall it may grow is measured, not assumed: rolechart.py's row gap
-  // (_GAP) was raised specifically to leave room for this, but this still
-  // measures the REAL on-screen distance to the nearest card below it in the
-  // same horizontal band before growing into it, and caps its own height
-  // (with its own overflow-y:auto scroll) at whatever that leaves — see
-  // growCard's own ``available`` computation — rather than trusting the
-  // constant never to matter. Built fresh on every successful query and torn
-  // down, all at once, by clearCardGrowth() (called from clearQueryMarks()
-  // above); a field not currently touched is never grown at all.
+  // And because a card really does get taller, this does a REAL RELAYOUT
+  // rather than growing into a gap and hoping it fits:
+  //
+  //   * each ROW's extra height is the tallest growth among its own cards;
+  //   * every row below is shifted down by the cumulative extra above it —
+  //     one transform on that row's own <g class="rc-row-group"> (added to
+  //     _role_chart.html for this, keyed off the row_index rolechart.py
+  //     already emits), so a row moves as one unit: boxes, titles, badges and
+  //     any decoration inside them together;
+  //   * every edge between two shifted rows is re-routed from the recipe
+  //     marketing/rolechart.py::build()'s own docstring publishes (each edge
+  //     carries its seg/x1/x2 and its two original row anchors as data-*
+  //     attributes now — see the template);
+  //   * the svg's viewBox height grows by the total added, so the chart
+  //     itself gets taller — which the owner explicitly accepted.
+  //
+  // Clearing the query calls applyLayout({}) and every one of those is put
+  // back to the exact value it was read from at load: row transforms removed,
+  // box heights and role baselines restored, each edge's own original ``d``
+  // string reinstated (not recomputed — reinstated), viewBox reset.
+  //
+  // ONE EXCEPTION, and it is deliberate: the "us" card (Foolad Tabar) never
+  // lists names and therefore never grows. Only its CASES are shown for it,
+  // in the separate cases panel below. It is still highlighted as touched
+  // like any other card.
   // ------------------------------------------------------------------------
-  var cardGrowEls = {}; // field -> the growth element currently shown for it
 
-  var CARD_GROW_MARGIN_PX = 6;   // breathing room kept above the next card down
-  var CARD_GROW_FALLBACK_PX = 160; // used only when nothing sits below at all (e.g. the chart's own bottom row)
-  var CARD_GROW_MAX_PX = 220;    // "a bit taller", not a card that dwarfs its row — see the module comment above
+  // ---- what the server drew, read once at load ---------------------------
+  var VIEW_W0 = parseFloat(svg.getAttribute('data-view-w')) ||
+    parseFloat(svg.getAttribute('viewBox').split(' ')[2]);
+  var VIEW_H0 = parseFloat(svg.getAttribute('data-view-h')) ||
+    parseFloat(svg.getAttribute('viewBox').split(' ')[3]);
 
-  // How much vertical room, in real on-screen pixels, exists below
-  // ``boxScreen`` before the nearest OTHER card sharing its horizontal band
-  // begins — measured directly off every other card's own current
-  // getBoundingClientRect() rather than assumed from rolechart.py's _GAP, so
-  // this stays correct however the layout is tuned later. "Sharing its
-  // horizontal band" is a plain x-range overlap check: a card in a different
-  // column two rows down is irrelevant, only the one(s) directly beneath
-  // this card's own column(s) can ever be grown into.
-  function availableGrowthPx(field, boxScreen) {
-    var nextTop = Infinity;
-    Object.keys(nodesByField).forEach(function (otherField) {
-      if (otherField === field) { return; }
-      var otherBox = nodesByField[otherField].querySelector('.rc-box');
-      if (!otherBox) { return; }
-      var r = otherBox.getBoundingClientRect();
-      var overlapsX = r.left < boxScreen.right && r.right > boxScreen.left;
-      if (overlapsX && r.top >= boxScreen.bottom - 1) {
-        nextTop = Math.min(nextTop, r.top);
-      }
+  // One entry per row of rolechart.py's own ``rows``, in the same order:
+  // {index, y (ORIGINAL top y — the baseline every shift is measured from, so
+  // repeated growth never accumulates drift), el (the row's <g>), fields}.
+  var rowGroups = [];
+  var rowIndexByField = {};
+  Array.prototype.forEach.call(svg.querySelectorAll('.rc-row-group'), function (g) {
+    var index = parseInt(g.getAttribute('data-row-index'), 10);
+    var fields = [];
+    Array.prototype.forEach.call(g.querySelectorAll('.rc-node'), function (n) {
+      var f = n.getAttribute('data-field');
+      fields.push(f);
+      rowIndexByField[f] = index;
     });
-    var raw = nextTop === Infinity ? CARD_GROW_FALLBACK_PX : (nextTop - boxScreen.bottom - CARD_GROW_MARGIN_PX);
-    return Math.max(0, Math.min(raw, CARD_GROW_MAX_PX));
-  }
+    rowGroups[index] = { index: index, y: parseFloat(g.getAttribute('data-row-y')), el: g, fields: fields };
+  });
 
-  function growCard(field, names) {
+  // Each card's own original geometry, straight off the markup — the only
+  // record of "what this looked like before any growth", so a restore is a
+  // copy-back rather than a re-derivation.
+  var nodeBase = {};
+  Object.keys(nodesByField).forEach(function (field) {
     var g = nodesByField[field];
-    var boxEl = g && g.querySelector('.rc-box');
-    if (!g || !boxEl || !rcCanvas || !names || !names.length) { return; }
-    var boxScreen = boxEl.getBoundingClientRect();
-    var canvasBox = rcCanvas.getBoundingClientRect();
-    if (!boxScreen.width || !canvasBox.width) { return; }
-    var available = availableGrowthPx(field, boxScreen);
-    // No usable room at all (should not happen on this chart's own fixed,
-    // now-generously-gapped layout, but nodeRect()-style helpers elsewhere in
-    // this file stay defensive too) — leave the card at its normal size
-    // rather than force a sliver nothing could actually read.
-    if (available < 18) { return; }
+    var box = g.querySelector('.rc-box');
+    var role = g.querySelector('.rc-role');
+    if (!box) { return; }
+    nodeBase[field] = {
+      y: parseFloat(box.getAttribute('y')),
+      h: parseFloat(box.getAttribute('height')),
+      roleY: role ? parseFloat(role.getAttribute('y')) : null
+    };
+  });
+  // The chart's own uniform card height (rolechart.py's NODE_H) — read off
+  // the markup, never retyped here.
+  var NODE_H0 = (function () {
+    var keys = Object.keys(nodeBase);
+    return keys.length ? nodeBase[keys[0]].h : 62;
+  })();
 
-    var el = document.createElement('div');
-    el.className = 'rc-card-grow';
-    var boxStyle = window.getComputedStyle(boxEl);
-    var strokeW = parseFloat(boxStyle.strokeWidth) || 1.4;
-    el.style.background = boxStyle.fill;
-    el.style.borderColor = boxStyle.stroke;
-    el.style.borderWidth = strokeW + 'px';
-    el.style.maxHeight = available + 'px';
-    names.forEach(function (name) {
-      var row = document.createElement('div');
-      row.className = 'rc-card-grow-name';
-      row.textContent = name;
-      row.setAttribute('dir', 'auto');
-      el.appendChild(row);
+  // Every drawn edge, with the four things build() publishes for recomputing
+  // it plus its own original path string.
+  var edgeCache = [];
+  Array.prototype.forEach.call(svg.querySelectorAll('.rc-edges .rc-edge'), function (p) {
+    edgeCache.push({
+      el: p,
+      d0: p.getAttribute('d'),
+      seg: p.getAttribute('data-seg') || 'direct',
+      x1: parseFloat(p.getAttribute('data-x1')),
+      x2: parseFloat(p.getAttribute('data-x2')),
+      pRow: parseInt(p.getAttribute('data-parent-row'), 10),
+      cRow: parseInt(p.getAttribute('data-child-row'), 10)
     });
-    rcCanvas.appendChild(el);
-    el.style.left = (boxScreen.left - canvasBox.left) + 'px';
-    el.style.width = boxScreen.width + 'px';
-    // Pulled up by half the box's own stroke width so this slab's top edge
-    // sits exactly where the box's stroke is centred, covering the box's own
-    // bottom border rather than leaving it as a visible seam between "the
-    // card" and "the growth" — the whole point is reading as one shape.
-    el.style.top = (boxScreen.bottom - canvasBox.top - strokeW / 2) + 'px';
-    cardGrowEls[field] = el;
+  });
+
+  // ---- the current layout ------------------------------------------------
+  var cardExtra = {};   // field -> extra height, in viewBox units
+  var rowExtra = [];    // row index -> the tallest cardExtra in that row
+  var rowOffset = [];   // row index -> how far down that row currently sits
+  var totalExtra = 0;   // the sum of every rowExtra — how much taller the chart is
+
+  function resetLayoutState() {
+    cardExtra = {};
+    rowExtra = rowGroups.map(function () { return 0; });
+    rowOffset = rowGroups.map(function () { return 0; });
+    totalExtra = 0;
+  }
+  resetLayoutState();
+
+  function rowOffsetForField(field) {
+    var i = rowIndexByField[field];
+    return (i === undefined || !rowOffset[i]) ? 0 : rowOffset[i];
+  }
+  function currentRowTop(i) { return rowGroups[i].y + (rowOffset[i] || 0); }
+  function currentRowBottom(i) { return currentRowTop(i) + NODE_H0 + (rowExtra[i] || 0); }
+
+  // ---- growth sizing, in viewBox units -----------------------------------
+  var GROW_ROLE_BAND = 30;      // the band the role title occupies at the top of a grown box
+  var GROW_ROLE_BASELINE = 20;  // where that title's own baseline sits inside it
+  var GROW_NAME_H = 17;         // one name row
+  var GROW_PAD_BOTTOM = 8;      // breathing room under the last visible name
+  var GROW_VISIBLE_NAMES = 5;   // "room for at least five names before an internal scroll"
+
+  function grownHeight(nameCount) {
+    var visible = Math.min(nameCount, GROW_VISIBLE_NAMES);
+    return Math.max(NODE_H0, GROW_ROLE_BAND + visible * GROW_NAME_H + GROW_PAD_BOTTOM);
   }
 
-  function showCardGrowth(fields) {
-    if (!lastQueryData || !rcCanvas) { return; }
+  // {field: {names, h}} for every touched field that should grow. "us" is the
+  // one carve-out (see the section comment); a field with nothing to list, or
+  // one this chart does not draw, simply is not in the result.
+  function growthForFields(fields) {
+    var growth = {};
+    if (!lastQueryData) { return growth; }
     fields.forEach(function (field) {
-      growCard(field, lastQueryData.namesByField[field]);
+      if (field === 'us') { return; }
+      if (!nodeBase[field]) { return; }
+      var names = lastQueryData.namesByField[field];
+      if (!names || !names.length) { return; }
+      growth[field] = { names: names, h: grownHeight(names.length) };
+    });
+    return growth;
+  }
+
+  // ---- rolechart.py::_route, mirrored verbatim ---------------------------
+  // Straight when the two columns line up, otherwise an S-elbow with rounded
+  // corners at its midpoint. Copied from the JS transcription in
+  // marketing/rolechart.py::build()'s own docstring, which exists precisely
+  // so this file does not have to reinvent (or drift from) that shape.
+  function route(x1, y1, x2, y2, r) {
+    r = (r === undefined) ? 16 : r;
+    if (x1 === x2) { return 'M' + x1 + ' ' + y1 + ' L' + x2 + ' ' + y2; }
+    var ymid = (y1 + y2) / 2;
+    var rr = Math.max(1, Math.min(r, Math.abs(ymid - y1), Math.abs(y2 - ymid), Math.abs(x2 - x1) / 2));
+    var sx = x2 > x1 ? 1 : -1;
+    var sy = y2 > y1 ? 1 : -1;
+    return 'M' + x1 + ' ' + y1 +
+      ' L' + x1 + ' ' + (ymid - rr * sy) +
+      ' Q' + x1 + ' ' + ymid + ' ' + (x1 + rr * sx) + ' ' + ymid +
+      ' L' + (x2 - rr * sx) + ' ' + ymid +
+      ' Q' + x2 + ' ' + ymid + ' ' + x2 + ' ' + (ymid + rr * sy) +
+      ' L' + x2 + ' ' + y2;
+  }
+
+  // The bottom edge an edge leaving row ``i`` at column ``x`` should start
+  // from: that particular CARD's own bottom when one sits on that column,
+  // falling back to the row's own (tallest) bottom otherwise. build()'s
+  // recipe describes the row-level value, which is the right answer for the
+  // shared many-to-many waist below; using it for the leg itself would leave
+  // an edge starting in mid-air under a card that did not grow while its
+  // row-mate did.
+  function parentBottomAt(i, x) {
+    var found = null;
+    rowGroups[i].fields.forEach(function (field) {
+      var base = nodeBase[field];
+      var raw = rawNodeRect(field);
+      if (!base || !raw) { return; }
+      if (Math.abs(raw.cx - x) < 0.5) { found = field; }
+    });
+    if (found === null) { return currentRowBottom(i); }
+    return currentRowTop(i) + nodeBase[found].h + (cardExtra[found] || 0);
+  }
+
+  function redrawEdges(restore) {
+    edgeCache.forEach(function (e) {
+      if (restore) { e.el.setAttribute('d', e.d0); return; }
+      var pBottomRow = currentRowBottom(e.pRow);
+      var cTop = currentRowTop(e.cRow);
+      var waist = (pBottomRow + cTop) / 2;
+      var d;
+      if (e.seg === 'to_waist') {
+        d = route(e.x1, parentBottomAt(e.pRow, e.x1), e.x2, waist);
+      } else if (e.seg === 'from_waist') {
+        d = route(e.x1, waist, e.x2, cTop);
+      } else {
+        d = route(e.x1, parentBottomAt(e.pRow, e.x1), e.x2, cTop);
+      }
+      e.el.setAttribute('d', d);
     });
   }
 
-  function clearCardGrowth() {
-    Object.keys(cardGrowEls).forEach(function (field) {
-      var el = cardGrowEls[field];
+  // The growth map the chart is laid out for RIGHT NOW — the same object
+  // applyLayout() was last handed, kept so a reflow (a resize; see
+  // observeChartResize below) can re-place the pixel-space overlays from the
+  // very same numbers without re-deriving them and without re-running the
+  // layout itself. {} whenever nothing is grown.
+  var currentGrowth = {};
+
+  // The whole relayout, in one place. ``growth`` is growthForFields()'s own
+  // map; an EMPTY one is the restore path (and is what clearQueryMarks()
+  // calls), putting every value back exactly as the server drew it.
+  function applyLayout(growth) {
+    growth = growth || {};
+    currentGrowth = growth;
+    var fields = Object.keys(growth);
+    var growing = fields.length > 0;
+
+    resetLayoutState();
+    fields.forEach(function (field) {
+      cardExtra[field] = Math.max(0, growth[field].h - nodeBase[field].h);
+    });
+    rowGroups.forEach(function (row, i) {
+      var most = 0;
+      row.fields.forEach(function (f) { most = Math.max(most, cardExtra[f] || 0); });
+      rowExtra[i] = most;
+    });
+    var acc = 0;
+    rowGroups.forEach(function (row, i) {
+      rowOffset[i] = acc;
+      acc += rowExtra[i];
+    });
+    totalExtra = acc;
+
+    rowGroups.forEach(function (row, i) {
+      if (rowOffset[i]) { row.el.setAttribute('transform', 'translate(0 ' + rowOffset[i] + ')'); }
+      else { row.el.removeAttribute('transform'); }
+    });
+
+    Object.keys(nodeBase).forEach(function (field) {
+      var base = nodeBase[field];
+      var g = nodesByField[field];
+      var box = g.querySelector('.rc-box');
+      var role = g.querySelector('.rc-role');
+      var grown = Object.prototype.hasOwnProperty.call(growth, field);
+      box.setAttribute('height', grown ? growth[field].h : base.h);
+      if (role && base.roleY !== null) {
+        role.setAttribute('y', grown ? (base.y + GROW_ROLE_BASELINE) : base.roleY);
+      }
+      g.classList.toggle('is-grown', grown);
+    });
+
+    svg.setAttribute('viewBox', '0 0 ' + VIEW_W0 + ' ' + (VIEW_H0 + totalExtra));
+    redrawEdges(!growing);
+    placeCardNames(growth);
+  }
+
+  // ---- the name lists themselves -----------------------------------------
+  // Still plain HTML over the SVG — SVG has neither text wrapping nor
+  // scrollable overflow — but transparent and positioned INSIDE the grown
+  // box's own interior, so what the reader sees is the card's own fill with
+  // its names on it, not a second surface. Geometry AND type size are scaled
+  // by the SVG's own current on-screen ratio, because this chart is
+  // responsive: one viewBox unit is not one screen pixel.
+  var cardNameEls = {};
+
+  function clearCardNames() {
+    Object.keys(cardNameEls).forEach(function (field) {
+      var el = cardNameEls[field];
       if (el && el.parentNode) { el.parentNode.removeChild(el); }
     });
-    cardGrowEls = {};
+    cardNameEls = {};
+  }
+
+  function placeCardNames(growth) {
+    clearCardNames();
+    var fields = Object.keys(growth || {});
+    if (!fields.length || !rcCanvas) { return; }
+    var svgBox = svg.getBoundingClientRect();
+    var canvasBox = rcCanvas.getBoundingClientRect();
+    if (!svgBox.width || !canvasBox.width) { return; }
+    var scale = svgBox.width / VIEW_W0;   // screen px per viewBox unit
+    fields.forEach(function (field) {
+      var g = nodesByField[field];
+      var box = g && g.querySelector('.rc-box');
+      if (!box) { return; }
+      var r = box.getBoundingClientRect();
+      if (!r.width || !r.height) { return; }
+      var el = document.createElement('div');
+      el.className = 'rc-card-names';
+      el.style.lineHeight = (GROW_NAME_H * scale) + 'px';
+      el.style.fontSize = (11.5 * scale) + 'px';
+      el.style.left = (r.left - canvasBox.left + 8 * scale) + 'px';
+      el.style.width = Math.max(10, r.width - 16 * scale) + 'px';
+      el.style.top = (r.top - canvasBox.top + GROW_ROLE_BAND * scale) + 'px';
+      el.style.height = Math.max(GROW_NAME_H * scale,
+        (growth[field].h - GROW_ROLE_BAND - GROW_PAD_BOTTOM) * scale) + 'px';
+      growth[field].names.forEach(function (name) {
+        var row = document.createElement('div');
+        row.className = 'rc-card-names-name';
+        row.textContent = name;
+        row.title = name;
+        row.setAttribute('dir', 'auto');
+        el.appendChild(row);
+      });
+      // The list covers part of a card that is itself a control, so a click
+      // on it opens that card exactly as a click on the card would — the
+      // grown card stays ONE thing, not a card with a dead patch on it.
+      el.addEventListener('click', function () {
+        openModalForField(field, g.getAttribute('data-role'), g.getAttribute('data-abbr'), g.getAttribute('data-kind'));
+      });
+      rcCanvas.appendChild(el);
+      cardNameEls[field] = el;
+    });
+  }
+
+  // Grows every touched card and relayouts the chart around them. ``fields``
+  // is the whole touched set (focus + lit), exactly as runInquiryForClient
+  // already assembles it.
+  function showCardGrowth(fields) {
+    if (!lastQueryData) { return; }
+    applyLayout(growthForFields(fields));
   }
 
   // ------------------------------------------------------------------------
@@ -717,33 +1127,63 @@
   // very same clearQueryMarks() every other query-mode visual already goes
   // through — see the call above.
   //
-  // Positioned `position:absolute` inside `#rcCanvas`, the same containing
-  // block `#rcQueryPill` already anchors to (see rolechart.css: `.rc-canvas`
-  // is `position:relative`) — anchored to the canvas's right edge via CSS,
-  // vertically placed here (in pixels, at open time) around
-  // usCasesAnchorY()'s own point but clamped to the canvas's own current
-  // bounds — see positionUsCasesPanel() below for why a plain percentage
-  // centred on that point is not enough on its own.
+  // Positioned `position:absolute` inside `#rcCanvas` (see rolechart.css:
+  // `.rc-canvas` is `position:relative`), in a place that is MEASURED, not
+  // assumed — see reserveUsCasesArea() below. It used to be pinned to the
+  // canvas's right edge and merely centred on a nominal y, which is how it
+  // ended up sitting on top of real cards whenever a company had many cases;
+  // the owner sent a screenshot of exactly that.
+  //
+  // It also has a fixed HEAD now, above the one scrolling region: the panel's
+  // title, the three status counts for the company this query is about
+  // (approved / cancelled / no result — services.case_status_counts, via the
+  // JSON endpoint named by CFG.caseStatusCountsUrl), and, for the admin/GM
+  // tier, a link straight into the case archive filtered to that same
+  // company.
   // ------------------------------------------------------------------------
   var rcCanvas = document.getElementById('rcCanvas');
   var usCasesPanel = document.createElement('div');
   usCasesPanel.className = 'rc-us-cases-panel';
   usCasesPanel.id = 'rcUsCasesPanel';
   usCasesPanel.hidden = true;
+
+  var usCasesHead = document.createElement('div');
+  usCasesHead.className = 'rc-us-cases-head';
   var usCasesTitle = document.createElement('div');
   usCasesTitle.className = 'rc-us-cases-title';
   usCasesTitle.textContent = 'Cases connected to Us';
-  usCasesPanel.appendChild(usCasesTitle);
-  // The one scrollable region — height-capped in CSS (max-height +
-  // overflow-y:auto) so a client with a hundred-plus cases never grows the
-  // panel past a sane size or reflows anything else on the chart. Built
-  // once per open, from the array already in hand (no virtual scrolling,
-  // no re-render on scroll, no re-grouping per frame — see the CSS section
-  // for the height cap itself).
+  usCasesHead.appendChild(usCasesTitle);
+  var usCasesCounts = document.createElement('div');
+  usCasesCounts.className = 'rc-us-cases-counts';
+  usCasesCounts.hidden = true;
+  usCasesHead.appendChild(usCasesCounts);
+  var usCasesArchiveLink = document.createElement('a');
+  usCasesArchiveLink.className = 'rc-us-cases-archive';
+  usCasesArchiveLink.hidden = true;
+  usCasesHead.appendChild(usCasesArchiveLink);
+  usCasesPanel.appendChild(usCasesHead);
+
+  // The one scrollable region — it takes whatever height the panel's own
+  // measured box leaves after the head above it (flex:1/min-height:0 in the
+  // CSS), so a case-heavy company scrolls INSIDE the reserved area instead of
+  // growing the panel out of it. Built once per open, from the array already
+  // in hand (no virtual scrolling, no re-render on scroll), and capped at
+  // US_CASES_MAX_ROWS rows with a visible "showing N of M" line underneath
+  // rather than a silent truncation.
   var usCasesList = document.createElement('div');
   usCasesList.className = 'rc-us-cases-list';
   usCasesPanel.appendChild(usCasesList);
+  var usCasesMore = document.createElement('div');
+  usCasesMore.className = 'rc-us-cases-more';
+  usCasesMore.hidden = true;
+  usCasesPanel.appendChild(usCasesMore);
   if (rcCanvas) { rcCanvas.appendChild(usCasesPanel); }
+
+  // How many case rows are ever rendered at once. A company with hundreds of
+  // cases is real, and building hundreds of rows (plus a branch line per
+  // group) on every query is paid for on every single Inquiry — so the list
+  // stops at a few dozen and says so.
+  var US_CASES_MAX_ROWS = 40;
 
   // Groups ``cases`` (the SAME array client_connections/us Inquiry already
   // fetched — nothing refetched here) by each row's own ``label`` key —
@@ -758,13 +1198,35 @@
   // on every case entry this same array already carries) using the same
   // .rc-row-badge pill this file already uses elsewhere for a small
   // trailing tag; shown for every viewer, since it is purely informational.
-  // Admin/GM viewers (CFG.isAdminTier) additionally get the row itself
-  // clickable, navigating to that case's own detail page via
+  // Viewers who may open a case (CFG.canOpenCases) additionally get the row
+  // itself clickable, navigating to that case's own detail page via
   // CFG.caseDetailUrlBase — see home.html for how that URL base is built.
-  // Not gated for anyone else: a non-admin/GM viewer's row stays exactly as
-  // plain/unclickable as it always was.
+  //
+  // CFG.canOpenCases, not CFG.isAdminTier: the rows in this array are already
+  // scoped server-side to the cases this viewer may see
+  // (marketing/access.py::case_access_for, applied by the client_connections /
+  // us endpoints that fill the panel), so "there is a row here" and "you may
+  // open it" are now the same statement and a per-row test would have nothing
+  // left to decide. That is what makes the whole panel clickable for a
+  // Marketing expert who also holds a Commercial seat — for their OWN cases,
+  // which are the only ones they are sent. A viewer with no case access is sent
+  // no rows at all, so no row can lead to a permission wall.
+  //
+  // CFG.caseOpenPrefix is how a dual-seat viewer gets there: they are sitting
+  // in their Marketing seat, and the case page resolves participation against
+  // the seat being worked, so the link goes through people:activate_role's
+  // ?next= to switch them into their Commercial seat first. Empty for the
+  // admin/GM tier, who go straight at the case.
   function renderUsCasesPanelContent(cases) {
     usCasesList.innerHTML = '';
+    var total = cases.length;
+    // The cap bites BEFORE grouping, so the groups shown are groups of rows
+    // that are actually rendered and each heading's own "(n)" still counts
+    // exactly the rows underneath it.
+    var shownCases = total > US_CASES_MAX_ROWS ? cases.slice(0, US_CASES_MAX_ROWS) : cases;
+    usCasesMore.hidden = shownCases.length >= total;
+    usCasesMore.textContent = 'Showing ' + shownCases.length + ' of ' + total + ' cases';
+    cases = shownCases;
     var order = [];
     var byLabel = {};
     cases.forEach(function (c) {
@@ -794,10 +1256,14 @@
           badge.setAttribute('dir', 'auto');
           row.appendChild(badge);
         }
-        if (CFG.isAdminTier && CFG.caseDetailUrlBase && c.case_id != null) {
+        if (CFG.canOpenCases && CFG.caseDetailUrlBase && c.case_id != null) {
+          var target = CFG.caseDetailUrlBase + c.case_id + '/';
+          if (CFG.caseOpenPrefix) {
+            target = CFG.caseOpenPrefix + encodeURIComponent(target);
+          }
           row.classList.add('is-clickable');
           row.addEventListener('click', function () {
-            window.location.href = CFG.caseDetailUrlBase + c.case_id + '/';
+            window.location.href = target;
           });
         }
         group.appendChild(row);
@@ -806,105 +1272,213 @@
     });
   }
 
-  // Anchored to the vertical span "rival" and "supplier" occupy TOGETHER
-  // (they're stacked, one directly above the other, in the chart's own
-  // bottom-left corner — see rolechart.py) rather than to the "us" node's
-  // own centre-y: the owner wants this panel genuinely OCCUPYING the
-  // now-freed bottom-right corner, symmetrically opposite that stack, not
-  // floating near "us". Weighted toward the TOP of that span (25% of the way
-  // down, not the exact 50% midpoint) so the panel itself sits comfortably
-  // higher rather than crowding the chart's own bottom edge. Falls back to
-  // "us"'s own centre-y only if either rect is somehow missing (should not
-  // happen on this chart's fixed layout, but nodeRect() already returns null
-  // defensively).
-  function usCasesAnchorY() {
-    var rivalRect = nodeRect('rival');
-    var supplierRect = nodeRect('supplier');
-    if (rivalRect && supplierRect) {
-      var spanTop = rivalRect.y;
-      var spanBottom = supplierRect.y + supplierRect.h;
-      return spanTop + (spanBottom - spanTop) * 0.25;
+  // THE PANEL'S RESERVED AREA — the chart's own bottom-right corner, worked
+  // out from the cards that are really there rather than from a constant.
+  //
+  // The corner itself is reserved by the chart's own layout: rolechart.py's
+  // _ROWS deliberately leaves COL[3] empty on its last rows ("a later phase
+  // grows a panel there", in that module's own words). What is NOT safe to
+  // assume is where that corner starts on screen: the chart scales with the
+  // page's width, and — as of this round — rows shift and cards grow while an
+  // Inquiry is active, which moves the very cards this panel must stay clear
+  // of. So every number below is measured, in canvas-relative pixels:
+  //
+  //   * the panel claims a right-hand strip inside the canvas's own margin;
+  //   * its TOP is the lowest bottom edge of any card whose own rect overlaps
+  //     that strip horizontally (plus real clearance) — measured off each
+  //     card's live getBoundingClientRect(), so a grown card pushes the panel
+  //     down exactly as much as it actually grew;
+  //   * its HEIGHT is whatever is left down to the canvas's own bottom
+  //     margin, so the outer box is inside the chart by construction, and the
+  //     list inside it scrolls.
+  //
+  // The one degenerate case — a canvas so short that the reserved strip
+  // cannot fit a usable panel at all — is handled by falling back to a
+  // minimum height pinned to the canvas's own bottom margin: still fully
+  // inside the chart, at the cost of the clearance this function otherwise
+  // guarantees. Returns null when the canvas has no size yet.
+  var US_PANEL_MARGIN = 16;   // breathing room from the canvas's own edges
+  var US_PANEL_CLEAR = 18;    // real clearance between the panel and any card
+  var US_PANEL_MIN_H = 150;
+  var US_PANEL_MAX_W = 440;
+
+  function reserveUsCasesArea() {
+    if (!rcCanvas) { return null; }
+    var canvasBox = rcCanvas.getBoundingClientRect();
+    var canvasW = canvasBox.width;
+    var canvasH = canvasBox.height;
+    if (!canvasW || !canvasH) { return null; }
+
+    var width = Math.min(US_PANEL_MAX_W, Math.max(220, canvasW * 0.34));
+    width = Math.min(width, Math.max(120, canvasW - 2 * US_PANEL_MARGIN));
+    var left = canvasW - US_PANEL_MARGIN - width;
+    var right = left + width;
+
+    var top = US_PANEL_MARGIN;
+    Object.keys(nodesByField).forEach(function (field) {
+      var box = nodesByField[field].querySelector('.rc-box');
+      if (!box) { return; }
+      var r = box.getBoundingClientRect();
+      var cardLeft = r.left - canvasBox.left;
+      var cardRight = r.right - canvasBox.left;
+      // Only a card sharing this strip's horizontal band can be in the way —
+      // one three columns to the left never is, however low it sits.
+      if (cardRight <= left - US_PANEL_CLEAR || cardLeft >= right + US_PANEL_CLEAR) { return; }
+      top = Math.max(top, r.bottom - canvasBox.top + US_PANEL_CLEAR);
+    });
+
+    var height = canvasH - US_PANEL_MARGIN - top;
+    if (height < US_PANEL_MIN_H) {
+      height = Math.min(US_PANEL_MIN_H, Math.max(60, canvasH - 2 * US_PANEL_MARGIN));
+      top = Math.max(US_PANEL_MARGIN, canvasH - US_PANEL_MARGIN - height);
     }
-    var usRect = nodeRect('us');
-    return usRect ? usRect.cy : null;
+    return { left: left, top: top, width: width, height: height };
   }
 
-  // The list's own max-height, in pixels, bounded against the CHART
-  // CANVAS's own current on-screen height rather than a fixed value that
-  // could exceed a short canvas on a small screen — re-measured every time
-  // the panel opens (openUsCasesPanel rebuilds it fresh each time anyway).
-  // ``chrome`` accounts for the panel's own title row and padding
-  // (.rc-us-cases-title plus the panel's own top/bottom padding). Reserves
-  // ``margin`` on BOTH the top and bottom of the canvas (not just once) —
-  // this is only the FIRST of two guards against the panel sticking out
-  // past the canvas: it caps the panel's total height against the canvas's
-  // own total height regardless of where the panel ends up sitting;
-  // positionUsCasesPanel() below is the second, tighter guard, clamping the
-  // panel's actual on-screen TOP against its own real rendered height once
-  // this cap has already been applied.
-  var US_CASES_PANEL_CHROME = 46; // title row + vertical padding, roughly
-  var US_CASES_PANEL_MARGIN = 24; // breathing room top/bottom within the canvas
-  function usCasesListMaxHeight() {
-    if (!rcCanvas) { return 440; }
-    var canvasH = rcCanvas.getBoundingClientRect().height;
-    if (!canvasH) { return 440; }
-    var available = canvasH - US_CASES_PANEL_CHROME - 2 * US_CASES_PANEL_MARGIN;
-    return Math.max(90, Math.min(620, available));
+  // The three status counts for the company this query is about — approved /
+  // cancelled / no result, the same three buckets services.py::_status_fa
+  // already puts every case in (see services.case_status_counts, and
+  // marketing/views.py's client_case_counts endpoint behind
+  // CFG.caseStatusCountsUrl). Fetched per open and rendered into the panel's
+  // own fixed head; a viewer whose deployment does not expose the endpoint,
+  // or a request that fails, simply gets no counts row rather than an error —
+  // the case list underneath is the panel's real content and stands alone.
+  function renderUsCasesCounts(client) {
+    usCasesCounts.hidden = true;
+    usCasesCounts.innerHTML = '';
+    if (!CFG.caseStatusCountsUrl || !client || client.id == null) { return; }
+    var mySeq = ++usCasesCountsSeq;
+    get(CFG.caseStatusCountsUrl, { client_id: client.id }).then(function (data) {
+      if (mySeq !== usCasesCountsSeq || !data || !data.ok || !data.counts) { return; }
+      var rows = [
+        { cls: 'is-approved', text: 'Approved', n: data.counts.approved },
+        { cls: 'is-cancelled', text: 'Cancelled', n: data.counts.cancelled },
+        { cls: 'is-pending', text: 'No result', n: data.counts.pending }
+      ];
+      usCasesCounts.innerHTML = '';
+      rows.forEach(function (row) {
+        var pill = document.createElement('span');
+        pill.className = 'rc-us-cases-count ' + row.cls;
+        var b = document.createElement('b');
+        b.textContent = String(row.n || 0);
+        pill.appendChild(b);
+        pill.appendChild(document.createTextNode(row.text));
+        usCasesCounts.appendChild(pill);
+      });
+      usCasesCounts.hidden = false;
+    }).catch(function () {});
+  }
+  var usCasesCountsSeq = 0;
+
+  // "Open in the case archive, filtered to this company." The URL shape is
+  // the one that already works elsewhere in this app — the archive URL plus
+  // ?fclient=<Name (CODE)>, URL-encoded — and it has to stay character for
+  // character identical to the option text cases/views.py::archive builds for
+  // its own f_clients dropdown, because that page filters by matching this
+  // string against those options, not by client id.
+  //
+  // GATED ON CFG.canOpenCases, exactly like the per-case rows underneath it
+  // (renderUsCasesPanelContent) — not on CFG.isAdminTier. It used to be the
+  // narrower test, justified by "cases/views.py::archive redirects a Marketing
+  // profile straight back to this page anyway, so this would be a round trip
+  // to nowhere". The narrow test was wrong on its own terms: the link is the
+  // panel's own header for the rows underneath it, and a viewer who may open
+  // any of those rows may certainly see the list they came from. It also went
+  // out WITHOUT the seat-switch prefix the case rows already use, so the one
+  // mechanism that could carry a dual-seat viewer into their Commercial seat
+  // on the way there was simply missing. It is applied here now: same prefix
+  // (CFG.caseOpenPrefix — people:activate_role's own "?next="), same
+  // encodeURIComponent, same destination discipline as a case row, with the
+  // ?fclient= query riding along inside the encoded ``next`` untouched.
+  //
+  // WHAT THE PREFIX DOES AND DOES NOT FIX, measured rather than assumed (the
+  // earlier wording here claimed apply_role_to_profile "moves profile.unit
+  // with the seat"; it does not, and the claim is what made a broken link look
+  // finished):
+  //
+  //   * admin/GM tier — no prefix, straight to /cases/archive/?fclient=…,
+  //     which renders with that company preselected in its own filter. Works.
+  //   * dual seat whose LOGIN profile is the Commercial one (the Marketing
+  //     seat is the secondary account) — the archive never bounced them, and
+  //     the prefix is harmless. Works.
+  //   * dual seat whose LOGIN profile is the MARKETING one — still bounces.
+  //     people/seats.py::apply_role_to_profile deliberately does NOT rewrite
+  //     unit/role on the login profile for a SECONDARY seat (it would clash
+  //     with the seat_code/unit/role UniqueConstraint), so activating the
+  //     Commercial PersonRole leaves profile.unit == Unit.MARKETING, and
+  //     cases/views.py::archive keys its "redirect a Marketing profile to
+  //     marketing:home" test on exactly that field. The case DETAIL page has
+  //     no such test — it resolves participation through the active seat — so
+  //     a case row opens for this viewer while the archive does not.
+  //
+  // That last one is a backend gate this file cannot reach, and cannot even
+  // detect: CFG carries nothing that separates the two dual-seat flavours (a
+  // non-empty caseOpenPrefix describes both). The link is therefore offered to
+  // everyone who may open cases, as the panel's rows already are; making the
+  // third case land needs archive() to ask the ACTIVE SEAT (people.role_nav's
+  // work_context, the way case_detail does) instead of the login profile's
+  // unit.
+  function renderUsCasesArchiveLink(client) {
+    usCasesArchiveLink.hidden = true;
+    if (!CFG.canOpenCases || !CFG.archiveUrl || !client || !client.name || !client.code) { return; }
+    var target = CFG.archiveUrl + '?fclient=' +
+      encodeURIComponent(client.name + ' (' + client.code + ')');
+    if (CFG.caseOpenPrefix) { target = CFG.caseOpenPrefix + encodeURIComponent(target); }
+    usCasesArchiveLink.href = target;
+    usCasesArchiveLink.textContent = 'Open ' + client.name + ' in the case archive →';
+    usCasesArchiveLink.hidden = false;
   }
 
-  // Places the now-rendered, now-sized panel's own TOP so the whole box —
-  // not just the point it is nominally anchored to — stays inside the
-  // canvas. usCasesAnchorY() (in the SVG's own viewBox Y-units) is first
-  // converted to an actual on-screen pixel offset from the canvas's own top
-  // edge, the same viewBox-height ratio drawUsCasesConnector() already uses
-  // elsewhere in this file for the reverse conversion. The panel is then
-  // measured AT ITS REAL RENDERED SIZE (already capped by
-  // usCasesListMaxHeight() above, so a case-heavy client's list is already
-  // scrolling, not still growing) and centred on that pixel as closely as
-  // the canvas allows — clamped into [MARGIN, canvasH - height - MARGIN] so
-  // neither edge can ever sit outside the canvas. A plain CSS
-  // transform:translateY(-50%) used to do the centring instead, which broke
-  // exactly the case this function exists for: the rival/supplier anchor
-  // usually sits well down toward the canvas's own bottom-right corner, so
-  // centring blindly on it let a tall panel's bottom edge sail straight past
-  // the canvas even with plenty of headroom sitting unused above.
-  function positionUsCasesPanel(anchorY) {
-    if (!rcCanvas) { return; }
-    var canvasH = rcCanvas.getBoundingClientRect().height;
-    if (!canvasH) { return; }
-    var viewBoxParts = svg.getAttribute('viewBox').split(' ');
-    var viewH = parseFloat(viewBoxParts[3]);
-    var anchorPx = (anchorY / viewH) * canvasH;
-    var panelH = usCasesPanel.getBoundingClientRect().height ||
-      (usCasesList.getBoundingClientRect().height + US_CASES_PANEL_CHROME);
-    var top = anchorPx - panelH / 2;
-    var minTop = US_CASES_PANEL_MARGIN;
-    var maxTop = canvasH - panelH - US_CASES_PANEL_MARGIN;
-    top = maxTop >= minTop ? Math.max(minTop, Math.min(top, maxTop)) : Math.max(0, (canvasH - panelH) / 2);
-    usCasesPanel.style.top = top + 'px';
+  // JUST the measured geometry — reserveUsCasesArea()'s own answer written
+  // onto the panel. Split out of openUsCasesPanel() so a reflow after a
+  // resize can re-run exactly this (the panel's place is measured in screen
+  // pixels off cards that just changed size) without re-rendering its content
+  // or re-firing the counts fetch behind its head. Returns whether it could
+  // place the panel at all.
+  function positionUsCasesPanel() {
+    var area = reserveUsCasesArea();
+    if (!area) { return false; }
+    // `right` is what the stylesheet's own no-JS fallback pins the panel by;
+    // clearing it here is what lets the measured left/width take over.
+    usCasesPanel.style.right = 'auto';
+    usCasesPanel.style.left = area.left + 'px';
+    usCasesPanel.style.top = area.top + 'px';
+    usCasesPanel.style.width = area.width + 'px';
+    usCasesPanel.style.height = area.height + 'px';
+    return true;
   }
 
-  function openUsCasesPanel(cases) {
-    var anchorY = usCasesAnchorY();
-    if (anchorY === null) { return; }
+  // What the panel is currently showing — {cases, client}, kept for exactly
+  // one reader: the resize reflow, which re-measures the panel's place (and
+  // redraws its connector) but must not re-fetch or re-render anything. Set
+  // on every open, cleared by hideUsCasesPanel().
+  var usCasesPanelState = null;
+
+  function openUsCasesPanel(cases, client) {
+    if (!reserveUsCasesArea()) { return; }
+    renderUsCasesCounts(client);
+    renderUsCasesArchiveLink(client);
     renderUsCasesPanelContent(cases);
-    usCasesList.style.maxHeight = usCasesListMaxHeight() + 'px';
-    // Unhidden BEFORE positioning — positionUsCasesPanel() needs the
-    // panel's own real rendered height, which a [hidden] (display:none)
-    // element cannot report.
+    positionUsCasesPanel();
     usCasesPanel.hidden = false;
-    positionUsCasesPanel(anchorY);
+    usCasesPanelState = { cases: cases, client: client };
   }
 
   function hideUsCasesPanel() {
     usCasesPanel.hidden = true;
+    usCasesPanelState = null;
     usCasesList.innerHTML = '';
+    usCasesCounts.innerHTML = '';
+    usCasesCounts.hidden = true;
+    usCasesArchiveLink.hidden = true;
+    usCasesMore.hidden = true;
+    usCasesCountsSeq += 1; // a counts fetch still in flight must not paint into a closed panel
   }
 
   // The trunk: the "us" node's own right edge to the panel's left edge, at
-  // whatever y the panel is anchored to (see usCasesAnchorY/openUsCasesPanel
-  // above — no longer "us"'s own centre-y, now the freed bottom-right
-  // corner) — a small elbow rather than the old flat horizontal line, since
+  // whatever y the panel was actually placed at (see reserveUsCasesArea/
+  // openUsCasesPanel above — no longer "us"'s own centre-y, now the chart's
+  // own measured bottom-right corner) — a small elbow rather than the old flat horizontal line, since
   // the panel usually sits well below "us" now. The panel is plain HTML
   // positioned over the responsive SVG, so its own pixel-space geometry is
   // converted back into the SVG's viewBox units (the same units every other
@@ -926,7 +1500,19 @@
   // drawn toward a garbage point: checked against the LIST's own visible
   // rect, not just a zero-size check, since a scrolled-out heading still has
   // a real size, just outside what is currently shown.
-  function drawUsCasesConnector() {
+  //
+  // ``animate`` is optional and defaults to true — the one caller that passes
+  // false is the resize reflow, where re-playing the fill-in every time the
+  // window changes width would read as a twitch rather than an answer. Both
+  // the trunk and its branches go into ONE <g class="rc-us-cases-connector">
+  // inside queryLinesG (styling is class-based on the paths themselves, so
+  // the extra group changes nothing visually) purely so a redraw can drop the
+  // previous connector without touching the query lines beside it — those are
+  // drawn in pure viewBox units and never need re-drawing on a resize.
+  function drawUsCasesConnector(animate) {
+    animate = (animate === undefined) ? true : !!animate;
+    var stale = queryLinesG.querySelector('.rc-us-cases-connector');
+    if (stale && stale.parentNode) { stale.parentNode.removeChild(stale); }
     if (usCasesPanel.hidden) { return; }
     var usRect = nodeRect('us');
     var svgBox = svg.getBoundingClientRect();
@@ -941,6 +1527,9 @@
     var panelWidth = panelBox.width * scale;
     var panelCenterY = toSvgY(panelBox.top + panelBox.height / 2);
     var ns = 'http://www.w3.org/2000/svg';
+    var connG = document.createElementNS(ns, 'g');
+    connG.setAttribute('class', 'rc-us-cases-connector');
+    queryLinesG.appendChild(connG);
 
     var trunkStart = { x: usRect.x + usRect.w, y: usRect.cy };
     var trunkEnd = { x: panelLeftX, y: panelCenterY };
@@ -955,8 +1544,8 @@
     var trunk = document.createElementNS(ns, 'path');
     trunk.setAttribute('class', 'rc-query-line');
     trunk.setAttribute('d', elbowPath(trunkPts, ELBOW_R));
-    queryLinesG.appendChild(trunk);
-    animateFill(trunk);
+    connG.appendChild(trunk);
+    if (animate) { animateFill(trunk); }
 
     var listBox = usCasesList.getBoundingClientRect();
     var branchInX = panelLeftX + panelWidth * 0.55; // "as if it goes inside the box"
@@ -975,32 +1564,189 @@
       var branch = document.createElementNS(ns, 'path');
       branch.setAttribute('class', 'rc-us-cases-branch');
       branch.setAttribute('d', elbowPath(branchPts, 8));
-      queryLinesG.appendChild(branch);
-      animateFill(branch);
+      connG.appendChild(branch);
+      if (animate) { animateFill(branch); }
     });
   }
 
-  // The chart's own vertical centre lane. rolechart.py fixes this at its
-  // module-level CEN = 650 and always places "project" on it; reading it
-  // from that node's own on-screen centre means this file never has to
-  // duplicate rolechart.py's constant or assume it stays 650.
-  function centerLaneX() {
-    var r = nodeRect('project');
-    if (r) { return r.cx; }
-    var viewBoxParts = svg.getAttribute('viewBox').split(' ');
-    return parseFloat(viewBoxParts[2]) / 2;
+  // ========================================================================
+  // REFLOW — KEEPING THE PIXEL-SPACE OVERLAYS ON THEIR CARDS WHEN THE CHART
+  // CHANGES SIZE
+  // ========================================================================
+  // Almost everything this file draws lives in the SVG's own viewBox units
+  // and is therefore resolution-independent for free: the row transforms, the
+  // grown box heights, every edge, every query line. They scale with the SVG
+  // and need no attention here.
+  //
+  // Three things do NOT. The in-card name lists (.rc-card-names) are plain
+  // HTML positioned in absolute screen pixels measured off each card's live
+  // rect, with their type size scaled from the SVG's current on-screen width;
+  // the "us" cases panel's reserved corner is measured the same way; and the
+  // panel's own connector converts between the two spaces. The chart is
+  // deliberately fluid (.rc-canvas svg{width:100%}), so every one of those
+  // numbers goes stale the moment the canvas changes width — which left every
+  // grown card's name list, and the panel with its connector, stranded at
+  // their old positions and sizes until the query was cleared and re-run.
+  //
+  // A ResizeObserver ON THE CANVAS, not a window resize listener: the canvas
+  // is what every one of those measurements is actually relative to, and it
+  // changes size for reasons a window resize never fires for — the app's
+  // sidebar collapsing or expanding beside it being the obvious one, a
+  // scrollbar appearing beside it another. It also still covers plain window
+  // resizes and browser zoom, both of which change the canvas's own CSS width.
+  // (window.addEventListener('resize') remains the fallback for a browser
+  // without ResizeObserver, which is the only thing it would be better at.)
+  //
+  // NOTHING HERE CAN ACCUMULATE DRIFT. The reflow does not re-run the layout
+  // and never writes back a baseline: applyLayout()'s own inputs — VIEW_W0/
+  // VIEW_H0, rowGroups[].y, nodeBase, each edge's d0 — are still read once at
+  // load and only ever read. This re-runs the two placement passes against
+  // the SAME growth map the layout was built from (currentGrowth) and the
+  // cards' CURRENT live rects, so the answer after ten resizes is the answer
+  // one resize to the same width would have given.
+  var RESIZE_REFLOW_MS = 120;   // debounce — never reposition mid-drag
+  var reflowTimer = null;
+
+  function reflowOverlays() {
+    // Nothing is painted over the chart — no grown cards, no panel — so
+    // there is nothing whose position could have gone stale.
+    if (!Object.keys(currentGrowth).length && !usCasesPanelState) { return; }
+    placeCardNames(currentGrowth);
+    if (usCasesPanelState) {
+      positionUsCasesPanel();
+      drawUsCasesConnector(false);  // re-place it, but do not re-play its fill
+    }
   }
 
-  // The point on a node's own edge closest to the centre lane, at the
-  // node's own centre-y — where a query line touches the box instead of
-  // floating into its middle. A node already sitting on the lane
-  // (cx === cen) has no "nearest edge toward the lane" to speak of, so this
-  // returns the lane point itself; dedupePoints() below then collapses that
-  // into its neighbour and the segment leading to it is simply never drawn.
-  function laneEdgePoint(rect, cen) {
-    if (rect.cx === cen) { return { x: cen, y: rect.cy }; }
-    return { x: rect.cx < cen ? rect.x + rect.w : rect.x, y: rect.cy };
+  function scheduleOverlayReflow() {
+    window.clearTimeout(reflowTimer);
+    reflowTimer = window.setTimeout(reflowOverlays, RESIZE_REFLOW_MS);
   }
+
+  (function observeChartResize() {
+    if (!rcCanvas) { return; }
+    if (!window.ResizeObserver) {
+      window.addEventListener('resize', scheduleOverlayReflow);
+      return;
+    }
+    // Both overlays are position:absolute inside the canvas (see
+    // rolechart.css), so re-placing them cannot change the canvas's own box
+    // and this observer cannot feed itself. The size check below is belt and
+    // braces for that, and also swallows the one notification every
+    // ResizeObserver delivers on observe() before anything has changed.
+    var lastW = rcCanvas.getBoundingClientRect().width;
+    var lastH = rcCanvas.getBoundingClientRect().height;
+    var ro = new ResizeObserver(function () {
+      var r = rcCanvas.getBoundingClientRect();
+      if (Math.abs(r.width - lastW) < 0.5 && Math.abs(r.height - lastH) < 0.5) { return; }
+      lastW = r.width;
+      lastH = r.height;
+      scheduleOverlayReflow();
+    });
+    ro.observe(rcCanvas);
+  })();
+
+  // The chart's own vertical centre lane — the middle of the viewBox, which
+  // is rolechart.py's own CEN (650 of 1300) without this file having to
+  // retype either number. This used to read "project"'s own centre-x on the
+  // grounds that rolechart.py always placed that card on the lane; it does
+  // not any more (project was re-paired onto PAIR[0] = 500 when its row was
+  // merged with phase), so that reading silently became "the x of a column
+  // full of cards" — and every query line drawn down it ran underneath them.
+  function centerLaneX() {
+    return VIEW_W0 / 2;
+  }
+
+  // ---- routing a query line so it never crosses a card it is not touching --
+  // The gutter between two rows is empty across the chart's whole width by
+  // construction (rolechart.py's _GAP is bigger than a card is tall, and this
+  // file's own relayout shifts whole rows, so the gap between one row's
+  // TALLEST bottom and the next row's top is preserved exactly). So a
+  // horizontal run placed in a gutter can never cross a card, and the only
+  // question left is where to put the VERTICAL run between two gutters.
+  var LANE_GUTTER_PAD = 14;  // how far into the gutter a horizontal run sits
+  var LANE_CLEAR = 8;        // how far a vertical lane must stay off a card's side
+
+  function gutterBelowRow(i) { return currentRowBottom(i) + LANE_GUTTER_PAD; }
+  function gutterAboveRow(i) { return currentRowTop(i) - LANE_GUTTER_PAD; }
+
+  // The x for the vertical run between ``yTop`` and ``yBottom``: the chart's
+  // own centre lane whenever nothing sits on it over that span, otherwise the
+  // nearest x to the centre that clears every card the span passes. The
+  // candidates are the SIDES of the cards actually in the way (plus
+  // clearance) — so the lane hugs the corridor between two columns rather
+  // than being picked from a hardcoded list of "probably empty" x values.
+  function pickLaneX(yTop, yBottom) {
+    var centre = centerLaneX();
+    var blocked = [];
+    Object.keys(nodesByField).forEach(function (field) {
+      var r = nodeRect(field);
+      if (!r) { return; }
+      if (r.y + r.h <= yTop || r.y >= yBottom) { return; }   // not in this span at all
+      blocked.push([r.x - LANE_CLEAR, r.x + r.w + LANE_CLEAR]);
+    });
+    function isFree(x) {
+      for (var i = 0; i < blocked.length; i++) {
+        if (x > blocked[i][0] && x < blocked[i][1]) { return false; }
+      }
+      return true;
+    }
+    if (isFree(centre)) { return centre; }
+    var candidates = [];
+    blocked.forEach(function (b) { candidates.push(b[0], b[1]); });
+    candidates = candidates.filter(function (x) {
+      return x > LANE_CLEAR && x < VIEW_W0 - LANE_CLEAR && isFree(x);
+    });
+    if (!candidates.length) { return centre; }
+    candidates.sort(function (a, b) { return Math.abs(a - centre) - Math.abs(b - centre); });
+    return candidates[0];
+  }
+
+  // The full point list for one query line, from the focus card's own edge to
+  // the target card's own edge: out of the card vertically, along the gutter
+  // beside its row, down (or up) the lane, along the target row's own gutter,
+  // and into the target card's edge. Every leg is either inside one card's
+  // own column or inside an empty gutter or on a cleared lane, so no leg can
+  // cross a card this line is not connecting.
+  function queryLinePoints(fromField, toField) {
+    var from = nodeRect(fromField);
+    var to = nodeRect(toField);
+    var fromRow = rowIndexByField[fromField];
+    var toRow = rowIndexByField[toField];
+    if (!from || !to || fromRow === undefined || toRow === undefined) { return null; }
+    if (fromRow === toRow) {
+      // Two cards side by side: drop into the gutter under their shared row,
+      // run across it, and come back up. (The lane is irrelevant here — the
+      // gutter run IS the whole horizontal move.)
+      var gy = gutterBelowRow(fromRow);
+      return [
+        { x: from.cx, y: from.y + from.h },
+        { x: from.cx, y: gy },
+        { x: to.cx, y: gy },
+        { x: to.cx, y: to.y + to.h }
+      ];
+    }
+    var down = toRow > fromRow;
+    var gFrom = down ? gutterBelowRow(fromRow) : gutterAboveRow(fromRow);
+    var gTo = down ? gutterAboveRow(toRow) : gutterBelowRow(toRow);
+    var lane = pickLaneX(Math.min(gFrom, gTo), Math.max(gFrom, gTo));
+    return [
+      { x: from.cx, y: down ? from.y + from.h : from.y },
+      { x: from.cx, y: gFrom },
+      { x: lane, y: gFrom },
+      { x: lane, y: gTo },
+      { x: to.cx, y: gTo },
+      { x: to.cx, y: down ? to.y : to.y + to.h }
+    ];
+  }
+
+  // laneEdgePoint() used to live here — "the point on a node's own SIDE
+  // closest to the centre lane, at the node's own centre-y". It is gone with
+  // the routing that needed it: leaving a card sideways at its own centre-y
+  // is precisely what sent a query line straight through whatever cards stood
+  // between that card and the lane. Query lines now leave a card through its
+  // TOP or BOTTOM edge into the empty gutter beside its row — see
+  // queryLinePoints() above.
 
   function dedupePoints(pts) {
     var out = [];
@@ -1065,22 +1811,18 @@
   function drawQueryLines(focusField, litFields, annotations) {
     annotations = annotations || {};
     queryLinesG.innerHTML = '';
-    var focusRect = nodeRect(focusField);
-    if (!focusRect) { return; }
-    var cen = centerLaneX();
+    if (!nodeRect(focusField)) { return; }
     var ns = 'http://www.w3.org/2000/svg';
     litFields.forEach(function (field) {
-      var litRect = nodeRect(field);
-      if (!litRect) { return; }
-      // Always the same three-segment orthogonal elbow — out to the centre
-      // lane, along it, back out to the target — rather than an independent
-      // diagonal that could cross over other nodes and edges.
-      var pts = dedupePoints([
-        laneEdgePoint(focusRect, cen),
-        { x: cen, y: focusRect.cy },
-        { x: cen, y: litRect.cy },
-        laneEdgePoint(litRect, cen)
-      ]);
+      // Out of the focus card, along its row's own gutter, down the chart's
+      // centre lane (or the nearest clear corridor to it), along the target
+      // row's gutter and into the target card — see queryLinePoints(). The
+      // old route ran from one card's SIDE straight across to the lane at
+      // that card's own centre-y, which is exactly a line drawn underneath
+      // whatever cards sat between the two.
+      var raw = queryLinePoints(focusField, field);
+      if (!raw) { return; }
+      var pts = dedupePoints(raw);
       if (pts.length < 2) { return; }
       var path = document.createElementNS(ns, 'path');
       path.setAttribute('class', 'rc-query-line');
@@ -1179,7 +1921,8 @@
       // is not always ``client`` itself any more (the owner's own bug report:
       // a company connected under a DIFFERENT company's role must show ITS
       // OWN name there, not the focused client's repeated everywhere) — see
-      // growCard()/showCardGrowth() above for where this is read back out.
+      // growthForFields()/showCardGrowth() above for where this is read back
+      // out.
       // "us" is the one exception: it is never one of ``data.labels``'
       // entries (that array only ever holds the fourteen label keys), it is
       // pushed onto allFields separately above purely because ``client`` has
@@ -1192,11 +1935,29 @@
       });
       if (showUsPanel) { namesByField.us = [client.name]; }
       lastQueryData = {
-        client: { id: client.id, name: client.name },
+        // ``code`` comes from the server's own answer (``data.client``, built
+        // by views._client_json), not from the caller's own {id, name} — the
+        // cases panel's archive link needs the exact "Name (CODE)" string the
+        // archive page's own filter options carry, and most callers here have
+        // only a name in hand.
+        client: { id: client.id, name: client.name, code: data.client ? data.client.code : null },
         byField: byField, namesByField: namesByField,
         labelsRaw: data.labels
       };
       window.requestAnimationFrame(function () {
+        // ORDER MATTERS HERE. The card growth is what relayouts the chart —
+        // rows shift, boxes get taller, the viewBox grows — so it runs FIRST
+        // and everything that reads a coordinate afterwards reads the new
+        // one: the query lines are routed against the shifted rows, and the
+        // cases panel measures its reserved corner against cards that have
+        // already moved. Doing it the other way round is exactly how a line
+        // ends up pointing at where a card used to be.
+        //
+        // Every touched field — focus and lit alike — grows; allFields
+        // already IS that whole set (focusField plus litFields, and "us" too
+        // when showUsPanel pushed it above; growth itself skips "us" — see
+        // growthForFields).
+        showCardGrowth(allFields);
         // Without a focus field there is no single anchor to route the
         // centre-lane line FROM (originField not among this client's own
         // touched fields at all — e.g. a "us"-origin Inquiry for a client
@@ -1208,16 +1969,23 @@
         // never before — drawQueryLines() clears queryLinesG at its own
         // start, which would otherwise wipe this one right back out.
         if (showUsPanel) {
-          openUsCasesPanel(data.cases);
+          openUsCasesPanel(data.cases, lastQueryData.client);
           drawUsCasesConnector();
         }
-        // Every touched field — focus and lit alike — grows in place;
-        // allFields already IS that whole set (focusField plus litFields,
-        // and "us" too when showUsPanel pushed it above).
-        showCardGrowth(allFields);
       });
-      queryName.textContent = client.name;
-      queryPill.hidden = false;
+      // The chart's one indicator (the old floating query pill is gone —
+      // see updateAnchorBar): whatever this query is showing names itself
+      // here, WHETHER OR NOT it also set the anchor. The id/field pair is
+      // what lets the bar tell "this is the anchor's own query" from "this
+      // is some other company painted over an anchor that is still active".
+      queryStatus = {
+        clientId: client.id,
+        field: focusField,
+        name: client.name,
+        role: focusField && nodesByField[focusField]
+          ? nodesByField[focusField].getAttribute('data-role') : ''
+      };
+      updateAnchorBar();
     });
   }
 
@@ -1235,14 +2003,21 @@
     chartRoot.classList.add('is-query');
     var focusG = nodesByField.us;
     if (focusG) { focusG.classList.add('is-focus'); }
-    queryName.textContent = 'Us';
-    queryPill.hidden = false;
+    // clientId null: "us" is the one query with no Client row behind it, so
+    // it can never be mistaken for the active anchor's own query — which is
+    // right, since this repaints the chart for "us" and leaves any anchor
+    // exactly where it was.
+    queryStatus = {
+      clientId: null, field: 'us', name: 'Us',
+      role: focusG ? focusG.getAttribute('data-role') : ''
+    };
+    updateAnchorBar();
   }
 
-  // The active anchor is always exactly what the current query is showing,
-  // so clearing the query clears the anchor too — deactivateAnchor() does
-  // both (and the case-mode banner) in one shared teardown.
-  queryClearBtn.addEventListener('click', deactivateAnchor);
+  // The old query pill's own Clear button was wired here; it is gone with the
+  // pill. Its job (clear a query that set no anchor) is now the same
+  // Deactivate/Clear button on the one indicator bar, wired further up —
+  // deactivateAnchor() was always the shared teardown for both.
 
   // ------------------------------------------------------------------------
   // The one reusable modal. Three "kind"-driven content modes (label
@@ -1339,8 +2114,10 @@
   addCompanySearchWrap.appendChild(addCompanySearchInput);
   addCompanyPanel.appendChild(addCompanySearchWrap);
 
-  // Reuses .rc-modal-list/.rc-row/.rc-row-empty/.mc-row-add exactly as
-  // companies.js's own "All" tab and this file's own label list already do.
+  // Reuses .rc-modal-list/.rc-row/.rc-row-empty/.mc-row-add exactly as this
+  // file's own label list already does. (.mc-row-add keeps its prefix from
+  // the deleted Companies tab it was written for — see rolechart.css's own
+  // note at the bottom of that file; the chart is its only owner now.)
   var addCompanyList = document.createElement('div');
   addCompanyList.className = 'rc-modal-list';
   addCompanyPanel.appendChild(addCompanyList);
@@ -1357,19 +2134,21 @@
 
   modalColumns.appendChild(addCompanyPanel);
 
-  // At most one company staged at a time, either picked straight off the
-  // search results or just registered via the create-new row — the two are
-  // functionally identical from here on, since client_create's own near-
-  // duplicate check (services.get_or_create_client/normalize_persian) may
-  // hand back an EXISTING client for a near-duplicate name instead of a
-  // fresh one — see createCompanyPicker's own buildCreateRow, which relies
-  // on that server-side check rather than any separate client-side one
-  // (change 2e). The search/create mechanism itself is the one shared
-  // helper further up this file (createCompanyPicker) — this is just that
+  // SEVERAL companies at a time, ticked off the search results and/or just
+  // registered via the create-new row — the two are functionally identical
+  // from here on, since client_create's own near-duplicate check
+  // (services.get_or_create_client/normalize_persian) may hand back an
+  // EXISTING client for a near-duplicate name instead of a fresh one — see
+  // createCompanyPicker's own buildCreateRow, which relies on that
+  // server-side check rather than any separate client-side one. The picker
+  // itself is the one shared helper further up this file, in its ``multi``
+  // mode (the owner's own request: tick several, press Add once) — the ticked
+  // set survives a new search, so a reader can tick one company, search for
+  // the next, tick that too, and commit both together. This is just that
   // helper's own confirm-button wiring, specific to THIS panel.
-  var addCompanyPicker = createCompanyPicker(addCompanyList, addCompanySearchInput, function (client) {
-    addCompanyConfirmBtn.disabled = !client;
-  });
+  var addCompanyPicker = createCompanyPicker(addCompanyList, addCompanySearchInput, function (clients) {
+    addCompanyConfirmBtn.disabled = !(clients && clients.length);
+  }, { multi: true });
 
   function updateAddCompanyButtonVisibility() {
     addCompanyBtn.hidden = !(CAN_EDIT && modalKind === 'label');
@@ -1405,37 +2184,53 @@
     addCompanySearchInput.focus();
   }
 
-  // Commits the staged company to the CURRENTLY OPEN card's own field — used
-  // to be identical in default and connect mode (both just meant "attach
-  // this company to modalField" directly). Connect mode's own meaning is
-  // different: the found/created company here plays modalField (B)'s role,
-  // CONNECTED to the active anchor rather than tagged itself — the exact
-  // same fact a tick on one of B's already-real rows stages (see
-  // renderAnchorConnectRows's own connectCtx), just reached through
-  // search-or-create instead of an existing row, so it lands in the SAME
-  // anchorConnectState.staged bucket rather than committed here — this
-  // card's own Confirm is what actually calls create_connection, same as
-  // every other staged tick. Default browsing mode is untouched: it still
-  // commits immediately, via a plain manual tag.
+  // Commits EVERY ticked company to the CURRENTLY OPEN card's own field, in
+  // one press. The two modes keep exactly the behaviour each already had —
+  // only the count changed, from one company to all of the ticked ones:
   //
-  // Neither branch closes the panel any more (change 2) — refreshLabelList()
-  // redraws the card's own main/left list (or, in connect mode, its ticked
-  // connect-row view) to show the just-added company THERE, exactly as any
-  // other staged/attached addition already would, while this panel stays
-  // open beside it for another pick.
+  //   * CONNECT MODE stages, it does not commit. The found/created company
+  //     plays modalField (B)'s role, CONNECTED to the active anchor rather
+  //     than tagged itself — the exact same fact a tick on one of B's
+  //     already-real rows stages (see renderAnchorConnectRows's own
+  //     connectCtx), just reached through search-or-create instead of an
+  //     existing row, so it lands in the SAME anchorConnectState.staged
+  //     bucket. This card's own Confirm is what actually calls
+  //     create_connection, same as every other staged tick.
+  //   * DEFAULT BROWSING MODE commits immediately, as a plain manual tag —
+  //     now one labelToggle per ticked company, CHAINED rather than fired in
+  //     parallel, the same discipline confirmCardBtn's own staged writes
+  //     already follow so a slow request never races the next one.
+  //
+  // Neither branch closes the panel — refreshLabelList() redraws the card's
+  // own main/left list (or, in connect mode, its ticked connect-row view) to
+  // show the just-added companies THERE, exactly as any other staged/attached
+  // addition already would, while this panel stays open beside it for the
+  // next batch.
   addCompanyConfirmBtn.addEventListener('click', function () {
-    var client = addCompanyPicker.selected();
-    if (!client || modalKind !== 'label' || !modalField) { return; }
+    var clients = addCompanyPicker.selectedMany();
+    if (!clients.length || modalKind !== 'label' || !modalField) { return; }
     var field = modalField;
     if (modalMode === 'connect' && anchorConnectState) {
-      anchorConnectState.staged[client.id] = { name: client.name, add: true };
+      clients.forEach(function (client) {
+        anchorConnectState.staged[client.id] = { name: client.name, add: true };
+      });
       resetAddCompanyPickerForNextPick();
       renderAnchorConnectListBody();
       return;
     }
     addCompanyConfirmBtn.disabled = true;
-    post(CFG.labelToggleUrl, { client_id: client.id, label: field, add: 1 }).then(function (data) {
-      if (!data.ok || modalField !== field) { addCompanyConfirmBtn.disabled = false; return; }
+    var chain = Promise.resolve();
+    clients.forEach(function (client) {
+      chain = chain.then(function () {
+        return post(CFG.labelToggleUrl, { client_id: client.id, label: field, add: 1 });
+      });
+    });
+    chain.then(function () {
+      // The card that was open when this batch started may have been closed
+      // or swapped for another mid-flight; in that case the writes still
+      // landed (they were always meant for ``field``), there is just nothing
+      // left on screen to refresh.
+      if (modalField !== field) { addCompanyConfirmBtn.disabled = false; return; }
       resetAddCompanyPickerForNextPick();
       refreshLabelList();
     });
@@ -1478,11 +2273,10 @@
   // so a stale response (a slow first fetch losing a race to a fast reopen
   // of the very same card) can never paint over what the viewer sees now.
   var modalSeq = 0;
-  // The admin/GM "us" card search's own debounce handle — same shape as
-  // companies.js's searchDebounce/SEARCH_DEBOUNCE_MS pair for its own
-  // server-backed search (the label card's own search stays a plain
-  // instant local filter, same as companies.js's label-tab branch, so it
-  // has no debounce of its own to mirror).
+  // The admin/GM "us" card search's own debounce handle — this search is a
+  // server round trip, so it is debounced; the label card's own search stays
+  // a plain instant local filter over an already-fetched list and needs no
+  // debounce of its own.
   var usSearchDebounce = null;
   var US_SEARCH_DEBOUNCE_MS = 200;
 
@@ -1697,8 +2491,7 @@
     } else if (modalKind === 'us' && modalMode === 'default') {
       // Unlike the label branch above, this IS a server round trip (every
       // case in the system, not a small already-fetched label list), so it
-      // gets the same debounce companies.js's own server-backed search uses
-      // — see usSearchDebounce/US_SEARCH_DEBOUNCE_MS above.
+      // is debounced — see usSearchDebounce/US_SEARCH_DEBOUNCE_MS above.
       var q = searchInput.value;
       window.clearTimeout(usSearchDebounce);
       usSearchDebounce = window.setTimeout(function () { fetchAllCasesSearch(q); }, US_SEARCH_DEBOUNCE_MS);
@@ -1759,8 +2552,7 @@
     // A label card's own browsing list shows the bare name only — no
     // "via case ..." badge here (that per-case detail lives on the query
     // overlay's own contextual filtered row while a query is active, see
-    // renderContextualQueryRow, and on the Companies tab's separate
-    // companies.js, neither of which this touches). A
+    // renderContextualQueryRow, which this does not touch). A
     // case-derived fact still never gets a delete control — it can NEVER be
     // edited from the chart — it just now renders identically to any other
     // row instead of growing a badge for it.
@@ -2188,10 +2980,10 @@
   //
   // Every element is looked up and guarded independently, the same
   // convention this whole file already follows (see the top-of-file
-  // comment / the `if (!chartRoot || !CFG)` guard above) — the card is only
-  // ever templated onto the 'roles' tab, so its absence elsewhere (e.g. the
-  // Companies tab) is expected, not an error, and this block simply does
-  // nothing on that page.
+  // comment / the `if (!chartRoot || !CFG)` guard above) — the card is
+  // templated by marketing/home.html only, so its absence on any other page
+  // that loads this script is expected, not an error, and this block simply
+  // does nothing there.
   // ------------------------------------------------------------------------
   var quickPanel = document.getElementById('rcQuickInquiry');
   if (quickPanel) {
@@ -2402,7 +3194,8 @@
   //
   // Same self-guard convention as the Quick Inquiry block above: every
   // element looked up independently, and this whole block does nothing when
-  // any is missing (e.g. the Companies tab, where none of this is rendered).
+  // any is missing (any page other than marketing/home.html, where none of
+  // this is rendered).
   // ------------------------------------------------------------------------
   var caseModeWidget = document.getElementById('rcCaseModeWidget');
   var caseModeInput = document.getElementById('rcCaseModeInput');

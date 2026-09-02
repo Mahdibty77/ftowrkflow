@@ -82,10 +82,22 @@ class MarketingLabel:
     where that default is actually applied. The fourteen keys below are
     exactly the fourteen of marketing/rolechart.py's twenty-one chart fields
     that describe a business relationship a case's client could actually
-    hold — the other seven (the project itself, its phase, the laboratory,
-    third-party inspection, the sub-supplier, our own position, and a
-    competitor) are not meaningful answers to "what role did THIS CLIENT
-    play," so they are not offered here.
+    hold — the other seven are not meaningful answers to "what role did THIS
+    CLIENT play," so they are not offered here. Those seven split two ways,
+    and the split is the whole reason MANUAL_ONLY_CHOICES exists further
+    down:
+
+    * SIX of them — the project itself, its phase, third-party inspection,
+      the laboratory, the sub-supplier and a competitor — are still real
+      things a COMPANY can be hand-tagged as, even though no CASE can ever
+      be "for" one. They live in MANUAL_ONLY_CHOICES below.
+    * ONE of them — "us", our own position — is not a tag at all in either
+      direction. It is backed by case data (every client with a case) rather
+      than by any stored label, so it appears in neither list here. See
+      marketing/services.py::us_connections.
+
+    So twenty of the chart's twenty-one fields are labelable in some form
+    (fourteen here + six manual-only), and only "us" is not.
     """
     SPONSOR = "sponsor"
     OWNER = "owner"
@@ -107,7 +119,7 @@ class MarketingLabel:
         (OWNER, "کارفرمای اصلی — OWNER / CLIENT"),
         (PMT, "مجری طرح — PMT — PROJECT MGMT TEAM"),
         (MC, "مدیریت طرح — MC / PMC — MGMT CONTRACTOR"),
-        (LICENSOR, "لیسانسور — LICENSOR"),
+        (LICENSOR, "لایسنسور — LICENSOR"),
         (DESIGN, "مشاور طراح — DESIGN CONSULTANT — FEED / DED"),
         (SUPERVISION, "مشاور نظارت — SUPERVISION"),
         (C, "پیمانکار اجرا — C — CONSTRUCTION ONLY"),
@@ -120,40 +132,61 @@ class MarketingLabel:
     ]
     LABELS = dict(CHOICES)
 
-    # Two more chart fields — the sub-supplier and a competitor — that are
+    # Six more chart fields — the sub-supplier, a competitor, the project
+    # itself, its phase, third-party inspection and the laboratory — that are
     # NOT among the fourteen above, and never will be: per this class's own
-    # docstring, neither is a meaningful answer to "what role did THIS CASE'S
-    # CLIENT play," so they stay out of CHOICES/LABELS and therefore out of
-    # Case.marketing_label's own choices and the case-creation/edit forms
-    # (cases/forms.py, cases/templates/cases/case_create.html,
+    # docstring, none of them is a meaningful answer to "what role did THIS
+    # CASE'S CLIENT play," so they stay out of CHOICES/LABELS and therefore
+    # out of Case.marketing_label's own choices and the case-creation/edit
+    # forms (cases/forms.py, cases/templates/cases/case_create.html,
     # cases/templates/cases/edit_items.html) entirely — a case cannot
-    # sensibly be "for" a competitor or a sub-supplier.
+    # sensibly be "for" a competitor or a sub-supplier, and it is even more
+    # obviously true of the last four: a case's CLIENT is a company, and a
+    # company can never BE a project name, a project phase, an inspection
+    # body's slot on the chart, or a laboratory reading of "what role did
+    # this case's client play". (The four latecomers joined this list after
+    # rival/supplier did; they used to be the chart's non-interactive
+    # "inert" cards with no data source at all — see
+    # marketing/rolechart.py::_INERT_KEYS, now empty, for the other side of
+    # that promotion.)
     #
-    # But marketing/rolechart.py draws both of them as ordinary chart cards
-    # (see its SLOTS/LABEL_KEYS), and the owner wants a Marketing user able
-    # to hand-tag a company as one or the other — "this company is a
-    # competitor we're tracking," "this company supplies us" — exactly the
-    # kind of fact marketing/models.py::ClientLabel already exists to hold.
+    # But marketing/rolechart.py draws all six of them as ordinary chart
+    # cards (see its SLOTS/LABEL_KEYS), and the owner wants a Marketing user
+    # able to hand-tag a company under any of them — "this company is a
+    # competitor we're tracking," "this company supplies us," "this company
+    # is the laboratory on that job" — exactly the kind of fact
+    # marketing/models.py::ClientLabel already exists to hold.
     # ClientLabel.label is the ONLY consumer of this list: its ``choices``
     # is ``MarketingLabel.CHOICES + MarketingLabel.MANUAL_ONLY_CHOICES``, so
-    # a company can carry these two tags manually while a case still can
+    # a company can carry these six tags manually while a case still can
     # never hold them. Kept as a SEPARATE list, deliberately never merged
     # into CHOICES/LABELS, so every existing consumer of CHOICES/LABELS
     # (the case forms above, and the ``posted_label in MarketingLabel.LABELS``
-    # validation in cases/views.py) keeps rejecting "rival"/"supplier" as a
-    # case's own marketing_label without needing to know this list exists.
+    # validation in cases/views.py) keeps rejecting all six as a case's own
+    # marketing_label without needing to know this list exists.
     #
     # Same "<Persian> — <ENGLISH>" formatting as CHOICES, and the same
-    # Persian role text / English abbreviation marketing/rolechart.py's
-    # SLOTS tuple already uses for these two keys, so the manual-tag choice
-    # in ClientLabel reads identically to the card it tags on the chart.
+    # Persian role text / English abbreviation marketing/rolechart.py already
+    # uses for these six keys (its SLOTS tuple for five of them, its
+    # PROJECT_ROLE/PROJECT_ABBR pair for "project", which is drawn as a chart
+    # field without being a SLOTS row), so each manual-tag choice in
+    # ClientLabel reads identically to the card it tags on the chart.
     RIVAL = "rival"
     SUPPLIER = "supplier"
+    PROJECT = "project"
+    PHASE = "phase"
+    TPI = "tpi"
+    LABORATORY = "laboratory"
 
     MANUAL_ONLY_CHOICES = [
         (RIVAL, "رقیب احتمالی — COMPETITOR"),
         (SUPPLIER, "تأمین‌کننده — SUB-SUPPLIER"),
+        (PROJECT, "نام پروژه — PROJECT"),
+        (PHASE, "فاز پروژه — PROJECT PHASE"),
+        (TPI, "بازرس ثالث — TPI — THIRD PARTY INSP."),
+        (LABORATORY, "آزمایشگاه — LABORATORY"),
     ]
+
 
 class CaseStatus:
     DRAFT = "DRAFT"

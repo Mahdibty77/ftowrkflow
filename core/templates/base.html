@@ -201,6 +201,20 @@
           <a href="{% url 'reports:dashboard' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-chart-line"></i></span>Dashboard</a>
           <a href="{% url 'cases:archive' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-box-archive"></i></span>Case Archive</a>
           <a href="{% url 'accounts:backup_console' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-floppy-disk"></i></span>Backups</a>
+          {% comment %}
+            The same two Marketing doors the General Manager gets below, for
+            the same reason and under the same grant: marketing.access
+            .access_for treats the platform admin exactly like the GM —
+            can_view, scope "all", can_edit False — so both pages authorise an
+            admin and both render read-only. Without these two lines they were
+            reachable only by typing the URL, which contradicted
+            marketing/views.py's own docstring promising the admin the same
+            view-only access as the GM. The admin's one extra power here is
+            NOT can_edit: it is Access.can_manage_config (the contact-role
+            list), exercised through Django admin, not through this sidebar.
+          {% endcomment %}
+          <a href="{% url 'marketing:home' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-bullhorn"></i></span>Marketing (read-only)</a>
+          <a href="{% url 'marketing:directory' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-building"></i></span>Company Directory (read-only)</a>
           <div class="sb-group">Master Data</div>
           <a href="{% url 'cases:master_data_hub' %}" class="sb-item">
             <span class="ic"><i class="fa-solid fa-building"></i></span>Clients &amp; FX
@@ -227,6 +241,16 @@
             left off because can_edit is False.
           {% endcomment %}
           <a href="{% url 'marketing:home' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-bullhorn"></i></span>Marketing (read-only)</a>
+          {% comment %}
+            The company directory, beside the chart it belongs with, under the
+            same grant and no wider: marketing.access.access_for gives the GM
+            can_view there exactly as it does on the chart, and can_edit False,
+            so the directory's own "Add contact" control is not drawn and every
+            mutating URL in that section refuses them on its own. The
+            (read-only) suffix is repeated for the same reason the entry above
+            carries it — this block is the GM's, and both entries are.
+          {% endcomment %}
+          <a href="{% url 'marketing:directory' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-building"></i></span>Company Directory (read-only)</a>
           {% endif %}
           {% if nav_roles %}
             {% for nr in nav_roles %}
@@ -251,9 +275,22 @@
                     <a href="{% url 'marketing:home' %}" class="sb-item">
                       <span class="ic"><i class="fa-solid fa-bullhorn"></i></span>Workspace
                     </a>
+                    {# The company directory is a second REAL destination for a #}
+                    {# Marketing seat (marketing:directory), not a tab of the   #}
+                    {# workspace, so it earns its own entry beside it — under   #}
+                    {# the same access_for gate, which is what decides whether  #}
+                    {# the page opens at all. Inactive seats keep the           #}
+                    {# accordion's own activate_role?next= idiom, exactly as    #}
+                    {# the Workspace entry does.                                #}
+                    <a href="{% url 'marketing:directory' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-building"></i></span>Company Directory
+                    </a>
                     {% else %}
                     <a href="{% url 'people:activate_role' nr.id %}?next={% url 'marketing:home' %}" class="sb-item">
                       <span class="ic"><i class="fa-solid fa-bullhorn"></i></span>Workspace
+                    </a>
+                    <a href="{% url 'people:activate_role' nr.id %}?next={% url 'marketing:directory' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-building"></i></span>Company Directory
                     </a>
                     {% endif %}
                   {% elif nr.is_active %}
@@ -358,6 +395,18 @@
             {% endcomment %}
             <div class="sb-group">{{ p.unit_label }}</div>
             <a href="{% url 'marketing:home' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-bullhorn"></i></span>Workspace</a>
+            {% comment %}
+              The second real destination a Marketing seat has: the company
+              directory (marketing:directory). It is a section of its own, not
+              a panel of the workspace — which is exactly why the comment above
+              could say "one entry and not one per tab" and this is still not a
+              contradiction: the tabs it was refusing to list were panels of
+              one screen, and this is a different screen with its own URLs.
+              Same access_for gate as the entry above, so this widens nothing:
+              a seat that may not open the workspace may not open this either,
+              and neither entry is drawn for anyone outside this branch.
+            {% endcomment %}
+            <a href="{% url 'marketing:directory' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-building"></i></span>Company Directory</a>
             {% elif p.unit %}
             <div class="sb-group">{{ p.unit_label }}</div>
             <a href="{% url 'cases:inbox' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-inbox"></i></span>Inbox{% if nav_inbox_count %}<span class="nav-badge">{{ nav_inbox_count }}</span>{% endif %}</a>

@@ -338,7 +338,11 @@
 </div>
 
 <div class="tab-panel" id="panel-tl-{{ sd.code }}">
-  {% if is_admin_view %}
+  {% if can_open_marketing_chart %}
+  {# Gated exactly like the combined panel's own copy of this button in           #}
+  {# case_detail.html, and widened with it from is_admin_view to "may reach the   #}
+  {# marketing section" — the two must agree or the same reader would see the     #}
+  {# button on one timeline tab and not the other.                                #}
   {# The per-side timeline (this one) is what a reader actually lands on first -   #}
   {# the "Combined timeline" toggle above only exists for a multi_side case and is #}
   {# never the default view, so the same deep-link the combined panel's own       #}

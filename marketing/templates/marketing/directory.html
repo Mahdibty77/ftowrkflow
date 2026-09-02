@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  THE COMPANY DIRECTORY LIST — every company Marketing knows, one row each.
+
+  Modelled on cases/templates/cases/archive.html, which is what the owner asked
+  for ("like the case archive"), and it reuses that page's controls rather than
+  imitating them:
+
+  * The two filters are plain <select data-combo> boxes. static/js/ui.js turns
+    a select carrying that attribute into the platform's searchable,
+    type-to-filter combo — the SAME picker the archive's Client / Order No. /
+    Price type filters use. There is no second picker written for this page,
+    and no JavaScript of this section's own is involved in building them.
+  * They also carry data-filter-for / data-filter-colname / data-filter-mode,
+    which is what makes ui.js's instant row-hiding pass narrow the table below
+    as the reader types, with no round trip. The count in the page head is the
+    archive's own data-filter-count span, updated by that same pass.
+  * Rows are a table.data inside a .vscroll.vscroll-list, and a row is a
+    .row-link whose onclick opens that company — exactly the archive row.
+
+  ONE DELIBERATE DIFFERENCE: the archive renders one WINDOW of rows and fetches
+  the rest as the reader scrolls (archive_stream.js). This page renders the
+  whole directory. See marketing/views.py::directory for the full reasoning —
+  the short version is that the client table is hundreds of rows, not
+  thousands (marketing/services.py says so in three places and scans it in
+  Python because of it), and a complete table is what lets the browser-side
+  filters see every row instead of only the ones that happened to be sent.
+
+  The form around the filters is a real GET form, so with JavaScript off it
+  submits to this same view and the server does the filtering through
+  services.search_companies. Both ends compare the same text — see
+  views.py::_label_text_to_key for why the role filter posts the role's display
+  text rather than its key.
+{% endcomment %}
+{% block title %}Company Directory · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Company Directory{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'marketing/css/directory.css' %}">
+{% endblock %}
+{% block content %}
+
+<div class="page-head" style="align-items:center;">
+  <div>
+    <h1>Company Directory</h1>
+    <div class="sub">Every company on the relationship chart, with the roles it carries.</div>
+  </div>
+  <div class="row-flex" style="align-items:center;gap:1rem;flex-wrap:wrap;">
+    <a href="{% url 'marketing:home' %}" class="btn btn-sm">
+      <i class="fa-solid fa-diagram-project"></i> Relationship chart
+    </a>
+    <span class="count"><span data-filter-count="companyTable">{{ filtered_count }}</span> of {{ total_count }}</span>
+  </div>
+</div>
+
+<form method="get" id="companyFilterForm" action="{% url 'marketing:directory' %}">
+  <div class="card">
+    <div class="card-head">
+      <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-right:.4rem;"></i>Filters</h3>
+      <span class="row-flex" style="gap:.5rem;align-items:center;">
+        {# With JavaScript on, ui.js filters instantly and there is nothing to  #}
+        {# submit. With it off this form IS the filter and there has to be a    #}
+        {# way to send it — <noscript> is the honest home for that button, the  #}
+        {# same reasoning (and the same markup) the archive uses for its own.   #}
+        <noscript>
+          <button type="submit" class="btn btn-sm btn-primary">
+            <i class="fa-solid fa-filter"></i> Apply filters
+          </button>
+        </noscript>
+        {# Clearing is two different actions depending on how the list got      #}
+        {# narrowed, so it is two different controls. When the URL carries a    #}
+        {# filter, the rows on this page ARE the filtered set — emptying the    #}
+        {# combos client-side could only unhide rows the server already left    #}
+        {# out — so the control is a real link back to the whole directory.     #}
+        {# When nothing is in the URL the table is complete and ui.js's own     #}
+        {# data-filter-clear button is exactly right. (They cannot be the same  #}
+        {# element: ui.js calls preventDefault on whatever carries that         #}
+        {# attribute, so a link with it would never navigate.)                  #}
+        {% if f_active.name or f_active.label %}
+        <a href="{% url 'marketing:directory' %}" class="btn btn-sm" title="Reset all filters">
+          <i class="fa-solid fa-eraser"></i> Clear filters
+        </a>
+        {% else %}
+        <button type="button" class="btn btn-sm" data-filter-clear="companyTable" title="Reset all filters">
+          <i class="fa-solid fa-eraser"></i> Clear filters
+        </button>
+        {% endif %}
+      </span>
+    </div>
+    <div class="grid grid-2">
+      <div class="field">
+        <label><i class="fa-solid fa-building"></i> Company</label>
+        <select name="fname" data-combo data-placeholder="Search company…"
+                data-filter-for="companyTable" data-filter-colname="Company"
+                data-filter-mode="contains">
+          <option value=""></option>
+          {% for name in f_names %}
+          <option value="{{ name }}"{% if f_active.name == name %} selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label><i class="fa-solid fa-tags"></i> Role / label</label>
+        {# The option VALUE is the role's display text, not its key — see       #}
+        {# marketing/views.py::_label_text_to_key. That is what lets the        #}
+        {# browser-side pass (which compares this value against the rendered    #}
+        {# chips) and the server-side one (which resolves it back to a key for  #}
+        {# services.search_companies) agree on the same rows.                   #}
+        <select name="flabel" data-combo data-placeholder="Search role…"
+                data-filter-for="companyTable" data-filter-colname="Roles / labels"
+                data-filter-mode="contains">
+          <option value=""></option>
+          {% for label_fa in f_labels %}
+          <option value="{{ label_fa }}"{% if f_active.label == label_fa %} selected{% endif %}>{{ label_fa }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+</form>
+
+<div class="vscroll vscroll-list" id="directoryScroll">
+  <table class="data" id="companyTable" data-filter-table>
+    <thead>
+      <tr>
+        <th>Company</th>
+        <th>Code</th>
+        <th>Roles / labels</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      {# Same row-opens-the-record idiom as cases/_archive_rows.html. #}
+      <tr class="row-link" onclick="window.location='{% url 'marketing:company_detail' row.id %}'">
+        {# dir="auto" on the typed name only: a Persian company name that       #}
+        {# contains a Latin word is reordered on screen without it. The code is #}
+        {# generated and always Latin, so it keeps the row's own direction —    #}
+        {# the same split the archive's Client column makes.                    #}
+        <td><span dir="auto">{{ row.name }}</span></td>
+        <td class="mono muted">{{ row.code }}</td>
+        <td class="dir-labels-cell">
+          {% if row.labels %}
+          <div class="chips-row">
+            {# A case-derived role is the authoritative one and gets the plain  #}
+            {# accent chip; a purely manual tag gets the muted (c-draft) chip,  #}
+            {# so a reader can see at a glance which roles are backed by real   #}
+            {# cases. Both texts are services.FIELD_LABELS' own display string, #}
+            {# which is also what the filter above posts.                       #}
+            {% for lab in row.labels %}
+            <span class="chip{% if lab.source != 'case' %} c-draft{% endif %}"
+                  title="{% if lab.source == 'case' %}From this company's cases{% else %}Manually tagged{% endif %}">
+              <i class="fa-solid {% if lab.source == 'case' %}fa-folder-open{% else %}fa-tag{% endif %}"></i>{{ lab.label_fa }}
+            </span>
+            {% endfor %}
+          </div>
+          {% else %}
+          <span class="muted">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="3" class="empty">No companies match these filters.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

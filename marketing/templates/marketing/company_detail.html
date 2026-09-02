@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% load ft_extras static %}
+{% comment %}
+  ONE COMPANY — its roles, the people to call there, its cases and its history.
+
+  Modelled on cases/templates/cases/case_detail.html so the two pages read as
+  siblings, and it borrows that page's markup rather than inventing a parallel
+  set of classes:
+
+  * .page-head with the name as the <h1> and the roles as chips beside it —
+    the case page's own "doc number + status tags" header shape.
+  * .infobox / .box summary tiles for the case outcome counts, the same tiles
+    the case page uses for offer type, kind, status and price type.
+  * .tabs / .tab strip over .tab-panel panels — the strip
+    cases/_side_section.html uses (Inquiry / Technical Offer / Proforma /
+    Timeline). The switching script is marketing/js/directory.js: the case
+    page's own switcher is inline in that template and also drives the
+    internal/external side strip, which this page has no equivalent of.
+  * .card / .card-head panels inside each tab.
+  * <ul class="timeline"> with .tl-action / .tl-meta / .tl-comment rows and
+    |jalali on every stamp — the case audit timeline, unchanged, plus one icon
+    per action kind (see marketing/views.py::_TIMELINE_ICONS) because this
+    timeline mixes far more kinds of event than a case's does.
+
+  Nothing here formats a date itself: every stamp goes through the |jalali
+  filter from core/templatetags/ft_extras.py, the same filter the case page's
+  timeline uses, so both pages print the same calendar in the same shape.
+{% endcomment %}
+{% block title %}{{ client.name }} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{{ client.name }}{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'marketing/css/directory.css' %}">
+{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">
+      <span dir="auto">{{ client.name }}</span>
+      <span class="mono muted" style="font-size:.9rem;">({{ client.code }})</span>
+    </h1>
+    {% if labels %}
+    <div class="chips-row" style="margin-top:.45rem;">
+      {% for lab in labels %}
+      <span class="chip{% if lab.source != 'case' %} c-draft{% endif %}"
+            title="{% if lab.source == 'case' %}From this company's cases{% else %}Manually tagged{% endif %}">
+        <i class="fa-solid {% if lab.source == 'case' %}fa-folder-open{% else %}fa-tag{% endif %}"></i>{{ lab.label_fa }}
+      </span>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="sub">This company carries no roles yet.</div>
+    {% endif %}
+  </div>
+  <div class="row-flex" style="align-items:center;gap:.5rem;flex-wrap:wrap;">
+    <a href="{% url 'marketing:directory' %}" class="btn btn-sm">
+      <i class="fa-solid fa-arrow-left"></i> Directory
+    </a>
+    <a href="{% url 'marketing:home' %}" class="btn btn-sm">
+      <i class="fa-solid fa-diagram-project"></i> Relationship chart
+    </a>
+  </div>
+</div>
+
+{# The case outcome summary. These four numbers describe exactly the rows in    #}
+{# the Cases tab below — see marketing/views.py::_counts_over for why they are  #}
+{# counted over the visible rows rather than read straight off the unscoped     #}
+{# services.case_status_counts — and the three buckets are the platform's own   #}
+{# (تایید شده / کنسل / بدون نتیجه), not a new vocabulary invented here.         #}
+<div class="infobox">
+  <div class="box hot">
+    <span class="bi"><i class="fa-solid fa-layer-group"></i></span>
+    <div><div class="bl">Cases</div><div class="bv">{{ counts.total }}</div></div>
+  </div>
+  <div class="box">
+    <span class="bi"><i class="fa-solid fa-circle-check"></i></span>
+    <div><div class="bl">Approved · تایید شده</div><div class="bv">{{ counts.approved }}</div></div>
+  </div>
+  <div class="box">
+    <span class="bi"><i class="fa-solid fa-ban"></i></span>
+    <div><div class="bl">Cancelled · کنسل</div><div class="bv">{{ counts.cancelled }}</div></div>
+  </div>
+  <div class="box">
+    <span class="bi"><i class="fa-solid fa-hourglass-half"></i></span>
+    <div><div class="bl">No result · بدون نتیجه</div><div class="bv">{{ counts.pending }}</div></div>
+  </div>
+</div>
+
+<div class="tabs side-tabs" id="companyTabs">
+  <div class="tab active" data-tab="contacts"><i class="fa-solid fa-users"></i> Contacts</div>
+  <div class="tab" data-tab="cases"><i class="fa-solid fa-folder-open"></i> Cases</div>
+  <div class="tab" data-tab="timeline"><i class="fa-solid fa-clock-rotate-left"></i> Timeline</div>
+</div>
+
+{# ---------------------------------------------------------------- contacts #}
+<div class="tab-panel active" id="panel-contacts">
+  <div class="card">
+    <div class="card-head">
+      <h3><i class="fa-solid fa-users" style="color:var(--accent-strong);margin-right:.4rem;"></i>Contacts
+        <span class="count">{{ contacts|length }}</span>
+      </h3>
+      {% if can_edit %}
+      <a href="{% url 'marketing:contact_add' client.pk %}" class="btn btn-sm btn-primary">
+        <i class="fa-solid fa-user-plus"></i> Add contact
+      </a>
+      {% endif %}
+    </div>
+
+    {# Said in words because the list is scoped and a short list would          #}
+    {# otherwise read as "this company has almost no contacts". The rule itself #}
+    {# is enforced in services.list_contacts, never here — and the flag this    #}
+    {# branches on is the viewer's SCOPE, not can_edit; see                     #}
+    {# marketing/views.py::company_detail for why those two are not the same    #}
+    {# question.                                                                #}
+    <div class="help" style="margin:-.35rem 0 .7rem;">
+      {% if sees_all_contacts %}You see every contact recorded on this company.{% else %}You see the contacts you added yourself.{% endif %}
+    </div>
+
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Contact role</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Added</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in contacts %}
+        <tr>
+          <td>
+            <span dir="auto">{{ c.full_name }}</span>
+            <div class="muted" style="font-size:.72rem;">{{ c.gender_label }}</div>
+          </td>
+          <td dir="auto">{{ c.role|default:"—" }}</td>
+          <td class="mono">
+            {% if c.phone %}
+              {% if c.phone_prefix %}<span class="muted">{{ c.phone_prefix }}</span> {% endif %}{{ c.phone|phone_fmt }}{% if c.phone_ext %} <span class="muted">ext. {{ c.phone_ext }}</span>{% endif %}
+            {% else %}—{% endif %}
+          </td>
+          <td dir="ltr">{% if c.email %}<a href="mailto:{{ c.email }}">{{ c.email }}</a>{% else %}—{% endif %}</td>
+          <td class="muted">{{ c.created_at|jalali:"Y.m.d H:i" }}</td>
+          {# A real POST form, not a link: this deletes a row. c.can_remove is   #}
+          {# computed in marketing/views.py::_contact_rows and is True only when #}
+          {# services.remove_contact would actually delete THIS row for THIS     #}
+          {# viewer, so the control never appears where pressing it would do     #}
+          {# nothing. The view re-checks all of it — a hidden button is not a    #}
+          {# permission.                                                         #}
+          <td style="width:1%;white-space:nowrap;">
+            {% if c.can_remove %}
+            <form method="post" action="{% url 'marketing:contact_remove' client.pk c.id %}"
+                  onsubmit="return confirm('Remove this contact from the company?');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-ghost" title="Remove this contact">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="empty">No contacts recorded for this company yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ------------------------------------------------------------------- cases #}
+<div class="tab-panel" id="panel-cases">
+  <div class="card">
+    <div class="card-head">
+      <h3><i class="fa-solid fa-folder-open" style="color:var(--accent-strong);margin-right:.4rem;"></i>Cases
+        <span class="count">{{ counts.total }}</span>
+      </h3>
+      <span class="row-flex" style="gap:.4rem;flex-wrap:wrap;">
+        <span class="chip c-ok"><i class="fa-solid fa-circle-check"></i>{{ counts.approved }} approved</span>
+        <span class="chip c-rej"><i class="fa-solid fa-ban"></i>{{ counts.cancelled }} cancelled</span>
+        <span class="chip c-draft"><i class="fa-solid fa-hourglass-half"></i>{{ counts.pending }} no result</span>
+      </span>
+    </div>
+
+    {% if hidden_case_count %}
+    {# Honest rather than silent: the rows are scoped (see                      #}
+    {# marketing/views.py::_visible_case_rows) and a reader comparing this page #}
+    {# with the chart's own "cases connected to Us" panel would otherwise think #}
+    {# one of them was wrong.                                                   #}
+    <div class="flash flash-info">
+      <i class="fa-solid fa-circle-info"></i>
+      <span>{{ hidden_case_count }} more case{{ hidden_case_count|pluralize }} on this company {{ hidden_case_count|pluralize:"is,are" }} outside what your seat may see.</span>
+    </div>
+    {% endif %}
+
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Document No.</th>
+          <th>Role on the case</th>
+          <th>Outcome</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in case_rows %}
+        {# row.open_url, not a bare {% url 'cases:case_detail' %}: a viewer who #}
+        {# holds this case through a SECOND (Commercial) seat has to pass       #}
+        {# through that seat to open it, or the case page bounces them. The     #}
+        {# view builds the right one per row — see access.case_open_url.        #}
+        <tr class="row-link" onclick="window.location='{{ row.open_url }}'">
+          <td><span class="mono">{{ row.doc_no }}</span></td>
+          <td>{{ row.label_fa|default:row.label }}</td>
+          <td>{{ row.status_fa }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="empty">No cases you may see are recorded for this company.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ---------------------------------------------------------------- timeline #}
+<div class="tab-panel" id="panel-timeline">
+  <div class="card">
+    <div class="card-head">
+      <h3><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-strong);margin-right:.4rem;"></i>Company timeline</h3>
+    </div>
+    {# The case audit timeline's own markup: <ul class="timeline"> with a       #}
+    {# .tl-action sentence, a .tl-meta actor+stamp line and an optional         #}
+    {# .tl-comment note. Two things are added on top of it, both asked for:     #}
+    {# an icon per action kind (chosen in the view, one lookup, never here),    #}
+    {# and the actor's frozen role label beside their frozen name.              #}
+    {#                                                                          #}
+    {# Every row below is written as a real sentence about what happened, with  #}
+    {# the subject the event froze at write time — never "LABEL_ADDED · x".     #}
+    {# The branch chain is the same shape case_detail.html uses for its own     #}
+    {# per-action wording, for the same reason: the sentence is presentation.   #}
+    <ul class="timeline dir-timeline">
+      {% for ev in timeline %}
+      <li>
+        <div class="tl-action">
+          <i class="fa-solid {{ ev.icon }} dir-tl-icon"></i>
+          {% if ev.action == 'CLIENT_REGISTERED' %}
+            Registered <span dir="auto">{{ ev.subject }}</span> in the company directory
+          {% elif ev.action == 'LABEL_ADDED' %}
+            Tagged this company as <strong dir="auto">{{ ev.subject }}</strong>
+          {% elif ev.action == 'LABEL_REMOVED' %}
+            Removed the <strong dir="auto">{{ ev.subject }}</strong> tag from this company
+          {% elif ev.action == 'CONNECTION_ADDED' %}
+            Connected this company to <strong dir="auto">{{ ev.subject }}</strong>
+          {% elif ev.action == 'CONNECTION_REMOVED' %}
+            Removed the connection to <strong dir="auto">{{ ev.subject }}</strong>
+          {% elif ev.action == 'CONTACT_ADDED' %}
+            Added <strong dir="auto">{{ ev.subject }}</strong> as a contact at this company
+          {% elif ev.action == 'CONTACT_REMOVED' %}
+            Removed the contact <strong dir="auto">{{ ev.subject }}</strong>
+          {% elif ev.action == 'CASE_CREATED' %}
+            {# ev.open_url, not a bare {% url 'cases:case_detail' %} — the      #}
+            {# same reason the Cases tab above uses row.open_url: a viewer who  #}
+            {# holds this case through a SECOND (Commercial) seat has to pass   #}
+            {# through that seat to open it, and a bare link skips exactly the  #}
+            {# switch that makes the case openable. Built per row in            #}
+            {# services.client_timeline via access.case_open_url. Rows for      #}
+            {# cases this viewer may not see never reach this template at all.  #}
+            Case <a href="{{ ev.open_url }}" class="mono">{{ ev.doc_no }}</a> was opened for this company
+          {% else %}
+            {# A row written before an action was renamed still has to render — #}
+            {# the same forgiving fallback ClientEvent.action_label uses.       #}
+            {{ ev.action_label }}{% if ev.subject %} · <span dir="auto">{{ ev.subject }}</span>{% endif %}
+          {% endif %}
+        </div>
+        {# The frozen actor snapshot, never a live lookup — see                 #}
+        {# marketing/models.py::ClientEvent on why the two CharFields exist.    #}
+        {# Only the name is dir="auto"; the stamp beside it is ours and stays   #}
+        {# left-to-right, exactly as on the case timeline.                      #}
+        <div class="tl-meta">
+          <span dir="auto">{{ ev.actor_name|default:"—" }}</span>
+          {% if ev.actor_role_label %}<span class="dir-tl-role">{{ ev.actor_role_label }}</span>{% endif %}
+          · {{ ev.created_at|jalali:"Y.m.d H:i" }}
+        </div>
+        {% if ev.comment %}<div class="tl-comment" dir="auto">{{ ev.comment }}</div>{% endif %}
+      </li>
+      {% empty %}
+      <li class="muted">Nothing has happened to this company yet.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'marketing/js/directory.js' %}" defer></script>
+{% endblock %}

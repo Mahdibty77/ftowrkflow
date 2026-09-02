@@ -1,14 +1,31 @@
 """The Marketing unit's own screens.
 
-One screen — the Marketing workspace — with two tabs on it: the project role
-chart ("roles"), and a flat, searchable Companies directory beside it
-("companies") — see ``marketing/templates/marketing/_companies.html`` and
-``marketing/static/marketing/js/companies.js``. The tab strip is real markup
-rather than a heading, so each tab is a line in ``TABS`` and a block in the
-template and nothing else. A different second tab briefly lived here for a
-session — an entity-directory grid the owner replaced with the click-on-chart
-design the "roles" tab now uses — before this Companies tab took the second
-slot.
+TWO screens now, and they are deliberately separate pages rather than two tabs
+of one:
+
+* THE MARKETING WORKSPACE (``home``) — the project role chart
+  (``marketing/templates/marketing/_role_chart.html`` +
+  ``marketing/static/marketing/js/chart_interact.js``), and nothing else on it.
+  There is no tab strip any more. Two different second tabs lived here across
+  earlier sessions — an entity-directory grid the owner replaced with the
+  click-on-chart design the chart now uses, and after it a flat "Companies"
+  directory — and both are gone. A one-entry tab strip is not navigation, it is
+  decoration, so when the second tab went the strip went with it and that view
+  no longer has a ``tab`` concept at all.
+* THE COMPANY DIRECTORY (``directory`` -> ``company_detail`` ->
+  ``contact_add`` / ``contact_remove``) — the section that replaced that
+  removed "Companies" tab,
+  built as its own set of URLs with a row-per-company list and a detail page
+  per company. It reads the SAME shared ``cases.Client`` directory and the same
+  ``ClientLabel`` rows the chart reads, through the same
+  ``marketing/services.py`` functions, so the two screens can never disagree
+  about which companies exist or which labels they carry. It is modelled, on
+  purpose, on the two case screens a reader of this platform already knows: the
+  list is the case archive (same ``data-combo`` filter controls, same
+  ``table.data`` in a ``.vscroll`` list, same "N of M" count), and the detail
+  page is the case detail page (same ``.card``/``.card-head`` panels, same tab
+  strip, same ``.timeline`` markup and the same ``|jalali`` stamp on every
+  row).
 
 WHO MAY OPEN IT, AND HOW MUCH THEY GET. See ``marketing/access.py`` for the
 actual decision (``access_for``) — this is the plain-language version of it:
@@ -47,73 +64,95 @@ from __future__ import annotations
 
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.utils.http import urlencode
 from django.views.decorators.http import require_POST
 
 from cases.models import Case, Client
 
 from . import rolechart, services
-from .access import access_for
-
-# The tab strip on the Marketing workspace — "roles" stays first/default (the
-# owner's explicit instruction: Companies sits to ITS right, not the reverse),
-# see the module docstring for why a different second tab lived here briefly
-# and does not any more.
-TABS = (
-    ("roles", "Projects & Roles"),
-    ("companies", "Companies"),
+from .access import (
+    access_for, case_access_for, case_open_url, marketing_seat_role,
+    scope_case_rows,
 )
-DEFAULT_TAB = TABS[0][0]
+from .forms import ContactForm
+from .models import ClientEventAction, ContactRole
 
-# The Persian role name + English abbreviation for each of the fourteen
-# MarketingLabel keys, read off rolechart.ALL_FIELDS (the chart's own single
-# source for this text) rather than retyped here — so the Companies tab's tab
-# strip and label-editing panel can never drift from what the chart's own
-# cards call the same field.
-_LABEL_TEXT = {key: (fa, ab) for key, fa, ab in rolechart.ALL_FIELDS}
 
-# The four chart fields no data source feeds this round (no case field and no
-# manual tag can ever apply to them) — always badge 0. See the module
-# docstring on ``home`` for where this is used. supplier/rival used to be
-# here too; they moved out once a Marketing user could manually tag a
-# company under either one (see cases/constants.py::MarketingLabel and
-# marketing/models.py::ClientLabel) — ``services.label_counts`` now returns
-# a real (possibly nonzero) count for both, same as the other twelve.
-_INERT_FIELDS = ("project", "phase", "laboratory", "tpi")
+def _case_open_prefix(case_access) -> str:
+    """The chart's client-side half of ``access.case_open_url``.
+
+    The panel builds its own case URLs in JavaScript from a numeric id it only
+    has client-side, so it cannot call ``case_open_url`` per row. It gets the
+    part that does not depend on the id instead: an empty string when the viewer
+    may open a case straight (the admin/GM tier), or the seat-switch prefix that
+    the id's own URL is appended to, URL-encoded, by the JS. Same destination,
+    same reasoning — see ``access.case_open_url`` for why the switch is there.
+    """
+    if not case_access.can_open or not case_access.seat_role_id:
+        return ""
+    return "%s?next=" % reverse(
+        "people:activate_role", args=[case_access.seat_role_id])
 
 
 @login_required
 def home(request):
     """The Marketing workspace.
 
-    Every field on the chart is its own clickable card. Fourteen of the
-    nineteen fields (``services.LABEL_KEYS``) are backed by
-    ``services.companies_for_label`` — their badge is how many companies
-    currently carry that label, manual or case-derived, scoped to this
-    viewer. The "us" field is backed by ``services.us_connections`` instead
-    (every client with a case, unscoped). The remaining four fields
-    (``_INERT_FIELDS``) have no data source this round and always badge 0 —
-    see ``marketing/rolechart.py`` for how the chart draws an empty card.
+    Every field on the chart is its own clickable card, and every one of the
+    twenty-one now has a real data source — there are no inert cards left. The
+    twenty labelable fields (``services.LABEL_KEYS``) are counted by
+    ``services.label_counts``: each badge is how many companies currently carry
+    that label, manual or case-derived, scoped to this viewer. The
+    twenty-first, "us", is counted by ``services.us_connections`` instead
+    (every client with a case, unscoped).
+
+    There used to be a pre-seeded ``{"project": 0, "phase": 0, "laboratory": 0,
+    "tpi": 0}`` here, from the round when those four cards had nothing behind
+    them. All four became manual-only tags (see
+    ``cases/constants.py::MarketingLabel.MANUAL_ONLY_CHOICES``), so
+    ``label_counts`` returns a real, possibly nonzero count for each and the
+    seed had been overwritten unconditionally ever since. ``rolechart.build``
+    treats a missing key as zero anyway, so a card with no companies still
+    draws exactly as it did.
     """
     access = access_for(request)
     if not access.can_view:
+        # A person who HOLDS a Marketing seat but is sitting in another one
+        # (the dual Marketing/Commercial seat this round is about, arriving from
+        # the "Marketing chart" button on a case page) is not refused — they are
+        # sent through the app's own seat switch and straight back here, which is
+        # exactly what the sidebar accordion already does for every entry under
+        # an inactive Marketing role. This is NOT a widening of ``access_for``:
+        # the switch only ever activates a PersonRole this same person already
+        # holds, and this view then re-runs ``access_for`` against the new
+        # active seat, so anyone it refuses is still refused. It also cannot
+        # loop — after the switch the active seat IS the Marketing one, so
+        # ``can_view`` is True and this branch is not reached again.
+        seat = marketing_seat_role(request)
+        if seat is not None:
+            return redirect("%s?%s" % (
+                reverse("people:activate_role", args=[seat.pk]),
+                urlencode({"next": request.get_full_path()}),
+            ))
         return render(request, "marketing/denied.html", status=403)
 
-    active = (request.GET.get("tab") or "").strip() or DEFAULT_TAB
-    if active not in dict(TABS):
-        active = DEFAULT_TAB
-
-    counts = {key: 0 for key in _INERT_FIELDS}
-    counts.update(services.label_counts(request.user, access.scope))
+    counts = dict(services.label_counts(request.user, access.scope))
     counts["us"] = len(services.us_connections(request.user))
 
+    case_access = case_access_for(request, access)
     context = {
-        "tabs": [{"key": k, "label": lb, "is_active": k == active}
-                 for k, lb in TABS],
-        "active_tab": active,
         "chart": rolechart.build(counts),
         "can_edit": access.can_edit,
         "is_admin_tier": access.is_gm_or_admin,
+        # Whether the chart's "cases connected to Us" panel may make its rows
+        # clickable at all. Every row it is given is already one this viewer may
+        # open (the endpoints behind the panel are scoped by the same
+        # ``case_access``), so this is a straight yes/no rather than a per-row
+        # test — see chart_interact.js's renderUsCasesPanelContent.
+        "can_open_cases": case_access.can_open,
+        "case_open_prefix": _case_open_prefix(case_access),
     }
     # An optional "jump straight into this case's marketing connections" deep
     # link (?case=123), the entry point a new button on the cases archive
@@ -129,22 +168,6 @@ def home(request):
             deep_link_case_id = None
     if deep_link_case_id is not None:
         context["deep_link_case_id"] = deep_link_case_id
-    if active == "companies":
-        # Just the label text for the tab strip and the per-company editing
-        # panel — the company list itself is never fetched here (see the
-        # module docstring's pointer to companies.js): every list this tab
-        # shows comes from the same JSON endpoints the chart already uses.
-        # "count" reuses the exact same per-label ``counts`` dict already
-        # computed above for the chart's own badges (no second query) — a
-        # later phase adds count badges to the Companies tab's tab strip,
-        # matching how the case archive page's own status tabs show counts.
-        context["labels"] = [
-            {"key": k, "label_fa": _LABEL_TEXT[k][0], "abbr": _LABEL_TEXT[k][1],
-             "count": counts.get(k, 0)}
-            for k in rolechart.LABEL_KEYS
-        ]
-        # The count for that same tab strip's own "All" entry.
-        context["all_companies_count"] = Client.objects.count()
     return render(request, "marketing/home.html", context)
 
 
@@ -171,10 +194,13 @@ def client_search(request):
     can open the page at all (including the view-only GM) may search.
 
     Each result carries its own ``labels`` (manual + case-derived, same shape
-    ``client_connections`` returns) so the Companies tab's "All" view can show
+    ``client_connections`` returns) so a caller listing companies can show
     label chips without a second round trip per row — batched in a constant
     number of queries via ``services.labels_for_clients``, not one query per
-    result.
+    result. The chart's own "+ Add company" panel
+    (chart_interact.js's ``CFG.clientSearchUrl``) is the live caller; the
+    ``labels`` field is also what the separate company-directory section
+    reads.
     """
     access = access_for(request)
     if not access.can_view:
@@ -190,9 +216,10 @@ def client_search(request):
 @login_required
 @require_POST
 def client_create(request):
-    """POST name= -> register a new client. Companies tab only — the chart
-    itself never creates a client, so this is gated on ``can_edit`` alone,
-    same as every other mutating endpoint here."""
+    """POST name= -> register a new client. Called by the chart's own
+    "+ Add company" panel (chart_interact.js's ``buildCreateRow``, via
+    ``CFG.clientCreateUrl``) when a search finds no match. Gated on
+    ``can_edit`` alone, same as every other mutating endpoint here."""
     access = access_for(request)
     if not access.can_edit:
         return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
@@ -205,14 +232,24 @@ def client_create(request):
 
 @login_required
 def label_companies(request):
-    """GET ?label= -> the companies a chart card shows when clicked."""
+    """GET ?label= -> the companies a chart card shows when clicked.
+
+    WHICH COMPANIES are listed is unscoped by case access, deliberately —
+    holding a role is shared truth, and narrowing it would make the list
+    disagree with the badge on the card. The ``case_numbers`` each row carries
+    IS scoped, by the same rule ``us_connections`` states in one line: document
+    numbers are case data and are not everyone's to read. See
+    ``services.companies_for_label``.
+    """
     access = access_for(request)
     if not access.can_view:
         return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
     label, err = _label_or_400(request)
     if err is not None:
         return err
-    companies = services.companies_for_label(label, request.user, access.scope)
+    companies = services.companies_for_label(
+        label, request.user, access.scope,
+        case_access=case_access_for(request, access))
     return JsonResponse({"ok": True, "label": label, "companies": companies})
 
 
@@ -323,7 +360,25 @@ def client_connections(request):
     except (TypeError, ValueError):
         case_id = None
     case = Case.objects.filter(pk=case_id).first() if case_id is not None else None
-    report = services.connections_of_client(client, request.user, access.scope, case=case)
+    # THE CHART'S "cases connected to Us" PANEL IS FED FROM HERE, so this is one
+    # of the places the owner's case rule has to bite: a Marketing expert who
+    # also holds a Commercial seat sees their own commercial cases and nobody
+    # else's; the admin/GM tier sees them all.
+    #
+    # BOTH KEYS BELOW ARE COVERED BY THAT ONE ARGUMENT, and they have to be.
+    # This endpoint used to scope only ``cases``, by wrapping it here — which
+    # left a response that answered ``"cases": []`` and, three lines further
+    # down its own body, ``"case_numbers": ["CONF-B-222", "CONF-A-111"]`` for
+    # the very cases it had just refused. Those numbers reach the UI:
+    # chart_interact.js reads ``l.case_numbers`` into its per-card badge counts.
+    # So the filter now goes INTO the service, which applies it to every
+    # document number it emits under either key — see
+    # ``services.connections_of_client``. WHICH LABELS appear is still
+    # untouched: labels are Marketing's own data, scoped by ``access.scope``,
+    # and a different question from which CASES this viewer may open.
+    report = services.connections_of_client(
+        client, request.user, access.scope, case=case,
+        case_access=case_access_for(request, access))
     return JsonResponse({
         "ok": True,
         "client": _client_json(client),
@@ -332,14 +387,55 @@ def client_connections(request):
     })
 
 
+# THERE IS NO ``us_connections`` VIEW ANY MORE. It answered "every client with
+# at least one case", was routed as ``marketing:us_connections``, and was handed
+# to the chart as ``CFG.usConnectionsUrl`` — which no line of
+# ``chart_interact.js`` (or any other client) ever read. The "us" card's own
+# panel is fed by ``client_connections`` and ``all_cases_search`` instead. The
+# route, the view and the config key went together; ``services.us_connections``
+# itself stays, because ``home`` above still counts it for the "us" badge.
+
+
 @login_required
-def us_connections(request):
-    """GET, no params -> every client connected to "our own position"."""
+def client_case_counts(request):
+    """GET ?client_id= -> ``{"approved": n, "cancelled": n, "pending": n, "total": n}``.
+
+    The three status counts the chart's "cases connected to Us" panel shows at
+    its top for the company an Inquiry is currently about — approved,
+    cancelled, and "no result" (``pending``). The bucketing itself is not
+    decided here: it is ``services.case_status_counts``, which buckets by the
+    exact same ``_status_fa`` rule that already labels every individual case
+    row in that same panel, so the summary and the rows underneath it can
+    never disagree.
+
+    Gated on ``access.can_view``, like every other read endpoint in this file.
+
+    THE NUMBERS DESCRIBE THE ROWS UNDERNEATH THEM, not the company's whole
+    history. That is a change from this endpoint's first version, and it is the
+    same correction ``_counts_over`` already made on the company detail page for
+    the same reason: now that the panel's case rows are scoped to what this
+    viewer may see (see ``client_connections``), a head that still counted every
+    case the company ever had would sit directly above four rows and say
+    fifty-seven. ``services.case_status_counts`` is documented as unscoped and
+    stays that way — it is simply not the number this panel wants — so the
+    buckets are counted here over exactly the visible rows, through the same
+    ``_counts_over`` the detail page uses, which reads the bucket off each row
+    rather than re-deriving it.
+    """
     access = access_for(request)
     if not access.can_view:
         return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
-    companies = services.us_connections(request.user)
-    return JsonResponse({"ok": True, "companies": companies})
+    client_id = request.GET.get("client_id")
+    try:
+        client_id = int(client_id)
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "Unknown client."}, status=400)
+    client = Client.objects.filter(pk=client_id).first()
+    if client is None:
+        return JsonResponse({"ok": False, "error": "Unknown client."}, status=404)
+    rows = scope_case_rows(
+        services.cases_for_client(client), case_access_for(request, access))
+    return JsonResponse({"ok": True, "counts": _counts_over(rows)})
 
 
 @login_required
@@ -375,6 +471,22 @@ def all_cases_search(request):
       a genuine, intentional widening of who may call this URL, not an
       oversight; only the "us" card's own BROWSE UI stays admin/GM-only, via
       its own frontend flag, unaffected by this change.
+
+    WHO MAY CALL IT AND WHAT IT ANSWERS ARE NOW TWO DIFFERENT QUESTIONS. The
+    widening above stays exactly as it is — an Expert/Supervisor still reaches
+    this URL, so case mode still works from an ordinary Marketing seat — but the
+    RESULTS are scoped by ``case_access_for`` like every other case list in this
+    app. That closes the one thing the paragraphs above did not consider: a
+    Marketing expert who ALSO holds a Commercial seat was being handed their
+    colleagues' commercial cases here, by name and document number, which is
+    precisely what the owner's rule forbids. The admin/GM tier still gets every
+    case, which is what its own "us"-card browse was written for.
+
+    A Marketing seat with no Commercial seat now gets an empty list here rather
+    than the whole archive. That is the same answer this viewer gets everywhere
+    else cases are listed (see ``access.case_access_for``), and it is a real
+    narrowing of what case mode can find for them — deliberately so: pointing
+    the chart at somebody else's case meant reading somebody else's case.
     """
     access = access_for(request)
     if not access.can_view:
@@ -386,4 +498,514 @@ def all_cases_search(request):
     except (TypeError, ValueError):
         case_id = None
     cases = services.search_all_cases(query=query, case_id=case_id)
-    return JsonResponse({"ok": True, "cases": cases})
+    return JsonResponse({
+        "ok": True,
+        "cases": scope_case_rows(cases, case_access_for(request, access)),
+    })
+
+
+# --------------------------------------------------------------------------- #
+# The company directory: a list of every company, and a page per company
+# --------------------------------------------------------------------------- #
+# This is the section that replaced the removed "Companies" tab (see the module
+# docstring). Four plain HTML views, no JSON: the list, one company's detail
+# page, the form that adds a contact to it, and the POST that removes one.
+# Every one of them goes through ``access_for`` exactly like the JSON endpoints
+# above, and each mutating path (adding a contact, removing a contact, adding a
+# contact role) is gated on ``can_edit`` independently of whatever its template
+# chose to draw — a hidden button is not a permission.
+
+
+def _label_text_to_key() -> dict:
+    """``{label display text: label key}`` for all twenty labelable roles.
+
+    The directory's role filter is a ``data-combo`` <select> whose OPTION VALUE
+    is the label's own display text, not its key, and this is the map that
+    reads such a value back. That looks like the long way round until you look
+    at what the archive does, which is what this page is modelled on: its
+    Client filter posts ``"<name> (<code>)"`` — the exact text the Client
+    column prints — and the server filters on that same text. The reason is
+    that ONE value has to satisfy TWO filters at once. ``static/js/ui.js``
+    hides table rows by comparing the control's value against the rendered cell
+    text (instant, no round trip), and the server narrows the same list for a
+    reader with no JavaScript. A key like ``"sub"`` would filter correctly on
+    the server and, on the browser side, match every row whose label cell
+    happens to contain those three letters — "SUBCONTRACTOR — PC" among them.
+    Posting the display text keeps both ends comparing the identical string, so
+    they cannot disagree about which rows belong.
+
+    Built from ``services.FIELD_LABELS`` — the same single source of truth
+    every other label display in this app reads — so a renamed role can never
+    leave this map pointing at text no option prints any more.
+    """
+    return {text: key for key, text in services.FIELD_LABELS.items()}
+
+
+@login_required
+def directory(request):
+    """The company directory: every company Marketing knows, filterable.
+
+    MODELLED ON THE CASE ARCHIVE (``cases/views.py::archive`` +
+    ``cases/templates/cases/archive.html``), which is what the owner asked for,
+    and reusing its controls rather than imitating them: the two filters are
+    ordinary ``<select data-combo>`` boxes that ``static/js/ui.js`` upgrades
+    into the platform's searchable combo, they carry the same
+    ``data-filter-for``/``data-filter-colname`` attributes ui.js's instant
+    row-hiding pass reads, the count in the page head is the archive's own
+    ``data-filter-count`` span, and the rows are a ``table.data`` inside a
+    ``.vscroll .vscroll-list``.
+
+    ONE DELIBERATE DEPARTURE FROM THE ARCHIVE: no scroll-slice loading. The
+    archive windows its rows (``services.ARCHIVE_WINDOW`` +
+    ``static/js/archive_stream.js``) because it can hold thousands of cases and
+    a reader looks at twenty. The client table is a different size and
+    ``marketing/services.py`` says so in three separate places — "the table is
+    small (hundreds of rows, confirmed against production)" — which is why
+    several functions there scan it in Python at all. At that size the whole
+    directory is one modest page of HTML, and rendering it complete buys
+    something the windowed version cannot have: the browser-side filters see
+    EVERY row, so typing in either combo narrows the real list instantly with
+    no fetch and no possibility of the two ends disagreeing about rows that
+    were never sent. ``services.search_companies`` is therefore called with
+    ``limit=None`` (uncapped) rather than its default 200 — a cap would
+    silently truncate a directory that is allowed to grow past it.
+
+    BOTH FILTERS WORK TWICE OVER, and that is not redundancy. With JavaScript
+    on, ui.js hides non-matching rows as the reader types. With JavaScript off,
+    the surrounding GET form submits to this same view and the ``fname`` /
+    ``flabel`` parameters below narrow the list server-side through
+    ``services.search_companies`` — the one definition of what the directory
+    lists, shared with the chart. The two ends agree because they compare the
+    same text; see ``_label_text_to_key``.
+
+    Every read is scoped through ``access_for``: the manual half of a company's
+    labels is an Expert's own work until a Supervisor or the GM looks at the
+    union (see ``marketing/services.py``'s module docstring).
+    """
+    access = access_for(request)
+    if not access.can_view:
+        return render(request, "marketing/denied.html", status=403)
+
+    # What arrived, echoed back verbatim so the re-rendered form can re-select
+    # the option the reader picked — the archive's own ``f_active`` idiom.
+    f_name = (request.GET.get("fname") or "").strip()
+    f_label_text = (request.GET.get("flabel") or "").strip()
+    # An unrecognised role text narrows nothing rather than raising: a filter
+    # value can only reach this view from an option this page itself printed or
+    # from a hand-edited URL, and the honest answer to the second is the
+    # unfiltered list, not a 500. (``search_companies`` raises ValueError on an
+    # unknown KEY, which is why the text is resolved before it is passed.)
+    label_key = _label_text_to_key().get(f_label_text, "")
+
+    # The full directory, unfiltered — this is what the two dropdowns offer, so
+    # their option lists describe the whole directory rather than only the rows
+    # the current filters leave. (The archive cascades its option lists instead;
+    # it can afford to, because it re-derives them from an in-memory list it
+    # already holds for other reasons. Here the equivalent would mean running
+    # the whole manual+case-derived merge twice more per page load for a list
+    # this small, and a role that vanishes from its own dropdown the moment you
+    # pick a company is a worse trade than one that occasionally leaves the
+    # table empty.)
+    all_rows = services.search_companies(
+        limit=None, user=request.user, scope=access.scope)
+    rows = (
+        all_rows if not (f_name or label_key)
+        else services.search_companies(
+            query=f_name, label=label_key, limit=None,
+            user=request.user, scope=access.scope)
+    )
+
+    # Option lists. Names come from the directory itself; roles are every role
+    # actually carried by a company in it, in ``services.LABEL_KEYS`` order (the
+    # chart's own order), so the dropdown never offers a role that would return
+    # an empty table.
+    f_names = sorted({row["name"] for row in all_rows if row["name"]})
+    carried = {lab["label"] for row in all_rows for lab in row["labels"]}
+    f_labels = [services.FIELD_LABELS[key] for key in services.LABEL_KEYS if key in carried]
+
+    return render(request, "marketing/directory.html", {
+        "rows": rows,
+        "total_count": len(all_rows),
+        "filtered_count": len(rows),
+        "f_names": f_names,
+        "f_labels": f_labels,
+        "f_active": {"name": f_name, "label": f_label_text},
+        "can_edit": access.can_edit,
+    })
+
+
+# Which case rows a viewer sees on a company's detail page.
+#
+# THE RULE ITSELF NO LONGER LIVES HERE. It used to — a placeholder written when
+# the shared helper did not exist yet, which narrowed to ``created_by ==
+# request.user`` and therefore quietly answered "no cases" for the one person it
+# was written for: a dual-seat Marketing/Commercial viewer's cases are stamped
+# with their COMMERCIAL SEAT's User, not with the login they are signed in as.
+# ``marketing/access.py::case_access_for`` is the real rule now (read its
+# docstring for the owner's wording and for how the seat is resolved), and every
+# case list in this app — this page, the chart's panel, the all-cases search —
+# goes through that one decision. What is left here is presentation.
+def _visible_case_rows(client, request, case_access) -> list:
+    """``services.cases_for_client(client)`` narrowed to what this viewer may see.
+
+    Each surviving row also picks up two display fields:
+
+    * ``label_fa`` — the Persian display text for the role that row's ``label``
+      key names. ``cases_for_client`` returns the KEY (it is consumed by the
+      chart's JavaScript, which does its own lookup), and a table printing
+      "owner" where every other screen in this app prints "کارفرمای اصلی —
+      OWNER / CLIENT" would be the only place the role reads differently.
+      Resolved through ``services.FIELD_LABELS`` — the same map the rest of this
+      file uses — with ``.get`` falling back to the raw key so a row can never
+      fail to render.
+    * ``open_url`` — where this row's click actually goes, from
+      ``access.case_open_url``. Computed per row rather than hard-coded in the
+      template because a dual-seat viewer has to pass through their own
+      Commercial seat to reach a case at all; see that function.
+    """
+    rows = scope_case_rows(services.cases_for_client(client), case_access)
+    return [
+        dict(row,
+             label_fa=services.FIELD_LABELS.get(row["label"], row["label"]),
+             open_url=case_open_url(case_access, row["case_id"]))
+        for row in rows
+    ]
+
+
+def _counts_over(case_rows) -> dict:
+    """``{"approved","cancelled","pending","total"}`` over exactly ``case_rows``.
+
+    The company detail page's headline numbers have to describe the rows the
+    reader can actually see underneath them (see ``_visible_case_rows``), and
+    ``services.case_status_counts`` is documented as UNSCOPED — it counts every
+    case the company has ever had, which is the right number for "how big is
+    this company's history" and the wrong one for "how many of the cases in
+    this table were approved".
+
+    So the buckets are counted here, over the visible rows — but the RULE that
+    decides which bucket a case falls in is not re-implemented: each row already
+    carries the bucket's own display text in ``status_fa`` (put there by
+    ``services.cases_for_client``), and ``services._STATUS_BUCKET_KEY`` is the
+    map from that text to the key. Reading that one private name is deliberate
+    and is the same judgement ``marketing/services.py`` itself documents when it
+    calls ``cases.services._actor_snapshot``: the underscore marks it private to
+    the app, not to the module, and it is a pure lookup table with no side
+    effects. Copying the three-way bucketing here instead would create the
+    second definition ``services.py`` went out of its way to avoid, and the two
+    would disagree the first time a status moved between buckets.
+    """
+    counts = {"approved": 0, "cancelled": 0, "pending": 0, "total": 0}
+    for row in case_rows:
+        counts[services._STATUS_BUCKET_KEY[row["status_fa"]]] += 1
+        counts["total"] += 1
+    return counts
+
+
+# One icon per timeline action, so a reader scanning a company's history can
+# tell a tag from a contact from a case without reading a word — the same job
+# the coloured dot does on the case timeline, done per action kind because this
+# timeline mixes far more kinds of event than a case's does.
+#
+# Every name below is one the OFFLINE icon layer actually defines
+# (``static/css/icons-offline.css``); that file is a fixed set of inline SVGs,
+# not a CDN webfont, so an icon it does not define renders as a blank box.
+# Removals deliberately do not reuse their own "added" icon — a timeline where
+# LABEL_ADDED and LABEL_REMOVED look identical is a timeline you have to read
+# twice.
+_TIMELINE_ICONS = {
+    ClientEventAction.CLIENT_REGISTERED: "fa-building",
+    ClientEventAction.LABEL_ADDED: "fa-tag",
+    ClientEventAction.LABEL_REMOVED: "fa-eraser",
+    ClientEventAction.CONNECTION_ADDED: "fa-link",
+    ClientEventAction.CONNECTION_REMOVED: "fa-ban",
+    ClientEventAction.CONTACT_ADDED: "fa-user-plus",
+    ClientEventAction.CONTACT_REMOVED: "fa-trash",
+    ClientEventAction.CASE_CREATED: "fa-folder-plus",
+}
+
+
+def _timeline_with_icons(entries) -> list:
+    """``services.client_timeline`` rows, each carrying the icon for its action.
+
+    The entries are left otherwise untouched — same keys, same order, same
+    frozen actor snapshots — because the template renders the SENTENCE for each
+    action itself, exactly the way ``cases/templates/cases/case_detail.html``
+    writes "Edited {{ ev.form_kind }} form" in the template rather than in
+    Python. Only the icon is decided here: it is a fixed per-action lookup with
+    no wording in it, and an eight-branch chain of ``{% if %}`` in the template
+    to pick one class name would be markup pretending to be a dictionary.
+
+    ``.get`` with a fallback rather than ``[...]``: a row written by an older
+    version of this app, or one whose action was renamed since, must still
+    render — the same forgiving rule ``ClientEvent.action_label`` follows.
+    """
+    return [dict(entry, icon=_TIMELINE_ICONS.get(entry["action"], "fa-circle-info"))
+            for entry in entries]
+
+
+def _contact_rows(client, request, access) -> list:
+    """``services.list_contacts`` rows, each carrying whether THIS viewer may
+    remove THAT contact.
+
+    ``services.remove_contact`` is the rule, and this only predicts its answer
+    so the detail page can draw the control on exactly the rows where pressing
+    it would do something. That rule has two halves, and both are reproduced
+    here and nowhere else:
+
+    * ``can_edit`` — the view-only tier (the GM and the platform admin) removes
+      nothing, whatever their scope. ``remove_contact`` itself does not check
+      this, and does not need to: ``contact_remove`` below refuses them before
+      the service is ever called, exactly as ``contact_add`` does.
+    * scope — ``remove_contact`` is documented as SCOPE-AWARE rather than
+      strictly owner-bound (a contact is a shared fact about the company, not
+      one Expert's private opinion), so ``scope == "all"`` (the Marketing
+      Supervisor, here) may remove any contact on the company, while an
+      ordinary Expert may remove only their own — which is precisely the
+      ``removable`` flag ``services._contact_row`` already puts on every row.
+
+    Drawing the control is not the grant. ``contact_remove`` re-runs
+    ``access_for`` and hands the same scope to the same service, so a
+    hand-built POST from a viewer this function said False for still removes
+    nothing.
+    """
+    return [
+        dict(row, can_remove=bool(
+            access.can_edit and (access.scope == "all" or row["removable"])))
+        for row in services.list_contacts(client, request.user, access.scope)
+    ]
+
+
+def _can_manage_roles(access) -> bool:
+    """May this viewer ADD to the shared ``ContactRole`` vocabulary?
+
+    The owner's rule is "a Marketing Supervisor AND the platform admin may add
+    contact-role options; ordinary Marketing users may only pick an existing
+    role", and that is ``Access.can_manage_config`` — one narrowly-named
+    capability, decided once in ``marketing/access.py::access_for``, read here.
+
+    THIS USED TO BE ``can_edit and scope == "all"``, WHICH LEFT THE ADMIN OUT.
+    That expression names the Marketing Supervisor and nobody else, because
+    ``access_for`` makes ``can_edit`` unconditionally False for both the admin
+    and the General Manager. The reasoning recorded at the time was sound as
+    far as it went — the view-only tier must not gain a write on this section's
+    working data — but it answered the wrong question: a ``ContactRole`` is not
+    working data, it is a configuration vocabulary, and on an install with no
+    Marketing Supervisor the old expression meant NOBODY could create one.
+    Since the contact form makes the role mandatory, that blocked contact
+    creation outright.
+
+    THE FIX IS NOT TO LOOSEN ``can_edit``. It stays False for the admin and the
+    GM exactly as before, so neither gains a single write on a label, a
+    connection or a contact; ``can_manage_config`` is a separate, additive
+    grant that covers this one list and nothing else, and the GM does not have
+    it. See ``Access.can_manage_config`` for the full reasoning.
+
+    THE ADMIN'S ACTUAL SCREEN IS ``marketing/admin.py``, not this one:
+    ``contact_add`` below is still gated on ``can_edit``, because ADDING A
+    CONTACT is working data and the admin is view-only over it. So this
+    function returning True for the admin does not, by itself, put a form in
+    front of them — the Django admin's ``ContactRole`` registration is where
+    they manage the list. It is read here so that the capability has ONE
+    definition, and so a future in-app role-management screen gates on the same
+    answer instead of re-deriving it.
+    """
+    return bool(access.can_manage_config)
+
+
+@login_required
+def company_detail(request, pk):
+    """One company: its labels, its contacts, its cases and its timeline.
+
+    MODELLED ON THE CASE DETAIL PAGE, deliberately, down to the markup: the
+    same ``.page-head`` with chips beside the title, the same ``.infobox``
+    summary boxes, the same ``.tabs``/``.tab`` strip over ``.tab-panel``
+    panels, the same ``.card``/``.card-head`` panels inside them, and — for the
+    timeline — the same ``<ul class="timeline">`` with ``.tl-action`` /
+    ``.tl-meta`` / ``.tl-comment`` rows and the same ``|jalali`` filter on
+    every stamp. A Marketing reader who already knows the case page should not
+    have to learn a second visual language for the same kinds of information.
+
+    THE FOUR THINGS ON IT, and where each comes from:
+
+    * LABELS — ``services.labels_for_clients`` for this one company: the same
+      manual + case-derived merge, scoped, that the chart and the directory
+      list both show, so the chips here cannot disagree with the chips there.
+    * CONTACTS — ``services.list_contacts``, which enforces the visibility rule
+      itself: an ordinary Marketing user sees only the contacts they added, a
+      Supervisor/GM/admin sees every one. This view passes the scope and does
+      not filter anything a second time. Each row picks up one display flag,
+      ``can_remove`` — see ``_contact_rows``.
+    * CASES — ``_visible_case_rows``, scoped by ``access.case_access_for``: the
+      one decision the chart's own panel and the all-cases search also go
+      through, so this page and the chart can never show the same viewer two
+      different sets of cases. ``_counts_over`` gives the approved / cancelled /
+      no-result split of exactly those rows.
+      ``services.case_status_counts`` is ALSO read, unscoped, purely so the
+      page can say honestly how many cases the company has in total when the
+      viewer is only being shown some of them.
+    * TIMELINE — ``services.client_timeline``, the merged native + registration
+      + case-derived history, with one icon attached per row. Scoped TWICE
+      OVER, by both of this page's rules rather than only one: ``access.scope``
+      governs the native ``ClientEvent`` half, and the SAME ``case_access`` the
+      Cases tab uses governs the case-derived half.
+
+      That second argument is the whole point. Before it existed this view
+      passed only ``access.scope``, and the case half was an unfiltered
+      ``Case.objects.filter(client=client)`` — so the Timeline tab printed the
+      document numbers, the frozen commercial-expert names and clickable case
+      links for exactly the cases the Cases tab of the same render had just
+      said were "outside what your seat may see". Both tabs now go through the
+      one ``case_access_for`` decision, computed once below and passed to both,
+      so the page cannot contradict itself.
+    """
+    access = access_for(request)
+    if not access.can_view:
+        return render(request, "marketing/denied.html", status=403)
+
+    client = get_object_or_404(Client, pk=pk)
+    # ONE decision, both tabs — see the TIMELINE bullet above.
+    case_access = case_access_for(request, access)
+    case_rows = _visible_case_rows(client, request, case_access)
+    counts = _counts_over(case_rows)
+    # Unscoped, company-wide — used ONLY to tell the reader that cases exist
+    # which this page is not showing them. Never mixed into the four numbers
+    # above, which describe the visible rows.
+    all_counts = services.case_status_counts(client, request.user)
+
+    return render(request, "marketing/company_detail.html", {
+        "client": client,
+        "labels": services.labels_for_clients(
+            [client.pk], request.user, access.scope).get(client.pk, []),
+        "contacts": _contact_rows(client, request, access),
+        "case_rows": case_rows,
+        "counts": counts,
+        "hidden_case_count": max(all_counts["total"] - counts["total"], 0),
+        "timeline": _timeline_with_icons(
+            services.client_timeline(client, request.user, access.scope,
+                                     case_access=case_access)),
+        "can_edit": access.can_edit,
+        # Whether the contact list this viewer is looking at is the WHOLE list
+        # or only their own rows — the page says so in words, because a scoped
+        # list of two contacts is indistinguishable from a company that really
+        # has two. It is the SCOPE that decides this and not ``can_edit``:
+        # ``scope == "all"`` is exactly the population ``services.list_contacts``
+        # shows everything to (a Marketing Supervisor, the GM and the platform
+        # admin), and those three do not line up with ``can_edit`` on either
+        # side — a Supervisor can edit AND sees everything, while the GM/admin
+        # tier sees everything and can edit nothing. Deriving the sentence from
+        # ``can_edit`` would tell a Supervisor they were seeing only their own
+        # contacts while the table beside it showed the whole unit's.
+        "sees_all_contacts": access.scope == "all",
+    })
+
+
+@login_required
+def contact_add(request, pk):
+    """Add one person at this company — a full page, not a modal.
+
+    A PAGE, because that is what this platform does with a Django ``Form``:
+    ``cases/templates/cases/client_form.html``,
+    ``accounts/templates/accounts/user_form.html`` and
+    ``people/templates/people/person_form.html`` are all the same shape — a
+    ``method="post"`` form in a ``.card``, field errors in a ``ul.errorlist``
+    under the field, form-level errors in a ``.flash.flash-error`` above them —
+    and a modal would have to re-invent every one of those, plus a way to
+    re-open itself carrying server-side errors. The modals in this app
+    (``rc-modal-*`` on the chart) are JSON-driven pickers with no Django form
+    behind them at all, which is a different problem.
+
+    GATED ON ``can_edit``, checked here and not merely hidden on the detail
+    page: the view-only tier (the General Manager and the platform admin — see
+    ``access_for``) must not be able to write, and a template that does not
+    draw a button is not a permission. Refused with the same 403 page the
+    section's own gate uses, for the same reason the module docstring gives.
+
+    The inline "add a new role" field is gated a second time, on
+    ``_can_manage_roles``, and gated by ABSENCE: the form is constructed
+    without that field for anyone who may not create roles, so a hand-built
+    POST cannot reach the ``get_or_create`` below.
+
+    ``services.add_contact`` does the writing (and the timeline row) — this
+    view resolves the role and hands over ``cleaned_data``, so there is exactly
+    one place in the app that creates a ``CompanyContact``.
+    """
+    access = access_for(request)
+    if not access.can_view or not access.can_edit:
+        return render(request, "marketing/denied.html", status=403)
+
+    client = get_object_or_404(Client, pk=pk)
+    can_manage_roles = _can_manage_roles(access)
+
+    if request.method == "POST":
+        form = ContactForm(request.POST, can_manage_roles=can_manage_roles)
+        if form.is_valid():
+            data = form.cleaned_data
+            role = data.get("role")
+            new_role = (data.get("new_role") or "").strip() if can_manage_roles else ""
+            if new_role:
+                # get_or_create, not create: ``ContactRole.name`` is globally
+                # unique and re-typing a title that already exists means the
+                # same thing as having picked it from the list, so it must not
+                # be an IntegrityError. ``created_by`` is recorded on first
+                # creation only, exactly as ``services.create_connection``
+                # stamps it.
+                role, _created = ContactRole.objects.get_or_create(
+                    name=new_role,
+                    defaults={"created_by": request.user},
+                )
+            services.add_contact(
+                client, request.user,
+                first_name=data["first_name"], last_name=data["last_name"],
+                gender=data["gender"], role=role,
+                phone_prefix=data["phone_prefix"], phone=data["phone"],
+                phone_ext=data["phone_ext"], email=data["email"],
+            )
+            return redirect("marketing:company_detail", pk=client.pk)
+    else:
+        form = ContactForm(can_manage_roles=can_manage_roles)
+
+    return render(request, "marketing/contact_form.html", {
+        "client": client,
+        "form": form,
+        "can_manage_roles": can_manage_roles,
+    })
+
+
+@login_required
+@require_POST
+def contact_remove(request, pk, contact_id):
+    """Remove one person from this company's contact list.
+
+    POST-ONLY, and reached from a real ``<form method="post">`` in the contacts
+    table rather than a link: this deletes a row, and a destructive action
+    behind a GET is one prefetching browser or one crawled URL away from doing
+    itself. ``@require_POST`` plus the CSRF token the form carries is the same
+    protection every other mutating path in this app has.
+
+    GATED EXACTLY LIKE ``contact_add`` ABOVE — ``can_view and can_edit``, the
+    same 403 page — because it is the same kind of write on the same working
+    data, and the view-only tier (the GM and the platform admin) must not reach
+    either. Nothing about ``Access.can_manage_config`` applies here: that
+    capability covers the ``ContactRole`` vocabulary, not the contacts filed
+    under it.
+
+    WHICH CONTACT MAY ACTUALLY GO is not decided here. ``access.scope`` is
+    handed to ``services.remove_contact``, which is documented as scope-aware:
+    an ordinary Marketing Expert deletes only rows they added, a Supervisor may
+    delete any contact on the company. A request for a contact outside this
+    viewer's scope, for a contact at some OTHER company, or for one that no
+    longer exists, is indistinguishable from all the others by design — the
+    service returns False and this view redirects back exactly as it would on
+    success, so the response cannot be used to probe whether a contact exists.
+
+    Redirects to the company page on both outcomes rather than rendering
+    anything of its own: the contacts table it came from IS the confirmation,
+    and the timeline row ``remove_contact`` writes is the record.
+    """
+    access = access_for(request)
+    if not access.can_view or not access.can_edit:
+        return render(request, "marketing/denied.html", status=403)
+
+    client = get_object_or_404(Client, pk=pk)
+    services.remove_contact(client, contact_id, request.user, access.scope)
+    return redirect("marketing:company_detail", pk=client.pk)

@@ -59,6 +59,27 @@ def _require_unit(user, *units) -> bool:
     return bool(p and not p.is_admin and p.unit in units)
 
 
+def _can_open_marketing_chart(request) -> bool:
+    """May this viewer be offered the "Marketing chart" button on this page?
+
+    Two pages ask (``archive`` and ``case_detail``) and both ask this and
+    nothing else, so the answer stays one expression in one place. The decision
+    itself belongs to the Marketing app and is made there — it needs the
+    person's whole seat list, not the active seat, because the viewer is by
+    definition sitting in a Commercial seat when they want to go to the chart.
+
+    Imported inside the function: ``marketing`` imports ``cases.models`` at
+    module level, so a module-level import back the other way would be a cycle.
+    Failures are swallowed to False — a missing button is a nuisance, a case
+    archive that will not render is not.
+    """
+    try:
+        from marketing.access import can_reach_marketing
+        return bool(can_reach_marketing(request))
+    except Exception:
+        return False
+
+
 def _parse_rows(form, files) -> list[dict]:
     """Return inquiry rows from the pasted grid JSON and/or an Excel upload.
 
@@ -598,6 +619,13 @@ def archive(request):
 
     return render(request, "cases/archive.html", {
         "cases": window,
+        # Whether to offer the "Marketing chart" button. Not ``is_admin``: a
+        # person who holds a Marketing seat gets it too, even while sitting in
+        # the Commercial seat this page belongs to — which is the whole point,
+        # since that is the seat they are in when they want the chart. Asked of
+        # the seat layer's full role list, not the active seat. Showing the
+        # button is not the grant: marketing:home runs its own ``access_for``.
+        "can_open_marketing_chart": _can_open_marketing_chart(request),
         "total_count": len(cases_list),
         # What the All tab prints: every row the filters leave with no status tab
         # chosen, which is precisely the list All shows when it is clicked.
@@ -1573,6 +1601,9 @@ def case_detail(request, pk):
         "offer_types": OfferType.CHOICES,
         "events": events,
         "is_admin_view": is_admin_view,
+        # See ``archive`` above for what this flag is and why it is not
+        # ``is_admin_view``. Same one-line computation, same button.
+        "can_open_marketing_chart": _can_open_marketing_chart(request),
         "lifecycle_report": _case_lifecycle_report(case) if is_admin_view else None,
         "comment_form": CommentForm(),
         "assignees": assignees,

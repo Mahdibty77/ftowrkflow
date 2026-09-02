@@ -31,7 +31,10 @@
     </button>
     <a href="{{ select_return|default:'/' }}" class="btn btn-sm btn-ghost">Cancel</a>
     {% endif %}
-    {% if is_admin %}
+    {# Widened from is_admin: a person who also holds a Marketing seat gets  #}
+    {# this too — see cases/views.py::_can_open_marketing_chart. The chart   #}
+    {# re-checks access on arrival, so the button is an offer, not a grant.  #}
+    {% if can_open_marketing_chart %}
     <a href="{% url 'marketing:home' %}" class="btn btn-sm">
       <i class="fa-solid fa-diagram-project"></i> Marketing chart
     </a>

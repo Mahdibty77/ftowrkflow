@@ -1,13 +1,26 @@
 {% comment %}
   The project role chart — every field is its own clickable card now, so this
-  partial is the whole interface: one inline SVG, one reusable modal, one
-  floating indicator bar for the active anchor (if any — see
-  chart_interact.js's setActiveAnchor), and one floating pill for an active
-  query. There is no separate directory tab any more — see marketing/views.py.
+  partial is the whole interface: one inline SVG, one reusable modal, and ONE
+  indicator — the active-anchor bar (see chart_interact.js's setActiveAnchor),
+  which now lives in the chart's own top-left corner and sticks there while
+  the chart is scrolled. There used to be a SECOND indicator beside it, a
+  floating "query pill" (#rcQueryPill/#rcQueryName/#rcQueryClear) showing the
+  same query the anchor bar was already describing; the two overlapped in the
+  same corner and the owner asked for the pill to go entirely, so the anchor
+  bar below absorbed its one unique job — a plain (non-anchor) Inquiry, e.g.
+  Quick Inquiry or the ?case= deep link, still needs something naming it and
+  a control to clear it, and that is now this same bar in its "Query" wording
+  (see updateAnchorBar). There is no separate directory tab any more — see
+  marketing/views.py.
 
-  The chart no longer creates companies (that lives in the Companies tab a
-  later phase builds) — there is no Add button here at all, only search/
-  connect/inquiry. And the modal's own behaviour is gated by each node's own
+  Creating a company DOES happen here: the modal's own "+ Add company" panel
+  searches the shared client directory and registers a new client from it
+  (chart_interact.js, marketing:client_search / marketing:client_create). An
+  earlier comment here sent readers to the Companies tab for that instead;
+  that tab is gone — the company directory is its own section now, reading
+  the same ``ClientLabel`` rows this chart reads.
+
+  The modal's own behaviour is gated by each node's own
   ``data-kind`` (see marketing/rolechart.py's ``_kind_of``): "label" cards
   list and tag companies, the "us" card is a read-only case report, and
   "inert" cards (nothing feeds them this round) open to a plain empty state
@@ -37,24 +50,69 @@
 
   <div class="rc-canvas" id="rcCanvas">
 
-    <div class="rc-query-pill" id="rcQueryPill" hidden>
-      <span class="rc-query-name" id="rcQueryName" dir="auto"></span>
-      <button type="button" class="btn btn-sm btn-ghost" id="rcQueryClear">Clear</button>
+    {% comment %}
+      The active-anchor indicator's own dock — a zero-height sticky strip at
+      the chart canvas's own top-left corner, so the bar inside it floats OVER
+      the chart (it takes no layout room of its own and never pushes the SVG
+      down) and stays put while the reader scrolls DOWN the chart, without
+      ever rising above the chart's own top edge or outliving it: position
+      sticky is bounded by this element's own containing block, which is
+      .rc-canvas itself, and the page's real scroll container is .main (see
+      static/css/app.css) — a plain page-level scroller, so sticky resolves
+      against it exactly as intended. Nothing here is fixed to the viewport
+      any more; the bar scrolls away with the chart, as asked.
+    {% endcomment %}
+    <div class="rc-anchor-dock">
+      <div class="rc-anchor-bar" id="rcAnchorBar" hidden>
+        <span class="rc-anchor-label" id="rcAnchorLabel">Active</span>
+        <span class="rc-anchor-source" id="rcAnchorSource" dir="auto"></span>
+        <span class="rc-anchor-role" id="rcAnchorRole" dir="auto"></span>
+        <button type="button" class="btn btn-sm btn-ghost" id="rcAnchorDeactivate">Deactivate</button>
+      </div>
     </div>
 
     <svg id="rcSvg" viewBox="0 0 {{ chart.view_w }} {{ chart.view_h }}"
+         data-view-w="{{ chart.view_w }}" data-view-h="{{ chart.view_h }}"
          role="img" aria-labelledby="rcSvgTitle">
       <title id="rcSvgTitle">Project role chart — every field is its own entity directory; click one to open it.</title>
 
+      {% comment %}
+        Every edge carries, alongside the finished ``d`` it has always drawn,
+        the coordinates that produced it — marketing/rolechart.py::build()'s
+        own docstring spells out the recompute recipe these feed, and
+        chart_interact.js's relayoutForGrowth() is the reader: while an
+        Inquiry is active, cards grow taller and every row below them slides
+        down, and an edge between two moved rows has to be re-routed rather
+        than left pointing at where its rows used to be. Purely additive —
+        the path itself is still just ``e.d``, and nothing here does any
+        arithmetic of its own (see this file's own header comment).
+      {% endcomment %}
       <g class="rc-edges" aria-hidden="true">
-        {% for e in chart.edges %}<path d="{{ e.d }}" class="rc-edge"/>
+        {% for e in chart.edges %}<path d="{{ e.d }}" class="rc-edge"
+              data-seg="{{ e.seg }}" data-x1="{{ e.x1 }}" data-x2="{{ e.x2 }}"
+              data-parent-row="{{ e.parent_row_index }}" data-child-row="{{ e.child_row_index }}"
+              data-parent-bottom="{{ e.parent_bottom_y }}" data-child-top="{{ e.child_top_y }}"/>
         {% endfor %}
       </g>
 
       <g class="rc-query-lines" id="rcQueryLines" aria-hidden="true"></g>
 
+      {% comment %}
+        Nodes are GROUPED BY ROW now — one <g class="rc-row-group"> per row of
+        rolechart.py's own ``rows``, carrying that row's index and its
+        ORIGINAL top y — so the chart's JS can move a whole row as one unit
+        (a single transform on this group) when a card above it grows, rather
+        than moving each card, its label, its badge and its own decorations
+        separately. ``regroup`` is safe here precisely because
+        rolechart.py::build() emits nodes in row order already (it walks
+        _ROWS top to bottom), and every node in a group shares that row's y
+        by construction — see ``_node``'s own ``row_index`` docstring.
+      {% endcomment %}
       <g class="rc-nodes">
-        {% for n in chart.nodes %}
+        {% regroup chart.nodes by row_index as chart_node_rows %}
+        {% for chart_row in chart_node_rows %}
+        <g class="rc-row-group" data-row-index="{{ chart_row.grouper }}" data-row-y="{{ chart_row.list.0.y }}">
+        {% for n in chart_row.list %}
         <g class="{{ n.cls }}" tabindex="0" role="button"
            data-field="{{ n.key }}" data-role="{{ n.role_fa }}" data-abbr="{{ n.abbr }}"
            data-kind="{{ n.kind }}" data-row-index="{{ n.row_index }}"
@@ -67,23 +125,18 @@
           <text class="rc-badge-text" x="{{ n.badge.cx }}" y="{{ n.badge.text_y }}" text-anchor="middle">{{ n.badge.text }}</text>
         </g>
         {% endfor %}
+        </g>
+        {% endfor %}
       </g>
     </svg>
   </div>
 
   {% comment %}
-    The active-anchor indicator — a small persistent "Active: <company>
-    (<role>) — Deactivate" strip, shown whenever setActiveAnchor() (Inquiry /
-    case mode / the "Activate as this" pivot) has set one — reusing the OLD
-    attach wizard's own fixed-position floating-bar markup/ids/CSS
-    (chart_interact.js/rolechart.css), repurposed rather than rebuilt.
+    The active-anchor indicator itself now lives INSIDE .rc-canvas above (see
+    .rc-anchor-dock there) rather than as a viewport-fixed bar down here — the
+    owner asked for it in the chart's own top-left corner, sticky with the
+    chart rather than pinned to the window.
   {% endcomment %}
-  <div class="rc-anchor-bar" id="rcAnchorBar" hidden>
-    <span class="rc-anchor-label">Active</span>
-    <span class="rc-anchor-source" id="rcAnchorSource" dir="auto"></span>
-    <span class="rc-anchor-role" id="rcAnchorRole" dir="auto"></span>
-    <button type="button" class="btn btn-sm btn-ghost" id="rcAnchorDeactivate">Deactivate</button>
-  </div>
 
   <div class="rc-modal-overlay" id="rcModalOverlay" hidden>
     <div class="rc-modal" role="dialog" aria-modal="true" aria-labelledby="rcModalTitle">

@@ -1,20 +1,15 @@
 {% extends "base.html" %}
 {% load static %}
 {% comment %}
-  The Marketing workspace.
+  The Marketing workspace: the project role chart, and nothing else.
 
-  The tab strip is the platform's own .tabs / .tab idiom from static/css/app.css
-  — the one the case page uses for the sections of a single screen — rendered as
-  links to ?tab=… rather than as divs driven by JavaScript. Two reasons for the
-  change of element and no others: the tab a person is on then survives a
-  reload, and the server decides which panel exists rather than shipping every
-  panel to the browser and hiding all but one. The look is entirely app.css's;
-  the app's own stylesheet only removes the underline a link would otherwise
-  carry.
-
-  Only the active panel is rendered, so there is no .tab-panel/.active
-  display-toggling here — the case page needs that because it ships every
-  panel at once, and this page does not.
+  This page carried a .tabs / .tab strip (links to ?tab=…) for as long as it
+  had a second panel to switch to. The Companies tab that occupied that
+  second slot is gone — the company directory is its own section now — and a
+  one-entry tab strip is decoration rather than navigation, so the strip went
+  with it rather than being left rendering a single tab that links to the
+  page you are already on. The panel below is therefore unconditional, and
+  the view no longer has a ``tab`` concept to pass down.
 {% endcomment %}
 {% block title %}Marketing · Foolad Tabar Workflow{% endblock %}
 {% block topbar %}Marketing{% endblock %}
@@ -29,7 +24,6 @@
     <div class="sub">{{ user.profile.title_line }}</div>
   </div>
 
-  {% if active_tab == 'roles' %}
   {% comment %}
     The top-of-page header widgets — a plain flex row (.rc-header-widgets)
     holding both small standalone cards below, so .page-head itself still
@@ -38,8 +32,7 @@
     before; the wrapper is what actually lays the two cards out side by
     side, with its own gap, and wraps them onto their own line together on a
     narrow screen rather than justify-content spreading three items apart
-    unevenly. Only ever renders on the 'roles' tab, alongside
-    marketing/_role_chart.html below, never on the Companies tab.
+    unevenly. Unconditional now that the chart is this page's only panel.
   {% endcomment %}
   <div class="rc-header-widgets">
     {% comment %}
@@ -48,10 +41,9 @@
       chart below, picking a company there, and pressing Inquiry — without
       first having to find the right card.
 
-      Just the static shell: two field containers plus a Confirm button,
-      mirroring how _companies.html's own shell provides bare mount points for
-      companies.js to fill in. Every bit of behaviour — the company search
-      (reusing the exact same search/create mechanism the "+ Add company"
+      Just the static shell: two field containers plus a Confirm button, a
+      bare mount point for the script to fill in. Every bit of behaviour —
+      the company search (reusing the exact same search/create mechanism the "+ Add company"
       panel already built), the role dropdown (marketing:client_connections,
       unchanged), adding a brand-new role (marketing:label_toggle, unchanged),
       and Confirm itself (runInquiryForClient(), unchanged) — is wired in
@@ -129,17 +121,8 @@
       </div>
     </div>
   </div>
-  {% endif %}
 </div>
 
-<nav class="tabs rc-tabs" aria-label="Marketing sections">
-  {% for t in tabs %}
-  <a class="tab{% if t.is_active %} active{% endif %}"
-     href="?tab={{ t.key }}"{% if t.is_active %} aria-current="page"{% endif %}>{{ t.label }}</a>
-  {% endfor %}
-</nav>
-
-{% if active_tab == 'roles' %}
 <div class="panel">
   <div class="panel-h">
     <h3>Relationship Map</h3>
@@ -162,15 +145,6 @@
 
   {% include "marketing/_role_chart.html" %}
 </div>
-{% elif active_tab == 'companies' %}
-<div class="panel">
-  <div class="panel-h">
-    <h3>Companies</h3>
-  </div>
-
-  {% include "marketing/_companies.html" %}
-</div>
-{% endif %}
 
 {% endblock %}
 {% block scripts %}
@@ -180,31 +154,53 @@
     labelCompaniesUrl: "{% url 'marketing:label_companies' %}",
     labelToggleUrl: "{% url 'marketing:label_toggle' %}",
     clientConnectionsUrl: "{% url 'marketing:client_connections' %}",
-    usConnectionsUrl: "{% url 'marketing:us_connections' %}",
+    {# There was a usConnectionsUrl key here, and no line of chart_interact.js #}
+    {# ever read it — the "us" card is served by clientConnectionsUrl and      #}
+    {# allCasesSearchUrl. It went out with the route and view behind it; see   #}
+    {# marketing/urls.py.                                                      #}
     // The attach wizard's "connect X to Y" staging (chart_interact.js, change
     // 1) commits through this instead of labelToggleUrl whenever the target
     // is a REAL OTHER company, not the wizard's own source — see
     // marketing:connection_toggle / services.create_connection/remove_connection.
     connectionToggleUrl: "{% url 'marketing:connection_toggle' %}",
-    // The "+ Add company" panel (chart_interact.js) live-searches and can
-    // register a brand-new client the exact same way the Companies tab's own
-    // companies.js already does with these same two endpoints — exposed here
-    // too now, alongside FT_MARKETING_COMPANIES's own copies below, so the
-    // chart's modal never has to reach across into that other config object.
+    // The "+ Add company" panel (chart_interact.js) live-searches the shared
+    // client directory and can register a brand-new client from it. These two
+    // endpoints were once shared with the Companies tab's own config object;
+    // that tab is gone and the chart is their only caller now.
     clientSearchUrl: "{% url 'marketing:client_search' %}",
     clientCreateUrl: "{% url 'marketing:client_create' %}",
     canEdit: {{ can_edit|yesno:"true,false" }},
     isAdminTier: {{ is_admin_tier|yesno:"true,false" }},
     allCasesSearchUrl: "{% url 'marketing:all_cases_search' %}",
+    // The "cases connected to Us" panel's own head (chart_interact.js's
+    // renderUsCasesCounts / renderUsCasesArchiveLink): the three status counts
+    // for the company an Inquiry is about, and the admin/GM click-through into
+    // the case archive filtered to that same company. The archive filter is
+    // matched by the "Name (CODE)" option text cases/views.py::archive builds
+    // for its own dropdown, not by client id — see the JS.
+    caseStatusCountsUrl: "{% url 'marketing:client_case_counts' %}",
+    archiveUrl: "{% url 'cases:archive' %}",
     deepLinkCaseId: {% if deep_link_case_id %}{{ deep_link_case_id }}{% else %}null{% endif %},
-    // Admin/GM click-through on the "cases connected to Us" panel
+    // Click-through on the "cases connected to Us" panel
     // (chart_interact.js's renderUsCasesPanelContent) needs a real case
     // detail URL built from a plain numeric id it only has client-side.
     // cases:case_detail is "<int:pk>/", so reversing it with a placeholder
     // pk and stripping the placeholder AND the trailing slash it carries
     // leaves the base "/cases/" for the JS to append `<case_id>/` onto —
     // stripping the digits alone would leave a stray double slash.
-    caseDetailUrlBase: "{% url 'cases:case_detail' 999999999 %}".replace("999999999/", "")
+    caseDetailUrlBase: "{% url 'cases:case_detail' 999999999 %}".replace("999999999/", ""),
+    // WHO may follow a case row, and HOW. Not isAdminTier any more: every row
+    // the panel is given is now one this viewer may actually open (the
+    // endpoints behind it are scoped by marketing/access.py::case_access_for),
+    // so the rows are clickable for the admin/GM tier AND for a Marketing
+    // expert who also holds a Commercial seat — looking at their own cases.
+    canOpenCases: {{ can_open_cases|yesno:"true,false" }},
+    // Empty for a viewer who may open a case straight from where they sit.
+    // Otherwise the people:activate_role "?next=" prefix that switches the
+    // dual-seat viewer into their Commercial seat on the way to the case —
+    // without it the case page would bounce them, since it resolves "did you
+    // participate" against the seat being worked. See views._case_open_prefix.
+    caseOpenPrefix: "{{ case_open_prefix|escapejs }}"
   };
   // A live read of the CSRF cookie rather than a baked template value — the
   // same reasoning as itemcoder/templates/itemcoder/tool_case.html: it stays
@@ -219,36 +215,10 @@
     },
     enumerable: true
   });
-
-  window.FT_MARKETING_COMPANIES = {
-    clientSearchUrl: "{% url 'marketing:client_search' %}",
-    clientCreateUrl: "{% url 'marketing:client_create' %}",
-    labelCompaniesUrl: "{% url 'marketing:label_companies' %}",
-    labelToggleUrl: "{% url 'marketing:label_toggle' %}",
-    clientConnectionsUrl: "{% url 'marketing:client_connections' %}",
-    canEdit: {{ can_edit|yesno:"true,false" }},
-    isAdminTier: {{ is_admin_tier|yesno:"true,false" }},
-    archiveUrl: "{% url 'cases:archive' %}"
-  };
-  // Same live cookie read as FT_MARKETING_CHART.csrfToken above, copied
-  // character for character rather than shared, so this object keeps
-  // working standalone even if that one is ever removed.
-  Object.defineProperty(window.FT_MARKETING_COMPANIES, "csrfToken", {
-    get: function () {
-      var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
-      if (m) return decodeURIComponent(m[1]);
-      var inp = document.querySelector('input[name=csrfmiddlewaretoken]');
-      return (inp && inp.value) || "";
-    },
-    enumerable: true
-  });
 </script>
-{# Both scripts load unconditionally, same as chart_interact.js already did #}
-{# before this tab existed — see its own top-of-file comment: it self-guards #}
-{# on `getElementById('rcChart')` and no-ops when that tab isn't the active #}
-{# one. companies.js follows the identical pattern against 'mcRoot', so #}
-{# neither script needs a template-level {% if %} to stay inert on the other #}
-{# tab. #}
+{# chart_interact.js still self-guards on `getElementById('rcChart')` and #}
+{# no-ops if the chart is absent — see its own top-of-file comment. That #}
+{# guard predates the tab strip and is kept as-is; it costs nothing and #}
+{# keeps the script safe to load from anywhere. #}
 <script src="{% static 'marketing/js/chart_interact.js' %}"></script>
-<script src="{% static 'marketing/js/companies.js' %}"></script>
 {% endblock %}

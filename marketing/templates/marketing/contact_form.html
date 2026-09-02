@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  ADD ONE CONTACT AT A COMPANY.
+
+  The same shape every other Django-form screen in this platform has —
+  cases/client_form.html, accounts/user_form.html, people/person_form.html:
+  a method="post" form in a .card, each control in a .field with its label,
+  field errors in a <ul class="errorlist"> underneath (app.css turns the
+  surrounding .field red on its own via :has(.errorlist)), and form-level
+  errors in a .flash.flash-error above the fields.
+
+  THE FORM-LEVEL RULE — at least one of phone / email — is enforced in
+  marketing/forms.py::ContactForm.clean(), on the server, and it is shown here
+  as that .flash.flash-error. There is deliberately NO JavaScript copy of it on
+  this page: a rule that only exists in the browser is not a rule, and the
+  submit button below is a plain submit, so a form with both fields blank
+  really does travel to the server and really is rejected there.
+
+  The role <select> carries data-combo and is upgraded by static/js/ui.js into
+  the same searchable picker every other select in this platform gets — the
+  managed ContactRole list can grow long, and it is the same control the case
+  create screen uses for client/kind/price type.
+{% endcomment %}
+{% block title %}Add contact · {{ client.name }} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}Add contact{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1>Add a contact</h1>
+    <div class="sub">at <span dir="auto">{{ client.name }}</span> <span class="mono">({{ client.code }})</span></div>
+  </div>
+  <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-sm">
+    <i class="fa-solid fa-arrow-left"></i> Back to company
+  </a>
+</div>
+
+<form method="post" class="card form-narrow" autocomplete="off">
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+  <div class="flash flash-error">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <span>{% for e in form.non_field_errors %}{{ e }}{% endfor %}</span>
+  </div>
+  {% endif %}
+
+  <div class="grid grid-2">
+    <div class="field">
+      <label for="{{ form.first_name.id_for_label }}"><i class="fa-solid fa-user"></i> {{ form.first_name.label }}</label>
+      {{ form.first_name }}
+      {% if form.first_name.errors %}<ul class="errorlist">{% for e in form.first_name.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    <div class="field">
+      <label for="{{ form.last_name.id_for_label }}"><i class="fa-solid fa-user"></i> {{ form.last_name.label }}</label>
+      {{ form.last_name }}
+      {% if form.last_name.errors %}<ul class="errorlist">{% for e in form.last_name.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="{{ form.role.id_for_label }}"><i class="fa-solid fa-user-tie"></i> {{ form.role.label }}</label>
+    {{ form.role }}
+    {% if form.role.errors %}<ul class="errorlist">{% for e in form.role.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    {% if not form.roles_available %}
+      {# The managed vocabulary is legitimately empty on a fresh install (see    #}
+      {# marketing/models.py::ContactRole). Whoever can fill it is told how;     #}
+      {# whoever cannot is told who can, rather than being left staring at an    #}
+      {# empty required dropdown with no explanation.                            #}
+      <div class="help">
+        {% if can_manage_roles %}No contact roles exist yet — add the first one in the field below.
+        {% else %}No contact roles exist yet. A Marketing Supervisor has to add the first one before a contact can be filed under a job title.{% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  {% if can_manage_roles %}
+  {# Only rendered for a seat that may manage the shared vocabulary — and the  #}
+  {# field does not exist on the form object at all for anyone else, so this   #}
+  {# is presentation, not the gate. See marketing/views.py::_can_manage_roles. #}
+  <div class="field">
+    <label for="{{ form.new_role.id_for_label }}"><i class="fa-solid fa-plus"></i> {{ form.new_role.label }}</label>
+    {{ form.new_role }}
+    {% if form.new_role.errors %}<ul class="errorlist">{% for e in form.new_role.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    <div class="help">Adds the title to the shared list for everyone in Marketing. Leave it blank if you picked a role above.</div>
+  </div>
+  {% endif %}
+
+  <div class="field">
+    <label for="{{ form.gender.id_for_label }}"><i class="fa-solid fa-user-check"></i> {{ form.gender.label }}</label>
+    {{ form.gender }}
+    {% if form.gender.errors %}<ul class="errorlist">{% for e in form.gender.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+  </div>
+
+  {# Contact details. The dialling prefix and the internal extension sit side  #}
+  {# by side in one .grid.grid-2 — the owner's own layout, and the same two-up #}
+  {# row the case detail page uses for paired fields — because they are two    #}
+  {# parts of one dialled number, not two independent facts.                   #}
+  <div class="subcard" style="margin-bottom:.9rem;">
+    <div class="sc-head"><i class="fa-solid fa-phone"></i> Contact details</div>
+    <div class="grid grid-2">
+      <div class="field">
+        <label for="{{ form.phone_prefix.id_for_label }}">{{ form.phone_prefix.label }}</label>
+        {{ form.phone_prefix }}
+        {% if form.phone_prefix.errors %}<ul class="errorlist">{% for e in form.phone_prefix.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.phone_ext.id_for_label }}">{{ form.phone_ext.label }}</label>
+        {{ form.phone_ext }}
+        {% if form.phone_ext.errors %}<ul class="errorlist">{% for e in form.phone_ext.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+    </div>
+    <div class="field">
+      <label for="{{ form.phone.id_for_label }}"><i class="fa-solid fa-phone"></i> {{ form.phone.label }}</label>
+      {{ form.phone }}
+      {% if form.phone.errors %}<ul class="errorlist">{% for e in form.phone.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    <div class="field" style="margin-bottom:0;">
+      <label for="{{ form.email.id_for_label }}"><i class="fa-solid fa-at"></i> {{ form.email.label }}</label>
+      {{ form.email }}
+      {% if form.email.errors %}<ul class="errorlist">{% for e in form.email.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    <div class="help">A phone number or an email is required — either one on its own is enough.</div>
+  </div>
+
+  <div class="btn-row">
+    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Add contact</button>
+    <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-ghost">Cancel</a>
+  </div>
+</form>
+{% endblock %}

@@ -401,7 +401,10 @@
     <div class="card">
       <div class="card-head">
         <h3>Audit timeline{% if multi_side %} · all sub-streams{% endif %}</h3>
-        {% if is_admin_view %}
+        {# Widened from is_admin_view: a viewer who also holds a Marketing seat #}
+        {# gets it too — cases/views.py::_can_open_marketing_chart. The chart    #}
+        {# runs its own access_for on arrival, so this is an offer, not a grant. #}
+        {% if can_open_marketing_chart %}
         <a href="{% url 'marketing:home' %}?case={{ case.pk }}" class="btn btn-sm"><i class="fa-solid fa-share-nodes"></i> View in marketing chart</a>
         {% endif %}
       </div>

@@ -1,0 +1,64 @@
+/* ===========================================================================
+   COMPANY DIRECTORY — the small amount of styling the two directory screens
+   need on top of what static/css/app.css already provides.
+
+   A SEPARATE FILE FROM rolechart.css on purpose: that stylesheet belongs to
+   the relationship chart and is being worked on independently, and these two
+   screens share none of its markup. Nothing here restyles a platform class —
+   every rule below either targets a `dir-` class of this section's own or
+   scopes itself to one (`.dir-timeline .tl-action`), so loading this file on
+   a page cannot change how a .card, a .chip or a .timeline looks anywhere
+   else.
+
+   THEMING: every colour is a variable app.css already defines and redefines
+   for dark mode (--muted, --line, --cloud, --slate, --accent-strong, ...).
+   There is not one literal colour in this file, which is what makes both
+   screens correct in every theme without a second set of rules.
+   =========================================================================== */
+
+/* The Roles/labels column on the directory list. A company can legitimately
+   carry several roles, so the cell wraps its chips (via app.css's own
+   .chips-row) and is capped rather than letting one heavily-tagged company
+   push the two columns to its left off screen. */
+.dir-labels-cell{ max-width:44ch; }
+.dir-labels-cell .chips-row{ gap:.3rem; }
+
+/* The per-action icon on a company timeline row. The case timeline has one
+   coloured dot for every entry (app.css's .timeline li::before, still drawn
+   here); this section's history mixes tags, connections, contacts and cases,
+   so each row also names its own kind. Sized and coloured like the icons in
+   a .card-head so the two read as the same family. */
+.dir-timeline .tl-action{
+  display:flex;
+  align-items:baseline;
+  gap:.4rem;
+  flex-wrap:wrap;
+}
+.dir-tl-icon{
+  color:var(--accent-strong);
+  flex:0 0 auto;
+}
+
+/* The actor's FROZEN role label, beside their frozen name on a timeline row
+   (see marketing/models.py::ClientEvent for why both are snapshots). A quiet
+   outline rather than a filled chip: it is context for the name, not a status
+   of its own, and it must not out-shout the sentence above it. Mirrors the
+   proportions of app.css's .tl-ver, which does the same job for a form
+   version number on the case timeline. */
+.dir-tl-role{
+  display:inline-block;
+  padding:.02rem .4rem;
+  border:1px solid var(--line);
+  border-radius:6px;
+  font-size:.66rem;
+  font-weight:600;
+  color:var(--muted);
+  white-space:nowrap;
+}
+
+/* A narrow screen: the label column's cap is what stops the table scrolling
+   sideways, so it goes away entirely once there is no room for the two
+   columns beside it either. */
+@media (max-width:760px){
+  .dir-labels-cell{ max-width:none; }
+}
