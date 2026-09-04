@@ -28,13 +28,23 @@ client -> its labels).
 A THIRD mechanism sits alongside those two, added this round:
 ``marketing/models.py::Connection``, a directed (client, role) -> (client,
 role) edge created through the chart's own Attach flow (see
-``create_connection``/``remove_connection`` below). A ``Connection`` never
-changes which labels a client itself DIRECTLY holds — the two sources above
-still decide that, unchanged — it only decides WHO is displayed under a
+``create_connection``/``remove_connection`` below). The ``Connection`` row
+itself never changes which labels a client DIRECTLY holds — the two sources
+above still decide that, unchanged — it only decides WHO is displayed under a
 label's chart card (``connections_of_client``'s new ``connected`` field), and
 it can add an entry to that report for a label the client never actually
 held itself, purely because the client connected some OTHER company under
 it (see ``connections_of_client``'s docstring for the worked example).
+CONFIRMING one, however, CAN cause a DIRECTLY-HELD label to appear where
+there was none before: ``create_connection`` separately writes a MANUAL
+``ClientLabel`` for the target when the target does not already effectively
+hold the role it was just connected under (see that function's own docstring
+and ``_client_holds_label``) — this is what makes the target show up when a
+role card is browsed on its own, independent of the anchor it was attached
+through, since ``companies_for_label`` has never looked at ``Connection`` rows
+directly. That write goes through the ordinary manual-label mechanism
+(``toggle_manual_label``), not through any new merge rule, so every other
+read in this module already understands it for free.
 
 THREE MORE THINGS HANG OFF A COMPANY, and all three follow the same rules as
 everything above rather than inventing their own:
@@ -237,9 +247,33 @@ def _scoped(qs, user, scope):
     return qs
 
 
+def effective_marketing_label(value: str) -> str:
+    """The blank-defaults-to-owner rule, applied to a RAW ``marketing_label``
+    string rather than a ``Case`` instance.
+
+    Split out of ``_effective_label`` below purely so a caller that is
+    holding two raw strings — not two ``Case`` rows — can apply the exact
+    same normalization without duplicating its one line of logic inline.
+    The concrete caller this exists for is ``cases/views.py``'s two case-edit
+    paths (the contacts-only edit and the fresh-draft full edit): both need
+    to compare the marketing role BEFORE an edit against the role AFTER it,
+    to decide whether ``log_case_role_change`` below should fire at all — a
+    blank-to-"owner" or "owner"-to-blank pair is not a real change (see that
+    function's own docstring), and getting that comparison right means
+    reusing this exact rule, not re-deriving it as ``value or "owner"`` at
+    the call site where a future edit to the real rule (should OWNER ever
+    stop being the default) could silently drift out of step.
+    PUBLIC (no leading underscore), unlike most of this module's small
+    helpers, specifically so it is safe and intended for that cross-app
+    import — see ``marketing/models.py::ClientEventAction``'s
+    ``CASE_ROLE_CHANGED`` docstring for why the cases app needs it at all.
+    """
+    return value or MarketingLabel.OWNER
+
+
 def _effective_label(case: Case) -> str:
     """A case's business-role label, applying the blank-defaults-to-owner rule."""
-    return case.marketing_label or MarketingLabel.OWNER
+    return effective_marketing_label(case.marketing_label)
 
 
 # The "cases connected to Us" side panel shows a case's outcome, not its raw
@@ -345,6 +379,66 @@ def _try_log(client: Client, actor, action: str, subject: str = "",
                              comment=comment, subject_role=subject_role)
     except Exception:
         pass
+
+
+# --------------------------------------------------------------------------- #
+# A case's own business-role change — logged on the CASE'S CLIENT's timeline
+# --------------------------------------------------------------------------- #
+def log_case_role_change(case: Case, actor, old_label: str, new_label: str) -> None:
+    """Record, on ``case.client``'s OWN COMPANY TIMELINE, that this case's
+    business role (``cases.models.Case.marketing_label`` — the ONE thing that
+    decides which (client, role) pair the case anchors to on the chart; see
+    ``_effective_label``) changed from ``old_label`` to ``new_label``.
+
+    THE ONLY CALLERS ARE ``cases/views.py``'s TWO EDIT-SAVE PATHS, and both
+    are expected to call this ONLY after they have already established, via
+    ``effective_marketing_label``, that the role genuinely changed — this
+    function does not re-check that itself and will happily write a
+    (technically true but useless) "changed from OWNER to OWNER" row if a
+    caller hands it two equal labels. That is a deliberate division of
+    labour, not an oversight: the "did it really change" question needs the
+    BEFORE value, which only the view (holding the in-memory ``Case`` before
+    it overwrites the field) ever has; by the time anything here could look,
+    the change has already happened.
+
+    ``old_label``/``new_label`` are EFFECTIVE labels (already normalized
+    through ``effective_marketing_label`` by the caller — e.g. ``"owner"``,
+    never ``""``), not raw ``Case.marketing_label`` values, so
+    ``FIELD_LABELS.get(...)`` below always resolves to real display text
+    instead of silently falling back to an empty-string key.
+
+    WHERE EACH FACT GOES ON THE ``ClientEvent`` ROW, and why: ``subject``
+    carries the case's OWN document number, frozen at write time, through the
+    identical mechanism ``add_report`` already established for
+    ``REPORT_ADDED`` — see that function's own comment. Freezing it there,
+    rather than inventing a new frozen slot, is what lets it ride the SAME
+    read-time redaction ``client_timeline`` already applies to every
+    ``ClientEvent`` row (``_redact_case_numbers``, which inspects ``subject``
+    generically, by action-agnostic design): a viewer ``case_access_for``
+    would refuse this case to reads this row with an empty ``subject``,
+    exactly as they already would for a redacted report. ``subject_role``
+    carries the frozen "OLD → NEW" text as one string (not split across
+    ``subject_role``/``comment`` the way ``CONNECTION_ADDED`` splits its two
+    nouns) — there is no natural "primary noun" here the way another
+    company's name is for a connection, so one combined, already-formatted
+    slot the template prints verbatim is simpler than two that would have to
+    be stitched back together at render time. ``comment`` is left blank: it
+    would otherwise duplicate ``subject_role``'s text in the timeline's own
+    separate ".tl-comment" note, which is written once, in
+    ``company_detail.html``, for every action rather than per action kind.
+
+    Routed through ``_try_log`` like every other write in this module, for
+    the same reason: a case whose ROLE FIELD saved correctly must never come
+    back as a 500 because its timeline row failed to write.
+    """
+    old_fa = FIELD_LABELS.get(old_label, old_label)
+    new_fa = FIELD_LABELS.get(new_label, new_label)
+    doc_no = (getattr(case, "doc_no", "") or "").strip()
+    _try_log(
+        case.client, actor, ClientEventAction.CASE_ROLE_CHANGED,
+        subject=doc_no,
+        subject_role=f"{old_fa} → {new_fa}",
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -569,6 +663,36 @@ def _connection_comment(anchor_role: str, case=None) -> str:
     return f"{anchor_fa}{_COMMENT_NOUN_SEP}{doc_no}" if doc_no else anchor_fa
 
 
+def _client_holds_label(client: Client, label: str) -> bool:
+    """Whether ``client`` ALREADY, effectively holds ``label`` right now —
+    the merge-time question ``companies_for_label``/``connections_of_client``
+    answer per label/per client, asked here as a single unscoped yes/no fact
+    rather than a display row.
+
+    UNSCOPED ON PURPOSE, unlike the manual half of every OTHER read in this
+    module. Everywhere else, "does a manual ``ClientLabel`` count" depends on
+    ``(user, scope)`` because that half of the merge is about WHO MAY SEE the
+    row (see the module docstring's "Manual ``ClientLabel`` rows are the one
+    thing that stays scoped" paragraph). This function asks a different
+    question — not "should THIS viewer be shown this label" but "is there
+    already ANY row, from ANY source, making this a true fact about the
+    client" — because it exists purely to gate a WRITE (see
+    ``create_connection`` below), and a write must not duplicate a fact that
+    is already real just because the user confirming a connection is not the
+    same Marketing user who tagged it, or is not in the same case's access
+    list. A case-derived hold is unscoped everywhere already (case data is
+    shared truth); a manual hold is checked here across every ``created_by``,
+    not just ``user``'s own, for the identical reason.
+
+    Two cheap existence queries, short-circuited: the case check runs first
+    since case data is looked up here the same way ``_case_label_query``
+    already expresses it, and most calls need at most one of the two.
+    """
+    if Case.objects.filter(_case_label_query(label), client=client).exists():
+        return True
+    return ClientLabel.objects.filter(client=client, label=label).exists()
+
+
 def create_connection(anchor_client: Client, anchor_role: str, target_client: Client, target_role: str, user, case=None) -> None:
     """Get-or-create the directed edge (anchor_client, anchor_role) ->
     (target_client, target_role), optionally scoped to ``case``.
@@ -592,6 +716,39 @@ def create_connection(anchor_client: Client, anchor_role: str, target_client: Cl
     different user does not steal ownership of the existing row) — see
     ``Connection``'s own docstring for why ownership is tracked but not part
     of "is this the same fact".
+
+    CONFIRMING A CONNECTION ALSO REGISTERS THE TARGET'S ROLE, and this is the
+    piece that makes "connect a company under role X, then browse role X's
+    own card" actually show it. A ``Connection`` alone never changed which
+    labels ``target_client`` DIRECTLY holds (see the module docstring's "A
+    THIRD mechanism" paragraph) — it only decided who is displayed under the
+    ANCHOR's card. But ``companies_for_label`` — what backs browsing a role
+    card directly, independent of any anchor — has only ever unioned
+    ``ClientLabel`` rows and case-derived rows; it has never looked at
+    ``Connection`` at all, and widening it to do so is a much bigger, riskier
+    change than the one asked for here. So instead, the moment a NEW
+    connection genuinely GIVES the target a role it did not already hold,
+    that fact is made real the same way a human ticking the target's own
+    manual-tag checkbox would make it real: a ``ClientLabel`` row, added
+    through the exact same mechanism (``toggle_manual_label``) that checkbox
+    already calls, so it needs no new merge logic anywhere and shows up on
+    every existing manual-label read path for free.
+    ``_client_holds_label`` is the gate — see its own docstring for why it is
+    unscoped — and it is checked only when a connection was genuinely NEW
+    (``created``), never on a re-submit of an already-existing edge: this is
+    "did this action just grant a role", not "keep granting it every time the
+    Attach flow is reopened". A target that already effectively holds the
+    role (via a case, or via any user's prior manual tag) is left exactly as
+    it was — nothing here ever touches ``ClientLabel`` rows that already
+    exist, and there is no "undo" on the other side of this (see
+    ``remove_connection``'s docstring for why removing the edge later does
+    not revoke this).
+    ``toggle_manual_label`` stamps ``created_by=user`` — the person who
+    confirmed the connection — and, since it is the one and only place a
+    ``ClientLabel`` is ever created, it ALSO writes the ``LABEL_ADDED``
+    ``ClientEvent`` on ``target_client``'s own timeline itself; nothing here
+    logs a second time for the same fact, matching this whole file's rule of
+    one row per genuine change (see ``toggle_manual_label``'s own docstring).
     """
     if not is_label(anchor_role):
         raise ValueError(f"Unknown label: {anchor_role!r}.")
@@ -617,6 +774,14 @@ def create_connection(anchor_client: Client, anchor_role: str, target_client: Cl
                  subject=target_client.name,
                  subject_role=_connection_role_label(target_role),
                  comment=_connection_comment(anchor_role, case))
+        # The TARGET's own role registration — see this function's docstring
+        # ("CONFIRMING A CONNECTION ALSO REGISTERS THE TARGET'S ROLE") for the
+        # full reasoning. Gated on ``_client_holds_label`` so a target that
+        # already carries the role (case-derived or manually, by anyone) is
+        # left untouched — this only ever ADDS a fact that was not already
+        # true, never re-asserts one that was.
+        if not _client_holds_label(target_client, target_role):
+            toggle_manual_label(target_client, target_role, user, add=True)
 
 
 def remove_connection(anchor_client: Client, anchor_role: str, target_client: Client, target_role: str, case, user) -> None:
@@ -640,6 +805,20 @@ def remove_connection(anchor_client: Client, anchor_role: str, target_client: Cl
     a directed edge belongs to the timeline of the company it was drawn from.
     ``delete()``'s own row count is the signal, and it comes free with the
     write that already happens.
+
+    DELIBERATELY NOT SYMMETRIC WITH ``create_connection``'s TARGET-ROLE
+    REGISTRATION. Confirming a connection can, per that function's docstring,
+    give ``target_client`` a manual ``ClientLabel`` it did not already carry.
+    Deleting the edge afterward does NOT remove that label — the owner
+    described the grant as one-directional ("a role, once given, stays"), and
+    the label is by then an independent, freestanding fact: the target may
+    since have picked up the same role through a case, or the connection may
+    simply not have been the only reason it deserved the tag in the first
+    place. This function only ever deletes the ``Connection`` row itself;
+    un-tagging a company's manual label remains exclusively the job of the
+    existing manual ``label_toggle`` UI (``toggle_manual_label(...,
+    add=False)``), which is the one place that already knows how to check
+    ownership of a ``ClientLabel`` row before removing it.
     """
     removed, _detail = Connection.objects.filter(
         anchor_client=anchor_client, anchor_role=anchor_role,
@@ -1069,6 +1248,22 @@ def connections_of_client(client: Client, user, scope, case=None, *,
     nothing this function returns — neither key — can carry a document number
     the viewer may not read.
 
+    AND, WHEN ``case`` IS GIVEN, NARROWED A SECOND TIME DOWN TO THAT ONE CASE
+    — this is the "cases connected to Us" panel's OWN scoping rule, distinct
+    from ``case_access`` and applied on top of it, never instead of it. The
+    panel exists to answer "what is THIS Inquiry (running against THIS case)
+    connected to", and before this narrowing it answered a different
+    question — EVERY case this client has, permission allowing, regardless of
+    which one (if any) case mode is actually running against; a client with
+    several cases in different roles would show all of them even while the
+    chart was anchored on exactly one. Scoped-by-``case`` and scoped-by-
+    ``case_access`` compose in the only direction that is safe: this can only
+    ever REMOVE rows ``case_access`` already let through, never add one back
+    — a case this viewer may not see stays invisible whether or not it
+    happens to be the active one. Every existing caller keeps working
+    unchanged by simply not passing ``case``, exactly as the rest of this
+    function's ``case`` handling already promises.
+
     ``case_access`` scopes DOCUMENT NUMBERS ONLY, never which labels appear.
     Which roles ``client`` holds is shared truth and stays unscoped (see the
     module docstring); ``case_numbers`` on an entry is the visible subset, and
@@ -1168,7 +1363,21 @@ def connections_of_client(client: Client, user, scope, case=None, *,
             }
         labels_out.append(entry)
 
-    return {"labels": labels_out, "cases": case_rows}
+    # The panel's OWN narrowing, on top of (never instead of) ``case_access``
+    # — see the docstring's "AND, WHEN ``case`` IS GIVEN" paragraph. Applied
+    # here, at the very end, against ``case_rows`` (already permission-
+    # filtered above) rather than against ``all_case_rows``, so this step can
+    # only ever REMOVE a row ``case_access`` already let through — it can
+    # never add back a case the viewer may not see, whether or not that case
+    # happens to be the active one. ``case_numbers_by_label`` above is
+    # deliberately built from the wider ``case_rows``, not this narrowed
+    # view: document numbers on a label are "every visible case", while this
+    # is purely about which row(s) the "cases connected to Us" panel lists.
+    cases_out = case_rows
+    if case is not None:
+        cases_out = [row for row in case_rows if row["case_id"] == case.pk]
+
+    return {"labels": labels_out, "cases": cases_out}
 
 
 def _case_label_query(label: str):
@@ -1206,9 +1415,44 @@ def _scoped_events(qs, user, scope):
     boundary exactly: the rows an Expert can see are the rows recording their
     own actions, and a Supervisor/GM/admin ("all") sees the union of
     everyone's, precisely as they see the union of everyone's tags.
+
+    ``CASE_ROLE_CHANGED`` IS EXEMPTED FROM THE "own" FILTER, AND THIS IS A
+    DELIBERATE CARVE-OUT, NOT AN OVERSIGHT — worth spelling out because every
+    other action this filter has ever governed shares one property that this
+    one structurally does not. For LABEL_ADDED, CONNECTION_ADDED, CONTACT_ADDED
+    and the rest, ``actor`` is ALWAYS a MARKETING user — the person who clicked
+    the tag, drew the connection, added the contact — so "rows whose actor is
+    me" and "rows recording MY OWN actions" are the exact same set, and the
+    boundary above is real: it is genuinely reproducing who did what.
+    ``CASE_ROLE_CHANGED``'s actor is ALWAYS a COMMERCIAL user instead —
+    ``cases/views.py``'s two case-edit paths are its only callers (see
+    ``log_case_role_change``), and Commercial and Marketing are different
+    units by construction (``people.seats`` hardens every seat after the first
+    into its own account). So for THIS action alone, ``actor=user`` is not
+    "did I do this" narrowed to true — it is a comparison that can never be
+    true for any Marketing viewer, own or otherwise, and applying it under
+    "own" would silently hide the row from EVERY ordinary Marketing Expert
+    while a Supervisor/GM/admin (scope "all", unfiltered) reads it freely. That
+    is not what "own" has ever meant anywhere else in this module: nowhere
+    else does it depend on which HUMAN happens to be reading rather than on
+    who wrote the row being read.
+    The owner's own instruction for this feature was that "the company's own
+    timeline must record" a role change, with no mention of narrowing that to
+    whichever scope the viewer happens to hold — and ``company_detail`` already
+    gates entry to the page itself on ``access.can_view`` before ``scope`` is
+    ever consulted (see ``marketing/views.py::company_detail``), so every
+    reader reaching this list already has genuine, legitimate view access to
+    THIS company. Withholding one specific row from an Expert that a
+    Supervisor sees on the identical page would not be protecting anyone's
+    manual work the way the actor filter protects a colleague's tag — it would
+    only be an accident of this filter being reused for a fact it was never
+    designed to gate. So a ``CASE_ROLE_CHANGED`` row is included unconditionally,
+    in BOTH scopes, the same way the derived registration row already is (see
+    ``_registration_entry``, unscoped for the identical reason: some facts on
+    this timeline are not one Marketing user's private action to own).
     """
     if scope == "own":
-        return qs.filter(actor=user)
+        return qs.filter(Q(actor=user) | Q(action=ClientEventAction.CASE_ROLE_CHANGED))
     return qs
 
 

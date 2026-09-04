@@ -488,6 +488,22 @@
             {# the report was written, or empty when the writer skipped the     #}
             {# case step — which is a supported choice, not an omission.        #}
             Wrote a report on this company{% if ev.subject %} about case <span class="mono">{{ ev.subject }}</span>{% endif %}
+          {% elif ev.action == 'CASE_ROLE_CHANGED' %}
+            {# ev.subject_role is the FROZEN "OLD → NEW" text, already fully  #}
+            {# formatted at write time (marketing/services.py::               #}
+            {# log_case_role_change) — printed verbatim, never split back     #}
+            {# into two nouns and re-joined here, for the same reason         #}
+            {# CONNECTION_ADDED's chip above is frozen text rather than a     #}
+            {# role key looked up now: a relabelling later must not rewrite   #}
+            {# what this row says happened. ev.subject is the case's own doc  #}
+            {# number, frozen the same way REPORT_ADDED's is above, and       #}
+            {# already correctly redacted by the time it reaches this         #}
+            {# template — services._redact_case_numbers inspects `subject`    #}
+            {# generically for every action kind, so a viewer without access  #}
+            {# to this case sees the sentence with no number at all rather    #}
+            {# than this branch needing a second check of its own.            #}
+            Changed this case's role{% if ev.subject %} (<span class="mono">{{ ev.subject }}</span>){% endif %}:
+            <span class="chip c-draft" dir="auto"><i class="fa-solid fa-right-left"></i>{{ ev.subject_role }}</span>
           {% else %}
             {# A row written before an action was renamed still has to render — #}
             {# the same forgiving fallback ClientEvent.action_label uses.       #}

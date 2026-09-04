@@ -60,8 +60,9 @@
         unchanged. The Role field is now the SAME searchable/live-filtered
         combo the Company field already is (chart_interact.js's
         createRolePicker, deliberately mirroring createCompanyPicker's own
-        markup/interaction) instead of a native <select> — only the input
-        itself changed, "+ Add a new role" underneath is untouched.
+        markup/interaction) instead of a native <select>. "+ Add a new role"
+        underneath (rcQuickNewRoleWrap) got the same treatment in a later
+        round — see its own comment just below.
       {% endcomment %}
       <div class="rc-quick-row">
         <div class="rc-quick-field">
@@ -81,8 +82,26 @@
             <div class="rc-quick-dropdown" id="rcQuickRoleList" hidden></div>
           </div>
           <button type="button" class="rc-quick-add-role-toggle" id="rcQuickAddRoleToggle" hidden>+ Add a new role</button>
+          {% comment %}
+            "Add a new role" used to be a plain native <select> — the one
+            role-picking affordance left on this whole page that did not
+            already read/behave like the searchable/live-filtered fields
+            beside it. Now the same createRolePicker() component the
+            "existing role" field above (rcQuickRoleInput/rcQuickRoleList)
+            already uses, wrapped in its own .rc-quick-combo the same way —
+            see chart_interact.js's Quick Inquiry wiring block for
+            quickNewRolePicker. The field still filters a LOCAL array (this
+            company's own roles it does NOT already hold, built fresh each
+            time "+ Add a new role" is pressed) rather than fetching, exactly
+            like the "existing role" field's own picker; nothing about the
+            registration flow below it (labelToggleUrl, no query run) changes.
+          {% endcomment %}
           <div class="rc-quick-new-role" id="rcQuickNewRoleWrap" hidden>
-            <select id="rcQuickNewRoleSelect" class="rc-quick-select"></select>
+            <div class="rc-quick-combo rc-quick-new-role-combo">
+              <input type="text" id="rcQuickNewRoleInput" class="rc-quick-select"
+                     placeholder="Choose a role to add…" autocomplete="off" dir="auto">
+              <div class="rc-quick-dropdown" id="rcQuickNewRoleList" hidden></div>
+            </div>
             <button type="button" class="btn btn-sm" id="rcQuickNewRoleAdd" disabled>Add</button>
           </div>
         </div>

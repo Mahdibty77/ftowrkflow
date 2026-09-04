@@ -41,10 +41,45 @@ class CaseCreateForm(forms.Form):
         empty_label="— Select client —",
         widget=forms.Select(attrs={"data-combo": "1", "data-placeholder": "Search client by name or code…", "data-required": "1"}),
     )
+    # REQUIRED AT CREATE TIME ONLY — a deliberate asymmetry with the two
+    # edit-save paths in cases/views.py (the contacts-only edit and the
+    # fresh-draft full edit), which both keep accepting a blank value exactly
+    # as before, and keep writing it straight off ``request.POST`` with no
+    # form behind them at all. The owner's instruction was narrow: force an
+    # explicit pick the moment a case is opened, so a NEW case can no longer
+    # sail through without anyone having thought about which business role
+    # its client plays. It says nothing about the two edit paths, which exist
+    # partly to let an older, pre-this-requirement case (opened back when the
+    # field was optional, or a fresh draft someone genuinely has not gotten
+    # to yet) keep saving with the field left blank — the OWNER fallback
+    # (``marketing/services.py::_effective_label``) still has to keep working
+    # for those.
+    #
+    # STILL CARRIES A LEADING BLANK CHOICE, even though it is now
+    # ``required=True`` — this is NOT the same thing as the old
+    # ``required=False`` + "— Not specified —" pair it replaces, and the
+    # difference is exactly what makes this genuinely mandatory rather than
+    # mandatory-looking. The combo widget (``static/js/ui.js::buildCombo``)
+    # reads the underlying ``<select>``'s CURRENT value to decide what the
+    # visible search box shows (``setFromValue()``); a bare HTML ``<select>``
+    # with no explicit blank ``<option>`` defaults its value to the FIRST
+    # real option the instant it renders — here, SPONSOR — which would make
+    # the field open pre-filled with a role nobody chose, satisfy
+    # ``data-required``'s client-side check without the user ever touching
+    # it, and (since "sponsor" is a perfectly valid ``ChoiceField`` value)
+    # sail straight through server-side validation too: a mandatory-LOOKING
+    # field that is actually impossible to leave unanswered incorrectly. The
+    # placeholder choice is what keeps the field's true initial state blank —
+    # exactly the same reason ``kind``/``offer_type``/``client`` above each
+    # carry one, and the identical mechanism ``required=True`` already uses
+    # on all three: Django's ``Field.validate()`` rejects an empty value
+    # against ``required`` BEFORE ``ChoiceField`` ever checks whether that
+    # value is one of its listed choices, so "" being technically present in
+    # ``choices`` (for the widget's sake) never lets it pass.
     marketing_label = forms.ChoiceField(
-        choices=[("", "— Not specified —")] + list(MarketingLabel.CHOICES),
-        label="Marketing role", required=False,
-        widget=forms.Select(attrs={"data-combo": "1", "data-placeholder": "Search role…"}),
+        choices=[("", "— Select marketing role —")] + list(MarketingLabel.CHOICES),
+        label="Marketing role", required=True,
+        widget=forms.Select(attrs={"data-combo": "1", "data-placeholder": "Search role…", "data-required": "1"}),
     )
     order_no = forms.CharField(
         max_length=80, required=True,

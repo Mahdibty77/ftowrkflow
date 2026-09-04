@@ -430,6 +430,19 @@ class ClientEventAction:
     action (the chart's own "+ Add company" flow writes it as a real row). That
     is exactly why the split above stopped earning its keep: it existed for one
     action, and that action is gone.
+
+    ``CASE_ROLE_CHANGED`` IS DIFFERENT FROM THE DERIVED HALF ABOVE — a real,
+    storable action, not a synthesised one, even though what it records lives
+    on ``cases.models.Case``. The distinction the class docstring draws
+    elsewhere in this file is about a case's mere EXISTENCE (an "a case was
+    opened" row, which the owner had removed and which stays gone), not about
+    an EDIT someone made to one of its fields. Changing
+    ``cases.models.Case.marketing_label`` — which (client, role) pair a case
+    anchors to on the chart — is a real business decision a Marketing user
+    needs to see on the COMPANY'S OWN timeline, the same way any other
+    ``ClientEvent`` is: who did it, what changed, and when. See
+    ``marketing/services.py::log_case_role_change``, the one writer for this
+    action, and ``cases/views.py``'s two case-edit paths, its only callers.
     """
 
     CLIENT_REGISTERED = "CLIENT_REGISTERED"
@@ -440,6 +453,7 @@ class ClientEventAction:
     CONTACT_ADDED = "CONTACT_ADDED"
     CONTACT_REMOVED = "CONTACT_REMOVED"
     REPORT_ADDED = "REPORT_ADDED"
+    CASE_ROLE_CHANGED = "CASE_ROLE_CHANGED"
 
     CHOICES = [
         (CLIENT_REGISTERED, "Company registered"),
@@ -450,6 +464,7 @@ class ClientEventAction:
         (CONTACT_ADDED, "Contact added"),
         (CONTACT_REMOVED, "Contact removed"),
         (REPORT_ADDED, "Report added"),
+        (CASE_ROLE_CHANGED, "Case role changed"),
     ]
     LABELS = dict(CHOICES)
 

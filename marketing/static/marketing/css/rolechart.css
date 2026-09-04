@@ -137,7 +137,16 @@
 .rc-quick-add-role-toggle[hidden]{ display:none; }
 .rc-quick-new-role{ display:flex; gap:.4rem; align-items:center; }
 .rc-quick-new-role[hidden]{ display:none; }
+/* The field used to be a bare <select> (a direct flex child, so `flex:1` on
+   .rc-quick-select alone was enough to make it grow). It is now the same
+   .rc-quick-combo-wrapped text input every other searchable field on this
+   chart uses (see home.html's own comment on rcQuickNewRoleWrap), so the
+   flex child .rc-quick-new-role actually stretches is the COMBO now, not the
+   input directly — .rc-quick-select's own `width:100%` still fills whatever
+   width the combo claims. The old select rule is kept alongside rather than
+   replaced: it costs nothing and still matches its own selector correctly. */
 .rc-quick-new-role .rc-quick-select{ flex:1; }
+.rc-quick-new-role .rc-quick-combo{ flex:1; min-width:0; }
 .rc-quick-confirm{ width:100%; justify-content:center; }
 
 @media (max-width:640px){
@@ -278,14 +287,23 @@
    is what carries "unfilled" rather than "disabled" — it is the same
    language .mc-row-add (the "+ Add this company" row at the bottom of this
    file) already uses for an affordance that is waiting to be acted on, and
-   it is deliberately soft (a muted colour at 55%, a thin 1.2 stroke, a long
-   4/4 dash), never a hard warning outline. An earlier round dropped the dash
-   for a plain thin outline; that read as "quiet", not as "empty", which is
-   exactly what this change is undoing. */
+   it is deliberately soft (a muted colour, a thin stroke, a dash), never a
+   hard warning outline. An earlier round dropped the dash for a plain thin
+   outline; that read as "quiet", not as "empty", which is exactly what this
+   change is undoing.
+
+   TIGHTENED A NOTCH THIS ROUND (55%/1.2/4-4 to 62%/1.3/3-4), alongside the
+   richer per-row fill further down this file: once a FILLED neighbour is
+   genuinely saturated rather than pale, the old soft dash started reading
+   closer to "quiet" again by comparison rather than "waiting" — a shorter
+   dash segment (3 on, still 4 off) reads as a slightly busier, more visibly
+   dashed line at the same card size, and the small bumps to opacity/width
+   keep it legible next to a richer neighbour, while staying well short of
+   the hard/alarming outline this file has always avoided for "empty". */
 .rc-node.is-empty .rc-box{
   fill:var(--paper);
-  stroke:color-mix(in srgb, var(--muted) 55%, transparent);
-  stroke-width:1.2; stroke-dasharray:4 4;
+  stroke:color-mix(in srgb, var(--muted) 62%, transparent);
+  stroke-width:1.3; stroke-dasharray:3 4;
 }
 /* A FILLED card gets a confident border in its own row's hue (see the per-row
    block below for the hue itself and for why it is per row) — not the neutral
@@ -350,44 +368,71 @@
    NOT GARISH, AND NOT DEAD, is bought per hue rather than by one global
    number: each row sets BOTH its hue (--rc-row-h) and its own saturation
    (--rc-row-s), because equal saturation does not read equally across the
-   wheel — a 48% amber is lively where a 48% plum is lurid. Saturations sit
-   between 32% and 48%: high enough that a card reads as coloured at a
-   glance from across the chart, low enough that twenty of them together are
-   calm. Lightness is NOT per row (48% light / 58% dark), so the whole
-   palette keeps one consistent weight and the same text contrast on every
-   card.
+   wheel — a 62% amber is lively where a 62% plum is lurid. Saturations sit
+   between 46% and 64% (RAISED from an earlier 32%-48% band — see below):
+   high enough that a card reads as coloured at a glance from across the
+   chart, low enough that ten of them together are calm. Lightness is NOT
+   per row (48% light / 58% dark), so the whole palette keeps one consistent
+   weight and the same text contrast on every card.
+
+   RAISED THIS ROUND, TOGETHER WITH THE FILL MIX BELOW: the owner's own
+   complaint was that filled cards read as pale/washed-out ("رنگ‌ها باید
+   پرروح‌تر باشند" — richer, more full of life) next to an empty card, which
+   should read as a much starker white gap once its neighbours are
+   genuinely coloured. Saturation and the fill-mix ratio are RAISED
+   TOGETHER because either one alone still under-delivers: a higher
+   saturation at the old 32% mix stayed pale (32% of a punchier hue is
+   still mostly --paper), and a higher mix at the old saturation just
+   produced a darker GREY rather than a richer colour. Moving both is what
+   actually reads as "alive" rather than "loud" — see the mix rule below for
+   the actual ratio and its own contrast note. The relative spacing between
+   rows (their saturation deltas) is otherwise preserved from before, so ten
+   neighbours are still as distinguishable as they were, just each one
+   further from --paper.
 
    Both custom properties are then read by the shared color-mix fill/stroke
    rules (here and on .rc-node.has-entries .rc-box above), so there are two
    fill rules for ten rows rather than ten near-duplicates. */
-.rc-node[data-row-index="0"]{ --rc-row-h:174; --rc-row-s:42%; }  /* licensor / sponsor — teal   */
-.rc-node[data-row-index="1"]{ --rc-row-h:205; --rc-row-s:48%; }  /* owner              — sky    */
-.rc-node[data-row-index="2"]{ --rc-row-h:232; --rc-row-s:44%; }  /* project / phase    — indigo */
-.rc-node[data-row-index="3"]{ --rc-row-h:266; --rc-row-s:36%; }  /* pmt / mc           — violet */
-.rc-node[data-row-index="4"]{ --rc-row-h:310; --rc-row-s:32%; }  /* design / superv.   — plum   */
-.rc-node[data-row-index="5"]{ --rc-row-h:344; --rc-row-s:40%; }  /* c / p / pc / epc   — rose   */
-.rc-node[data-row-index="6"]{ --rc-row-h:16;  --rc-row-s:46%; }  /* the subcontractors — clay   */
-.rc-node[data-row-index="7"]{ --rc-row-h:38;  --rc-row-s:48%; }  /* tpi / laboratory   — amber  */
-.rc-node[data-row-index="8"]{ --rc-row-h:92;  --rc-row-s:34%; }  /* us                 — moss   */
-.rc-node[data-row-index="9"]{ --rc-row-h:150; --rc-row-s:38%; }  /* rival / supplier   — green  */
+.rc-node[data-row-index="0"]{ --rc-row-h:174; --rc-row-s:58%; }  /* licensor / sponsor — teal   */
+.rc-node[data-row-index="1"]{ --rc-row-h:205; --rc-row-s:64%; }  /* owner              — sky    */
+.rc-node[data-row-index="2"]{ --rc-row-h:232; --rc-row-s:60%; }  /* project / phase    — indigo */
+.rc-node[data-row-index="3"]{ --rc-row-h:266; --rc-row-s:50%; }  /* pmt / mc           — violet */
+.rc-node[data-row-index="4"]{ --rc-row-h:310; --rc-row-s:46%; }  /* design / superv.   — plum   */
+.rc-node[data-row-index="5"]{ --rc-row-h:344; --rc-row-s:56%; }  /* c / p / pc / epc   — rose   */
+.rc-node[data-row-index="6"]{ --rc-row-h:16;  --rc-row-s:62%; }  /* the subcontractors — clay   */
+.rc-node[data-row-index="7"]{ --rc-row-h:38;  --rc-row-s:60%; }  /* tpi / laboratory   — amber  */
+.rc-node[data-row-index="8"]{ --rc-row-h:92;  --rc-row-s:48%; }  /* us                 — moss   */
+.rc-node[data-row-index="9"]{ --rc-row-h:150; --rc-row-s:54%; }  /* rival / supplier   — green  */
 /* A filled card is deliberately saturated (the owner's own follow-up: filled
    cards should "look rich", and an empty one should be obvious beside them at
    a glance). The confident border that goes with it is on
    .rc-node.has-entries .rc-box further up (it reads the same two properties),
    so a filled card differs from an empty one in fill, stroke colour, stroke
-   weight AND dash pattern, not in a single faint tint. */
+   weight AND dash pattern, not in a single faint tint.
+
+   THE MIX RATIO WAS RAISED FROM 32% TO 46% THIS ROUND, alongside the
+   saturation bump above — 32% of even a much more saturated hue was still
+   reading as a tint rather than a colour; 46% is roughly half again as much
+   of the row's own hue in the blend, which is what actually crosses from
+   "pastel" to "genuinely coloured" while --paper still shows through enough
+   to keep --ink text comfortably legible on top of it (see the dark-mode
+   note just below for the measured contrast that keeps this honest, not
+   assumed). */
 .rc-node.has-entries[data-kind="label"] .rc-box{
-  fill:color-mix(in srgb, hsl(var(--rc-row-h) var(--rc-row-s) 48%) 32%, var(--paper));
+  fill:color-mix(in srgb, hsl(var(--rc-row-h) var(--rc-row-s) 48%) 46%, var(--paper));
 }
 /* Dark: the same hue at a lighter 58% against the theme's own dark --paper
-   (#1e293b), mixed at the same 32%. Measured, not assumed: that lands every
-   one of the ten rows between roughly 5.5:1 and 7:1 against --ink (#e2e8f0),
-   the text sitting on it — comfortably past 4.5:1 for the palette's lightest
-   member (amber) as well as its darkest. Pushing the mix higher (the old rule
-   used 38%) is what would start eating that margin on the warm end. */
+   (#1e293b), mixed at a slightly lower 40% rather than light mode's 46% —
+   dark mode's own lighter row lightness (58% vs. light's 48%) already pushes
+   more colour into the blend for the same mix ratio, so matching light
+   mode's 46% here would start crowding --ink's (#e2e8f0) contrast margin on
+   the palette's lightest members (amber, sky) rather than its darkest.
+   Measured, not assumed: 40% still lands every one of the ten rows
+   comfortably past 4.5:1 against --ink, the same bar the previous 32%
+   mix was held to. */
 [data-mode="dark"] .rc-node.has-entries[data-kind="label"] .rc-box,
 [data-theme="dark"] .rc-node.has-entries[data-kind="label"] .rc-box{
-  fill:color-mix(in srgb, hsl(var(--rc-row-h) var(--rc-row-s) 58%) 32%, var(--paper));
+  fill:color-mix(in srgb, hsl(var(--rc-row-h) var(--rc-row-s) 58%) 40%, var(--paper));
 }
 /* is-focus/is-lit/is-case-anchor (query mode, further down this file) must
    still read clearly on TOP of a row-tinted card, not get muddied by it —
@@ -558,6 +603,34 @@
 .rc-chart.is-query .rc-node.has-entries:not(.is-focus):not(.is-lit):not([data-kind="us"]):focus-visible .rc-box{
   stroke:var(--accent);
 }
+/* THE CROSSING-LINE HALO — a wider, canvas-floor-coloured casing painted
+   directly under every query line's own coloured stroke (chart_interact.js's
+   drawQueryLines/buildHaloPath appends one of these immediately before each
+   .rc-query-line, same "d" path, no animation of its own). There is no
+   crossing-avoidance or lane-sharing anywhere on this chart — pickLaneX only
+   keeps a lane clear of CARDS, never of other lines — so two lines active at
+   once can legitimately share a corridor (the owner's own report: a focus
+   card connected both toward a Supervision-Consultant-type card and toward
+   "us" at once), and whichever line lands in the DOM later used to paint
+   straight over the earlier one at the crossing, reading as a jagged cut
+   rather than one line passing over another. This halo is what turns that
+   into a clean "hop": solid and fully opaque (no dash, no opacity, no
+   filter), a LATER line's halo still paints over an EARLIER line's full
+   stroke at their crossing, but the result is now a same-width gap in the
+   floor's own colour — a bridge, not a cut — the same technique a road map
+   uses wherever one road passes under another. --rc-ground is this chart's
+   own canvas floor colour (.rc-canvas's own background, already flips with
+   the theme) rather than --paper, because a query line runs through the
+   empty GUTTER/lane between cards, not across a card's own fill — matching
+   the floor rather than a card is what makes this invisible away from an
+   actual crossing, so an ordinary, non-crossing line reads exactly as it did
+   before this existed. Wider than the line it sits under (roughly 2.5x) so
+   the "bridge" it creates has real clearance rather than a hairline gap. */
+.rc-query-line-halo{
+  fill:none; stroke:var(--rc-ground); stroke-width:4.6;
+  stroke-linecap:round; stroke-linejoin:round;
+  opacity:1;
+}
 /* The path shape itself (a rounded orthogonal elbow through the chart's own
    centre lane, not a diagonal) and its one-shot "fluid filling it"
    stroke-dashoffset animation are both built in chart_interact.js — this is
@@ -590,26 +663,47 @@
   opacity:.5;
 }
 
-/* ---- Case mode's own anchor card -------------------------------------------
-   A THIRD visual state, alongside is-focus/is-lit above: while case mode is
-   active, the case's own real client — playing whatever role its
-   marketing_label currently resolves to — is the FOCUS field, exactly as any
-   other Inquiry's focus card is (same is-focus mechanism/timing), PLUS this
-   one further mark (chart_interact.js only ever adds it for that one call —
-   see runInquiryForClient's own ``isCaseAnchor`` param) so a reader can tell
-   "this card is the case's own real anchor" apart from "this card just
-   happens to be lit because something was connected to it". Always paired
-   with is-focus (chart_interact.js never sets it alone), so every selector
-   below targets both classes together rather than overriding is-focus's own
-   rules by source order alone — keeps this correct regardless of where in
-   the file it sits.
+/* ---- The focus card's own marked look ---------------------------------------
+   A THIRD visual state, alongside is-focus/is-lit above: the FOCUS card of
+   any active query — not only case mode's — carries this one further mark
+   (a distinctly-coloured ring/glow plus the small corner checkmark below) on
+   top of plain is-focus, so a reader can tell "this is the one card the
+   query is actually ABOUT" apart from "this card just happens to be lit
+   because something was connected to it".
+
+   THIS USED TO BE CASE-MODE-ONLY — the class is still literally named
+   ``is-case-anchor`` and every id/function behind the badge still says
+   "case anchor" (chart_interact.js's addCaseAnchorBadge, ``caseAnchorField``,
+   etc.), unrenamed on purpose: renaming every one of those is a second,
+   unrelated change this round has no other reason to make. What changed is
+   who gets it. Before, chart_interact.js's runInquiryForClient only ever set
+   it for case mode's own automatic entry Inquiry — a plain name+role
+   activation got ordinary is-focus's own --accent ring instead. The owner's
+   objection was that this made the exact same fact ("this is what the chart
+   is showing you") read as two different-coloured, different-meaning things
+   depending on HOW a card became the focus — reddish-with-a-checkmark for a
+   case, accent (green under the "teal" skin) for everything else. So this
+   mark is now unconditional for every focus card the query mechanism sets
+   (runInquiryForClient adds it for every ``focusField`` now, "us" excluded —
+   see that function's own note on why): a case activation and a plain
+   Quick-Inquiry-by-name-and-role activation now look identical. The ONLY
+   place the two still visibly differ is the mode banner's own TEXT
+   (updateModeBanner, further up chart_interact.js), which still reads
+   ``caseMeta`` to say "Case mode" vs. "Active" — that is now the one
+   remaining place this distinction shows at all.
+
+   Always paired with is-focus (chart_interact.js never sets it alone), so
+   every selector below targets both classes together rather than overriding
+   is-focus's own rules by source order alone — keeps this correct
+   regardless of where in the file it sits.
 
    Colour, not just a badge: --warn (already theme-aware — see
    static/css/app.css's dark block — no dark-mode override needed here just
    to follow it) stands in for --accent on this one card's own ring/glow,
    the same "a real colour, not a heavier version of the same look" rule the
    owner asked for between is-focus and is-lit themselves, applied a second
-   time between an ordinary focus card and THIS one. */
+   time between an ordinary lit card and THIS one — now the single ring/glow
+   every focus card gets, regardless of how it became the focus. */
 .rc-chart.is-query .rc-node.is-focus.is-case-anchor .rc-box{
   stroke:var(--warn);
   fill:color-mix(in srgb, var(--warn) 14%, var(--paper));

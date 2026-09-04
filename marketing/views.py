@@ -751,6 +751,12 @@ _TIMELINE_ICONS = {
     ClientEventAction.CONTACT_ADDED: "fa-user-plus",
     ClientEventAction.CONTACT_REMOVED: "fa-trash",
     ClientEventAction.REPORT_ADDED: "fa-file-lines",
+    # A case's business role swapping FROM one label TO another — the two-
+    # headed arrow reads as an exchange, distinct from every icon above it
+    # (LABEL_ADDED/REMOVED already own the tag/eraser pair, so this is not a
+    # relabelling of them) and matches ``ev.subject_role``'s own frozen
+    # "OLD → NEW" text (see marketing/services.py::log_case_role_change).
+    ClientEventAction.CASE_ROLE_CHANGED: "fa-right-left",
 }
 
 

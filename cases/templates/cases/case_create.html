@@ -40,9 +40,9 @@
         {% if form.client.errors %}<ul class="errorlist">{% for e in form.client.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
       </div>
       <div class="field">
-        <label for="{{ form.marketing_label.id_for_label }}"><i class="fa-solid fa-tag"></i> {{ form.marketing_label.label }}</label>
+        <label for="{{ form.marketing_label.id_for_label }}"><i class="fa-solid fa-tag"></i> {{ form.marketing_label.label }}<span class="req" title="Required">*</span></label>
         {{ form.marketing_label }}
-        <div class="help">Optional — defaults to Owner/Client if left blank.</div>
+        <div class="help">Which business role the client plays on this case.</div>
         {% if form.marketing_label.errors %}<ul class="errorlist">{% for e in form.marketing_label.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
       </div>
       <div class="field">

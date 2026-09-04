@@ -50,9 +50,8 @@
  *      it sets the anchor to the case's own real client, playing whatever
  *      role its ``marketing_label`` currently resolves to, WITH a case id
  *      attached (see ``caseMeta``/``withCaseId`` below) so every connection
- *      made while it is active is recorded as belonging to that case, and
- *      that one card gets the extra ``.is-case-anchor`` mark (see
- *      rolechart.css) — see ``enterCaseMode`` near the bottom of this file.
+ *      made while it is active is recorded as belonging to that case — see
+ *      ``enterCaseMode`` near the bottom of this file.
  *   c) The "Activate as this" pivot control rendered on every real row of
  *      a "label" card's own list (buildLabelRow) — clicking it re-anchors
  *      the whole chart on THAT row's own company, under the field it is
@@ -324,21 +323,24 @@
   }
 
   // ------------------------------------------------------------------------
-  // The Quick Inquiry widget's Role field — a small parallel to
+  // The Quick Inquiry widget's Role field(s) — a small parallel to
   // createCompanyPicker just above, built specifically for a LOCAL,
-  // already-in-hand list rather than a server search: the Role field only
-  // ever filters the currently-picked company's own current roles (an array
-  // the Quick Inquiry block below already fetches via
-  // CFG.clientConnectionsUrl), so there is nothing to debounce or fetch
-  // here — every keystroke just re-filters ``items`` in place. Deliberately
-  // mirrors createCompanyPicker's own markup/interaction (.rc-row/
-  // .rc-row-name/.rc-row-empty rows, is-selected highlight, Enter/Space
-  // keyboard activation) so the Role field reads and behaves identically to
-  // the Company field beside it, per the owner's own request — just without
-  // a "+ Add ..." row of its own, since "+ Add a new role" already exists as
-  // its own separate, CAN_EDIT-gated affordance next to this field (see the
-  // Quick Inquiry block below), not something this picker needs to offer a
-  // second time.
+  // already-in-hand list rather than a server search: a Role field only
+  // ever filters some already-fetched array of {field, label_fa} roles, so
+  // there is nothing to debounce or fetch here — every keystroke just
+  // re-filters ``items`` in place. Deliberately mirrors createCompanyPicker's
+  // own markup/interaction (.rc-row/.rc-row-name/.rc-row-empty rows,
+  // is-selected highlight, Enter/Space keyboard activation) so every Role
+  // field reads and behaves identically to the Company field beside it, per
+  // the owner's own request.
+  //
+  // TWO INSTANCES share this one component, not two copies of it — the
+  // Quick Inquiry block below builds one against the company's own CURRENT
+  // roles (quickRolePicker, feeding the Confirm button) and a second against
+  // the roles that company does NOT yet hold (quickNewRolePicker, feeding
+  // "+ Add a new role"'s own Add button) — the same "filter a local array,
+  // report a selection" job against two different arrays, so neither needs
+  // a "+ Add ..." create row of its own the way createCompanyPicker's does.
   // ------------------------------------------------------------------------
   function createRolePicker(listEl, inputEl, onSelect) {
     var items = [];          // [{field, label_fa}, ...] — the current company's own roles
@@ -732,18 +734,29 @@
     return { x: x, y: y, w: w, h: h, cx: x + w / 2, cy: y + h / 2 };
   }
 
-  // The case-mode anchor's own extra mark on top of is-focus — see
-  // runInquiryForClient's own ``isCaseAnchor`` branch, and rolechart.css's
-  // ``.is-case-anchor`` rules for the actual look (a distinctly-coloured
-  // ring/glow plus this small corner dot, never a per-field colour). Built
-  // as real SVG child elements of the anchor node's own <g> — the same
-  // "small clickable card is an SVG group" shape every other per-node
-  // decoration on this chart already is (compare ``.rc-badge``/
-  // ``.rc-badge-text``, drawn once in rolechart.py) — rather than an HTML
-  // overlay like ``.rc-card-names``, since this sits INSIDE the box itself at
-  // a fixed corner and moves with the box when its row shifts. ``caseAnchorField`` remembers which
-  // node currently carries it so clearQueryMarks() can always remove it
-  // again, whether or not that field is still lit at the time.
+  // THE FOCUS CARD'S OWN EXTRA MARK on top of plain is-focus — see
+  // runInquiryForClient below, and rolechart.css's ``.is-case-anchor`` rules
+  // for the actual look (a distinctly-coloured ring/glow plus this small
+  // corner checkmark, never a per-field colour). This used to be drawn ONLY
+  // for case mode's own automatic entry Inquiry (hence the name — every
+  // class/id/function here still says "case anchor", unrenamed on purpose:
+  // see runInquiryForClient's own note on why). The owner's own later
+  // complaint was that this made a case-driven activation look reddish and a
+  // plain name+role activation look green, which read as two different
+  // MEANINGS rather than one look applied twice — so this mark is now drawn
+  // for every focus card a query reaches, regardless of how it got there;
+  // the underlying ``isCaseAnchor`` distinction still exists (case mode's own
+  // ``caseMeta``, read by the mode banner) for the one place that genuinely
+  // still needs to know "is this actually a case" — this mark itself no
+  // longer means that. Built as real SVG child elements of the anchor node's
+  // own <g> — the same "small clickable card is an SVG group" shape every
+  // other per-node decoration on this chart already is (compare
+  // ``.rc-badge``/``.rc-badge-text``, drawn once in rolechart.py) — rather
+  // than an HTML overlay like ``.rc-card-names``, since this sits INSIDE the
+  // box itself at a fixed corner and moves with the box when its row shifts.
+  // ``caseAnchorField`` remembers which node currently carries it so
+  // clearQueryMarks() can always remove it again, whether or not that field
+  // is still lit at the time.
   var caseAnchorField = null;
 
   function addCaseAnchorBadge(field) {
@@ -1868,6 +1881,36 @@
   // simple <title> tooltip, so there is a proper place on the chart showing
   // HOW "Us" connects to that company (the owner's own requirement). The
   // routing, the elbow shape and the fill-in animation are all unchanged.
+  //
+  // CROSSING LINES READ AS A CLEAN "HOP OVER", NOT A JAGGED CUT, because
+  // every line is painted with a wider, background-coloured HALO directly
+  // underneath its own coloured stroke (see buildHaloPath below and
+  // .rc-query-line-halo in rolechart.css). There is no crossing-avoidance or
+  // lane-sharing logic anywhere on this chart — pickLaneX only ever keeps a
+  // lane clear of CARDS, never of other query lines — so whenever two lines
+  // active at once happen to share a corridor (the owner's own report: a
+  // focus card connected both toward a Supervision-Consultant-type card and
+  // toward "us" at once), whichever line is inserted into the DOM later
+  // simply painted fully OVER the earlier one at the crossing, which read as
+  // the earlier line being cut rather than passing under. An opaque halo
+  // fixes that with no routing changes at all: painted first (below this
+  // line's own colour) and solid (no dash, no fade-in, no opacity), a LATER
+  // line's halo still paints over an EARLIER line's full stroke — halo
+  // included — at their crossing, but now that "paint over" is a same-width
+  // gap in the earlier line's own background colour rather than a hard edge
+  // in its accent colour, exactly like a road passing under a bridge on a
+  // map. Deliberately subtle everywhere else: --rc-ground is this chart's
+  // own canvas floor colour (.rc-canvas's own background, already flips with
+  // the theme), so away from any crossing the halo just blends into the
+  // empty gutter/lane a line already runs through and a solitary,
+  // non-crossing line reads exactly as it did before this change.
+  function buildHaloPath(ns, d) {
+    var halo = document.createElementNS(ns, 'path');
+    halo.setAttribute('class', 'rc-query-line-halo');
+    halo.setAttribute('d', d);
+    return halo;
+  }
+
   function drawQueryLines(focusField, litFields, annotations) {
     annotations = annotations || {};
     queryLinesG.innerHTML = '';
@@ -1884,9 +1927,15 @@
       if (!raw) { return; }
       var pts = dedupePoints(raw);
       if (pts.length < 2) { return; }
+      var d = elbowPath(pts, ELBOW_R);
+      // The halo is appended FIRST (so it paints below this line's own
+      // colour) and carries no animation of its own — it must be fully
+      // opaque and in place from the very first frame, or an early crossing
+      // would show through it while the fill-in animation is still running.
+      queryLinesG.appendChild(buildHaloPath(ns, d));
       var path = document.createElementNS(ns, 'path');
       path.setAttribute('class', 'rc-query-line');
-      path.setAttribute('d', elbowPath(pts, ELBOW_R));
+      path.setAttribute('d', d);
       if (annotations[field]) {
         var titleEl = document.createElementNS(ns, 'title');
         titleEl.textContent = annotations[field];
@@ -1905,13 +1954,22 @@
   // ``isCaseAnchor`` is optional, and true for exactly one caller: case
   // mode's own automatic Inquiry, run the moment a case is confirmed in
   // rcCaseModeWidget (see the case-mode wiring block below), on that case's
-  // own real client under its own effective role — this marks the resulting
-  // focus card with the extra .is-case-anchor treatment (see
-  // rolechart.css) so it reads as "this case's own real anchor", not just
-  // "whatever happens to be lit right now". Every other caller (Quick
-  // Inquiry, a normal in-chart Inquiry, a connect-mode card's own post-Confirm
-  // re-query, a pivot) leaves it undefined/false and gets the plain is-focus
-  // look unchanged.
+  // own real client under its own effective role. IT NO LONGER GATES THE
+  // FOCUS CARD'S LOOK. It used to: only this one caller's focus card got the
+  // extra .is-case-anchor treatment (a distinctly-coloured ring/glow plus a
+  // checkmark), so a case activation read visibly different from a plain
+  // name+role one (green vs. a warm/"reddish" colour) — which the owner
+  // flagged as the wrong signal: it read as two different MEANINGS ("this is
+  // a case" vs. "this is just active") when both are really the same fact,
+  // "this card is what the chart is showing you", just reached two different
+  // ways. So every focus card now gets the same mark (see below) whether it
+  // came from case mode, a plain in-chart Inquiry, Quick Inquiry, a
+  // connect-mode card's own post-Confirm re-query, or a pivot — the parameter
+  // is kept (rather than deleted outright) purely so a future caller that
+  // genuinely needs to know "is this specifically a case activation" has
+  // somewhere to plug in without a second signature change; the one place
+  // that distinction still has to be READ from is ``caseMeta``, which the
+  // mode banner (updateModeBanner) already keys off instead of this.
   //
   // The client_connections fetch itself always goes through withCaseId() —
   // regardless of ``isCaseAnchor`` — so ANY Inquiry run while case mode is
@@ -1943,9 +2001,18 @@
         var focusG = nodesByField[focusField];
         if (focusG) {
           focusG.classList.add('is-focus');
-          // See this function's own ``isCaseAnchor`` comment above — only
-          // ever set by case mode's own automatic entry Inquiry.
-          if (isCaseAnchor) {
+          // See this function's own ``isCaseAnchor`` comment above — this
+          // mark is now unconditional for every focus card, EXCEPT "us",
+          // which keeps its own categorical black/white plate (rolechart.css)
+          // no matter how it became the focus field. "us" CAN become
+          // ``focusField`` here — the admin "us" card's own all-cases list
+          // runs this same function with originField 'us' (see
+          // fetchAllCasesSearch/renderAllCasesRows further down), and 'us' is
+          // always among ``allFields`` whenever this client has any case at
+          // all — so without this guard a click through that list would
+          // paint the warm ring/fill and a checkmark straight over the "us"
+          // card's own deliberately-different plate.
+          if (focusField !== 'us') {
             focusG.classList.add('is-case-anchor');
             addCaseAnchorBadge(focusField);
           }
@@ -3054,12 +3121,13 @@
     var quickRoleList = document.getElementById('rcQuickRoleList');
     var quickAddRoleToggle = document.getElementById('rcQuickAddRoleToggle');
     var quickNewRoleWrap = document.getElementById('rcQuickNewRoleWrap');
-    var quickNewRoleSelect = document.getElementById('rcQuickNewRoleSelect');
+    var quickNewRoleInput = document.getElementById('rcQuickNewRoleInput');
+    var quickNewRoleList = document.getElementById('rcQuickNewRoleList');
     var quickNewRoleAdd = document.getElementById('rcQuickNewRoleAdd');
     var quickConfirmBtn = document.getElementById('rcQuickConfirm');
 
     if (quickCompanyInput && quickCompanyList && quickRoleInput && quickRoleList && quickAddRoleToggle &&
-        quickNewRoleWrap && quickNewRoleSelect && quickNewRoleAdd && quickConfirmBtn) {
+        quickNewRoleWrap && quickNewRoleInput && quickNewRoleList && quickNewRoleAdd && quickConfirmBtn) {
 
       // Every "label" card on the chart, read straight off the chart's own
       // nodes (never a second copy of rolechart.py's LABEL_KEYS) — the full
@@ -3090,6 +3158,10 @@
         quickShowRoleDropdown(false);
         quickAddRoleToggle.hidden = true;
         quickNewRoleWrap.hidden = true;
+        // A new company means a clean slate for "add a new role" too — the
+        // available-roles list it would otherwise still be showing belongs
+        // to whichever company was picked before.
+        quickNewRolePicker.reset();
         quickUpdateConfirmState();
       }
 
@@ -3137,6 +3209,18 @@
         quickUpdateConfirmState();
       });
 
+      // "Add a new role"'s own field — a SECOND createRolePicker instance,
+      // not a second component: it is exactly the same "filter a small local
+      // array" job quickRolePicker above already does, just against a
+      // different local array (the roles this company does NOT already
+      // hold — built fresh every time quickAddRoleToggle is pressed, see
+      // below) and feeding a different Add button instead of the Confirm
+      // button. onSelect only has to keep THIS Add button's enabled state
+      // current, mirroring quickUpdateConfirmState's own shape.
+      var quickNewRolePicker = createRolePicker(quickNewRoleList, quickNewRoleInput, function (item) {
+        quickNewRoleAdd.disabled = !item;
+      });
+
       var quickPicker = createCompanyPicker(quickCompanyList, quickCompanyInput, function (client) {
         quickCompany = client;
         quickShowDropdown(false);
@@ -3166,56 +3250,61 @@
         quickShowRoleDropdown(true);
         if (!quickRoleList.childElementCount) { quickRolePicker.render(quickRoleInput.value); }
       });
-      // Closes either dropdown on any click outside the whole card — picking
-      // a row already closes its own (quickShowDropdown/quickShowRoleDropdown
-      // above), so this is only for "the reader clicked away without
-      // choosing".
+      // "Add a new role"'s own dropdown — same focus-opens/populate-if-empty
+      // shape quickRoleInput's own listener just above already uses, since
+      // this field is now the same component, just a second instance
+      // (quickNewRolePicker) filtering a different local array.
+      quickNewRoleInput.addEventListener('focus', function () {
+        if (quickNewRoleInput.disabled) { return; }
+        quickNewRoleList.hidden = false;
+        if (!quickNewRoleList.childElementCount) { quickNewRolePicker.render(quickNewRoleInput.value); }
+      });
+      // Closes every dropdown on any click outside the whole card — picking
+      // a row already closes its own (quickShowDropdown/quickShowRoleDropdown/
+      // quickNewRoleList.hidden above), so this is only for "the reader
+      // clicked away without choosing".
       document.addEventListener('click', function (ev) {
         if (!quickPanel.contains(ev.target)) {
           quickShowDropdown(false);
           quickShowRoleDropdown(false);
+          quickNewRoleList.hidden = true;
         }
       });
 
+      // Builds the "does not already hold" role list fresh every time this
+      // toggle is pressed (the company's own roles can have changed since it
+      // was last opened) and hands it to quickNewRolePicker exactly the way
+      // quickPopulateRoleField above hands quickRoles to quickRolePicker —
+      // same {field, label_fa} shape, so both pickers' own buildRow reads it
+      // identically.
       quickAddRoleToggle.addEventListener('click', function () {
         if (!quickCompany) { return; }
         var have = {};
         quickRoles.forEach(function (l) { have[l.label] = true; });
         var available = quickAllLabels.filter(function (l) { return !have[l.field]; });
-        quickNewRoleSelect.innerHTML = '';
-        if (!available.length) {
-          var noneOpt = document.createElement('option');
-          noneOpt.value = '';
-          noneOpt.textContent = 'Already has every role';
-          quickNewRoleSelect.appendChild(noneOpt);
-          quickNewRoleAdd.disabled = true;
-        } else {
-          var placeholder = document.createElement('option');
-          placeholder.value = '';
-          placeholder.textContent = 'Choose a role to add…';
-          quickNewRoleSelect.appendChild(placeholder);
-          available.forEach(function (l) {
-            var opt = document.createElement('option');
-            opt.value = l.field;
-            opt.textContent = l.role_fa;
-            quickNewRoleSelect.appendChild(opt);
-          });
-          quickNewRoleAdd.disabled = true;
-        }
+        quickNewRolePicker.setItems(available.map(function (l) {
+          return { field: l.field, label_fa: l.role_fa };
+        }));
+        quickNewRoleInput.value = '';
+        quickNewRoleInput.disabled = !available.length;
+        quickNewRoleInput.placeholder = available.length ? 'Choose a role to add…' : 'Already has every role';
+        quickNewRoleAdd.disabled = true;
+        quickNewRoleList.innerHTML = '';
+        quickNewRoleList.hidden = true;
         quickNewRoleWrap.hidden = false;
-      });
-
-      quickNewRoleSelect.addEventListener('change', function () {
-        quickNewRoleAdd.disabled = !quickNewRoleSelect.value;
       });
 
       // Reuses CFG.labelToggleUrl — the exact same "assign a role" endpoint
       // every other flow in this file already calls (the "+ Add company"
       // panel, a label row's own ×) — nothing new added to
-      // marketing/views.py for this.
+      // marketing/views.py for this. Unchanged registration flow: this
+      // still only calls labelToggleUrl and repopulates the "existing role"
+      // field — it does NOT run an Inquiry, exactly as the old native
+      // <select> version never did (see the module's own AUDIT note on
+      // "Add" vs. "Run inquiry" staying two separate steps).
       quickNewRoleAdd.addEventListener('click', function () {
-        if (!quickCompany || !quickNewRoleSelect.value) { return; }
-        var field = quickNewRoleSelect.value;
+        var field = quickNewRolePicker.selectedField();
+        if (!quickCompany || !field) { return; }
         var company = quickCompany;
         quickNewRoleAdd.disabled = true;
         post(CFG.labelToggleUrl, { client_id: company.id, label: field, add: 1 }).then(function (data) {
@@ -3261,6 +3350,15 @@
   var caseModeWidget = document.getElementById('rcCaseModeWidget');
   var caseModeInput = document.getElementById('rcCaseModeInput');
   var caseModeList = document.getElementById('rcCaseModeList');
+  // Declared out here (rather than as a plain ``function enterCaseMode(c)``
+  // statement inside the ``if`` below) so the deep-link block further down
+  // this file — which is NOT inside that ``if`` and, under this file's own
+  // 'use strict' pragma, would otherwise get a block-scoped binding it can
+  // never see — can call the exact same entry point a dropdown pick uses.
+  // The ``if`` below still only ASSIGNS this on pages that actually render
+  // the case-mode widget, so a page without it leaves this ``undefined``,
+  // exactly like ``caseModeWidget`` itself.
+  var enterCaseMode;
   // No banner elements of its own any more: the banner this mode shows is the
   // chart's ONE banner (#rcModeBanner, looked up near the top of this file),
   // shared with an ordinary company activation and owned by
@@ -3354,7 +3452,7 @@
     // caseModeSearch() fetch above just handed in — never a value held over
     // from an earlier open — so re-picking the same case after its
     // marketing_label changed elsewhere always re-anchors on the NEW role.
-    function enterCaseMode(c) {
+    enterCaseMode = function (c) {
       // ``clientId`` is carried alongside the banner's own text so
       // updateModeBanner() can tell a later PIVOT (which moves activeAnchor to
       // some other company while case mode stays on) from the ordinary case
@@ -3365,7 +3463,7 @@
       caseModeInput.value = c.doc_no;
       caseModeList.innerHTML = '';
       chartRoot.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    };
 
     // "Leave case mode" is not a control of its own any more: it is the one
     // mode banner's own button, wired to the same shared teardown
@@ -3399,11 +3497,25 @@
   // case-mode search widget); a stale/deleted case id still comes back with
   // zero cases either way — do nothing, no error shown, since ``get()``
   // resolves on any JSON body regardless of status code.
+  //
+  // This has to go through the SAME door the case-mode search widget's own
+  // row click uses (enterCaseMode, defined above) rather than call
+  // runInquiryForClient() directly — a plain Inquiry call is not case mode:
+  // it never sets activeAnchor.caseId/caseMeta, so no mode banner would ever
+  // appear and the "cases connected to Us" panel's own case narrowing (which
+  // reads ``case=`` off that same activeAnchor via withCaseId(), and which
+  // services.connections_of_client applies on the backend — see its own
+  // docstring) would have nothing to narrow by. Calling enterCaseMode(c)
+  // with the fetched row reproduces exactly what picking that case out of
+  // the case-mode dropdown does: anchored on the case's own real effective
+  // role (``c.label``, not a hard-coded 'us'), caseMeta set, banner updated,
+  // and the narrowing ``case_id`` flowing on every subsequent fetch this
+  // anchor makes.
   if (typeof CFG.deepLinkCaseId === 'number') {
     get(CFG.allCasesSearchUrl, { case_id: CFG.deepLinkCaseId }).then(function (data) {
       if (!data || !data.ok || !data.cases || data.cases.length !== 1) { return; }
-      var c = data.cases[0];
-      runInquiryForClient({ id: c.client_id, name: c.client_name }, 'us');
+      if (typeof enterCaseMode !== 'function') { return; }
+      enterCaseMode(data.cases[0]);
     }).catch(function () {});
   }
 })();

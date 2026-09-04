@@ -2153,6 +2153,12 @@ def edit_items(request, pk):
             case.client_commercial_phone = request.POST.get("client_commercial_phone", "").strip()
             case.client_technical_expert = request.POST.get("client_technical_expert", "").strip()
             case.client_technical_phone = request.POST.get("client_technical_phone", "").strip()
+            # Captured BEFORE the overwrite two lines below — this is the only
+            # place the pre-edit value still exists in memory, and it is what
+            # marketing.services.log_case_role_change needs to decide whether
+            # the business role genuinely changed (that function does not
+            # re-check this itself; see its own docstring for why).
+            old_marketing_label = case.marketing_label
             posted_label = request.POST.get("marketing_label", "").strip()
             case.marketing_label = posted_label if posted_label in MarketingLabel.LABELS else ""
             case.save(update_fields=[
@@ -2160,6 +2166,21 @@ def edit_items(request, pk):
                 "client_technical_expert", "client_technical_phone",
                 "marketing_label", "updated_at",
             ])
+            # `cases` stays independent of `marketing` everywhere else on
+            # purpose; this is a second, disclosed exception to that rule
+            # (the first is client_list's identical local import above) and
+            # is imported locally, not at module level, to keep it visible
+            # right here rather than baked into the module's import list.
+            # The comparison goes through effective_marketing_label rather
+            # than the raw strings so a blank<->"owner" pair — not a real
+            # change, since blank already means owner — never logs a role
+            # change that did not actually happen.
+            from marketing import services as marketing_services
+            old_effective = marketing_services.effective_marketing_label(old_marketing_label)
+            new_effective = marketing_services.effective_marketing_label(case.marketing_label)
+            if old_effective != new_effective:
+                marketing_services.log_case_role_change(
+                    case, request.user, old_effective, new_effective)
             messages.success(request, "Case contacts updated.")
             return redirect("cases:case_detail", pk=pk)
         return render(request, "cases/edit_items.html", {
@@ -2409,6 +2430,12 @@ def edit_items(request, pk):
             case.client_commercial_phone = request.POST.get("client_commercial_phone", "").strip()
             case.client_technical_expert = request.POST.get("client_technical_expert", "").strip()
             case.client_technical_phone = request.POST.get("client_technical_phone", "").strip()
+            # Captured BEFORE the overwrite two lines below, for the identical
+            # reason the contacts-only edit branch above captures it — see
+            # that branch's comment. This block's own "(not logged)" above
+            # still describes every OTHER field here; the role alone gets the
+            # one surgical exception below, once the save has actually landed.
+            old_marketing_label = case.marketing_label
             posted_label = request.POST.get("marketing_label", "").strip()
             case.marketing_label = posted_label if posted_label in MarketingLabel.LABELS else ""
             case.deadline = new_deadline
@@ -2417,6 +2444,20 @@ def edit_items(request, pk):
                 client_code=case.client.code, serial=case.serial,
             )
             case.save()
+            # `cases` stays independent of `marketing` everywhere else on
+            # purpose; imported locally, not at module level, to keep this
+            # disclosed exception visible right here — see the contacts-only
+            # edit branch above (and client_list's identical local import)
+            # for the precedent. Compared through effective_marketing_label,
+            # not the raw strings, so a blank<->"owner" pair — not a real
+            # change, since blank already means owner — never logs a role
+            # change that did not actually happen.
+            from marketing import services as marketing_services
+            old_effective = marketing_services.effective_marketing_label(old_marketing_label)
+            new_effective = marketing_services.effective_marketing_label(case.marketing_label)
+            if old_effective != new_effective:
+                marketing_services.log_case_role_change(
+                    case, request.user, old_effective, new_effective)
         elif deadline_editable:
             # Inquiry edit path: only the deadline may change alongside the table.
             case.deadline = new_deadline
