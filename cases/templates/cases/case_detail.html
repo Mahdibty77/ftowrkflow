@@ -435,6 +435,247 @@
 </div>
 {% endif %}
 
+{# --------------------------------------------------------------- marketing #}
+{# Reports, Reminders and a marketing-style Timeline for THIS case — a       #}
+{# SEPARATE card from the audit timeline above, deliberately: that timeline  #}
+{# is this case's own workflow history (forms, routing, comments); this one  #}
+{# is Marketing's record of it, and the two are different kinds of row that  #}
+{# should never be merged into one list. Every row below comes straight out  #}
+{# of marketing.models.CompanyReport / Reminder / ClientEvent through the    #}
+{# same service functions the company's own Marketing directory page uses   #}
+{# (see cases/views.py::case_detail and the three _case_marketing_* helpers  #}
+{# above it) — a report or reminder written from either page is the exact    #}
+{# same database row and shows up on both.                                   #}
+{#                                                                            #}
+{# VIEWING is open to anyone who reached this page at all (the owner's own   #}
+{# words: whoever has access to the case, per their role, may see these      #}
+{# reports) — there is no extra gate here beyond the one case_detail already #}
+{# enforced before rendering anything. WRITING is the narrow rule:           #}
+{# is_case_owner is true only for THIS case's own commercial owner (a        #}
+{# COMMERCIAL role AND this case's own creator — services.                  #}
+{# is_case_commercial_owner), and the two inline forms below only ever       #}
+{# render for that one person; case_report_add/case_reminder_add re-check    #}
+{# the same rule server-side regardless.                                     #}
+<div class="card">
+  <div class="card-head">
+    <h3><i class="fa-solid fa-share-nodes" style="color:var(--accent-strong);margin-right:.4rem;"></i>Marketing</h3>
+  </div>
+
+  <div class="tabs" id="caseMktTabs">
+    <div class="tab active" data-mkt-tab="reports"><i class="fa-solid fa-file-lines"></i> Reports <span class="count">{{ case_reports|length }}</span></div>
+    <div class="tab" data-mkt-tab="reminders"><i class="fa-solid fa-bell"></i> Reminders <span class="count">{{ case_reminders|length }}</span></div>
+    <div class="tab" data-mkt-tab="timeline"><i class="fa-solid fa-clock-rotate-left"></i> Timeline</div>
+  </div>
+
+  <div id="caseMktPanels">
+    {# --------------------------------------------------------------- reports #}
+    <div class="tab-panel active" id="mkt-panel-reports">
+      {% if is_case_owner %}
+      {# A native <details> disclosure — no JavaScript needed to show/hide  #}
+      {# it, and it starts closed so the reports table above it is the      #}
+      {# first thing a reader sees. Posts to case_report_add, which re-runs #}
+      {# the exact same ownership check this {% if %} only predicts.        #}
+      <details class="card" style="margin-bottom:.8rem;">
+        <summary class="btn btn-sm btn-primary" style="display:inline-flex;width:auto;cursor:pointer;">
+          <i class="fa-solid fa-file-pen"></i> Write a report
+        </summary>
+        <form method="post" action="{% url 'cases:case_report_add' case.pk %}" style="margin-top:.8rem;" autocomplete="off">
+          {% csrf_token %}
+          {% if case_report_form.non_field_errors %}
+          <div class="flash flash-error">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>{% for e in case_report_form.non_field_errors %}{{ e }}{% endfor %}</span>
+          </div>
+          {% endif %}
+          <div class="field">
+            <label><i class="fa-solid fa-list-check"></i> {{ case_report_form.options.label }}</label>
+            {{ case_report_form.options }}
+            {% if not case_report_form.options_available %}
+            <div class="help">No report options exist yet — write the report in the box below instead.</div>
+            {% endif %}
+          </div>
+          <div class="field">
+            <label for="{{ case_report_form.text.id_for_label }}"><i class="fa-solid fa-file-lines"></i> {{ case_report_form.text.label }}</label>
+            {{ case_report_form.text }}
+            <div class="help">Tick at least one option above, write the report here, or do both.</div>
+          </div>
+          <div class="btn-row">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-check"></i> Confirm report</button>
+          </div>
+        </form>
+      </details>
+      {% endif %}
+
+      <table class="data">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Author</th>
+            <th>What it's about</th>
+            <th>Report</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in case_reports %}
+          <tr>
+            <td class="mono muted">{{ r.created_at|jalali:"Y.m.d H:i" }}</td>
+            <td dir="auto">{{ r.author|default:"—" }}</td>
+            <td>
+              {% if r.options %}
+              <div class="chips-row">
+                {% for opt in r.options %}
+                <span class="chip c-draft" dir="auto"><i class="fa-solid fa-check"></i>{{ opt }}</span>
+                {% endfor %}
+              </div>
+              {% else %}<span class="muted">—</span>{% endif %}
+            </td>
+            <td dir="auto" style="white-space:pre-line;max-width:32ch;overflow-wrap:anywhere;">{{ r.text|default:"—" }}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4" class="empty">
+              {% if is_case_owner %}No reports have been written on this case yet — use “Write a report” to add the first one.
+              {% else %}No reports have been written on this case yet.{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# ------------------------------------------------------------- reminders #}
+    <div class="tab-panel" id="mkt-panel-reminders">
+      {% if is_case_owner %}
+      <details class="card" style="margin-bottom:.8rem;">
+        <summary class="btn btn-sm btn-primary" style="display:inline-flex;width:auto;cursor:pointer;">
+          <i class="fa-solid fa-bell"></i> Set a reminder
+        </summary>
+        <form method="post" action="{% url 'cases:case_reminder_add' case.pk %}" style="margin-top:.8rem;" autocomplete="off">
+          {% csrf_token %}
+          {% if case_reminder_form.non_field_errors %}
+          <div class="flash flash-error">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>{% for e in case_reminder_form.non_field_errors %}{{ e }}{% endfor %}</span>
+          </div>
+          {% endif %}
+          <div class="field">
+            <label for="{{ case_reminder_form.due_at.id_for_label }}"><i class="fa-regular fa-clock"></i> {{ case_reminder_form.due_at.label }}</label>
+            {{ case_reminder_form.due_at }}
+          </div>
+          <div class="field">
+            <label for="{{ case_reminder_form.note.id_for_label }}"><i class="fa-solid fa-pen"></i> {{ case_reminder_form.note.label }}</label>
+            {{ case_reminder_form.note }}
+          </div>
+          <div class="btn-row">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-bell"></i> Set reminder</button>
+          </div>
+        </form>
+      </details>
+      {% endif %}
+
+      {# Said in words, the same way the company page's own Reminders tab    #}
+      {# says it — see cases/views.py::_case_marketing_reminders for why     #}
+      {# this stays owner-scoped by default, widened only for the admin/GM   #}
+      {# tier, rather than following the Marketing directory's own           #}
+      {# Supervisor widening onto this unrelated surface.                    #}
+      <div class="help" style="margin:0 0 .7rem;">
+        {% if sees_all_case_reminders %}You see every reminder set on this case.
+        {% else %}You see your own reminders on this case — a reminder is a private note to its own owner.{% endif %}
+      </div>
+
+      <table class="data">
+        <thead>
+          <tr>
+            <th>Due</th>
+            <th>Note</th>
+            <th>State</th>
+            {% if sees_all_case_reminders %}<th>Set by</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in case_reminders %}
+          <tr>
+            <td class="mono{% if r.is_due and not r.is_done %} c-rej{% endif %}">{{ r.due_at|jalali:"Y.m.d H:i" }}</td>
+            <td dir="auto" style="white-space:pre-line;max-width:32ch;overflow-wrap:anywhere;">{{ r.note }}</td>
+            <td>
+              {% if r.is_done %}
+              <span class="chip c-ok"><i class="fa-solid fa-check"></i>Dealt with</span>
+              {% elif r.is_due %}
+              <span class="chip c-rej"><i class="fa-solid fa-bell"></i>Due</span>
+              {% else %}
+              <span class="chip c-draft"><i class="fa-regular fa-clock"></i>Waiting</span>
+              {% endif %}
+            </td>
+            {% if sees_all_case_reminders %}
+            <td dir="auto">{{ r.owner.get_full_name|default:r.owner.username }}</td>
+            {% endif %}
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="{% if sees_all_case_reminders %}4{% else %}3{% endif %}" class="empty">
+              {% if is_case_owner %}No reminders set on this case yet — use “Set a reminder” to add one.
+              {% else %}No reminders on this case are visible to you.{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# -------------------------------------------------------------- timeline #}
+    <div class="tab-panel" id="mkt-panel-timeline">
+      <ul class="timeline">
+        {% for ev in case_mkt_timeline %}
+        <li>
+          <div class="tl-action">
+            {% if ev.action == 'REPORT_ADDED' %}
+            Wrote a report on this case
+            {% elif ev.action == 'CASE_ROLE_CHANGED' %}
+            Changed this case's role:
+            <span class="chip c-draft" dir="auto"><i class="fa-solid fa-right-left"></i>{{ ev.subject_role }}</span>
+            {% else %}
+            {{ ev.action_label }}
+            {% endif %}
+          </div>
+          <div class="tl-meta"><span dir="auto">{{ ev.actor_name|default:"—" }}</span> · {{ ev.created_at|jalali:"Y.m.d H:i" }}</div>
+          {% if ev.comment %}<div class="tl-comment" dir="auto">{{ ev.comment }}</div>{% endif %}
+        </li>
+        {% empty %}
+        <li class="muted">No marketing activity recorded on this case yet.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+  // The Marketing card's own tab switcher — deliberately independent of the
+  // Internal/External side switcher below (different id/class names
+  // throughout: #caseMktTabs / [data-mkt-tab] / #caseMktPanels, never
+  // .side-tabs or .side-section), so a click here can never touch that
+  // switcher's own "active" bookkeeping and vice versa. See this file's own
+  // side-switcher script for the failure this avoids: that one scopes its
+  // querySelectorAll to the closest .side-section (or document), and a
+  // shared class name here would have made one switcher blindly clear the
+  // other's active tab-panel on every click.
+  (function () {
+    var tabs = document.querySelectorAll('#caseMktTabs .tab');
+    var panels = document.querySelectorAll('#caseMktPanels .tab-panel');
+    function activate(name) {
+      tabs.forEach(function (t) { t.classList.toggle('active', t.dataset.mktTab === name); });
+      panels.forEach(function (p) { p.classList.toggle('active', p.id === 'mkt-panel-' + name); });
+    }
+    tabs.forEach(function (t) {
+      t.addEventListener('click', function () { activate(t.dataset.mktTab); });
+    });
+    // Reopens the tab a write action just redirected back to (?mkttab=...),
+    // the same convention marketing/views.py::reminder_add uses (?tab=...)
+    // for its own company-page redirect.
+    var wanted = new URLSearchParams(window.location.search).get('mkttab');
+    if (wanted) activate(wanted);
+  })();
+</script>
+
 <script>
   // Internal/External side switcher + per-section tab switcher.
   (function () {

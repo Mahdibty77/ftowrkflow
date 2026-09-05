@@ -26,9 +26,14 @@
   archive's date filters use. It writes Jalali text back into the box, and
   marketing/forms.py::_clean_jalali_datetime is what reads it.
 
-  THE ROW IS PRIVATE. The help text says so in words rather than leaving the
-  person to guess whether their supervisor will read it — see
-  marketing/models.py::Reminder for the rule and the owner's wording behind it.
+  WHO CAN SEE THIS ROW ONCE IT EXISTS is said in words, honestly, rather than
+  left for the person to guess — see marketing/models.py::Reminder for the
+  full rule. It is no longer "nobody else, ever": a Marketing Supervisor (and,
+  for consistency with every other elevated surface in this app, the General
+  Manager and the platform admin) can now see it on the unit's own reminders
+  list, the same way they already see this person's reports. What did NOT
+  change is that nobody can re-time or close it out but the person themselves,
+  and it is still not written anywhere on the company's own shared timeline.
 {% endcomment %}
 {% block title %}Set a reminder · {{ client.name }} · Foolad Tabar Workflow{% endblock %}
 {% block topbar %}Set a reminder{% endblock %}
@@ -64,8 +69,10 @@
 
   <div class="help" style="margin-bottom:.8rem;">
     <i class="fa-solid fa-lock"></i>
-    This reminder is yours alone — nobody else in Marketing sees it, and it is
-    not recorded on the company's timeline.
+    Like your reports, a Marketing Supervisor (and the platform admin) can see
+    this reminder on your unit's reminders list — nobody outside Marketing
+    does, only you can re-time or close it out, and it is still not recorded
+    on the company's own timeline.
   </div>
 
   <div class="field">

@@ -130,7 +130,7 @@ from core.persian_text import normalize_persian
 from .access import CaseAccess, scope_case_rows
 from .models import (
     ClientEvent, ClientEventAction, ClientLabel, CompanyContact, CompanyReport,
-    Connection, ContactGender, ContactRole, ReportOption,
+    Connection, ContactGender, ContactPhone, ContactRole, ReportOption,
 )
 
 # The twenty labelable keys — NOT all twenty-one chart fields ("us" is the
@@ -554,16 +554,31 @@ def get_or_create_client(name: str, user) -> Client:
 # --------------------------------------------------------------------------- #
 # Manual tags
 # --------------------------------------------------------------------------- #
-def toggle_manual_label(client: Client, label: str, user, add: bool) -> None:
-    """Add or remove THIS USER's own manual tag on ``client``.
+def toggle_manual_label(client: Client, label: str, user, add: bool, *,
+                        elevated: bool = False) -> None:
+    """Add or remove a manual tag on ``client`` — THIS USER's own, unless
+    ``elevated``.
 
     ``add=True`` gets-or-creates ``ClientLabel(client, label, created_by=user)``
-    — idempotent, safe to call when the tag already exists.
+    — idempotent, safe to call when the tag already exists. ``elevated`` has no
+    bearing on this branch: creating a tag was never ownership-gated to begin
+    with, so there is nothing here for it to bypass.
 
-    ``add=False`` deletes ONLY the row owned by ``user``: an Expert can never
-    remove a Supervisor's or another Expert's manual tag this way, matching
-    the ownership boundary ``scope`` enforces everywhere else. A no-op (not
-    an error) when no such row exists.
+    ``add=False`` deletes ONLY the row owned by ``user`` — UNLESS ``elevated``
+    IS TRUE, in which case the ``created_by`` filter is dropped entirely and
+    ANY row for ``(client, label)`` goes, whoever created it. This is the
+    owner's explicit instruction for the Marketing Supervisor ("دستش بازه
+    کاملا" — completely unrestricted): "an Expert can never remove a
+    Supervisor's or another Expert's manual tag this way" remains exactly
+    true for an ordinary Expert (``elevated=False``, the default — every
+    existing caller that never passes it keeps behaving precisely as before),
+    while a genuinely elevated caller is the one population the owner named as
+    exempt from that boundary. ``elevated`` is never derived here — this
+    module stays request-agnostic, same as ``scope`` — the caller passes
+    ``marketing/access.py::Access.can_manage_config``, the same flag already
+    established for "Supervisor and admin, not an ordinary editor" (see that
+    field's own docstring). A no-op (not an error) when no matching row
+    exists at all, elevated or not.
 
     Never touches case-derived labels — those have no ``ClientLabel`` row to
     begin with; see ``companies_for_label`` / ``connections_of_client`` for
@@ -576,7 +591,11 @@ def toggle_manual_label(client: Client, label: str, user, add: bool) -> None:
     must leave the timeline untouched — otherwise a double-clicked button
     reads back as two separate business decisions. ``get_or_create``'s
     ``created`` flag and ``delete()``'s row count are exactly the signals
-    needed, and both come free with the write that already happens.
+    needed, and both come free with the write that already happens. On an
+    elevated removal of SOMEONE ELSE's row, the ``LABEL_REMOVED`` event is
+    still logged with ``actor=user`` (the Supervisor who acted) — the
+    timeline records who DID the removal, not who originally added the tag,
+    exactly like every other action this module logs.
     """
     if add:
         _obj, created = ClientLabel.objects.get_or_create(
@@ -586,9 +605,10 @@ def toggle_manual_label(client: Client, label: str, user, add: bool) -> None:
             _try_log(client, user, ClientEventAction.LABEL_ADDED,
                      subject=FIELD_LABELS.get(label, label))
     else:
-        removed, _detail = ClientLabel.objects.filter(
-            client=client, label=label, created_by=user,
-        ).delete()
+        qs = ClientLabel.objects.filter(client=client, label=label)
+        if not elevated:
+            qs = qs.filter(created_by=user)
+        removed, _detail = qs.delete()
         if removed:
             _try_log(client, user, ClientEventAction.LABEL_REMOVED,
                      subject=FIELD_LABELS.get(label, label))
@@ -784,27 +804,37 @@ def create_connection(anchor_client: Client, anchor_role: str, target_client: Cl
             toggle_manual_label(target_client, target_role, user, add=True)
 
 
-def remove_connection(anchor_client: Client, anchor_role: str, target_client: Client, target_role: str, case, user) -> None:
+def remove_connection(anchor_client: Client, anchor_role: str, target_client: Client, target_role: str, case, user, *,
+                      elevated: bool = False) -> None:
     """Delete the directed edge (anchor_client, anchor_role) ->
-    (target_client, target_role) scoped to ``case`` — but ONLY a row THIS
-    USER themselves created.
+    (target_client, target_role) scoped to ``case`` — a row THIS USER
+    themselves created, unless ``elevated``.
 
     The exact same "cannot remove what you don't own" rule
     ``toggle_manual_label(..., add=False)`` already enforces for
-    ``ClientLabel``, applied here identically: an Expert can never remove a
-    connection a Supervisor or another Expert attached, matching the
-    ownership boundary ``scope`` enforces everywhere else in this module. A
-    no-op (not an error) when no such row exists at all, or when it exists
-    but belongs to someone else — the caller cannot distinguish "gone" from
-    "not yours" from this function's return value alone, by design, same as
-    ``toggle_manual_label``.
+    ``ClientLabel``, applied here identically, INCLUDING ITS ``elevated``
+    ESCAPE HATCH: an Expert can never remove a connection a Supervisor or
+    another Expert attached (``elevated=False``, the default — unchanged for
+    every existing caller), but a caller passing ``elevated=True`` — the
+    Marketing Supervisor or the platform admin, via
+    ``marketing/access.py::Access.can_manage_config`` — deletes the row
+    regardless of who created it, per the owner's explicit instruction that a
+    Supervisor's access to fixing connections is unrestricted. See
+    ``toggle_manual_label``'s own docstring for the fuller argument; it is not
+    repeated twice. A no-op (not an error) when no such row exists at all, or
+    — for a non-elevated caller — when it exists but belongs to someone else;
+    the caller cannot distinguish "gone" from "not yours" from this
+    function's return value alone, by design, same as ``toggle_manual_label``.
 
     Writes a ``ClientEvent`` (see ``_try_log``) only when a row was actually
     deleted, on the ANCHOR company — the same two rules ``create_connection``
     above logs by, for the same reasons: a no-op is not a business event, and
     a directed edge belongs to the timeline of the company it was drawn from.
     ``delete()``'s own row count is the signal, and it comes free with the
-    write that already happens.
+    write that already happens. ``actor=user`` is the person who removed it —
+    the Supervisor, on an elevated removal of someone else's edge — not
+    whoever originally attached it, exactly as ``toggle_manual_label``
+    documents for its own elevated branch.
 
     DELIBERATELY NOT SYMMETRIC WITH ``create_connection``'s TARGET-ROLE
     REGISTRATION. Confirming a connection can, per that function's docstring,
@@ -818,18 +848,75 @@ def remove_connection(anchor_client: Client, anchor_role: str, target_client: Cl
     un-tagging a company's manual label remains exclusively the job of the
     existing manual ``label_toggle`` UI (``toggle_manual_label(...,
     add=False)``), which is the one place that already knows how to check
-    ownership of a ``ClientLabel`` row before removing it.
+    ownership of a ``ClientLabel`` row before removing it — and, since this
+    round, the one place that already knows how an elevated caller bypasses
+    that check, identically to this function.
     """
-    removed, _detail = Connection.objects.filter(
+    qs = Connection.objects.filter(
         anchor_client=anchor_client, anchor_role=anchor_role,
-        target_client=target_client, target_role=target_role,
-        case=case, created_by=user,
-    ).delete()
+        target_client=target_client, target_role=target_role, case=case,
+    )
+    if not elevated:
+        qs = qs.filter(created_by=user)
+    removed, _detail = qs.delete()
     if removed:
         _try_log(anchor_client, user, ClientEventAction.CONNECTION_REMOVED,
                  subject=target_client.name,
                  subject_role=_connection_role_label(target_role),
                  comment=_connection_comment(anchor_role, case))
+
+
+def contributor_count(client: Client) -> int:
+    """How many DISTINCT people have ever added a manual role tag or a
+    connection that involves ``client`` — the company detail page's own
+    "Company" card wants this, unscoped, next to the plain Name/Code facts.
+
+    AN UNSCOPED, COMPANY-WIDE FACT, NOT A VISIBILITY QUESTION — and that is a
+    deliberate contrast with ``labels_for_clients``/``connections_of_client``
+    right above it. Those two decide which MANUAL rows a given viewer may be
+    SHOWN, because ``(user, scope)`` is a real security boundary for the list
+    itself (see the module docstring's "Manual ``ClientLabel`` rows are the
+    one thing that stays scoped" paragraph). This is not a list at all — it
+    is one integer describing the company's own history, the same kind of
+    fact ``case_status_counts`` already reports unscoped ("the company's
+    whole history"), and every viewer who can open the company page at all is
+    told the same number, exactly the way every viewer sees the same
+    case-derived facts.
+
+    TWO TABLES, ONE UNION OF ``created_by`` IDS:
+
+    * :class:`ClientLabel` rows ON THIS CLIENT (``client=client``) — someone
+      manually tagged this company with a role.
+    * :class:`Connection` rows this client appears in on EITHER end
+      (``anchor_client=client`` OR ``target_client=client``). The owner's own
+      wording is "added ... a role/connection TO this company", naming the
+      fact rather than the direction the edge happens to have been drawn in —
+      a connection this company is the TARGET of (someone opened a DIFFERENT
+      company's card and attached it here) is exactly as real a contribution
+      to this company's own record as one drawn from its own card as the
+      anchor, so both sides count. (Contrast ``_client_holds_label``, which
+      also reasons about "does this client hold X" unscoped by owner, for the
+      same kind of company-wide-fact reason.)
+
+    ``created_by`` is nullable on both models (``SET_NULL`` when the user who
+    added the row is later deleted) — those rows contribute nothing to a
+    DISTINCT PEOPLE count (``None`` is not a person), so ``created_by__isnull``
+    rows are dropped before the two id sets are unioned in Python. Three
+    cheap ``values_list`` queries total, none of them touching a model
+    instance, regardless of how much history this company has.
+    """
+    label_users = set(
+        ClientLabel.objects
+        .filter(client=client, created_by__isnull=False)
+        .values_list("created_by_id", flat=True)
+    )
+    connection_users = set(
+        Connection.objects
+        .filter(Q(anchor_client=client) | Q(target_client=client),
+                created_by__isnull=False)
+        .values_list("created_by_id", flat=True)
+    )
+    return len(label_users | connection_users)
 
 
 # --------------------------------------------------------------------------- #
@@ -896,12 +983,19 @@ def label_counts(user, scope) -> dict:
     return {k: len(v) for k, v in counts.items()}
 
 
-def labels_for_clients(client_ids, user, scope) -> dict:
+def labels_for_clients(client_ids, user, scope, *, elevated: bool = False) -> dict:
     """``{client_id: [{"label","label_fa","source","removable"}, ...]}`` for
     every id in ``client_ids`` — the same manual+case-derived merge
     ``connections_of_client`` does for one client, batched across many in a
     constant number of queries. Used by ``client_search`` so any caller
     listing companies can show label chips without a per-row round trip.
+
+    ``removable`` is the same ``companies_for_label``/``connections_of_client``
+    field, including the same ``elevated`` widening: True for THIS user's own
+    manual row by default, or for ANY manual row on that client/label when
+    ``elevated`` is the Marketing Supervisor or the platform admin (see
+    ``marketing/access.py::Access.can_manage_config``) — see
+    ``companies_for_label``'s docstring for the full reasoning.
     """
     client_ids = list(client_ids)
     if not client_ids:
@@ -919,6 +1013,16 @@ def labels_for_clients(client_ids, user, scope) -> dict:
     for cid, label in ClientLabel.objects.filter(client_id__in=client_ids, created_by=user).values_list("client_id", "label"):
         own_manual.setdefault(cid, set()).add(label)
 
+    # See ``companies_for_label``'s identical ``removable_client_ids`` — queried
+    # fresh, unscoped by ``created_by``, only when ``elevated`` is actually True
+    # (an extra query no non-elevated caller — the overwhelming majority — pays
+    # for).
+    removable_map = own_manual
+    if elevated:
+        removable_map = {}
+        for cid, label in ClientLabel.objects.filter(client_id__in=client_ids).values_list("client_id", "label"):
+            removable_map.setdefault(cid, set()).add(label)
+
     out = {}
     for cid in client_ids:
         keys = case_labels.get(cid, set()) | manual_labels.get(cid, set())
@@ -931,7 +1035,7 @@ def labels_for_clients(client_ids, user, scope) -> dict:
                 "label": label,
                 "label_fa": FIELD_LABELS[label],
                 "source": "case" if is_case else "manual",
-                "removable": label in own_manual.get(cid, set()),
+                "removable": label in removable_map.get(cid, set()),
             })
         out[cid] = rows
     return out
@@ -1048,7 +1152,8 @@ def search_all_cases(query: str = "", limit: int = 500, case_id=None) -> list:
 # Merged reports (manual + case-derived together)
 # --------------------------------------------------------------------------- #
 def companies_for_label(label: str, user, scope, *,
-                        case_access: CaseAccess = NO_CASE_ACCESS) -> list:
+                        case_access: CaseAccess = NO_CASE_ACCESS,
+                        elevated: bool = False) -> list:
     """The companies a chart card shows when a label is clicked.
 
     Union of:
@@ -1104,6 +1209,19 @@ def companies_for_label(label: str, user, scope, *,
       user separately hand-tagged it too, which is exactly how the frontend
       lets someone un-tag their own manual copy without touching the
       case-derived truth underneath it.
+
+      WHEN ``elevated`` IS TRUE — the Marketing Supervisor or the platform
+      admin, via ``marketing/access.py::Access.can_manage_config`` — this
+      widens from "owns" to "ANY manual row exists for this client/label,
+      whoever created it", mirroring exactly what
+      ``toggle_manual_label(client, label, user, add=False, elevated=True)``
+      would actually delete (see that function's own docstring for the
+      owner's instruction this implements). Still independent of ``source``,
+      and still False for a client that is ``source == "case"`` with no
+      manual row behind it at all — an elevated viewer gets to remove any
+      EXISTING manual tag, not a tag that was never there to begin with.
+      ``elevated`` never widens WHICH companies are listed (the union above),
+      only whether a listed one's manual half may be removed.
     """
     # TWO DIFFERENT QUESTIONS OVER THE SAME QUERY, and they get two different
     # answers on purpose. WHICH COMPANIES hold this label is read from every
@@ -1130,6 +1248,18 @@ def companies_for_label(label: str, user, scope, *,
     own_manual_client_ids = set(
         ClientLabel.objects.filter(label=label, created_by=user).values_list("client_id", flat=True)
     )
+    # See the docstring's ``removable`` bullet — an elevated caller (Marketing
+    # Supervisor or platform admin) may remove ANY manual row for this label,
+    # not just their own, so the set that decides ``removable`` widens to
+    # every client carrying one, regardless of ``created_by``. Queried fresh
+    # rather than reusing ``manual_client_ids``: that set is already unscoped
+    # whenever ``scope == "all"`` (which every real elevated caller has — see
+    # ``access.access_for``), but this function's own contract must not rely
+    # on that invariant holding at every call site to stay correct.
+    removable_client_ids = (
+        set(ClientLabel.objects.filter(label=label).values_list("client_id", flat=True))
+        if elevated else own_manual_client_ids
+    )
 
     all_client_ids = manual_client_ids | case_client_ids
     if not all_client_ids:
@@ -1146,7 +1276,7 @@ def companies_for_label(label: str, user, scope, *,
             "code": client.code,
             "source": "case" if is_case else "manual",
             "also_manual": is_case and is_manual,
-            "removable": client.pk in own_manual_client_ids,
+            "removable": client.pk in removable_client_ids,
         }
         # ``.get`` and a truth test, not ``[client.pk]``: a company can be in
         # ``case_client_ids`` (it really does hold this label through a case)
@@ -1160,7 +1290,8 @@ def companies_for_label(label: str, user, scope, *,
 
 
 def connections_of_client(client: Client, user, scope, case=None, *,
-                          case_access: CaseAccess = NO_CASE_ACCESS) -> dict:
+                          case_access: CaseAccess = NO_CASE_ACCESS,
+                          elevated: bool = False) -> dict:
     """The label/case report Inquiry shows when a COMPANY (not "us") is the focus.
 
     The mirror image of ``companies_for_label``: instead of "one label -> its
@@ -1168,7 +1299,11 @@ def connections_of_client(client: Client, user, scope, case=None, *,
     merge rule and the identical per-entry field meanings for the labels
     ``client`` DIRECTLY holds (``source``, ``also_manual``, ``removable``,
     ``case_numbers`` — see ``companies_for_label``'s docstring for what each
-    means). On top of that, every entry now also carries who is actually
+    means, ``removable`` included — the same ``elevated`` widening applies
+    here too: True for every directly-held entry with ANY manual row behind
+    it, not just this user's own, when ``elevated`` is the Marketing
+    Supervisor or the platform admin). On top of that, every entry now also
+    carries who is actually
     CONNECTED under that label — see ``connected`` below, the whole point of
     this round's change and the piece the next phase builds its display on.
 
@@ -1210,26 +1345,68 @@ def connections_of_client(client: Client, user, scope, case=None, *,
       case-derived or manual fact behind these entries directly — only a
       connection). The owner's "supervision" example above is exactly this
       case: Water & Sewage never held Supervision itself, so this entry
-      exists purely because of the Connection row.
+      exists purely because of the Connection row. NOTE the direction this
+      makes visible: ``connections_of_client("Ofogh Novin Homa")`` — i.e.
+      running the SAME Inquiry from the OTHER name on that Connection row —
+      must show a "supervision" entry of its OWN (Ofogh Novin Homa directly
+      holds it, thanks to ``create_connection``'s target-role registration —
+      see the module docstring's "A THIRD mechanism" paragraph) whose
+      ``connected`` list contains "Water & Sewage of East Azerbaijan
+      Province" right back. That is the REVERSE half of ``connected``,
+      documented in full just below — the connection is one real-world fact
+      and must be visible activating from either end, not only from the
+      anchor Water & Sewage was drawn from.
 
     ``connected`` — a ``[{"id", "name"}, ...]`` list of the companies to
     actually display under this label's chart card, for EVERY entry:
 
-    * Gather every ``Connection`` row anchored at ``client`` in one of the
-      roles ``client`` genuinely, directly holds (i.e. ``anchor_role`` must
-      be a label from the DIRECTLY-HELD half above — a connection anchored
-      on a role ``client`` does not actually hold is never surfaced),
-      whose ``target_role`` equals THIS entry's own label, and whose
-      ``case`` is NULL (general — always visible) or equals the ``case``
-      argument (case-scoped — visible only when Inquiry is running in that
-      case's own context). Scoped by ``user``/``scope`` exactly like manual
-      ``ClientLabel`` rows are (see ``_scoped``) — an Expert only sees
-      connections THEY built until a Supervisor/GM looks at the union,
-      consistent with every other manually-created fact in this module.
-    * If any such rows exist, ``connected`` is their DISTINCT target
-      clients (deduplicated by id, since more than one connection can
-      legitimately point at the same target — e.g. one general and one
-      case-scoped row for the same pair).
+    * For a DIRECTLY-HELD entry (the REVERSE half below is the fix this round
+      makes — querying used to only ever surface a connection from the
+      ANCHOR side), gather every ``Connection`` row that ties ``client`` to
+      THIS entry's own label from EITHER end, since a ``Connection`` is one
+      real-world fact and querying from either name it names must surface it:
+
+      - FORWARD — ``client`` is the row's ``anchor_client``, in one of the
+        roles ``client`` genuinely, directly holds (i.e. ``anchor_role`` must
+        be a label from the DIRECTLY-HELD half above — a connection anchored
+        on a role ``client`` does not actually hold is never surfaced), and
+        ``target_role`` equals THIS entry's own label. This half is
+        unchanged from before this round.
+      - REVERSE — ``client`` is the row's ``target_client`` instead, under
+        ``target_role`` equal to THIS entry's own label (gated the same way
+        as the forward half: only a label ``client`` directly holds may be
+        the label a reverse row is filed under, matching the "only ever
+        applies to a DIRECTLY-HELD entry" rule two bullets down). The
+        ANCHOR on the other end of such a row — some OTHER company that
+        connected ``client`` to itself through the Attach flow — is exactly
+        as "connected to client under this field" as a forward target is: it
+        is the SAME kind of fact, read from ``client``'s side instead of the
+        anchor's. Concretely, if activating A under "design" and attaching B
+        as its Subcontractor-P wrote ``Connection(anchor_client=A,
+        anchor_role="design", target_client=B, target_role="sub_p")``, then
+        activating B under "sub_p" must show A here — B, as a sub_p
+        contractor, IS connected to A under design, and that is one fact
+        whichever end it is queried from.
+      Both halves are scoped identically: ``case`` NULL (general — always
+      visible) or equal to the ``case`` argument (case-scoped — visible only
+      when Inquiry is running in that case's own context), and ``user``/
+      ``scope`` exactly like manual ``ClientLabel`` rows (see ``_scoped``) —
+      an Expert only sees connections THEY built, from either end, until a
+      Supervisor/GM looks at the union, consistent with every other
+      manually-created fact in this module. Removing a row surfaced from the
+      reverse direction is still removing the SAME ``Connection`` row, with
+      the SAME ``created_by`` — ``remove_connection`` filters on the row's
+      real, unchanged ``(anchor_client, anchor_role, target_client,
+      target_role)`` tuple regardless of which end a caller found it from, so
+      ownership and effect are identical either way; nothing about which
+      side surfaced a row changes who may remove it or what removing it does.
+      A connection-only entry (``source is None``, two bullets down) stays
+      FORWARD-ONLY and unaffected by any of this — see that bullet for why.
+    * If any such rows exist (either half), ``connected`` is their DISTINCT
+      OTHER clients (deduplicated by id, since more than one connection can
+      legitimately point at the same other client — e.g. one general and one
+      case-scoped row for the same pair, or a forward row and a reverse row
+      that both happen to name the same company).
     * If none exist, ``connected`` falls back to ``client``'s own identity —
       ``[{"id": client.pk, "name": client.name}]`` — which is exactly
       TODAY's behaviour for a label with no explicit connection behind it: a
@@ -1239,7 +1416,13 @@ def connections_of_client(client: Client, user, scope, case=None, *,
       never falls back to ``client``'s own identity, since ``client`` never
       held that role to begin with; its ``connected`` list is always the
       real connected target(s) (and such an entry only exists at all because
-      at least one such target exists).
+      at least one such target exists). A connection-only entry is also,
+      necessarily, FORWARD-ONLY: it exists at all only because ``client`` is
+      someone's anchor (see the bullet above and the module docstring's "A
+      THIRD mechanism" paragraph) — there is no reverse half to add here
+      since a reverse row would require ``client`` to directly hold this
+      very label, which is precisely the condition that makes an entry
+      DIRECTLY-HELD instead of connection-only.
 
     ``cases`` is ``cases_for_client(client)`` NARROWED BY ``case_access`` — the
     same list the caller would otherwise have to filter itself, kept under its
@@ -1289,6 +1472,14 @@ def connections_of_client(client: Client, user, scope, case=None, *,
     own_manual_labels = set(
         ClientLabel.objects.filter(client=client, created_by=user).values_list("label", flat=True)
     )
+    # See ``companies_for_label``'s identical ``removable_client_ids`` — the
+    # same elevated widening, queried fresh for the same reason (not reused
+    # from ``manual_labels`` even though that set is already unscoped whenever
+    # ``scope == "all"``, which every real elevated caller has).
+    removable_labels = (
+        set(ClientLabel.objects.filter(client=client).values_list("label", flat=True))
+        if elevated else own_manual_labels
+    )
 
     # Only a role client genuinely, directly holds (case-derived and/or
     # manual) may ever be the ANCHOR of a connection that gets surfaced here
@@ -1301,35 +1492,67 @@ def connections_of_client(client: Client, user, scope, case=None, *,
         if label in case_labels or label in manual_labels
     }
 
-    conn_qs = Connection.objects.filter(
-        anchor_client=client, anchor_role__in=directly_held_labels,
-    )
-    if case is not None:
-        conn_qs = conn_qs.filter(Q(case__isnull=True) | Q(case=case))
-    else:
-        conn_qs = conn_qs.filter(case__isnull=True)
-    conn_qs = _scoped(conn_qs, user, scope).select_related("target_client").order_by("target_client__name")
+    # Both directions get the identical case/scope filter — a helper so that
+    # is enforced by construction rather than by two hand-kept-in-sync copies
+    # of the same two ``.filter()`` calls.
+    def _case_scoped(qs):
+        if case is not None:
+            return qs.filter(Q(case__isnull=True) | Q(case=case))
+        return qs.filter(case__isnull=True)
 
-    # {target_role: {target_client_id: target_client_name}} — an inner dict
-    # (not a set of tuples) so the SAME target client reached via more than
-    # one Connection row (e.g. a general row and a case-scoped one for the
-    # identical pair, deliberately allowed to coexist — see ``Connection``'s
-    # own docstring) collapses into a single entry, per the "DISTINCT target
-    # clients" rule above. Insertion order follows the query's own
-    # ``order_by("target_client__name")``, and a plain dict preserves
-    # insertion order, so the final list comes out name-sorted for free.
+    # FORWARD — ``client`` is the anchor. Unchanged from before this round:
+    # see the docstring's "connected" bullet list above.
+    fwd_qs = _scoped(
+        _case_scoped(Connection.objects.filter(
+            anchor_client=client, anchor_role__in=directly_held_labels,
+        )),
+        user, scope,
+    ).select_related("target_client")
+
+    # REVERSE — ``client`` is the TARGET instead, under a label it directly
+    # holds. THE FIX: see the docstring's "REVERSE" bullet for why this half
+    # was missing and what it means for a connection to be one real-world
+    # fact visible from either name it names. Scoped by the exact same
+    # ``_case_scoped``/``_scoped`` calls as the forward query above — a
+    # reverse-surfaced row must never be less scoped than a forward one, since
+    # it is the same kind of fact wearing the other end of the same row.
+    rev_qs = _scoped(
+        _case_scoped(Connection.objects.filter(
+            target_client=client, target_role__in=directly_held_labels,
+        )),
+        user, scope,
+    ).select_related("anchor_client")
+
+    # {label: {other_client_id: other_client_name}} — an inner dict (not a
+    # set of tuples) so the SAME other client reached via more than one
+    # Connection row (a forward row and a reverse row both naming it, or two
+    # rows in the same direction — e.g. one general and one case-scoped row
+    # for the identical pair, deliberately allowed to coexist — see
+    # ``Connection``'s own docstring) collapses into a single entry, per the
+    # "DISTINCT" rule above. The forward row's key is its own ``target_role``;
+    # the reverse row's key is ALSO its own ``target_role`` — that is the
+    # label ``client`` (the target here) directly holds and the one this
+    # entry is filed under. Built from two separately-ordered queries, so
+    # (unlike the old single-query version) insertion order is no longer
+    # trusted to already be name-sorted — the list below sorts explicitly.
     connected_by_role: dict = {}
-    for row in conn_qs:
+    for row in fwd_qs:
         connected_by_role.setdefault(row.target_role, {})[row.target_client_id] = row.target_client.name
+    for row in rev_qs:
+        connected_by_role.setdefault(row.target_role, {})[row.anchor_client_id] = row.anchor_client.name
 
     labels_out = []
     for label in LABEL_KEYS:
         is_case = label in case_labels
         is_manual = label in manual_labels
         directly_held = is_case or is_manual
+        # Sorted explicitly by name — see the merge comment above for why
+        # insertion order alone (fine when a single ``order_by`` query fed
+        # this dict) is no longer enough now that a forward and a reverse
+        # query both feed it.
         connected_targets = [
             {"id": cid, "name": name}
-            for cid, name in connected_by_role.get(label, {}).items()
+            for cid, name in sorted(connected_by_role.get(label, {}).items(), key=lambda pair: pair[1])
         ]
         if not directly_held and not connected_targets:
             continue
@@ -1339,7 +1562,7 @@ def connections_of_client(client: Client, user, scope, case=None, *,
                 "label_fa": FIELD_LABELS[label],
                 "source": "case" if is_case else "manual",
                 "also_manual": is_case and is_manual,
-                "removable": label in own_manual_labels,
+                "removable": label in removable_labels,
             }
             # See ``companies_for_label``'s identical guard: a label can be
             # case-derived while every case behind it is outside this viewer's
@@ -1730,6 +1953,14 @@ def _contact_row(contact: CompanyContact, user) -> dict:
     caller serialises straight to JSON without touching the ORM again, and the
     ``role``/``gender`` display texts are resolved here once instead of by a
     template doing a query per row.
+
+    ``phones`` IS A LIST OF DICTS NOW, ONE PER :class:`ContactPhone` ROW,
+    WHERE THIS USED TO BE THREE FLAT STRINGS. See
+    ``marketing/models.py::CompanyContact``'s "THE PHONE NUMBER(S) LIVE ON
+    ContactPhone, NOT HERE" section for why the number(s) moved off this
+    model onto a child table. ``contact.phones.all()`` is expected to already
+    be prefetched by the caller (:func:`list_contacts` does exactly that) so
+    building this list costs no extra query per contact.
     """
     return {
         "id": contact.pk,
@@ -1740,9 +1971,14 @@ def _contact_row(contact: CompanyContact, user) -> dict:
         "role": contact.role.name if contact.role_id else "",
         "gender": contact.gender,
         "gender_label": ContactGender.LABELS.get(contact.gender, contact.gender),
-        "phone_prefix": contact.phone_prefix,
-        "phone": contact.phone,
-        "phone_ext": contact.phone_ext,
+        "phones": [
+            {
+                "phone_prefix": p.phone_prefix,
+                "phone": p.phone,
+                "phone_ext": p.phone_ext,
+            }
+            for p in contact.phones.all()
+        ],
         "email": contact.email,
         "created_by_id": contact.created_by_id,
         "created_at": contact.created_at,
@@ -1757,13 +1993,18 @@ def _contact_row(contact: CompanyContact, user) -> dict:
 def list_contacts(client: Client, user, scope) -> list:
     """Every contact at ``client`` this viewer may see — see the scoping note.
 
-    Ordered by ``CompanyContact.Meta.ordering`` (last name, then first), and
-    ``select_related`` on the role so a list of contacts costs two queries,
-    not one per row.
+    Ordered by ``CompanyContact.Meta.ordering`` (last name, then first).
+    ``select_related`` on the role and ``prefetch_related`` on the new
+    ``phones`` child rows so a list of contacts costs a fixed small number of
+    queries — three, now that phones live in their own table — never one per
+    row. ``ContactPhone.Meta.ordering`` (creation order) is what
+    ``prefetch_related`` uses to order each contact's ``phones.all()``, so the
+    rows come back in the same "as entered" order :func:`add_contact` wrote
+    them in.
     """
     contacts = _scoped(
         CompanyContact.objects.filter(client=client), user, scope,
-    ).select_related("role")
+    ).select_related("role").prefetch_related("phones")
     return [_contact_row(c, user) for c in contacts]
 
 
@@ -1786,14 +2027,26 @@ def _resolve_contact_role(role):
 
 
 def add_contact(client: Client, user, *, first_name: str, last_name: str,
-                gender: str, role=None, phone_prefix: str = "",
-                phone: str = "", phone_ext: str = "",
+                gender: str, role=None, phones=(),
                 email: str = "") -> CompanyContact:
     """Add one person at ``client``, stamped ``created_by=user``.
 
-    Keyword-only past ``client``/``user`` on purpose: this takes eight
-    optional-looking strings, and a positional call site would be unreadable
+    Keyword-only past ``client``/``user`` on purpose: this takes several
+    optional-looking values, and a positional call site would be unreadable
     and one silent swap away from filing a phone number as an extension.
+
+    ``phones`` — AN ITERABLE OF PHONE ROWS, NOT THREE STRINGS ANY MORE. Each
+    row is anything subscriptable by ``"prefix"``/``"number"``/``"ext"`` (a
+    dict, as ``marketing/forms.py::ContactForm.clean``'s ``"phones"`` entry
+    already is) — one :class:`ContactPhone` is created per row, in the order
+    given, so the order a person typed their numbers in survives onto
+    ``ContactPhone.Meta.ordering`` (creation order). See
+    ``marketing/models.py::CompanyContact``'s "THE PHONE NUMBER(S) LIVE ON
+    ContactPhone, NOT HERE" section for why a contact's numbers moved off this
+    model's own columns onto a child table in the first place. An empty
+    ``phones`` is completely legitimate — a contact reachable only by email
+    has nothing here — exactly as an empty ``phone`` string always was on the
+    old single field.
 
     VALIDATES ONLY WHAT THE DATABASE CANNOT. ``first_name``/``last_name`` must
     be non-blank and ``gender`` must be one of
@@ -1811,7 +2064,19 @@ def add_contact(client: Client, user, *, first_name: str, last_name: str,
     be reported against the specific field the user left blank. Raising it
     here as well would only add a second, worse-worded copy of the same error
     for the exact same input, and would block legitimate direct writes —
-    imports, backfills — that the model itself deliberately permits.
+    imports, backfills — that the model itself deliberately permits. The same
+    reasoning now covers ``phones`` being empty: a caller that is not a form
+    (an import, a shell fix-up) must still be able to write a contact with no
+    phone rows at all.
+
+    WRAPPED IN ``transaction.atomic()`` — new here, and necessary now in a way
+    it was not before: writing used to be one ``INSERT`` (the whole contact,
+    phone included, in one row), and is now potentially several (the contact,
+    then zero or more ``ContactPhone`` rows). Without the wrapper, a failure
+    partway through the phone rows (a database hiccup, not anything this
+    function itself would raise) could leave a saved contact with only some
+    of the numbers the user typed — worse than not saving it at all, because
+    it would look complete and quietly not be.
 
     Writes a ``ClientEvent`` (see ``_try_log``) with the person's own name as
     ``subject``. Unlike ``toggle_manual_label``/``create_connection`` there is
@@ -1826,18 +2091,25 @@ def add_contact(client: Client, user, *, first_name: str, last_name: str,
     gender = (gender or "").strip()
     if gender not in ContactGender.LABELS:
         raise ValueError(f"Unknown gender: {gender!r}.")
-    contact = CompanyContact.objects.create(
-        client=client,
-        first_name=first_name,
-        last_name=last_name,
-        role=_resolve_contact_role(role),
-        gender=gender,
-        phone_prefix=(phone_prefix or "").strip(),
-        phone=(phone or "").strip(),
-        phone_ext=(phone_ext or "").strip(),
-        email=(email or "").strip(),
-        created_by=user if getattr(user, "is_authenticated", False) else None,
-    )
+    with transaction.atomic():
+        contact = CompanyContact.objects.create(
+            client=client,
+            first_name=first_name,
+            last_name=last_name,
+            role=_resolve_contact_role(role),
+            gender=gender,
+            email=(email or "").strip(),
+            created_by=user if getattr(user, "is_authenticated", False) else None,
+        )
+        ContactPhone.objects.bulk_create([
+            ContactPhone(
+                contact=contact,
+                phone_prefix=(row.get("prefix") or "").strip(),
+                phone=(row.get("number") or "").strip(),
+                phone_ext=(row.get("ext") or "").strip(),
+            )
+            for row in phones
+        ])
     _try_log(client, user, ClientEventAction.CONTACT_ADDED,
              subject=contact.full_name)
     return contact
@@ -1956,7 +2228,7 @@ def _report_row(report: CompanyReport, user, visible_case_ids=frozenset()) -> di
     }
 
 
-def list_reports(client: Client, user, scope, *,
+def list_reports(client: Client, user, scope, *, case=None,
                  case_access: CaseAccess = NO_CASE_ACCESS) -> list:
     """Every report on ``client`` this viewer may see — see the scoping note.
 
@@ -1973,17 +2245,32 @@ def list_reports(client: Client, user, scope, *,
     other: a Supervisor sees every report on the company AND may be refused
     every case behind them.
 
+    ``case`` (keyword-only, optional) NARROWS TO ONE CASE'S OWN REPORTS —
+    added for ``cases/views.py::case_detail``'s own Reports tab, which wants
+    "every report attached to THIS case", not the whole company's. ``None``
+    (the default) is every existing caller's behaviour, unchanged: the
+    company detail page still lists the whole client's reports. THIS IS THE
+    ONE PLACE THE CASE PAGE'S REPORTS TAB ADDS ANY FILTER OF ITS OWN — it is a
+    plain ``case=case`` clause on the SAME query and SAME ``_scoped``/
+    ``_report_row`` machinery every other caller goes through, not a second
+    reports system. See that view's own docstring for why it calls this with
+    ``scope="all"`` rather than deriving one from whatever Marketing seat the
+    viewer might or might not separately hold: the case page's own viewing
+    rule is "anyone with access to this case sees its reports", which is a
+    CASE-ACCESS question, already settled by ``user_can_view_case`` before
+    this is ever called, and not the author-privacy question ``scope``
+    answers everywhere else in this module.
+
     Resolved here, once for the whole list, rather than per row: one
     ``scope_case_rows`` call over the attached case ids (``_visible_case_ids``)
     instead of one per report. Defaults to ``NO_CASE_ACCESS`` like every other
     ``case_access`` argument in this module, and fails the same way — a caller
     who forgets it gets reports with no document numbers on them.
     """
-    reports = list(
-        _scoped(
-            CompanyReport.objects.filter(client=client), user, scope,
-        ).select_related("case").prefetch_related("options")
-    )
+    qs = _scoped(CompanyReport.objects.filter(client=client), user, scope)
+    if case is not None:
+        qs = qs.filter(case=case)
+    reports = list(qs.select_related("case").prefetch_related("options"))
     visible = _visible_case_ids([r.case_id for r in reports], case_access)
     return [_report_row(r, user, visible) for r in reports]
 

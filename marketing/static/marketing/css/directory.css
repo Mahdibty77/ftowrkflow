@@ -49,9 +49,8 @@
    app.css's .chip.c-draft — the same chip the roles card at the top of the
    company page uses — so it needs no rule of its own here either. */
 
-/* The roles card on the company detail page: the chips get a little more air
-   than a table cell's row of them, and the legend under them is a quiet
-   two-item row rather than a paragraph. */
+/* The roles card on the company detail page: the legend under the list is a
+   quiet two-item row rather than a paragraph. */
 .dir-label-chips{ gap:.4rem; }
 .dir-label-legend{
   display:flex;
@@ -61,9 +60,43 @@
 }
 .dir-label-legend i{ color:var(--accent-strong); margin-right:.25rem; }
 /* app.css's .empty is sized for a full-width table with nothing in it; this
-   card is one panel in a two-panel row, and the same 2.5rem of air makes an
-   untagged company's card twice the height of the one beside it. */
+   card is one panel in a three-panel row, and the same 2.5rem of air makes an
+   untagged company's card noticeably taller than the ones beside it. */
 .dir-roles-card .empty{ padding:1.35rem 1rem; }
+
+/* THE ROLES LIST ITSELF — one role per row, in TWO COLUMNS, per the owner's
+   own ask this round. Plain CSS multi-column flow (not a second .grid): a
+   role list is a variable-length run of short lines, exactly what `columns`
+   is for, and it reflows itself as the count changes with no JavaScript and
+   no per-item positioning. `break-inside:avoid` keeps one role's icon and
+   text together rather than splitting a single row across the column break.
+   Collapses to one column on a narrow screen for the same reason
+   .dir-labels-cell's cap goes away there — two columns of a two-word role
+   name is not worth the horizontal squeeze once the card itself has shrunk. */
+.dir-roles-list{
+  list-style:none;
+  margin:0;
+  padding:0;
+  columns:2;
+  column-gap:1.4rem;
+}
+.dir-roles-list li{
+  display:flex;
+  align-items:center;
+  gap:.45rem;
+  padding:.28rem 0;
+  font-size:.85rem;
+  break-inside:avoid;
+}
+.dir-roles-list i{
+  color:var(--accent-strong);
+  width:15px;
+  text-align:center;
+  flex:0 0 auto;
+}
+@media (max-width:520px){
+  .dir-roles-list{ columns:1; }
+}
 
 /* The PI money total inside the Cases card — the figure the case archive
    prints as "Grand total (all PI)", over exactly the rows in the table below

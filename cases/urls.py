@@ -12,6 +12,11 @@ urlpatterns = [
     path("new/", views.case_create, name="case_create"),
     path("preview-excel/", views.preview_excel, name="preview_excel"),
     path("<int:pk>/", views.case_detail, name="case_detail"),
+    # Marketing bridge: a report / reminder filed on THIS case, by its own
+    # commercial owner alone — see cases/views.py::case_report_add /
+    # case_reminder_add and services.is_case_commercial_owner for the rule.
+    path("<int:pk>/report/add/", views.case_report_add, name="case_report_add"),
+    path("<int:pk>/reminder/add/", views.case_reminder_add, name="case_reminder_add"),
     path("<int:pk>/edit-items/", views.edit_items, name="edit_items"),
     path("<int:pk>/transition/", views.transition, name="transition"),
     path("<int:pk>/currency-conversion/log/", views.log_currency_conversion, name="log_currency_conversion"),

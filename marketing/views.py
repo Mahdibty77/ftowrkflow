@@ -27,13 +27,22 @@ of one:
   strip, same ``.timeline`` markup and the same ``|jalali`` stamp on every
   row).
 * REMINDERS (``reminder_add``, ``reminder_list``, ``reminder_retime``,
-  ``reminder_done``) — a person's own private notes-to-self about a company,
-  set from the company detail page and listed on a screen of their own. They
-  hang off the same directory and follow the same screen conventions, but they
-  are the one thing in this app that NOBODY else can see, including a
-  Supervisor, the General Manager and the platform admin — see the section
-  above those views, ``marketing/models.py::Reminder``, and
-  ``marketing/reminders.py``, which owns the due check and its cache.
+  ``reminder_done``) — a person's own notes-to-self about a company, set from
+  the company detail page and listed there (a Reminders tab) as well as on a
+  screen of their own. SEEING them now follows the SAME "own"/"all" split as
+  Reports — an ordinary Marketing Expert sees only their own, a Supervisor
+  sees the union of everyone's, and (for consistency with every other
+  elevated-access surface in this app) so do the General Manager and the
+  platform admin — a DELIBERATE REVERSAL of an earlier round's decision that
+  this app's own docstrings used to describe as permanent; see
+  ``marketing/models.py::Reminder`` for that history stated plainly rather
+  than quietly rewritten. What did NOT widen: CREATING one, and RE-TIMING or
+  CLOSING one out, both stay strictly owner-only (see
+  ``marketing/reminders.py::_own``), and the top-of-page due notification
+  stays scoped to the viewer alone (see
+  ``marketing/context_processors.py::reminder_notice``) — see the section
+  above those views for the full split, and ``marketing/reminders.py``, which
+  owns the due check and its cache.
 
 WHO MAY OPEN IT, AND HOW MUCH THEY GET. See ``marketing/access.py`` for the
 actual decision (``access_for``) — this is the plain-language version of it:
@@ -77,6 +86,7 @@ from django.urls import reverse
 from django.utils.http import urlencode
 from django.views.decorators.http import require_POST
 
+from cases.constants import CaseStatus
 from cases.models import Case, Client
 
 from . import reminders, rolechart, services
@@ -230,7 +240,9 @@ def client_search(request):
         return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
     query = request.GET.get("q") or ""
     clients = services.search_clients(query)
-    labels_map = services.labels_for_clients([c.pk for c in clients], request.user, access.scope)
+    labels_map = services.labels_for_clients(
+        [c.pk for c in clients], request.user, access.scope,
+        elevated=access.can_manage_config)
     return JsonResponse({"ok": True, "clients": [
         dict(_client_json(c), labels=labels_map.get(c.pk, [])) for c in clients
     ]})
@@ -272,14 +284,32 @@ def label_companies(request):
         return err
     companies = services.companies_for_label(
         label, request.user, access.scope,
-        case_access=case_access_for(request, access))
+        case_access=case_access_for(request, access),
+        elevated=access.can_manage_config)
     return JsonResponse({"ok": True, "label": label, "companies": companies})
 
 
 @login_required
 @require_POST
 def label_toggle(request):
-    """POST client_id=, label=, add=1|0 -> add/remove THIS USER's own manual tag.
+    """POST client_id=, label=, add=1|0 -> add/remove a manual tag — THIS
+    USER's own, unless this viewer is elevated (see below).
+
+    ``elevated`` is passed through as ``access.can_manage_config`` — the
+    Marketing Supervisor or the platform admin (see
+    ``marketing/access.py::Access.can_manage_config`` for why that flag,
+    already established for exactly this "Supervisor and admin, not an
+    ordinary editor" distinction, is reused here rather than a second check
+    being invented). It only ever WIDENS the ``add=0`` (remove) branch — see
+    ``services.toggle_manual_label``'s own docstring — per the owner's
+    explicit instruction that a Marketing Supervisor's access to remove or
+    fix another user's work is unrestricted. The frontend already only draws
+    the removal control when ``removable`` says so (see
+    ``services.companies_for_label``/``connections_of_client``, which this
+    view's siblings compute with the same ``elevated`` flag), so a genuine
+    Expert never even sees a control that would reach this branch for a row
+    they do not own; this is the server-side half of that same grant, and the
+    one a forged request cannot get around.
 
     Returns ``count``, the field's fresh viewer-scoped total, alongside
     ``ok`` — added so the chart's own JS can update that card's badge/fill
@@ -314,7 +344,8 @@ def label_toggle(request):
     if client is None:
         return JsonResponse({"ok": False, "error": "Unknown client."}, status=404)
     add = (request.POST.get("add") or "1").strip() not in ("0", "false", "False", "")
-    services.toggle_manual_label(client, label, request.user, add)
+    services.toggle_manual_label(client, label, request.user, add,
+                                 elevated=access.can_manage_config)
     count = services.label_counts(request.user, access.scope).get(label, 0)
     return JsonResponse({"ok": True, "count": count})
 
@@ -392,7 +423,12 @@ def connection_toggle(request):
     if add:
         services.create_connection(anchor_client, anchor_role, target_client, target_role, request.user, case=case)
     else:
-        services.remove_connection(anchor_client, anchor_role, target_client, target_role, case, request.user)
+        # ``elevated`` — see ``label_toggle``'s identical comment just above in
+        # this file, and ``services.remove_connection``'s own docstring: the
+        # Marketing Supervisor/platform admin bypass applies to REMOVAL only,
+        # so it has no counterpart on the ``create_connection`` branch above.
+        services.remove_connection(anchor_client, anchor_role, target_client, target_role, case, request.user,
+                                   elevated=access.can_manage_config)
     count = services.label_counts(request.user, access.scope).get(target_role, 0)
     return JsonResponse({"ok": True, "count": count})
 
@@ -443,7 +479,8 @@ def client_connections(request):
     # and a different question from which CASES this viewer may open.
     report = services.connections_of_client(
         client, request.user, access.scope, case=case,
-        case_access=case_access_for(request, access))
+        case_access=case_access_for(request, access),
+        elevated=access.can_manage_config)
     return JsonResponse({
         "ok": True,
         "client": _client_json(client),
@@ -767,6 +804,78 @@ def _counts_over(case_rows) -> dict:
     return counts
 
 
+# The Cases CARD's own raw-status bucket, folded in with BURNED — the owner's
+# own words, verbatim: "کنسل شده ها که شامل پرونده های سوخته شده و کنسل شده
+# میشه جمع انها" (the cancelled bucket sums the burned and the cancelled
+# cases together). Named separately from ``services._STATUS_CANCELLED``
+# rather than imported from it: that constant happens to hold the identical
+# two members today, but the two are read for two different reasons by two
+# different callers (see ``_case_card_counts``'s own docstring for why they
+# must not become one shared name), and a future change to either rule must
+# not silently retarget the other just because they once agreed.
+_CASE_CARD_CANCELLED = frozenset({CaseStatus.BURNED, CaseStatus.CANCELLED})
+
+
+def _case_card_counts(case_rows) -> dict:
+    """``{"total","approved","closed","cancelled","pending"}`` over exactly
+    ``case_rows`` — the Cases CARD's own four-way split, for the company
+    detail page's redesigned summary row.
+
+    A DELIBERATELY SEPARATE BUCKETING FROM ``_counts_over`` RIGHT ABOVE IT,
+    NOT A WIDENING OF IT, even though the two look almost alike and share a
+    caller's worth of case rows. ``_counts_over`` backs TWO callers:
+    ``company_detail`` (until this function replaced it here) and
+    ``client_case_counts`` — the JSON endpoint behind the relationship
+    chart's "cases connected to Us" panel, which ``services.py``'s own module
+    docstring documents as wanting "exactly three buckets, named exactly this
+    way, and nothing finer". Widening ``_counts_over`` itself to carve a
+    fourth "closed" bucket out of "approved" would silently re-carve that
+    chart panel's own Approved number too, which nobody asked for and which
+    would contradict that panel's own documented three-bucket rule. So this
+    is a new, narrow function used ONLY by ``company_detail``'s Cases card
+    (and the matching header chips on its Cases TAB, for one page that agrees
+    with itself), reading the RAW ``status`` on each row rather than the
+    already-three-way-bucketed ``status_fa`` ``_counts_over`` reads, and
+    ``_counts_over``/``client_case_counts``/the chart panel are completely
+    untouched by it.
+
+    THE FOUR BUCKETS, PER THE OWNER'S OWN WORDING THIS ROUND:
+
+    * ``closed`` — ``CaseStatus.FINAL_CLOSED`` alone: a case Commercial has
+      fully shut. THIS BUCKET DID NOT EXIST ON THIS PAGE BEFORE; the owner
+      asked for it by name ("Closed").
+    * ``approved`` — ``CaseStatus.FINAL_APPROVED`` alone, now EXCLUDING
+      ``FINAL_CLOSED`` (which the shared, chart-facing bucketing above still
+      folds into its own "approved" — see the note above on why that stays
+      untouched). Splitting "closed" out of "approved" for exactly this card
+      is the whole point of a fourth bucket: without the split, a
+      final-closed case would count under two headings on the same card and
+      the four numbers would no longer sum to the total.
+    * ``cancelled`` — BURNED and CANCELLED SUMMED INTO ONE LINE, per the
+      owner's own words quoted on ``_CASE_CARD_CANCELLED`` above.
+    * ``pending`` — everything else (still-moving statuses, and the various
+      "cannot supply" states) — the existing "no result" bucket, reused as-is
+      because its existing meaning already matches what "no result yet" means
+      here; nothing about it changes.
+
+    ``approved + cancelled + closed + pending == total`` always, the same
+    invariant the three-bucket version keeps, just over one more heading.
+    """
+    counts = {"total": 0, "approved": 0, "closed": 0, "cancelled": 0, "pending": 0}
+    for row in case_rows:
+        status = row["status"]
+        counts["total"] += 1
+        if status == CaseStatus.FINAL_CLOSED:
+            counts["closed"] += 1
+        elif status == CaseStatus.FINAL_APPROVED:
+            counts["approved"] += 1
+        elif status in _CASE_CARD_CANCELLED:
+            counts["cancelled"] += 1
+        else:
+            counts["pending"] += 1
+    return counts
+
+
 # One icon per timeline action, so a reader scanning a company's history can
 # tell a tag from a contact from a case without reading a word — the same job
 # the coloured dot does on the case timeline, done per action kind because this
@@ -976,35 +1085,85 @@ def _can_manage_options(access) -> bool:
 
 @login_required
 def company_detail(request, pk):
-    """One company: its labels, its contacts, its cases and its timeline.
+    """One company: its roles, its contacts, its cases, its reports, its
+    reminders and its timeline.
 
-    MODELLED ON THE CASE DETAIL PAGE, deliberately, down to the markup: the
-    same ``.page-head`` with chips beside the title, the same ``.infobox``
-    summary boxes, the same ``.tabs``/``.tab`` strip over ``.tab-panel``
-    panels, the same ``.card``/``.card-head`` panels inside them, and — for the
-    timeline — the same ``<ul class="timeline">`` with ``.tl-action`` /
-    ``.tl-meta`` / ``.tl-comment`` rows and the same ``|jalali`` filter on
-    every stamp. A Marketing reader who already knows the case page should not
-    have to learn a second visual language for the same kinds of information.
+    A FULL REDESIGN, THIS ROUND, OF THE TOP OF THIS PAGE — the owner's own
+    spec, followed point by point rather than "the spirit of it": three cards
+    side by side (Company / Roles / Cases) in the SAME card-grid language
+    ``cases/templates/cases/case_detail.html`` already uses — ``.grid.grid-3``
+    of ``.card``/``.card-head`` panels, ``dl.kv-ic.compact`` for an icon+
+    label+value list — replacing the old horizontal ``.infobox`` row of stat
+    tiles and the lopsided 2-column-plus-1 card row. The TABS below them keep
+    their own established shape (``.tabs``/``.tab`` over ``.tab-panel``, the
+    same ``<ul class="timeline">`` markup for the Timeline tab) and gain a
+    fifth one, Reminders, immediately before Timeline — see
+    ``marketing/templates/marketing/company_detail.html`` for the markup
+    itself and this docstring for what feeds each panel.
 
-    THE FOUR THINGS ON IT, and where each comes from:
+    THE THREE CARDS, TOP OF PAGE:
 
-    * LABELS — ``services.labels_for_clients`` for this one company: the same
-      manual + case-derived merge, scoped, that the chart and the directory
-      list both show, so the chips here cannot disagree with the chips there.
+    * COMPANY — name, code, the (already viewer-scoped) contact and report
+      counts, PLUS TWO NEW NUMBERS THIS ROUND: ``contributor_count``, the
+      count of DISTINCT PEOPLE who have ever added a role or a connection to
+      this company (``services.contributor_count`` — unscoped, a company-wide
+      fact, not a per-viewer visibility question; see that function's own
+      docstring), and ``own_open_reminder_count``, THIS VIEWER'S OWN open
+      reminders on this company (``reminders.count_open_for_client`` —
+      deliberately owner-scoped ALWAYS, independent of whatever the Reminders
+      tab below ends up showing a Supervisor; see that function's own
+      docstring for why the two must not be confused).
+    * ROLES — ``services.labels_for_clients`` for this one company, unchanged
+      as a data source (the same manual + case-derived merge, scoped, that the
+      chart and the directory list both show), restyled from a single row of
+      chips into a two-column list — see the template.
+    * CASES — ``_visible_case_rows`` for the rows, and ``_case_card_counts``
+      for this card's OWN four-way split (total / approved / cancelled /
+      closed / no-result), a NEW bucketing distinct from ``_counts_over`` —
+      see that function's own docstring for why the two must stay separate
+      functions rather than one widened in place. The PI money total
+      (``_pi_money_total``, gated by ``show_money``) is unchanged from before
+      this round.
+
+    THE FIVE TABS BELOW THEM, in order (Contacts, Cases, Reports, Reminders,
+    Timeline — Reminders sits immediately before Timeline, per the owner's own
+    words, "قبل از تب تایم لاین"), and where each comes from:
+
     * CONTACTS — ``services.list_contacts``, which enforces the visibility rule
       itself: an ordinary Marketing user sees only the contacts they added, a
       Supervisor/GM/admin sees every one. This view passes the scope and does
       not filter anything a second time. Each row picks up one display flag,
-      ``can_remove`` — see ``_contact_rows``.
+      ``can_remove`` — see ``_contact_rows``. The tab also carries a search box
+      this round, filtered client-side (``static/js/ui.js``'s existing
+      ``data-filter-table`` pass — see the template) by name OR any of a
+      contact's now-several :class:`~marketing.models.ContactPhone` numbers.
     * CASES — ``_visible_case_rows``, scoped by ``access.case_access_for``: the
       one decision the chart's own panel and the all-cases search also go
       through, so this page and the chart can never show the same viewer two
-      different sets of cases. ``_counts_over`` gives the approved / cancelled /
-      no-result split of exactly those rows.
-      ``services.case_status_counts`` is ALSO read, unscoped, purely so the
-      page can say honestly how many cases the company has in total when the
-      viewer is only being shown some of them.
+      different sets of cases. ``services.case_status_counts`` is ALSO read,
+      unscoped, purely so the page can say honestly how many cases the company
+      has in total when the viewer is only being shown some of them.
+    * REPORTS — ``services.list_reports``, which enforces its visibility rule
+      itself through the SAME ``_scoped`` helper contacts use: an ordinary
+      Marketing user sees only the reports they wrote, a Supervisor/GM/admin
+      sees every one. It takes ``case_access`` for the same reason the timeline
+      does, and it is the same ONE decision again: a report's attached case is
+      NAMED only to a viewer who may see that case, and is otherwise shown
+      unnamed rather than removed — the report is Marketing's data, the case
+      number is not. NOW A PROPER TABLE, with a filter card above it (case
+      text + a Jalali date range on the Report's own date) mirroring the case
+      archive's own filter card look, per the owner's ask.
+    * REMINDERS — ``_reminder_rows(request, scope=access.scope, client=client)``,
+      NEW THIS ROUND, and it is the same "own"/"all" widening
+      ``marketing/reminders.py`` and ``marketing/models.py::Reminder`` document
+      at length — an ordinary Marketing Expert sees only their own reminders on
+      THIS company, a Supervisor/GM/admin see everyone's. Also a proper table
+      with the SAME kind of filter card as Reports (case text + date range, on
+      the reminder's own ``due_at``). "Set new reminder" reuses the existing
+      ``reminder_add`` page (and ``reminders.create``) unchanged — this round
+      gives it a prominent home inside this tab (the same
+      ``btn btn-sm btn-primary`` treatment "Add contact"/"Add report" already
+      get) rather than rebuilding creation from scratch.
     * TIMELINE — ``services.client_timeline``, the native ``ClientEvent`` rows
       plus the derived registration row, with one icon attached per row. WHICH
       ROWS appear is ``access.scope`` alone: the timeline no longer has a case
@@ -1017,63 +1176,83 @@ def company_detail(request, pk):
       It is the same one decision the Cases tab makes, applied to those frozen
       strings at read time; see ``services._redact_case_numbers``. No row is
       dropped by it. The CASES TAB above is still a separate code path
-      (``_visible_case_rows``) with its own scoping.
-    * REPORTS — ``services.list_reports``, which enforces its visibility rule
-      itself through the SAME ``_scoped`` helper contacts use: an ordinary
-      Marketing user sees only the reports they wrote, a Supervisor/GM/admin
-      sees every one. It takes ``case_access`` for the same reason the timeline
-      does, and it is the same ONE decision again: a report's attached case is
-      NAMED only to a viewer who may see that case, and is otherwise shown
-      unnamed rather than removed — the report is Marketing's data, the case
-      number is not. Passed to the template for its own section.
+      (``_visible_case_rows``) with its own scoping. Reminders are STILL NOT
+      part of this timeline — see ``reminders.create``'s own docstring for why
+      a private note staying private (no ``ClientEvent``) is unaffected by this
+      round's change to who may LIST them.
 
-    AND THE MONEY. ``pi_total_display`` is the total PI money over exactly the
-    case rows above — see ``_pi_money_total``, which reuses the case archive's
-    own ``archive_attach_money`` / ``format_money_amount`` rather than computing
-    money a second time. It is drawn for exactly the viewers the Cases tab draws
-    rows for: ``access._case_money_visible`` ties money visibility to case
-    visibility, so a seat with cases here gets the total over them and a seat
-    with no cases here (a Marketing-only seat) gets neither the rows nor a
-    figure. Both context values below are what the template's own two-condition
-    gate reads; see it for why it tests both.
+    THE "SET REMINDER" BUTTON THAT USED TO SIT LOOSE IN THE PAGE HEAD IS GONE.
+    It linked straight out to ``reminder_add`` with no in-page reminders list
+    at all; the owner asked for reminders to move fully into their own tab, so
+    the button moved with them (see the Reminders tab bullet above and the
+    template's own comment on the removed markup).
     """
     access = access_for(request)
     if not access.can_view:
         return render(request, "marketing/denied.html", status=403)
 
     client = get_object_or_404(Client, pk=pk)
-    # ONE decision, both tabs — see the TIMELINE bullet above.
+    # ONE decision, several tabs — see the TIMELINE bullet above.
     case_access = case_access_for(request, access)
     case_rows = _visible_case_rows(client, request, case_access)
-    counts = _counts_over(case_rows)
+    # The Cases CARD's own four-way split (see ``_case_card_counts``'s own
+    # docstring for why this is a separate function from ``_counts_over``,
+    # which the chart's own "cases connected to Us" panel still relies on,
+    # untouched, through ``client_case_counts``). Kept in a context var named
+    # ``counts`` — not ``case_counts`` — because the Cases TAB's own header
+    # chips read the identical dict for the identical reason: one page should
+    # not show two different "approved" numbers for the same rows.
+    counts = _case_card_counts(case_rows)
     # Unscoped, company-wide — used ONLY to tell the reader that cases exist
-    # which this page is not showing them. Never mixed into the four numbers
-    # above, which describe the visible rows.
+    # which this page is not showing them. Never mixed into the numbers above,
+    # which describe the visible rows.
     all_counts = services.case_status_counts(client, request.user)
+    contacts = _contact_rows(client, request, access)
+    reports = services.list_reports(client, request.user, access.scope,
+                                    case_access=case_access)
+    reminder_rows = _reminder_rows(request, scope=access.scope, client=client)
 
     return render(request, "marketing/company_detail.html", {
         "client": client,
         "labels": services.labels_for_clients(
-            [client.pk], request.user, access.scope).get(client.pk, []),
-        "contacts": _contact_rows(client, request, access),
+            [client.pk], request.user, access.scope,
+            elevated=access.can_manage_config).get(client.pk, []),
+        "contacts": contacts,
         "case_rows": case_rows,
         "counts": counts,
         "hidden_case_count": max(all_counts["total"] - counts["total"], 0),
         # The archive's own "Grand total (all PI)" figure, over the visible rows
         # only — empty string when this viewer may not be shown money at all.
+        # UNCHANGED by this round: the owner's spec keeps this gate exactly as
+        # it was.
         "pi_total_display": _pi_money_total(case_rows, case_access),
         "show_money": case_access.show_money,
         "timeline": _timeline_with_icons(
             services.client_timeline(client, request.user, access.scope,
                                      case_access=case_access)),
-        "reports": services.list_reports(client, request.user, access.scope,
-                                         case_access=case_access),
+        "reports": reports,
         # Whether the reports list this viewer is looking at is the WHOLE list
         # or only their own — the same sentence, for the same reason, that
         # ``sees_all_contacts`` below produces for contacts, and decided by the
         # same thing (the SCOPE, not ``can_edit``), because reports reuse
         # contacts' visibility rule exactly.
         "sees_all_reports": access.scope == "all",
+        "reminders": reminder_rows,
+        # Reminders' own version of ``sees_all_reports``/``sees_all_contacts``
+        # — see this round's widening in ``marketing/reminders.py``/
+        # ``marketing/models.py::Reminder``. Decided by ``access.scope`` for
+        # the identical reason those two are: it is the same population
+        # (Supervisor, GM, platform admin) seeing the same kind of "everyone's,
+        # not just mine" union.
+        "sees_all_reminders": access.scope == "all",
+        # THIS VIEWER'S OWN Company-card number — see
+        # ``reminders.count_open_for_client``'s own docstring for why this
+        # stays owner-scoped unconditionally, independent of
+        # ``sees_all_reminders`` above.
+        "own_open_reminder_count": reminders.count_open_for_client(request.user, client),
+        # The Company card's new distinct-contributor number — an unscoped,
+        # company-wide fact; see ``services.contributor_count``.
+        "contributor_count": services.contributor_count(client),
         "can_edit": access.can_edit,
         # Whether the contact list this viewer is looking at is the WHOLE list
         # or only their own rows — the page says so in words, because a scoped
@@ -1148,8 +1327,7 @@ def contact_add(request, pk):
                 client, request.user,
                 first_name=data["first_name"], last_name=data["last_name"],
                 gender=data["gender"], role=role,
-                phone_prefix=data["phone_prefix"], phone=data["phone"],
-                phone_ext=data["phone_ext"], email=data["email"],
+                phones=data["phones"], email=data["email"],
             )
             return redirect("marketing:company_detail", pk=client.pk)
     else:
@@ -1389,32 +1567,47 @@ def report_create(request, pk):
 # --------------------------------------------------------------------------- #
 # Reminders — set one on a company, and the person's own list of them
 # --------------------------------------------------------------------------- #
-# THREE SCREENS' WORTH OF ROUTES, AND ONE RULE THAT IS NOT LIKE THE REST OF THIS
-# FILE: a reminder belongs to exactly one person and nobody else ever reads it —
-# not a Marketing Supervisor, not the General Manager, not the platform admin.
-# See ``marketing/models.py::Reminder`` for the owner's own wording and for why
-# the Supervisor/GM/admin precedent that CONTACTS and REPORTS follow is
-# deliberately not followed here. Nothing below takes an ``access.scope``,
-# because there is no wider list for a scope to widen to; ownership is enforced
-# inside ``marketing/reminders.py``, in one place, for both mutations.
+# THREE SCREENS' WORTH OF ROUTES, AND ONE RULE THAT USED TO NOT BE LIKE THE
+# REST OF THIS FILE — SEEING is now the same shape CONTACTS and REPORTS already
+# use, and ACTING ON one still is not. See ``marketing/models.py::Reminder``
+# for the full history of this: it used to say, at length, that a reminder
+# belongs to exactly one person and NOBODY else ever reads it, and the owner
+# has since explicitly reversed that half of it — Reminders now work like
+# Reports: an ordinary Marketing Expert sees only their own, a Supervisor sees
+# everyone's, and (for consistency with every other elevated-access surface in
+# this app) so do the General Manager and the platform admin.
 #
-# WHO MAY OPEN THEM is still an ordinary question, and it is answered by the two
-# gates this file already uses:
+# WHAT STAYS OWNER-ONLY, WITH NO ``elevated`` ESCAPE HATCH AT ALL, UNLIKE
+# ``toggle_manual_label``/``remove_connection``: giving a reminder a new time
+# or marking it dealt with (``reminder_retime``/``reminder_done``, both going
+# through ``marketing/reminders.py::_own`` with no ``scope`` argument passed).
+# The owner asked to let a Supervisor SEE the unit's reminders, not to let one
+# re-time or close out somebody else's private note — those two verbs are a
+# materially different, bigger grant that was never asked for.
+#
+# WHO MAY OPEN THESE SCREENS AT ALL is still answered by the two gates this
+# file already uses, and neither of them is what decides "own" vs "all" —
+# that is ``access.scope``, resolved separately once the gate has already let
+# the request through:
 #
 #   * SETTING one (``reminder_add``) is a write about a COMPANY, so it is gated
 #     exactly like ``contact_add`` and ``report_add`` — ``can_view and
 #     can_edit`` — and the view-only tier (the GM and the platform admin) is
 #     refused, on the URL and not merely in the template.
-#   * READING and RE-TIMING your own list is gated on
-#     ``access.can_reach_marketing`` instead, which is the existing union "may
-#     open the section now, OR holds a Marketing seat they are not sitting in".
-#     That is deliberately the WIDER of the two tests and it grants nothing
-#     extra: the page shows the signed-in person their own rows and no company
-#     data at all, and the notification that links here is rendered for exactly
-#     that same population (see ``marketing/context_processors.py``). Gating it
-#     on ``access_for`` instead would answer 403 to a dual-seat person who
-#     clicked their own notification from a case screen — a permission wall in
-#     front of their own note to self.
+#   * READING and RE-TIMING is gated on ``access.can_reach_marketing`` instead,
+#     which is the existing union "may open the section now, OR holds a
+#     Marketing seat they are not sitting in". That is deliberately the WIDER
+#     of the two tests and it grants nothing extra: it decides only whether the
+#     page opens at all, not how much of the table it then shows — that second
+#     question is ``access_for(request).scope``, read once the page is already
+#     open, exactly the way ``company_detail`` already reads it for contacts
+#     and reports. The notification that links here is rendered for exactly
+#     the same "may open the section" population (see
+#     ``marketing/context_processors.py``). Gating page-access on
+#     ``access_for`` instead of ``can_reach_marketing`` would answer 403 to a
+#     dual-seat person who clicked their own notification from a case screen —
+#     a permission wall in front of their own note to self — which is why that
+#     gate is unchanged even though what it reveals now can be wider than "own".
 
 
 def _reminder_case_choices(client, request, case_access) -> list:
@@ -1480,7 +1673,13 @@ def reminder_add(request, pk):
                 request.user, client,
                 note=data["note"], due_at=data["due_at"], case=case,
             )
-            return redirect("marketing:company_detail", pk=client.pk)
+            # ``?tab=reminders`` so the reader lands back on the tab they just
+            # acted from, rather than the company page's default Contacts tab
+            # — see marketing/static/marketing/js/directory.js, which reads
+            # this parameter once on load. A cosmetic touch only: the write
+            # itself is already done by the time this redirect is built.
+            return redirect(
+                "%s?tab=reminders" % reverse("marketing:company_detail", args=[client.pk]))
     else:
         form = ReminderForm(case_choices=case_choices)
 
@@ -1490,9 +1689,11 @@ def reminder_add(request, pk):
     })
 
 
-def _reminder_rows(request) -> list:
-    """This person's own reminders, each carrying whether it is DUE right now
-    and whether its attached case may still be NAMED to them.
+def _reminder_rows(request, *, scope: str = "own", client=None) -> list:
+    """Reminders this viewer may see under ``scope`` (optionally narrowed to
+    ``client``), each carrying whether it is DUE right now, whether ITS
+    VIEWER may act on it, and whether its attached case may still be NAMED to
+    them.
 
     ``due`` is derived, never stored — ``marketing/models.py::ReminderState``
     explains why at length, and the short version is that storing it would need
@@ -1500,8 +1701,18 @@ def _reminder_rows(request) -> list:
     the whole page rather than one per row, so two rows a millisecond apart
     cannot be judged against two different "now"s.
 
+    ``row.is_own`` IS NEW, AND IT IS WHAT LETS A TEMPLATE DRAW THIS SAFELY NOW
+    THAT ``scope="all"`` CAN RETURN SOMEBODY ELSE'S ROW. Re-time and
+    mark-dealt-with stay strictly owner-only at the service layer
+    (``marketing/reminders.py::_own``, called with no ``scope`` argument by
+    both mutations) — this flag is what tells the TEMPLATE not to draw those
+    controls on a row where pressing them would silently do nothing, the same
+    judgement ``_contact_rows``'s ``can_remove`` already makes for contacts.
+    Drawing the control is still not the grant; the view re-checks regardless.
+
     ONE QUERY for the whole list (``reminders.list_for_user`` select_relates the
-    company and the case), plus ONE for the visibility check below.
+    company, the case and — now that a row can belong to somebody else — the
+    owner too), plus ONE for the visibility check below.
 
     THE DOCUMENT NUMBER GOES THROUGH ``case_access_for`` LIKE EVERY OTHER ONE.
     This function used to render it straight off the row, on the argument that a
@@ -1513,17 +1724,21 @@ def _reminder_rows(request) -> list:
     screens contradicting each other about one viewer, which is the exact thing
     ``access.case_access_for`` exists to prevent. ``show_case_no`` is what the
     template reads; the row itself is always kept, because it is the person's own
-    note and only the case identity on it is in question.
+    note and only the case identity on it is in question. This check is about
+    THE CURRENT VIEWER'S OWN case access regardless of whose reminder the row
+    is — a Supervisor reading a colleague's row is still subject to their own
+    ``case_access_for``, not the row owner's.
     """
     from django.utils import timezone
 
     now = timezone.now()
-    rows = reminders.list_for_user(request.user)
+    rows = reminders.list_for_user(request.user, scope, client=client)
     visible = services._visible_case_ids(
         [r.case_id for r in rows], case_access_for(request))
     for row in rows:
         row.is_due = (row.state == ReminderState.OPEN and row.due_at <= now)
         row.show_case_no = (row.case_id is not None and row.case_id in visible)
+        row.is_own = (row.owner_id == getattr(request.user, "pk", None))
     return rows
 
 
@@ -1538,9 +1753,22 @@ def _render_reminder_list(request, *, time_form=None, retime_id=None):
     ``retime_id`` is the row it belongs to, so the template can print the
     message under that row's own box instead of at the top of a list where it
     would not say which reminder it was about.
+
+    ``scope`` IS RESOLVED HERE, ONCE, FROM ``access_for`` — see
+    ``reminder_list``'s own docstring for why this page's OWN "may I open it
+    at all" gate (``can_reach_marketing``) is deliberately a different, wider
+    test than the one that decides how much of the table a viewer then sees.
+    A viewer ``access_for`` does not currently recognise (can_view False —
+    typically a dual-seat person not presently on their Marketing seat) falls
+    back to ``Access``'s own default scope, "own", which is the fail-closed
+    direction and also exactly this page's previous, unconditional behaviour
+    for everybody — nobody who could open this page before sees less than
+    they used to.
     """
+    scope = access_for(request).scope
     return render(request, "marketing/reminder_list.html", {
-        "rows": _reminder_rows(request),
+        "rows": _reminder_rows(request, scope=scope),
+        "sees_all_reminders": scope == "all",
         "retime_error": (time_form.errors.get("due_at")
                          if time_form is not None else None),
         "retime_id": retime_id,
@@ -1549,20 +1777,28 @@ def _render_reminder_list(request, *, time_form=None, retime_id=None):
 
 @login_required
 def reminder_list(request):
-    """Your own reminders — every one you set, soonest first.
+    """Your reminders, soonest first — your own alone, or the whole unit's.
 
     THE DESTINATION THE NOTIFICATION LINKS TO. The owner's flow is: the banner
     appears, you click it, you land here, you set a new time (or mark the thing
     dealt with) and the banner goes. Both controls are on this page and nowhere
     else.
 
-    SHOWS YOUR OWN ROWS AND ONLY YOUR OWN — ``reminders.list_for_user`` filters
-    on ``owner`` and takes no scope at all. There is no supervisor view of this
-    page and no admin view; see the section header above.
+    SEEING follows ``access_for(request).scope`` NOW — an ordinary Marketing
+    Expert still sees only their own rows, exactly as before this round; a
+    Marketing Supervisor, the General Manager and the platform admin now see
+    the union of everyone's, the same "own"/"all" split Reports already use.
+    See the section header above and ``marketing/models.py::Reminder`` for why
+    this is a deliberate reversal of an earlier decision and not an oversight.
+    RE-TIMING AND MARKING DEALT WITH DID NOT WIDEN: both stay strictly
+    owner-only (``marketing/reminders.py::_own``), so a wider view here never
+    becomes a wider write.
 
     Gated on ``can_reach_marketing`` rather than ``access_for`` — see the
-    section header for why the wider of the two tests is the right one for a
-    page that shows the viewer nothing but their own notes.
+    section header for why the wider of the two tests is the right one for
+    deciding whether this page opens AT ALL; ``access_for`` is still what
+    decides how much of the table it then shows, inside
+    ``_render_reminder_list``.
     """
     if not can_reach_marketing(request):
         return render(request, "marketing/denied.html", status=403)
@@ -1585,7 +1821,11 @@ def reminder_retime(request, reminder_id):
     A reminder id belonging to someone else is indistinguishable from one that
     does not exist: ``reminders.reschedule`` answers False to both and this
     redirects exactly as it would on success, so the response cannot be used to
-    discover that another person's reminder exists.
+    discover that another person's reminder exists. THIS IS STILL TRUE FOR A
+    SUPERVISOR who can now SEE that reminder on the list page — ``reschedule``
+    is called with no ``scope`` argument, which stays owner-only by default
+    (see ``marketing/reminders.py::_own``), so being able to see a colleague's
+    row on the page is not being able to act on it from this endpoint.
     """
     if not can_reach_marketing(request):
         return render(request, "marketing/denied.html", status=403)

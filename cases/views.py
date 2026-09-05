@@ -17,6 +17,7 @@ from types import SimpleNamespace
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_POST
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import F, Prefetch, Q
@@ -78,6 +79,223 @@ def _can_open_marketing_chart(request) -> bool:
         return bool(can_reach_marketing(request))
     except Exception:
         return False
+
+
+# --------------------------------------------------------------------------- #
+# Reports / Reminders / a marketing-style Timeline, on the CASE's own page.   #
+# --------------------------------------------------------------------------- #
+# THREE THIN BRIDGES INTO `marketing`, NOT A SECOND REPORTS/REMINDERS SYSTEM.
+# Every row these three functions return comes straight out of
+# ``marketing.models.CompanyReport`` / ``Reminder`` / ``ClientEvent`` through
+# the exact same service functions the company's own Marketing directory page
+# uses (``marketing/services.py::list_reports``/``client_timeline``,
+# ``marketing/reminders.py::list_for_user``) — a report or reminder written
+# from either page is the same database row and is visible from both. Each
+# function is a small, request-scoped ADAPTER: it decides which of that
+# function's existing, already-correct arguments this NEW case-scoped caller
+# should pass, and nothing about the underlying scoping/redaction rules is
+# reimplemented here.
+#
+# LOCAL IMPORTS THROUGHOUT, for the same reason ``_can_open_marketing_chart``
+# above gives: ``marketing`` imports ``cases.models`` at module level, so a
+# module-level import back the other way would be a cycle. Failures are
+# swallowed to an empty list — precisely as that function swallows to
+# ``False`` — because a case that fails to draw its Marketing tabs must still
+# render every other tab on this page; a company's own directory page is
+# where the authoritative reports/reminders/timeline live regardless.
+#
+# THE VIEWING RULE ON THIS PAGE IS "CASE ACCESS", NOT "WHO WROTE THE ROW".
+# The owner's own words for this surface are explicit: "برای پرونده هر شخصی
+# که به ان پرونده با توجه به نقشش دسترسی دارد میتواند این گزارش‌ها را ببیند"
+# — for a case, anyone who has access to that case, per their role, may see
+# these reports. That is a CASE-visibility question, already settled by
+# ``services.user_can_view_case`` before ``case_detail`` ever reaches these
+# calls, and it is a DIFFERENT question from the author-privacy ``scope``
+# every function in ``marketing/services.py``/``reminders.py`` otherwise
+# takes (an ordinary Marketing seat sees only the rows IT wrote; a Supervisor/
+# GM/admin sees everyone's). So ``_case_marketing_reports`` below always asks
+# for "all" reports on this case, deliberately not deriving a scope from
+# whatever Marketing seat this viewer might or might not separately hold —
+# every viewer of THIS page already has case access, and the report itself is
+# a shared company record the owner said such a viewer may read regardless of
+# who wrote it. Reminders are the one exception — see
+# ``_case_marketing_reminders``'s own docstring for why that one stays
+# owner-scoped instead.
+def _case_marketing_reports(case, request) -> list:
+    """Every ``CompanyReport`` attached to THIS case — see the section banner
+    above for the "all, not scope" reasoning.
+
+    ``marketing/services.py::list_reports`` already knows how to filter to
+    one case (``case=case``, added alongside this feature) and how to shape
+    each row (``_report_row``); this only supplies the two arguments a
+    case-scoped, case-access-gated caller needs that differ from the company
+    page's own call.
+
+    ``case_access``: A THROWAWAY, LOCAL ``CaseAccess(all_cases=True)`` — NOT
+    a general widening of case visibility, and it is never returned or reused
+    anywhere past this one call. ``list_reports`` uses it only to decide
+    whether the ATTACHED CASE'S OWN DOCUMENT NUMBER may be printed
+    (``marketing/services.py::_report_row``), and every report this call
+    returns is, by construction, attached to THIS SAME CASE — whose document
+    number is already unconditionally visible to this viewer in this very
+    page's own header, because they already passed ``user_can_view_case`` to
+    reach it. Passing the real, narrower ``marketing.access.case_access_for``
+    here would UNDER-redact nothing that matters (there is only ever one case
+    in play) but WOULD wrongly blank a number the viewer already has for any
+    Technical/Supply/peer-Commercial viewer whose Marketing-side case access
+    happens not to cover this case (that access rule is about a DIFFERENT
+    axis — a Marketing seat's own visible cases — and has nothing to say
+    about a Commercial/Technical/Supply seat's ordinary right to view a case
+    it is already looking at). This is the considered conclusion, not an
+    oversight: on THIS page, case identity is never in question, so the gate
+    that exists to protect it elsewhere is neither needed nor correct here.
+    """
+    try:
+        from marketing import services as marketing_services
+        from marketing.access import CaseAccess
+    except Exception:
+        return []
+    permissive_case_access = CaseAccess(can_open=True, all_cases=True)
+    return marketing_services.list_reports(
+        case.client, request.user, "all", case=case,
+        case_access=permissive_case_access,
+    )
+
+
+def _case_marketing_reminders(case, request, *, see_every_owner: bool) -> list:
+    """This case's own reminders — kept OWNER-SCOPED by default, unlike
+    reports above, and this is a deliberate, judgement-call difference.
+
+    A REMINDER STAYS A PRIVATE NOTE-TO-SELF EVEN HERE. The owner's plain
+    words above ("anyone with access to the case may see these reports")
+    used the word "گزارش‌ها" (reports); they do not, on their own, resolve
+    reminders one way or the other, which is exactly why this is a judgement
+    call rather than a quoted rule. ``marketing/reminders.py``'s own module
+    docstring — and this round's widening of it — settles the closest
+    precedent available: a reminder is "one person's private notes-to-self",
+    and even the round that let a Marketing Supervisor/GM/admin LIST
+    everyone's reminders on the company page left re-timing and marking one
+    done strictly owner-only, and left it OFF the shared company timeline
+    entirely, precisely so the privacy is not accidentally erased by a
+    surface built for a different purpose. Extending "anyone who can open
+    this CASE" — a population that, unlike the Marketing directory, includes
+    Technical, Supply and every other Commercial peer with no Marketing
+    seat at all — to read a colleague's private note would be a materially
+    bigger widening than anything the owner has asked for, on a surface the
+    reminder's own privacy rule was never written with in mind. So the
+    default here is the narrow one: ``scope="own"``.
+
+    ``see_every_owner`` IS THE ONE WIDENING KEPT, AND IT IS THE ADMIN/GM
+    TIER ALONE — ``case_detail``'s own ``is_admin_view`` (admin or General
+    Manager, by profile OR active seat, exactly as that flag is computed for
+    every other admin-only affordance already on this page), not a
+    Marketing-Supervisor check. A Marketing Supervisor who ALSO holds a
+    Commercial seat is, on THIS page, functioning as a Commercial viewer of
+    a case — not as a Marketing Supervisor reading their own unit's shared
+    list — so the widening that population enjoys on the Marketing side is
+    deliberately not carried onto this unrelated surface. The admin/GM tier
+    is kept because it already sees everything else on this exact page
+    (export logs, currency logs, every admin-only affordance) and — in
+    practice — every reminder ``case=this case`` can ever hold was created by
+    exactly one person anyway: ``case_reminder_add`` below only ever accepts
+    the write from this case's own commercial owner (see
+    ``services.is_case_commercial_owner``), so "own" and "all" agree on every
+    row except when an admin/GM is the one looking.
+
+    ``marketing/reminders.py::list_for_user``'s new ``case=`` filter (added
+    alongside this feature) does the actual query; this only decides which
+    ``scope`` to hand it and decorates each row with the same ``is_due``/
+    ``is_done`` flags ``marketing/views.py::_reminder_rows`` computes for the
+    company page, so the two screens describe the same row identically.
+    Acting on a reminder (re-time / mark dealt-with) is deliberately NOT
+    offered from this page — that stays the marketing reminders screens' own
+    job, which already implement it correctly against these exact rows;
+    duplicating those controls here would be a second, competing entry point
+    onto the same mutation rather than a shared one.
+    """
+    try:
+        from marketing import reminders as marketing_reminders
+        from marketing.models import ReminderState
+    except Exception:
+        return []
+    from django.utils import timezone
+
+    now = timezone.now()
+    scope = "all" if see_every_owner else "own"
+    rows = marketing_reminders.list_for_user(
+        request.user, scope, client=case.client, case=case,
+    )
+    for row in rows:
+        row.is_due = (row.state == ReminderState.OPEN and row.due_at <= now)
+        # ``is_done`` is NOT set here — ``marketing.models.Reminder.is_done``
+        # is already a read-only ``@property`` computed from ``state``, and
+        # the template reads it straight off each row exactly the way
+        # ``marketing/views.py::_reminder_rows`` leaves it alone too.
+    return rows
+
+
+def _case_marketing_timeline(case, request) -> list:
+    """Marketing's own record of what happened ABOUT this one case — every
+    report written against it, and every change to its own business role —
+    pulled out of the company's ``ClientEvent`` timeline and filtered down to
+    this case alone.
+
+    WHY THESE TWO ACTION KINDS, AND ONLY THESE TWO. Every ``ClientEvent`` a
+    case can ever appear on freezes its document number into the row at
+    write time (see ``marketing/services.py``'s module docstring, "IT DOES
+    STILL CARRY CASE NUMBERS THAT WERE FROZEN INTO IT"), and exactly two
+    action kinds do that: ``REPORT_ADDED`` (``add_report`` freezes the
+    attached case's ``doc_no`` as the row's ``subject``) and
+    ``CASE_ROLE_CHANGED`` (``log_case_role_change`` freezes it the same way,
+    from ``cases/views.py``'s own two edit-save paths). Everything else this
+    company's timeline can hold — a manual tag, a connection, a contact — is
+    about the COMPANY, not about any one of its cases, so it has no case
+    number to match and is correctly left off a CASE's own timeline.
+    ``CASE_ROLE_CHANGED`` is included DELIBERATELY, not merely because it
+    happens to carry a matching number: it is a change to THIS case's own
+    ``marketing_label``, i.e. directly about this case, and
+    ``marketing/services.py::_scoped_events`` already includes it
+    unconditionally in both scopes on the company's own timeline for the
+    identical reason ("some facts on this timeline are not one Marketing
+    user's private action to own") — omitting it from a CASE-scoped view of
+    the very same fact would be a stranger inconsistency than including it.
+
+    REMINDERS DO NOT APPEAR HERE, AND THAT IS NOT AN OMISSION EITHER.
+    ``marketing/reminders.py::create`` writes NO ``ClientEvent`` at all, by
+    explicit, long-standing design ("a reminder is a private note to self...
+    a row on a timeline ... would publish [it]") — there is no case-attached
+    row to select in the first place, and inventing one here would be new
+    logging behaviour this task never asked for and the model's own docstring
+    argues against. A case's reminders are the REMINDERS tab, in full; this
+    Timeline tab is only ``ClientEvent`` rows.
+
+    ``case_access=CaseAccess(all_cases=True)`` — A LOCAL, THROWAWAY GRANT,
+    identical in spirit and in scope to the one ``_case_marketing_reports``
+    above builds and explains at length: it exists only so
+    ``client_timeline``'s own ``_redact_case_numbers`` does not blank a
+    document number that is, by construction, THIS SAME CASE's own — already
+    fully known to this viewer from the page they are reading it on — and it
+    is discarded the moment this function returns. ``scope="all"`` on the
+    ``client_timeline`` call for the identical reason ``_case_marketing_
+    reports`` passes ``"all"``: this page's viewing rule is case access, not
+    which Marketing colleague happened to write the row.
+    """
+    try:
+        from marketing import services as marketing_services
+        from marketing.access import CaseAccess
+        from marketing.models import ClientEventAction
+    except Exception:
+        return []
+    doc_no = (getattr(case, "doc_no", "") or "").strip()
+    if not doc_no:
+        return []
+    permissive_case_access = CaseAccess(can_open=True, all_cases=True)
+    entries = marketing_services.client_timeline(
+        case.client, request.user, "all", case_access=permissive_case_access,
+    )
+    wanted = {ClientEventAction.REPORT_ADDED, ClientEventAction.CASE_ROLE_CHANGED}
+    return [e for e in entries
+            if e.get("action") in wanted and e.get("subject") == doc_no]
 
 
 def _parse_rows(form, files) -> list[dict]:
@@ -1590,6 +1808,40 @@ def case_detail(request, pk):
     # with the inbox and the Archive, which read the same case off its sides.
     status = services.detail_status_view(case, request.user)
 
+    # Reports / Reminders / a marketing-style Timeline for THIS case — see
+    # the three helper functions above (``_case_marketing_reports`` and
+    # neighbours) for what each pulls in and why, and ``services.
+    # is_case_commercial_owner`` for the write-permission rule: holding a
+    # COMMERCIAL role AND being THIS case's own creator, checked once here and
+    # re-checked independently by ``case_report_add``/``case_reminder_add``
+    # themselves (a hidden button is never the permission).
+    is_case_owner = services.is_case_commercial_owner(case, request)
+    case_reports = _case_marketing_reports(case, request)
+    case_reminders = _case_marketing_reminders(
+        case, request, see_every_owner=is_admin_view)
+    case_mkt_timeline = _case_marketing_timeline(case, request)
+    # Unbound forms for the inline "write a report" / "set a reminder"
+    # panels — built only for the viewer who may actually submit them, so a
+    # request that never renders these forms never pays for the extra
+    # queries the option/case-choice fields would otherwise run. Reused
+    # straight from ``marketing/forms.py`` rather than re-declared: the "at
+    # least one option or some text" report rule and the Jalali due-date
+    # parsing are validation this app already has exactly once, and a second
+    # copy here would be free to drift from it. Neither form is asked for a
+    # case picker — this page's own case is the only one either can ever be
+    # filed against, so ``case_report_add``/``case_reminder_add`` write
+    # ``case=case`` unconditionally and never read whatever (if anything)
+    # a submitted ``case_id`` says.
+    case_report_form = None
+    case_reminder_form = None
+    if is_case_owner:
+        try:
+            from marketing.forms import ReportForm, ReminderForm
+            case_report_form = ReportForm(can_manage_options=False)
+            case_reminder_form = ReminderForm(case_choices=())
+        except Exception:
+            pass
+
     context = {
         "case": case,
         "actions": actions,
@@ -1665,8 +1917,141 @@ def case_detail(request, pk):
                           if is_admin_view else None),
         "vat_percent": _vat_percent_value(),
         "require_ftco_code": bool(getattr(_dj_settings, "REQUIRE_FTCO_CODE_TO_SUPPLY", False)),
+        # ---------------------------------------------------------------- #
+        # Marketing: Reports / Reminders / Timeline — see the helpers above #
+        # this function for what each carries and the write-permission     #
+        # rule (``is_case_owner``: a COMMERCIAL role AND this case's own    #
+        # creator — see ``services.is_case_commercial_owner``).            #
+        # ---------------------------------------------------------------- #
+        "is_case_owner": is_case_owner,
+        "case_reports": case_reports,
+        "case_reminders": case_reminders,
+        # Whether the reminders list above is scoped to this viewer's own
+        # rows or to every owner's — see ``_case_marketing_reminders``'s own
+        # docstring for why this is the admin/GM tier alone, not a Marketing
+        # Supervisor check. Said in words on the tab, the same way the
+        # company page's own ``sees_all_reminders`` sentence is.
+        "sees_all_case_reminders": is_admin_view,
+        "case_mkt_timeline": case_mkt_timeline,
+        "case_report_form": case_report_form,
+        "case_reminder_form": case_reminder_form,
     }
     return render(request, "cases/case_detail.html", context)
+
+
+@login_required
+@require_POST
+def case_report_add(request, pk):
+    """Write one ``marketing.models.CompanyReport`` on THIS case, from the
+    case's own page — POST-only, reached from the inline form in the
+    Marketing » Reports tab of ``cases/templates/cases/case_detail.html``.
+
+    THE WRITE-PERMISSION RULE, CHECKED HERE AND NOT MERELY HIDDEN IN THE
+    TEMPLATE: ``services.is_case_commercial_owner`` — a COMMERCIAL role AND
+    being THIS case's own creator, the owner's "دست ان نقش و شخص باشد و مالک
+    ان پرونده ان باشد". A hand-built POST from anyone else is refused here,
+    exactly as ``marketing/views.py::report_create`` refuses a write from the
+    view-only tier regardless of what the template drew.
+
+    ``marketing.services.add_report`` DOES THE WRITING, unchanged and
+    un-wrapped — there is exactly one place in the whole platform that
+    creates a ``CompanyReport``, and this is not a second one. ``case=case``
+    is passed UNCONDITIONALLY: unlike the company page's own two-step wizard
+    (``marketing/views.py::report_add``/``report_create``), there is no case
+    to pick here — the case is fixed by the URL this form posted to — so the
+    form's own ``case_id`` field (present only for the company page's shared
+    ``ReportForm`` class) is never read.
+
+    ``marketing.forms.ReportForm`` IS REUSED, NOT REBUILT, for its one real
+    rule (``clean()``: at least one option ticked or some text) — a second,
+    slightly different copy of that rule here would be exactly the kind of
+    drift this codebase's own docstrings warn against elsewhere.
+    ``can_manage_options=False`` ALWAYS: adding a new global ``ReportOption``
+    is a Marketing-vocabulary privilege
+    (``marketing/access.py::Access.can_manage_config`` — a Marketing
+    Supervisor or the platform admin), unrelated to owning a case, and this
+    page never offers it.
+
+    On an invalid submit this redirects back with a flash message rather than
+    re-rendering the form with field errors and whatever the writer already
+    typed — a deliberate simplification for this lighter-weight, single-POST
+    surface (see the long comment on the three ``_case_marketing_*`` helpers
+    above ``case_detail`` for why this page borrows marketing's SERVICES and
+    FORMS rather than its full two-screen wizard). The one rule this form
+    enforces is simple enough ("write something, or tick a box") that this
+    trade-off costs little, and the writer's own case is exactly where they
+    landed to try again.
+    """
+    case = get_object_or_404(Case, pk=pk)
+    if not services.is_case_commercial_owner(case, request):
+        messages.error(
+            request,
+            "Only this case's own commercial owner may write a report on it.")
+        return redirect("cases:case_detail", pk=case.pk)
+
+    from marketing import services as marketing_services
+    from marketing.forms import ReportForm
+
+    form = ReportForm(request.POST, can_manage_options=False)
+    if form.is_valid():
+        data = form.cleaned_data
+        marketing_services.add_report(
+            case.client, request.user,
+            text=data["text"], options=list(data["options"]), case=case,
+        )
+        messages.success(request, "Report added.")
+    else:
+        messages.error(
+            request,
+            "The report needs at least one option ticked or some text.")
+    return redirect(
+        "%s?mkttab=reports#marketing" % reverse("cases:case_detail", args=[case.pk]))
+
+
+@login_required
+@require_POST
+def case_reminder_add(request, pk):
+    """Set one ``marketing.models.Reminder`` on THIS case, from the case's own
+    page — POST-only, reached from the inline form in the Marketing »
+    Reminders tab of ``cases/templates/cases/case_detail.html``.
+
+    THE SAME WRITE-PERMISSION RULE AS ``case_report_add`` ABOVE, checked the
+    same way and for the same reason: ``services.is_case_commercial_owner``.
+    A reminder is a private note, but WHO MAY ATTACH ONE TO A CASE is
+    governed by case ownership, not by anything about Marketing membership —
+    see that function's own docstring.
+
+    ``marketing.reminders.create`` DOES THE WRITING, unchanged — the one
+    place in the platform that creates a ``Reminder`` — with ``case=case``
+    passed unconditionally for ``case_report_add``'s exact reason: this
+    page's own case is the only one a reminder set from here can ever be
+    about, so ``ReminderForm``'s ``case_id`` field (built for the company
+    page's own multi-case picker) is reused for its ``note``/``due_at``
+    validation alone and given ``case_choices=()`` — there is nothing to
+    offer, and nothing submitted for it is ever read.
+    """
+    case = get_object_or_404(Case, pk=pk)
+    if not services.is_case_commercial_owner(case, request):
+        messages.error(
+            request,
+            "Only this case's own commercial owner may set a reminder on it.")
+        return redirect("cases:case_detail", pk=case.pk)
+
+    from marketing import reminders as marketing_reminders
+    from marketing.forms import ReminderForm
+
+    form = ReminderForm(request.POST, case_choices=())
+    if form.is_valid():
+        data = form.cleaned_data
+        marketing_reminders.create(
+            request.user, case.client,
+            note=data["note"], due_at=data["due_at"], case=case,
+        )
+        messages.success(request, "Reminder set.")
+    else:
+        messages.error(request, "Enter a note and a valid Jalali date/time.")
+    return redirect(
+        "%s?mkttab=reminders#marketing" % reverse("cases:case_detail", args=[case.pk]))
 
 
 def _event_visible_to(event, unit) -> bool:

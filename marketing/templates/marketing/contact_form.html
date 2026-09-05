@@ -10,17 +10,31 @@
   surrounding .field red on its own via :has(.errorlist)), and form-level
   errors in a .flash.flash-error above the fields.
 
-  THE FORM-LEVEL RULE — at least one of phone / email — is enforced in
-  marketing/forms.py::ContactForm.clean(), on the server, and it is shown here
-  as that .flash.flash-error. There is deliberately NO JavaScript copy of it on
-  this page: a rule that only exists in the browser is not a rule, and the
-  submit button below is a plain submit, so a form with both fields blank
-  really does travel to the server and really is rejected there.
+  THE FORM-LEVEL RULE — at least one phone number entered, or an email — is
+  enforced in marketing/forms.py::ContactForm.clean(), on the server, and it is
+  shown here as that .flash.flash-error. There is deliberately NO JavaScript
+  copy of THAT rule on this page: a rule that only exists in the browser is
+  not a rule, and the submit button below is a plain submit, so a form with
+  every phone row and the email blank really does travel to the server and
+  really is rejected there.
 
   The role <select> carries data-combo and is upgraded by static/js/ui.js into
   the same searchable picker every other select in this platform gets — the
   managed ContactRole list can grow long, and it is the same control the case
   create screen uses for client/kind/price type.
+
+  PHONE NUMBERS — ANY NUMBER OF ROWS, NOT ONE FIXED SET OF BOXES ANY MORE. A
+  contact can carry several numbers (see marketing/models.py::ContactPhone),
+  so the three inputs the old single-phone version of this page always drew
+  (prefix / number / extension) are now repeated once per row, and
+  static/js/contact_phones.js draws the "+ Add phone" / per-row remove
+  affordance over them. Every row's three inputs share the SAME name
+  ("phone_prefix" / "phone" / "phone_ext") across every row on purpose — see
+  marketing/forms.py::ContactForm._submitted_phone_rows, which reads them back
+  with QueryDict.getlist and zips the three same-named lists row by row. THIS
+  IS PURELY PRESENTATION: the JavaScript only adds and removes whole rows of
+  plain inputs, and every phone value the server ever accepts is validated (or
+  rejected) in that same clean(), never in the browser.
 {% endcomment %}
 {% block title %}Add contact · {{ client.name }} · Foolad Tabar Workflow{% endblock %}
 {% block topbar %}Add contact{% endblock %}
@@ -93,30 +107,50 @@
     {% if form.gender.errors %}<ul class="errorlist">{% for e in form.gender.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
   </div>
 
-  {# Contact details. The dialling prefix and the internal extension sit side  #}
-  {# by side in one .grid.grid-2 — the owner's own layout, and the same two-up #}
-  {# row the case detail page uses for paired fields — because they are two    #}
-  {# parts of one dialled number, not two independent facts.                   #}
+  {# Contact details. Phone numbers are now a repeatable list of rows rather  #}
+  {# than one fixed set of boxes — see the module comment above and          #}
+  {# static/js/contact_phones.js, which draws the "+ Add phone" / per-row    #}
+  {# remove control over the plain inputs below. Each row keeps the prefix   #}
+  {# and extension beside the number itself, same as the old single-phone    #}
+  {# layout, because they are still three parts of one dialled number, not   #}
+  {# three independent facts.                                                #}
   <div class="subcard" style="margin-bottom:.9rem;">
     <div class="sc-head"><i class="fa-solid fa-phone"></i> Contact details</div>
-    <div class="grid grid-2">
-      <div class="field">
-        <label for="{{ form.phone_prefix.id_for_label }}">{{ form.phone_prefix.label }}</label>
-        {{ form.phone_prefix }}
-        {% if form.phone_prefix.errors %}<ul class="errorlist">{% for e in form.phone_prefix.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+
+    <div id="phone-rows">
+      {% for row in form.phone_rows %}
+      <div class="phone-row" data-phone-row style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:.7rem;">
+        <div class="field" style="flex:1 1 140px;min-width:110px;margin-bottom:0;">
+          <label>Dialling prefix</label>
+          <input type="text" name="phone_prefix" value="{{ row.prefix }}"
+                 autocomplete="off" inputmode="tel" placeholder="e.g. 021">
+        </div>
+        <div class="field" style="flex:2 1 200px;min-width:150px;margin-bottom:0;">
+          <label>Phone number</label>
+          <input type="text" name="phone" value="{{ row.number }}"
+                 autocomplete="off" inputmode="tel">
+        </div>
+        <div class="field" style="flex:1 1 140px;min-width:110px;margin-bottom:0;">
+          <label>Internal extension</label>
+          <input type="text" name="phone_ext" value="{{ row.ext }}"
+                 autocomplete="off" inputmode="tel" placeholder="e.g. 214">
+        </div>
+        {# Removes just this one row — see static/js/contact_phones.js.       #}
+        {# Nothing stops removing every row: a contact reachable only by      #}
+        {# email is a complete, legitimate answer, and clean() below checks   #}
+        {# for that combination, not for "at least one row must remain".      #}
+        <button type="button" class="btn btn-sm btn-ghost" data-remove-phone-row
+                title="Remove this number" style="flex:0 0 auto;">
+          <i class="fa-solid fa-trash"></i>
+        </button>
       </div>
-      <div class="field">
-        <label for="{{ form.phone_ext.id_for_label }}">{{ form.phone_ext.label }}</label>
-        {{ form.phone_ext }}
-        {% if form.phone_ext.errors %}<ul class="errorlist">{% for e in form.phone_ext.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
-      </div>
+      {% endfor %}
     </div>
-    <div class="field">
-      <label for="{{ form.phone.id_for_label }}"><i class="fa-solid fa-phone"></i> {{ form.phone.label }}</label>
-      {{ form.phone }}
-      {% if form.phone.errors %}<ul class="errorlist">{% for e in form.phone.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
-    </div>
-    <div class="field" style="margin-bottom:0;">
+    <button type="button" class="btn btn-sm" id="add-phone-row">
+      <i class="fa-solid fa-plus"></i> Add phone
+    </button>
+
+    <div class="field" style="margin-top:.9rem;margin-bottom:0;">
       <label for="{{ form.email.id_for_label }}"><i class="fa-solid fa-at"></i> {{ form.email.label }}</label>
       {{ form.email }}
       {% if form.email.errors %}<ul class="errorlist">{% for e in form.email.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
@@ -129,4 +163,8 @@
     <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-ghost">Cancel</a>
   </div>
 </form>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/contact_phones.js' %}?v=1"></script>
 {% endblock %}

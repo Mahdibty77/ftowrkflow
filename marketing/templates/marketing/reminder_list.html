@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% load ft_extras static %}
 {% comment %}
-  MY REMINDERS — the signed-in person's own list, and the two ways to act on one.
+  MY REMINDERS — the signed-in person's reminders, and the two ways to act on
+  one of their OWN.
 
   Structure borrowed from the Reports panel on marketing/company_detail.html
   rather than from the directory TABLE, and deliberately: a reminder is a block
@@ -16,10 +17,23 @@
   page and the notification banner in base.html all use, so one reminder prints
   the same way wherever it appears.
 
-  THIS PAGE SHOWS THE VIEWER'S OWN ROWS AND NOTHING ELSE. There is no scope
-  here, no "you are seeing everyone's" sentence like the contacts and reports
-  panels carry, and no supervisor variant of this screen — see
-  marketing/models.py::Reminder for the owner's wording behind that.
+  THIS PAGE USED TO SHOW THE VIEWER'S OWN ROWS AND NOTHING ELSE, WITH NO
+  SUPERVISOR VARIANT AT ALL — a DELIBERATE REVERSAL, this round, of a decision
+  this comment used to describe as permanent. See
+  marketing/models.py::Reminder for the fuller history: the owner has since
+  asked for Reminders to follow Reports' own "own"/"all" split, so this page
+  now carries the same "you are seeing everyone's" sentence the reports/contacts
+  panels already do (``sees_all_reminders``), and — when it is true — a "Set
+  by" column naming whose reminder each row is (a live lookup, not frozen text:
+  this is a working list, not an audit row).
+
+  ACTING ON A ROW STAYED OWNER-ONLY, and that is why the retime/mark-done
+  controls below are wrapped in {% templatetag openblock %} if r.is_own
+  {% templatetag closeblock %} now — a Supervisor seeing a colleague's row for
+  the first time must not also be handed a control that
+  marketing/reminders.py::_own would silently refuse (it is called with no
+  scope argument by both mutations, and stays strictly owner=user). See
+  marketing/views.py::_reminder_rows, which computes that flag.
 
   BOTH CONTROLS ARE REAL POST FORMS with a CSRF token, not links: each changes a
   row (see marketing/views.py::reminder_retime / ::reminder_done). The re-time
@@ -37,7 +51,12 @@
 <div class="page-head" style="align-items:center;">
   <div>
     <h1>My reminders</h1>
-    <div class="sub">Your own notes to yourself, on the companies you follow. Nobody else can see them.</div>
+    {# See the head comment's "THIS PAGE USED TO SHOW..." section: this line   #}
+    {# now says what is actually true for THIS viewer, the same way the        #}
+    {# reports/contacts panels' own "you see..." sentences do.                 #}
+    <div class="sub">
+      {% if sees_all_reminders %}Every reminder set by anyone in Marketing, on every company.{% else %}Your own notes to yourself, on the companies you follow. Nobody else can see them.{% endif %}
+    </div>
   </div>
   <div class="row-flex" style="align-items:center;gap:1rem;flex-wrap:wrap;">
     <a href="{% url 'marketing:directory' %}" class="btn btn-sm">
@@ -56,7 +75,9 @@
 
   <div class="help" style="margin:-.35rem 0 .7rem;">
     Soonest first. A reminder that has come due shows a notification at the top
-    of every screen until you set a new time for it or mark it dealt with.
+    of every screen until its owner sets a new time for it or marks it dealt
+    with{% if sees_all_reminders %} — that banner is still theirs alone; seeing
+    a colleague's reminder here does not put it on YOUR banner{% endif %}.
   </div>
 
   <ul class="dir-reminders">
@@ -78,6 +99,12 @@
         <a class="chip" href="{% url 'marketing:company_detail' r.client_id %}">
           <i class="fa-solid fa-building"></i><span dir="auto">{{ r.client.name }}</span>
         </a>
+        {# WHO SET IT — only drawn when this viewer is seeing more than their   #}
+        {# own rows; a live lookup, not frozen text, because this is a working  #}
+        {# list, not an audit row (see marketing/reminders.py::list_for_user). #}
+        {% if sees_all_reminders %}
+        <span class="chip c-draft"><i class="fa-solid fa-user"></i><span dir="auto">{{ r.owner.get_full_name|default:r.owner.username }}</span></span>
+        {% endif %}
         {% comment %}
           r.show_case_no, not r.case: the reminder still belongs to this person
           and still names a case, but a seat can lose the case access it had
@@ -95,6 +122,10 @@
       {# with white-space, exactly as the reports panel keeps a report's.       #}
       <div class="dir-reminder-text" dir="auto">{{ r.note }}</div>
 
+      {# BOTH CONTROLS STAY OWNER-ONLY, EVEN NOW THAT A SUPERVISOR CAN SEE THIS #}
+      {# ROW — see the head comment's "ACTING ON A ROW STAYED OWNER-ONLY"       #}
+      {# section. r.is_own is computed in marketing/views.py::_reminder_rows.  #}
+      {% if r.is_own %}
       <div class="dir-reminder-actions">
         <form method="post" action="{% url 'marketing:reminder_retime' r.pk %}"
               class="dir-reminder-retime">
@@ -123,11 +154,16 @@
       {% if retime_error and retime_id == r.pk %}
       <ul class="errorlist">{% for e in retime_error %}<li>{{ e }}</li>{% endfor %}</ul>
       {% endif %}
+      {% endif %}
     </li>
     {% empty %}
     <li class="empty">
-      You have not set any reminders yet. Open a company in the directory and
-      use “Set reminder” on it.
+      {% if sees_all_reminders %}
+      No reminders have been set by anyone in Marketing yet.
+      {% else %}
+      You have not set any reminders yet. Open a company and use its
+      Reminders tab's “Set new reminder” to add one.
+      {% endif %}
     </li>
     {% endfor %}
   </ul>

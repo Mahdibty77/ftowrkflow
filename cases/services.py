@@ -3581,6 +3581,72 @@ def user_can_view_case(case: Case, user, *, case_forms=None, case_events=None,
     )
 
 
+def is_case_commercial_owner(case: Case, request) -> bool:
+    """Does the ACTIVE seat working this request literally OWN ``case`` — the
+    narrow test the owner asked for before a report or a reminder may be
+    filed on a case FROM THE CASE PAGE (``cases/views.py::case_report_add`` /
+    ``case_reminder_add``): "دست ان نقش و شخص باشد و مالک ان پرونده ان باشد"
+    — held in that role's/that person's hand, AND they are that case's owner.
+
+    THIS IS DELIBERATELY NOT ``user_can_view_case``. That function is wide by
+    design — any Commercial unit member may open ANY case
+    (``profile.unit == Unit.COMMERCIAL`` alone is enough, see its own
+    docstring) — and the owner was explicit that the two questions have
+    different answers on this new surface: VIEWING a case's reports/reminders
+    follows that same wide "has access to the case" rule
+    ("برای پرونده هر شخصی که به ان پرونده با توجه به نقشش دسترسی دارد
+    میتواند این گزارش‌ها را ببیند"), while CREATING one is the narrow
+    ownership test this function answers alone. ``case_report_add`` /
+    ``case_reminder_add`` therefore call this function, not
+    ``user_can_view_case``, before writing.
+
+    THE FACT TESTED IS REUSED, NOT REINVENTED, from the two places this
+    platform already asks exactly this question:
+
+    * ``allowed_actions``'s own Commercial branch gates EVERY write action on
+      ``is_creator = case.created_by_id == work_id`` — a manager or a peer
+      expert who did not create the case keeps view/export only, never edit;
+    * ``archive_scope``'s own Commercial branches filter by the identical
+      fact — unconditionally for an ordinary expert
+      (``qs.filter(created_by=seat_user)``), and for a manager's own
+      "mine_only" toggle.
+
+    It is also, in substance, the fact ``marketing/access.py::
+    case_access_for`` / ``_own_commercial_seat_users`` is built around on the
+    OTHER side of the platform — that module's own docstring states it
+    plainly: "a case's created_by is the COMMERCIAL seat's User". That module
+    reasons across a person's WHOLE seat list because it is asked from a
+    MARKETING seat looking at cases across every Commercial seat the viewer
+    might separately hold; here we are asked from the CASE's own page, where
+    the ACTIVE seat is by construction the one seat that matters (the viewer
+    already had to be sitting in a Commercial seat, or switch into one, to
+    open this case's action buttons at all — see ``allowed_actions`` above),
+    so the narrower, already-active-seat test ``archive_scope`` /
+    ``allowed_actions`` already use is the precise match, not a duplicate of
+    the marketing one.
+
+    False for anyone not currently working a COMMERCIAL seat — an admin, a
+    General Manager, Technical, Supply, or a Marketing seat that has not
+    switched into a Commercial one. A Commercial MANAGER answers True only
+    for a case THEY personally created, exactly as ``allowed_actions``
+    already treats a manager who did not create the case (view/export only) —
+    never for a case merely visible to them through the archive's "entire
+    archive" manager privilege, which is a VIEW grant, not an ownership fact.
+    """
+    ctx = _request_work_context(request)
+    role = ctx.role
+    profile = getattr(request.user, "profile", None)
+    if role is not None:
+        unit = (role.unit or "").strip() or (getattr(profile, "unit", "") or "")
+    else:
+        unit = getattr(profile, "unit", "") or ""
+    if unit != Unit.COMMERCIAL:
+        return False
+    seat_user = ctx.seat_user
+    work_id = getattr(seat_user, "id", None) or getattr(seat_user, "pk", None)
+    return work_id is not None and case.created_by_id == work_id
+
+
 # ---------------------------------------------------------------------------
 # Transitions
 # ---------------------------------------------------------------------------

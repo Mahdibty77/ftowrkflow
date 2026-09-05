@@ -108,7 +108,14 @@ class CompanyContactAdmin(admin.ModelAdmin):
 
     list_display = ("full_name", "client", "role", "created_by", "created_at")
     list_filter = ("role", "gender")
-    search_fields = ("first_name", "last_name", "email", "phone",
+    # "phones__phone" reaches across the reverse FK onto ContactPhone — the
+    # phone number itself moved there (see
+    # marketing/models.py::CompanyContact's "THE PHONE NUMBER(S) LIVE ON
+    # ContactPhone, NOT HERE" section) and Django's admin search_fields
+    # follows a "__" lookup across a relation the same way it always could,
+    # reverse FKs included, so this still finds a contact by any of their
+    # numbers exactly as searching "phone" here used to.
+    search_fields = ("first_name", "last_name", "email", "phones__phone",
                      "client__name", "client__code")
     list_select_related = ("client", "role", "created_by")
 

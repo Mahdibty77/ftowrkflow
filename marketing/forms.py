@@ -54,6 +54,8 @@ borrowed from ``cases/forms.py``, and why it is written once for both.
 """
 from __future__ import annotations
 
+from itertools import zip_longest
+
 from django import forms
 
 from .models import ContactGender, ContactRole, ReportOption
@@ -111,22 +113,20 @@ class ContactForm(forms.Form):
         choices=[("", "— Select —")] + list(ContactGender.CHOICES),
         required=True, label="Gender",
     )
-    phone_prefix = forms.CharField(
-        max_length=16, required=False, label="Dialling prefix",
-        widget=forms.TextInput(attrs={
-            "autocomplete": "off", "inputmode": "tel", "placeholder": "e.g. 021",
-        }),
-    )
-    phone_ext = forms.CharField(
-        max_length=16, required=False, label="Internal extension",
-        widget=forms.TextInput(attrs={
-            "autocomplete": "off", "inputmode": "tel", "placeholder": "e.g. 214",
-        }),
-    )
-    phone = forms.CharField(
-        max_length=32, required=False, label="Phone number",
-        widget=forms.TextInput(attrs={"autocomplete": "off", "inputmode": "tel"}),
-    )
+    # NO phone_prefix/phone/phone_ext FIELDS DECLARED HERE ANY MORE — a
+    # contact can now carry any number of phone rows (see
+    # ``marketing/models.py::ContactPhone``), and a fixed trio of Django
+    # ``Field`` objects can bind to only one value per name each. The rows are
+    # instead multiple same-named ``<input name="phone_prefix">`` /
+    # ``name="phone">`` / ``name="phone_ext">`` controls the template repeats
+    # once per row (``static/js/contact_phones.js`` appends and removes whole
+    # rows of three), read back with the raw ``QueryDict.getlist`` in
+    # :meth:`_submitted_phone_rows` below rather than through a declared
+    # field — the same reason ``pasted_table`` on
+    # ``cases/forms.py::CaseCreateForm`` reads
+    # its grid data out of one hidden field instead of one Django field per
+    # cell: the NUMBER of rows a submission carries is decided by the user in
+    # the browser, not known when this class is written.
     email = forms.EmailField(
         required=False, label="Email",
         widget=forms.EmailInput(attrs={"autocomplete": "off", "dir": "ltr"}),
@@ -150,6 +150,55 @@ class ContactForm(forms.Form):
         # empty required dropdown is a dead end for anyone who cannot add to
         # it. The template says so in words; this flag is what it asks.
         self.roles_available = ContactRole.objects.exists()
+        # The phone rows already typed, so a validation error on some OTHER
+        # field (a missing role, a bad email) re-renders the page with every
+        # phone row the user had already filled in still there rather than
+        # silently dropping them — the same courtesy Django gives every
+        # declared field's ``value`` automatically, extended by hand to the
+        # rows this form does not declare as fields. See
+        # :meth:`_submitted_phone_rows` for how these are read off the raw
+        # POST, and the template for how they are redrawn. An unbound form
+        # (a fresh GET) has nothing submitted, so this is one empty row — a
+        # single set of blank prefix/number/ext boxes to start from, exactly
+        # what the old single-phone form always rendered.
+        self.phone_rows = self._submitted_phone_rows() or [
+            {"prefix": "", "number": "", "ext": ""},
+        ]
+
+    def _submitted_phone_rows(self) -> list[dict]:
+        """The phone rows this POST carried, as a list of ``{prefix, number, ext}``.
+
+        READS THE RAW ``QueryDict`` RATHER THAN A DECLARED FIELD, because
+        there is no declared field to read: see the "NO phone_prefix/phone/
+        phone_ext FIELDS" comment above ``email`` for why. The template emits
+        one ``<input name="phone_prefix">`` / ``name="phone">`` /
+        ``name="phone_ext">`` triple per row the user added in the browser (see
+        ``static/js/contact_phones.js``), and a browser posts repeated
+        same-named inputs in DOM order — so ``QueryDict.getlist`` on each of
+        the three names returns three lists that line up index-for-index into
+        rows, PROVIDED every row always emits all three inputs together, which
+        the template does even for a box the user left blank (an empty string
+        still occupies its slot in the list). ``zip`` then pairs them back up
+        row by row.
+
+        Returns ``[]`` for an unbound form (``self.data`` is the empty dict
+        ``forms.Form`` uses when constructed with no data) — there is nothing
+        submitted yet to read.
+        """
+        getlist = getattr(self.data, "getlist", None)
+        if getlist is None:
+            return []
+        prefixes = getlist("phone_prefix")
+        numbers = getlist("phone")
+        exts = getlist("phone_ext")
+        rows = []
+        for prefix, number, ext in zip_longest(prefixes, numbers, exts, fillvalue=""):
+            rows.append({
+                "prefix": (prefix or "").strip(),
+                "number": (number or "").strip(),
+                "ext": (ext or "").strip(),
+            })
+        return rows
 
     def clean_new_role(self):
         """The typed new role name, stripped — never a bare duplicate.
@@ -178,11 +227,19 @@ class ContactForm(forms.Form):
         2. AT LEAST ONE WAY TO REACH THE PERSON. The rule the model
            deliberately does not express as a database constraint (see
            ``marketing/models.py::CompanyContact``'s docstring): a contact with
-           neither a phone number nor an email is a name with no purpose. It is
-           raised as a NON-FIELD error because it is true of neither field on
-           its own — blaming ``phone`` would be arbitrary when filling in
-           ``email`` fixes it just as well — and the template renders non-field
-           errors the way every other form in this codebase does.
+           neither a phone number nor an email is a name with no purpose. It
+           used to be checked against the single ``phone`` field; now that a
+           contact can carry any number of :class:`ContactPhone` rows (see
+           :meth:`_submitted_phone_rows`), it is checked against the SAME
+           thing that rule always meant — at least one row whose ``number``
+           part was actually filled in, a prefix or extension typed alone
+           does not count, exactly as a lone ``phone_prefix`` with no
+           ``phone`` never satisfied the old single-field version either. It
+           is raised as a NON-FIELD error because it is true of neither
+           "phones" nor ``email`` on its own — blaming one would be arbitrary
+           when filling in the other fixes it just as well — and the template
+           renders non-field errors the way every other form in this codebase
+           does.
 
         Both rules are enforced HERE, on the server. Nothing in this section
         re-implements either one in JavaScript, so a reader with scripting off,
@@ -200,9 +257,19 @@ class ContactForm(forms.Form):
         elif not role and not new_role:
             self.add_error("role", "A contact role is required.")
 
-        phone = (cleaned.get("phone") or "").strip()
+        # Only rows with SOMETHING in them are kept — a blank row left over
+        # from an "+ Add phone" click the user then abandoned must not become
+        # an empty ContactPhone row on save (see ``ContactPhone``'s own
+        # docstring on why the model itself does not forbid an all-blank row
+        # at the database layer: the screen is where that judgement belongs).
+        phones = [
+            row for row in self._submitted_phone_rows()
+            if row["prefix"] or row["number"] or row["ext"]
+        ]
+        cleaned["phones"] = phones
+        has_phone_number = any(row["number"] for row in phones)
         email = (cleaned.get("email") or "").strip()
-        if not phone and not email:
+        if not has_phone_number and not email:
             raise forms.ValidationError(
                 "Enter at least one way to contact this person — a phone number "
                 "or an email address."

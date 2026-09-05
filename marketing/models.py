@@ -347,10 +347,42 @@ class CompanyContact(models.Model):
     surface the same rule as an ``IntegrityError`` from the database with no
     field to attach it to, and would additionally make every future data
     import, fixture and backfill fail loudly on a legitimately partial
-    historical record. Three of the four fields below are ``blank=True`` for
-    the same reason: which of prefix/extension/phone/email a given contact
-    actually has varies per person, and only the combination is required, not
-    any one of them.
+    historical record. ``email`` is ``blank=True`` for the same reason: which
+    of phone-numbers/email a given contact actually has varies per person, and
+    only the combination — at least one phone row, or an email, or both — is
+    required, not any one of them. Applied now to "at least one
+    :class:`ContactPhone` row exists" rather than to a single field, since the
+    phone number itself moved off this model onto that one — see
+    ``marketing/forms.py::ContactForm.clean`` for where the rule actually
+    lives, unchanged in spirit.
+
+    THE PHONE NUMBER(S) LIVE ON :class:`ContactPhone`, NOT HERE — A DELIBERATE
+    SPLIT, NOT THE ORIGINAL SHAPE. This model used to carry its own
+    ``phone_prefix``/``phone``/``phone_ext`` triple directly, good for exactly
+    one phone number per person. The owner asked for a contact to be reachable
+    on several numbers — a desk line and a mobile, say — which a flat triple of
+    columns cannot express without inventing ``phone_2``/``phone_3`` and a hard
+    ceiling nobody asked for. A child table has no such ceiling: one row per
+    number, as many rows as the person actually has. See
+    :class:`ContactPhone`'s own docstring for the shape of that row (it is the
+    exact three-part shape this model's fields used to be, moved rather than
+    redesigned) and this file's git history for the migration that carried
+    every existing single phone number across into one ``ContactPhone`` row
+    apiece before the old columns were dropped, so that move lost no data on
+    the way.
+
+    NO DENORMALISED "PRIMARY PHONE" CONVENIENCE FIELD KEPT HERE ALONGSIDE THE
+    CHILD TABLE — CONSIDERED AND DELIBERATELY REJECTED. It would save a
+    ``select_related``/prefetch on the handful of screens that only ever want
+    "the one number to call", at the cost of a second place a phone number
+    can live and a second thing every future write path has to keep in sync
+    with the child rows (add a number here and forget the denormalised copy,
+    or vice versa, and the two silently disagree about which number is
+    "primary"). Nothing measured about this table's size or these screens'
+    read pattern argues for that trade — ``list_contacts`` already
+    ``select_related``s in one extra query the same way it does for ``role``,
+    and a ``prefetch_related("phones")`` costs the same one extra query per
+    list rather than per row. Simpler wins here.
     """
 
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="marketing_contacts")
@@ -370,14 +402,6 @@ class CompanyContact(models.Model):
     # written directly (a data import, a shell fix-up, a future backfill),
     # for the same reason spelled out in the class docstring above.
     gender = models.CharField(max_length=10, choices=ContactGender.CHOICES)
-    # The three phone parts are kept SEPARATE rather than concatenated into
-    # one string: Iranian office numbers are dialled as (area/dialling code,
-    # number, internal extension), and a call list that has to split a joined
-    # string back apart to dial an extension has lost information the person
-    # entering it already had.
-    phone_prefix = models.CharField(max_length=16, blank=True)
-    phone = models.CharField(max_length=32, blank=True)
-    phone_ext = models.CharField(max_length=16, blank=True)
     email = models.EmailField(blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True,
@@ -394,6 +418,77 @@ class CompanyContact(models.Model):
 
     def __str__(self):
         return f"{self.full_name} — {self.client.name}"
+
+
+class ContactPhone(models.Model):
+    """One phone number belonging to a :class:`CompanyContact`.
+
+    WHY THIS TABLE EXISTS AT ALL — see ``CompanyContact``'s own docstring,
+    under "THE PHONE NUMBER(S) LIVE ON ContactPhone, NOT HERE", for the full
+    reasoning. In one line: a person can have more than one number, and a
+    fixed set of columns on ``CompanyContact`` cannot express "as many as this
+    person actually has" without inventing a ceiling nobody asked for.
+
+    THE SAME THREE-PART SHAPE THE OLD SINGLE FIELD USED, MOVED VERBATIM, NOT
+    REDESIGNED. ``phone_prefix``/``phone``/``phone_ext`` are kept SEPARATE
+    rather than concatenated into one string for the exact reason
+    ``CompanyContact`` used to give for its own three columns: Iranian office
+    numbers are dialled as (area/dialling code, number, internal extension),
+    and a call list that has to split a joined string back apart to dial an
+    extension has lost information the person entering it already had. Moving
+    house to a child table is not an excuse to lose that distinction — every
+    row here still carries all three parts, independently, exactly as the
+    single field on the parent used to.
+
+    ONE ROW PER PHONE NUMBER, ORDERED BY CREATION (``created_at``, then
+    ``pk`` as the tie-breaker for two rows written in the same transaction,
+    the same tie-break ``Reminder.Meta.ordering`` uses for its own
+    same-instant rows). NOT ordered by number or by which part is filled in —
+    the order a person typed their numbers in (desk line first, then mobile,
+    say) is itself information, and re-sorting it alphabetically or numerically
+    would throw that away for no reason any screen has asked for.
+
+    ``on_delete=CASCADE`` — a phone number has no meaning apart from the
+    contact who answers it; deleting the contact (``services.remove_contact``)
+    must remove every number filed under them, the same way removing a
+    ``Client`` cascades to remove every ``CompanyContact`` at it.
+
+    NO "AT LEAST ONE PART FILLED IN" CONSTRAINT HERE, for
+    ``CompanyContact``'s own reason: the three parts are ``blank=True`` at the
+    database layer so a legitimately partial row (an import, a backfill) is
+    never rejected outright, and the screen-level rule — a row only counts as
+    "a real number" once ``phone`` itself is non-blank — lives in
+    ``marketing/forms.py::ContactForm``, exactly where ``CompanyContact``'s own
+    "at least one of phone/email" rule always lived, for the identical reason:
+    a violation can be reported against the field the user actually left
+    blank, and the database is not made to enforce a rule a future import
+    should not have to satisfy.
+
+    NO ``related_name`` PREFIXED ``marketing_`` — deliberately unlike the
+    reverse accessors ``CompanyContact``/``ClientLabel``/``Connection`` put on
+    ``cases.Client``. That prefix exists so a reader of a FOREIGN app's model
+    (``cases.models.Client``) can tell at a glance which of its many reverse
+    accessors belong to this app. ``CompanyContact`` is not a foreign model —
+    it lives in this same file — so its own reverse accessor for its own
+    child rows needs no such disambiguation, exactly as ``ContactRole.contacts``
+    (also a plain, unprefixed name) needs none for the same reason.
+    """
+
+    contact = models.ForeignKey(CompanyContact, on_delete=models.CASCADE, related_name="phones")
+    phone_prefix = models.CharField(max_length=16, blank=True)
+    phone = models.CharField(max_length=32, blank=True)
+    phone_ext = models.CharField(max_length=16, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "pk"]
+
+    def __str__(self):
+        bits = [self.phone_prefix, self.phone]
+        text = " ".join(b for b in bits if b)
+        if self.phone_ext:
+            text = f"{text} ext.{self.phone_ext}"
+        return text or f"phone #{self.pk}"
 
 
 class ClientEventAction:
@@ -781,21 +876,64 @@ class Reminder(models.Model):
     behind it is a loop: a case gets a reminder, the person is reminded, they
     write a report, they set the next reminder, until the case ends.
 
-    PRIVATE TO ``owner``, AND THAT IS A DEPARTURE FROM EVERY OTHER MODEL IN THIS
-    FILE. :class:`CompanyContact` and :class:`CompanyReport` are scoped by
-    ``created_by`` through ``marketing/services.py::_scoped``, which means an
-    ordinary seat sees its own rows and a Supervisor, the General Manager and
-    the platform admin see everyone's. Reminders deliberately do NOT reuse that
-    helper and are not offered to those three: the owner's wording is "هر شخص
-    لیست یادآور خود را می‌تواند ببیند" — each person can see THEIR OWN reminder
-    list — and a reminder is not a record of work done on a company (which is
-    what a report is, and why a supervisor reads those) but a note to self about
-    what to do next. Supervision over someone's private to-do list is a
-    different product decision from supervision over their output, and it was
-    not asked for. ``marketing/reminders.py`` is therefore the only reader, and
-    every query in it filters on ``owner`` with no scope argument at all — there
-    is nothing for a scope to widen. This model is also deliberately absent from
-    ``marketing/admin.py`` for the same reason.
+    OWNED BY ``owner``, WITH SEEING AND ACTING ON A ROW NOW DECIDED
+    DIFFERENTLY — a CHANGE FROM AN EARLIER VERSION OF THIS DOCSTRING, STATED
+    PLAINLY RATHER THAN QUIETLY OVERWRITTEN. That earlier version argued at
+    length that a reminder was PRIVATE, full stop: unlike :class:`CompanyContact`
+    and :class:`CompanyReport` (scoped by ``created_by`` through
+    ``marketing/services.py::_scoped``, so an ordinary seat sees its own rows
+    and a Supervisor, the General Manager and the platform admin see
+    everyone's), Reminders deliberately did NOT reuse that helper and were not
+    offered to those three at all — the owner's own wording at the time was
+    "هر شخص لیست یادآور خود را می‌تواند ببیند" (each person can see THEIR OWN
+    reminder list), and "supervision over a private to-do list is a different
+    decision from supervision over someone's output" was the argument given
+    for why that was not asked for.
+
+    THE OWNER HAS NOW EXPLICITLY ASKED FOR EXACTLY THAT, IN A LATER ROUND: "make
+    Reminders work exactly like Reports already do" — an ordinary Marketing
+    Expert sees only their own, a Marketing Supervisor sees the union of
+    everyone's, and (for consistency with every other elevated-access surface
+    in this app) the platform admin and the General Manager do too. This is
+    named here as a reversal, not silently folded into the paragraph above,
+    because a future reader comparing this file's git history to its own
+    docstring deserves to see that the rule genuinely changed and on whose
+    instruction, not to be left wondering whether an earlier claim was simply
+    wrong.
+
+    WHAT ACTUALLY WIDENED, AND WHAT DID NOT — the distinction matters and is
+    easy to blur:
+
+    * VIEWING widened. ``marketing/reminders.py::list_for_user`` (the
+      standalone "My reminders" page, and the new company-page Reminders tab)
+      now takes a ``scope`` argument, the same "own"/"all" shape
+      ``services._scoped`` already uses, resolved by the view from
+      ``marketing/access.py::access_for`` exactly like every other scoped read
+      in this app.
+    * CREATING AND ACTING ON A ROW DID NOT. Setting a reminder
+      (``reminders.create``) is still something only the person themselves
+      does, about themselves. Giving one a new time or marking it dealt with
+      (``reminders.reschedule`` / ``reminders.mark_done``, both going through
+      ``reminders._own``) is STILL strictly owner-only, with no elevated
+      escape hatch — unlike ``toggle_manual_label``'s or ``remove_connection``'s
+      ``elevated=True`` branch for a Supervisor, there is no such branch here,
+      because the owner asked only to let a Supervisor SEE the unit's
+      reminders, not to let them re-time or close out somebody else's private
+      note. A Supervisor who sees a colleague's overdue reminder acts on it the
+      way the model has always intended a THIRD party to act on someone else's
+      note: by talking to them, not by editing their row.
+    * THE TOP-OF-PAGE DUE NOTIFICATION DID NOT WIDEN EITHER, deliberately, and
+      that is a judgement call made THIS round, not a leftover of the old
+      rule: see ``marketing/context_processors.py::reminder_notice`` and
+      ``marketing/reminders.py::due_notification`` for the reasoning. In
+      short, a banner that greets a Supervisor with the whole unit's overdue
+      items on every page they open is a different, heavier feature than "you
+      have something to deal with", and it is not what was asked for here.
+    * This model is still deliberately absent from ``marketing/admin.py`` —
+      unrelated to any of the above, since that is Django's own STAFF-gated
+      admin site, a different audience from this app's Marketing
+      Supervisor/GM/platform-admin tier, and this round changes nothing about
+      who is ``is_staff``.
 
     ``owner`` CASCADES, unlike the ``created_by`` on every other model here,
     which is ``SET_NULL``. Those columns are audit: who added this contact, who
@@ -817,14 +955,21 @@ class Reminder(models.Model):
     viewer cannot open is a rule this app has had to repair twice already.
 
     ``due_at`` IS INDEXED ONLY AS PART OF THE COMPOSITE BELOW, never alone. The
-    one query that reads this table in anger is the due check that renders the
-    notification, and it is always the same shape: this owner, still open,
-    due at or before now. ``(owner, state, due_at)`` is that query's exact
-    column order — the two equalities first, the range last — so it is served
-    by an index range scan over one person's open rows and never scans the
-    table. A separate index on ``due_at`` alone would earn nothing: no screen
-    asks "what is due for everybody", because there is no screen that shows one
-    person another person's reminders.
+    one query that reads this table IN ANGER — meaning on every page load,
+    cached or not — is still the due-notification check, and it is still
+    always the same shape: this owner, still open, due at or before now
+    (``marketing/reminders.py::due_notification`` deliberately keeps that
+    query owner-scoped even now that OTHER reads of this table are not — see
+    that function's own comment). ``(owner, state, due_at)`` is that query's
+    exact column order — the two equalities first, the range last — so it is
+    served by an index range scan over one person's open rows and never scans
+    the table. A separate index on ``due_at`` alone would earn nothing: the
+    one per-page-load query this index exists for is still always scoped to
+    one owner, even though the (uncached, occasional) list pages built on
+    :func:`~marketing.reminders.list_for_user` can now, for a Supervisor/GM/
+    admin, read every owner's rows through this same index with no ``owner``
+    equality supplied at all — a full scan of a small table on a page nobody
+    loads every request, not the hot path this index was built to protect.
 
     ``Meta.ordering`` is soonest-first, which is the order the list page wants
     (what should I deal with next). The notification asks for the opposite —

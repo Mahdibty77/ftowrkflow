@@ -394,7 +394,26 @@
    was too saturated, it was that "dark" had to come from saturation alone
    while lightness sat in the middle of the scale; saturation here is still
    doing real work, but see the fill rule below for where "dark" actually
-   comes from now (lightness, not saturation, and no --paper in the mix). */
+   comes from now (lightness, not saturation, and no --paper in the mix).
+
+   LIGHTNESS DROPPED AGAIN THIS ROUND, FROM 26% TO 18% — the owner's direct
+   follow-up on the 26% pass just above: still not dark enough, still read as
+   "a mid-tone colour swatch" rather than unambiguously a DARK card next to
+   the "us" card's own near-black (#0a0f1a, ~8% lightness) plate further down
+   this file. 18% was picked by judging the rendered chart live, not chosen
+   blind: it reads clearly as a dark plate at a glance while the ten hues
+   stay visibly distinct from each other (checked live, both app themes — the
+   fill stays unconditional across the theme so there was nothing to
+   re-verify there). Contrast was checked, not eyeballed, once 18% was
+   settled on: the fixed white role/abbr text below (#f8fafc) against the
+   lightest-reading of the ten hues at 18% lightness (h175/s60%, this
+   palette's own lightest stop) still measures roughly 9.7:1 — comfortably
+   clear of WCAG AA's 4.5:1 floor for body text, with room to spare. That
+   headroom is structural, not a coincidence of this particular number:
+   darkening the plate can only ever help white-text contrast, never hurt
+   it, so legibility was never the constraint on how dark this could go —
+   only how well the ten rows still read apart from each other, which is
+   what was actually judged live against the rendered chart. */
 .rc-node[data-row-index="0"]{ --rc-row-h:145; --rc-row-s:62%; }  /* licensor / sponsor — green      */
 .rc-node[data-row-index="1"]{ --rc-row-h:215; --rc-row-s:66%; }  /* owner              — blue       */
 .rc-node[data-row-index="2"]{ --rc-row-h:175; --rc-row-s:60%; }  /* project / phase    — teal       */
@@ -429,13 +448,14 @@
    could not fix that; it would only interpolate further between "pale" and
    "medium", never reach "dark", because the far end of the interpolation
    was never dark. So the formula changes instead: each row's own HSL colour
-   is used DIRECTLY as the fill, at a genuinely low lightness (26% —
-   dark blue / dark green, inside the owner's own named range), with no
-   --paper in the blend at all. --rc-row-l is a per-row override for the odd
-   row whose hue reads lighter or darker than its neighbours at the same
-   numeric lightness (a strict area/hue trade-off — judged live against the
-   rendered chart, not assumed); the 26% fallback covers every row that
-   doesn't need one, which today is all ten.
+   is used DIRECTLY as the fill, at a genuinely low lightness (18% as of this
+   round — dropped again from an earlier 26% pass that the owner judged still
+   too mid-tone; see the long note above the ten row stops for why 18% and
+   why contrast still holds), with no --paper in the blend at all. --rc-row-l
+   is a per-row override for the odd row whose hue reads lighter or darker
+   than its neighbours at the same numeric lightness (a strict area/hue
+   trade-off — judged live against the rendered chart, not assumed); the 18%
+   fallback covers every row that doesn't need one, which today is all ten.
 
    THIS IS ALSO WHAT MAKES THE FILL UNCONDITIONAL ACROSS THE LIGHT/DARK APP
    THEME — the owner's own instruction, repeated for the "us" card further
@@ -447,7 +467,7 @@
    nothing left for it to restate; this same fill is correct, unmodified, in
    both [data-mode="dark"]/[data-theme="dark"] and light. */
 .rc-node.has-entries[data-kind="label"] .rc-box{
-  fill:hsl(var(--rc-row-h) var(--rc-row-s) var(--rc-row-l, 26%));
+  fill:hsl(var(--rc-row-h) var(--rc-row-s) var(--rc-row-l, 18%));
 }
 /* is-focus/is-lit/is-case-anchor (query mode, further down this file) must
    still read clearly on TOP of a row-tinted card, not get muddied by it —
@@ -574,13 +594,14 @@
    exactly the regression the owner is trying to get away from. So this is
    the same per-row hsl() the idle fill uses, just a touch brighter/more
    saturated to still read as "this is the one that's highlighted" rather
-   than a no-op: +6 lightness and +6 saturation over the idle 26%/row-own-
-   saturation, judged live against the running chart rather than assumed.
-   Being a literal hsl() with no --paper reference, it is unconditional
-   across the theme exactly like the idle fill is, so the dark-mode
-   restatement this rule used to need is gone for the same reason. */
+   than a no-op: +6 lightness and +6 saturation over the idle base (18% as of
+   this round's darker pass — see the idle fill rule further up for why)/
+   row-own-saturation, judged live against the running chart rather than
+   assumed. Being a literal hsl() with no --paper reference, it is
+   unconditional across the theme exactly like the idle fill is, so the
+   dark-mode restatement this rule used to need is gone for the same reason. */
 .rc-chart.is-query .rc-node.is-lit[data-kind="label"] .rc-box{
-  fill:hsl(var(--rc-row-h) calc(var(--rc-row-s) + 6%) calc(var(--rc-row-l, 26%) + 6%));
+  fill:hsl(var(--rc-row-h) calc(var(--rc-row-s) + 6%) calc(var(--rc-row-l, 18%) + 6%));
 }
 /* A card the query REACHED is never drawn with the empty card's dashed
    "waiting to be filled" outline, even when it is itself .is-empty.
@@ -931,11 +952,61 @@
      while still leaving the list itself scrollable. */
   cursor:pointer;
 }
+/* FIXED white here too, not var(--ink) — same reasoning as the has-entries
+   .rc-role/.rc-abbr fix further up this file, and the same bug that fix was
+   for: this list sits, transparent background, directly over a grown card's
+   own fill, and that fill is now a fixed dark colour in BOTH app themes (the
+   per-row hsl(), no --paper in the blend — see the fill rule above). Before
+   this round it was still var(--ink), a platform token that is near-BLACK in
+   light theme — dark text silently landing on the also-dark card the moment
+   a reader is in light mode, the exact inversion the has-entries role/abbr
+   fix already corrected for the card's own title text. A grown card is
+   .has-entries by construction (only a filled field ever grows a name list
+   in the first place), so this list is never seen sitting on anything but
+   that fixed-dark plate — there is no case where --ink was ever correct here.
+
+   DISTINCT FROM THE ROLE TITLE ON PURPOSE, NOT JUST COPIED FROM IT. The
+   owner wants a reader to tell "this is the role label" from "this is a
+   company name" at a glance, and two identical white-on-dark treatments
+   stacked on the same card would not do that no matter how legible each one
+   is on its own. So the role title (.rc-role, further up) stays the heavier
+   weight/larger-size heading it already was, and this list is deliberately
+   one step down from it: a lighter weight (500 vs the role's 650) and a
+   fractionally reduced opacity (.90, well inside the "clearly legible, not
+   faint" range the owner asked for) on the same fixed white — still reads
+   as white, unmistakably a lighter/quieter treatment than the heading sitting
+   above it. Contrast was checked at that reduced opacity against this
+   round's darkest-reading row (h175/s60% at 18% lightness, the same worst
+   case the role text was checked against above): still comfortably clear of
+   WCAG AA's 4.5:1 floor. */
 .rc-card-names-name{
-  font-weight:650; color:var(--ink);
+  font-weight:500; color:rgba(248,250,252,.90);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   text-align:center;
   direction:rtl; unicode-bidi:plaintext;
+  /* flex-shrink:0 IS LOAD-BEARING, not decoration — without it this is a
+     live, reproducible visual bug rather than a hypothetical one. The
+     parent is a COLUMN FLEX container with a fixed pixel height (JS sets it
+     to exactly GROW_VISIBLE_NAMES worth of rows — see placeCardNames()) and
+     overflow-y:auto, on the assumption that a SIXTH-plus row simply pushes
+     the flex column taller than its container and the already-present
+     overflow-y:auto takes over from there. But a flex item's default
+     flex-shrink is 1, so once total content height exceeds the container's
+     fixed height, the browser's answer is not "let it overflow" — it is
+     "shrink every row proportionally until they all fit", which is exactly
+     backwards from what a scrollable list needs. Confirmed live (six-plus
+     "Project Management Team"-style entries under one field, the owner's
+     own worked example): every row's box shrinks below its own inherited
+     line-height (each ends up a couple pixels shorter than the text it has
+     to hold), while the text itself keeps rendering at that taller
+     line-height — the rows visually collide/overlap instead of the list
+     scrolling. flex-shrink:0 is the one-line fix: it tells every row to
+     keep its natural (line-height-driven) size no matter how many siblings
+     it has, so a sixth row genuinely pushes the column past the container's
+     height instead of squeezing everyone equally, and the container's own
+     overflow-y:auto (already present, doing nothing useful until this line
+     existed) finally has real overflow to scroll. */
+  flex-shrink:0;
 }
 
 /* ---- The "us" cases panel ---------------------------------------------------

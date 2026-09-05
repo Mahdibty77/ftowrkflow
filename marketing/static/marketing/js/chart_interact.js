@@ -2137,18 +2137,37 @@
         if (g) { g.classList.add('is-lit'); }
       });
       // Each lit/focus field's badge temporarily shows what THIS query
-      // attached to it — case_numbers.length where a case backs it,
-      // falling back to 1 for a manual-only tag with no case behind it —
-      // and "us" uses the same distinct doc-number count the panel/
-      // annotation already computed above (docNos), not a per-label count.
-      // The same per-field doc numbers are stashed on lastQueryData so a
-      // click on any of these cards, while the query stays active, can show
-      // just that field's own slice instead of its normal full list — see
-      // openModalForField's own is-query check. Both are undone together by
+      // attached to it — the REAL number of companies actually connected
+      // there (``l.connected.length``, marketing/services.py::
+      // connections_of_client's own field of the same name), not a count of
+      // case DOCUMENTS. Those are two different things that can disagree by
+      // a lot: a field can carry six manually-connected companies and no
+      // case at all behind any of them, or one case with three document
+      // numbers naming a single company — ``case_numbers.length`` (what this
+      // used to read, and a stale copy-paste from the doc-number badge logic
+      // a few lines below) answers the SECOND question, and this badge is
+      // supposed to answer the FIRST. ``l.connected`` is never actually empty
+      // for an entry that reaches this loop at all (see that field's own
+      // docstring — a directly-held entry always falls back to ``client``'s
+      // own identity, and a connection-only entry only exists when it is
+      // already non-empty), so the ``: 0`` fallback below is purely
+      // defensive, matching this line's own defensive ``l.connected &&``
+      // guard rather than ever being expected to fire.
+      // "us" uses the same distinct doc-number count the panel/annotation
+      // already computed above (docNos), not a per-label count, via its own
+      // separate setContextualBadge('us', docNos.length) call further down —
+      // that one is untouched, it was never reading case_numbers/connected
+      // to begin with. The same per-field doc numbers are stashed on
+      // lastQueryData so a click on any of these cards, while the query
+      // stays active, can show just that field's own slice instead of its
+      // normal full list — see openModalForField's own is-query check. This
+      // is a SEPARATE concern from the badge count above — ``byField`` still
+      // carries ``case_numbers`` (documents), never ``connected``
+      // (companies) — and is undone, together with the badge, by
       // clearQueryMarks().
       var byField = {};
       data.labels.forEach(function (l) {
-        var count = (l.case_numbers && l.case_numbers.length) ? l.case_numbers.length : 1;
+        var count = (l.connected && l.connected.length) ? l.connected.length : 0;
         byField[l.label] = l.case_numbers || [];
         setContextualBadge(l.label, count);
       });

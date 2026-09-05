@@ -59,4 +59,27 @@
       activate(tab);
     });
   });
+
+  // ?tab=<name> selects a tab on load — new for the Reminders tab, whose
+  // "Set new reminder" button leaves the page entirely (reminder_add is its
+  // own full page, mirroring contact_add/report_add) and would otherwise land
+  // the writer back on the default Contacts tab after they submit, one click
+  // away from the row they just created. marketing/views.py::reminder_add
+  // appends this on its post-create redirect; every other link into this page
+  // carries no such parameter and gets the template's own default (whichever
+  // .tab already carries the "active" class), so this is additive and changes
+  // nothing for any page load that does not ask for it. An unrecognised or
+  // missing name finds no matching tab and activate() does nothing, leaving
+  // the server-rendered default in place.
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var wanted = params.get("tab");
+    if (wanted) {
+      var match = strip.querySelector('.tab[data-tab="' + wanted + '"]');
+      if (match) activate(match);
+    }
+  } catch (_e) {
+    // URLSearchParams is missing only on ancient browsers this platform does
+    // not otherwise support; the page still works, just on its default tab.
+  }
 })();
