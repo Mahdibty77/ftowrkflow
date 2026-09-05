@@ -837,6 +837,62 @@
     stashedBadgeText = {};
   }
 
+  // THE PERMANENT counterpart to setContextualBadge above — a SEPARATE
+  // concern, not a replacement for it. setContextualBadge/restoreContextualBadges
+  // exist purely for the lifetime of one query (stash the server-rendered
+  // text, show a query-scoped number instead, put the original back on
+  // Clear); this function instead REPLACES a card's own server-rendered
+  // state for good, the moment a write that changed its count actually
+  // lands, so a card never has to wait for a page reload to show what the
+  // viewer just did. See the module docstring's own note on why the badge
+  // number and the has-entries/is-empty class used to be baked into the SVG
+  // once, server-side, at page load, and never touched again.
+  //
+  // ``count`` is always the field's fresh, server-computed, viewer-scoped
+  // total — never a delta this file guesses at — because every write this
+  // is called after (label_toggle, connection_toggle) now returns it
+  // straight from ``services.label_counts``, the one place that number is
+  // actually computed; see those two views' own docstrings in
+  // marketing/views.py. If a query happens to be active and has this same
+  // field's badge showing a CONTEXTUAL count via setContextualBadge right
+  // now, this call still overwrites the badge text on screen — the reader
+  // just took an action that changed the real total, so the on-screen
+  // number moves too, even though runInquiryForClient (called right after,
+  // by every one of this function's own callers) is about to overwrite it
+  // again with a freshly-recomputed contextual number of its own.
+  //
+  // stashedBadgeText ALSO HAS TO MOVE, when it already holds a stash for
+  // this field, and this is the one part of the job setContextualBadge's
+  // OWN stash guard cannot do for itself. That guard (see
+  // setContextualBadge above) stashes a field's badge text only the FIRST
+  // time a query lights it, on purpose — a second Inquiry re-run over the
+  // SAME still-active anchor must not clobber the real original with
+  // whatever contextual number happened to be on screen a moment ago. But
+  // that is exactly wrong for THIS write: a real, permanent count just
+  // changed underneath the stash, and the owner's own worked example is
+  // precisely two such writes landing back to back while one anchor stays
+  // active the whole time (tag a card, confirm, tag a second company,
+  // confirm, THEN deactivate) — if the stash is left holding the value from
+  // before either write, Deactivate/Clear restores THAT stale number, not
+  // the true total either write actually produced. So when a stash already
+  // exists for this field, it is advanced to this write's own fresh text
+  // right here — the one place that both knows the real new count and runs
+  // strictly before the next setContextualBadge call (this function's own
+  // callers always await this write before re-running Inquiry), so the
+  // stash a future Clear/Deactivate reads is never behind the database.
+  function applyLiveCount(field, count) {
+    var g = nodesByField[field];
+    if (!g) { return; }
+    g.classList.toggle('has-entries', count > 0);
+    g.classList.toggle('is-empty', count <= 0);
+    var text = count > 999 ? '999+' : String(count);
+    var textEl = g.querySelector('.rc-badge-text');
+    if (textEl) { textEl.textContent = text; }
+    if (Object.prototype.hasOwnProperty.call(stashedBadgeText, field)) {
+      stashedBadgeText[field] = text;
+    }
+  }
+
   function clearQueryMarks() {
     Object.keys(nodesByField).forEach(function (field) {
       nodesByField[field].classList.remove('is-focus', 'is-lit', 'is-case-anchor');
@@ -1744,12 +1800,45 @@
   function gutterAboveRow(i) { return currentRowTop(i) - LANE_GUTTER_PAD; }
 
   // The x for the vertical run between ``yTop`` and ``yBottom``: the chart's
-  // own centre lane whenever nothing sits on it over that span, otherwise the
-  // nearest x to the centre that clears every card the span passes. The
-  // candidates are the SIDES of the cards actually in the way (plus
-  // clearance) — so the lane hugs the corridor between two columns rather
-  // than being picked from a hardcoded list of "probably empty" x values.
-  function pickLaneX(yTop, yBottom) {
+  // own centre lane whenever nothing sits on it over that span, otherwise
+  // whichever free lane produces the SHORTER overall line, given where this
+  // particular line's own two endpoints (``fromX``/``toX``) actually sit —
+  // never a fixed centre-seeking default. The candidates are the SIDES of
+  // the cards actually in the way (plus clearance) — so the lane hugs the
+  // corridor between two columns rather than being picked from a hardcoded
+  // list of "probably empty" x values.
+  //
+  // WHY "CLOSEST TO CENTRE" WAS WRONG. The previous version of this function
+  // sorted the free candidates by distance to the chart's own geometric
+  // centre (``centre``, below) alone, on the unstated assumption that the
+  // centre is always a decent proxy for "close to where this line actually
+  // needs to go". That holds for a line whose own endpoints straddle or sit
+  // near the centre column, but breaks down hard for a line whose endpoints
+  // both sit well off to one side — the owner's own worked example: "MC"
+  // (mgmt contractor) and "Sponsor" both sit on the RIGHT column (x=800), so
+  // a lane equidistant from centre on the left (e.g. x=380, hugging the
+  // "Project" card's left edge) scored identically to the lane on the right
+  // (e.g. x=920) despite the left one forcing two long horizontal jogs of
+  // roughly 420 units each versus the right one's roughly 120 — a visibly
+  // longer, more circuitous route for no reason a reader could see. This
+  // used to also produce the exact crossing the owner separately reported as
+  // reading "cut" (see drawQueryLines' own halo comment): hugging all the
+  // way over to the chart's LEFT side sent the line through a corridor
+  // shared by several unrelated static structural edges (the grey
+  // parent/child connectors _connect() always draws — see rolechart.py),
+  // and — being one continuous static line, not another query line — those
+  // never got the halo casing that keeps two crossing QUERY lines reading as
+  // a clean hop-over (buildHaloPath only ever wraps a ``.rc-query-line``).
+  // Routing to the genuinely nearer, shorter-path side avoids that whole
+  // corridor in the owner's own case; see this function's own docstring
+  // note is echoed in drawQueryLines where the halo mechanism is described.
+  //
+  // ``fromX``/``toX`` are optional (default to the centre) purely so a
+  // caller that has no better reference than the centre itself — there is
+  // none today; queryLinePoints, this function's only caller, always has the
+  // real two endpoints in hand — still gets sane behaviour rather than a
+  // crash.
+  function pickLaneX(yTop, yBottom, fromX, toX) {
     var centre = centerLaneX();
     var blocked = [];
     Object.keys(nodesByField).forEach(function (field) {
@@ -1771,7 +1860,27 @@
       return x > LANE_CLEAR && x < VIEW_W0 - LANE_CLEAR && isFree(x);
     });
     if (!candidates.length) { return centre; }
-    candidates.sort(function (a, b) { return Math.abs(a - centre) - Math.abs(b - centre); });
+    // The actual route cost of putting the vertical run at lane ``x``: the
+    // sum of the two horizontal gutter jogs this line would need to make to
+    // REACH that lane from each of its own two endpoints. This is the real
+    // "how much longer is this path", in the same viewBox units the chart
+    // itself is drawn in — not a proxy like "how far from the chart's own
+    // middle". A candidate strictly between the two endpoints costs the same
+    // (the endpoints' own separation) as any other candidate also between
+    // them, and grows the further outside that span a candidate sits —
+    // exactly the shape "shortest path" should have.
+    var refA = (typeof fromX === 'number') ? fromX : centre;
+    var refB = (typeof toX === 'number') ? toX : centre;
+    function routeCost(x) { return Math.abs(refA - x) + Math.abs(refB - x); }
+    candidates.sort(function (a, b) {
+      var byCost = routeCost(a) - routeCost(b);
+      if (byCost !== 0) { return byCost; }
+      // A genuine tie in route cost (e.g. the two endpoints straddle the
+      // centre symmetrically, as sponsor/licensor do either side of owner) —
+      // fall back to the old centre-seeking preference purely as a stable,
+      // visually-centred tie-break, never as the primary criterion.
+      return Math.abs(a - centre) - Math.abs(b - centre);
+    });
     return candidates[0];
   }
 
@@ -1802,7 +1911,12 @@
     var down = toRow > fromRow;
     var gFrom = down ? gutterBelowRow(fromRow) : gutterAboveRow(fromRow);
     var gTo = down ? gutterAboveRow(toRow) : gutterBelowRow(toRow);
-    var lane = pickLaneX(Math.min(gFrom, gTo), Math.max(gFrom, gTo));
+    // from.cx/to.cx — this line's own two real endpoints — so pickLaneX can
+    // weigh a free lane by the SHORTER actual path it produces for THIS
+    // line, rather than by which lane merely sits closest to the chart's
+    // own geometric middle. See pickLaneX's own comment for the worked
+    // example (mc/sponsor, both off to one side) this exists for.
+    var lane = pickLaneX(Math.min(gFrom, gTo), Math.max(gFrom, gTo), from.cx, to.cx);
     return [
       { x: from.cx, y: down ? from.y + from.h : from.y },
       { x: from.cx, y: gFrom },
@@ -2351,6 +2465,12 @@
     clients.forEach(function (client) {
       chain = chain.then(function () {
         return post(CFG.labelToggleUrl, { client_id: client.id, label: field, add: 1 });
+      }).then(function (data) {
+        // Every response in this chain carries the field's own fresh total
+        // as of THAT write, so the main chart's card keeps pace live, one
+        // company at a time, instead of jumping straight from its pre-batch
+        // count to its post-batch one the moment the whole chain settles.
+        if (data && data.ok) { applyLiveCount(field, data.count); }
       });
     });
     chain.then(function () {
@@ -2702,8 +2822,16 @@
       xBtn.addEventListener('click', function (ev) {
         ev.stopPropagation();
         var seq = modalSeq;
-        post(CFG.labelToggleUrl, { client_id: company.id, label: modalField, add: 0 }).then(function (data) {
-          if (seq !== modalSeq || !data.ok) { return; }
+        var field = modalField;
+        post(CFG.labelToggleUrl, { client_id: company.id, label: field, add: 0 }).then(function (data) {
+          if (!data.ok) { return; }
+          // The main chart's own card updates on THIS field regardless of
+          // whether the modal that started the request is still open on it
+          // (or open at all) by the time the response lands — the write
+          // already happened against ``field``, so the permanent badge/fill
+          // it drives has to move too, same as every other call site here.
+          applyLiveCount(field, data.count);
+          if (seq !== modalSeq) { return; }
           if (selectedEntity && selectedEntity.id === company.id) {
             selectedEntity = null;
             updateActionState();
@@ -3083,6 +3211,16 @@
         };
         if (caseId) { params.case_id = caseId; }
         return post(CFG.connectionToggleUrl, params);
+      }).then(function (data) {
+        // ``field`` here is always the TARGET's own field (the card this
+        // whole confirm is running on, ``st.field`` — see this handler's own
+        // comment above), never the anchor's: the anchor's own card can
+        // never change count from a connection write — see
+        // marketing/views.py::connection_toggle's own docstring for why —
+        // so there is nothing to apply for it here. ``count`` comes back the
+        // same on both add and remove (again see that docstring), so this
+        // one call needs no add/remove branch of its own.
+        if (data && data.ok) { applyLiveCount(field, data.count); }
       });
     });
     chain.then(function () {
@@ -3194,7 +3332,33 @@
           // "only the latest request may paint" discipline every other
           // fetch in this file already follows.
           if (!data.ok || !quickCompany || quickCompany.id !== company.id) { return; }
-          quickRoles = data.labels || [];
+          // client_connections' own ``labels`` (marketing/services.py::
+          // connections_of_client) is NOT "roles this company holds" — it is
+          // EVERY label field in the whole chart, each annotated with who
+          // ``company`` (as the query's anchor) is CONNECTED TO under that
+          // field via a Connection row, whether or not ``company`` holds the
+          // field itself. An entry ``company`` is only connected THROUGH
+          // (never holds directly) still carries real names in its own
+          // ``connected`` list, with ``source: null`` and ``also_manual:
+          // false`` marking exactly that — see the docstring's own
+          // "supervision" example. Quick Inquiry's role picker asks the
+          // OPPOSITE question ("what roles does this company itself hold"),
+          // so only entries that are actually case-derived or manually
+          // tagged on ``company`` survive here. Per connections_of_client's
+          // own code, a directly-held entry's ``source`` is always "case" or
+          // "manual" (never null) — ``also_manual`` only flags when BOTH a
+          // case and a manual tag exist for the same label, so filtering on
+          // ``also_manual`` instead (or in addition) would wrongly drop a
+          // role that is purely manually tagged; the real membership test,
+          // confirmed against a real response in the network tab, is simply
+          // "source is not null". This filtered list also feeds
+          // quickAddRoleToggle's "does not already hold" computation below
+          // (it reads quickRoles, not data.labels directly), so a
+          // connection-only field no longer gets wrongly treated as
+          // "already held" there either.
+          quickRoles = (data.labels || []).filter(function (l) {
+            return l.source === 'case' || l.source === 'manual';
+          });
           quickPopulateRoleField(selectFieldAfter);
         });
       }
@@ -3308,7 +3472,13 @@
         var company = quickCompany;
         quickNewRoleAdd.disabled = true;
         post(CFG.labelToggleUrl, { client_id: company.id, label: field, add: 1 }).then(function (data) {
-          if (!data.ok || !quickCompany || quickCompany.id !== company.id) { return; }
+          if (!data.ok) { return; }
+          // The main chart's own card for ``field`` updates regardless of
+          // whether this Quick Inquiry widget still has the same company
+          // picked by the time the response lands — same reasoning as the
+          // label row's own "×" above.
+          applyLiveCount(field, data.count);
+          if (!quickCompany || quickCompany.id !== company.id) { return; }
           quickFetchRoles(company, field);
         });
       });

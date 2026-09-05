@@ -333,8 +333,22 @@
 }
 .rc-node.is-empty .rc-role{ fill:var(--muted); }
 .rc-node.is-empty .rc-abbr{ fill:var(--muted); }
-.rc-node.has-entries .rc-role{ fill:var(--ink); }
-.rc-node.has-entries .rc-abbr{ fill:var(--ink); fill-opacity:.72; }
+/* FIXED white, not --ink, and not theme-dependent. --ink is dark in light
+   theme and light in dark theme — exactly backwards for text sitting on a
+   card whose own fill is now a fixed dark colour in BOTH themes (see the
+   per-row fill rule below): var(--ink) would render as near-black text on a
+   near-black card the moment the reader is in light mode. A plain filled
+   card's own colour no longer varies with the app theme, so its text
+   shouldn't either — same fixed-white rule the "us" card's role/abbr use
+   further down this file.
+
+   THIS IS THE IDLE/is-lit CASE ONLY. Query mode's white-out and is-focus
+   states still sit on a --paper-based fill that genuinely flips with the
+   theme (plain --paper for white-out, a pale accent-into-paper mix for
+   focus) — those two restore --ink at higher specificity, in the query-mode
+   section further down, exactly as before this round. */
+.rc-node.has-entries .rc-role{ fill:#f8fafc; }
+.rc-node.has-entries .rc-abbr{ fill:#f8fafc; fill-opacity:.82; }
 
 /* ---- Per-row colour coding (has-entries cards only) ------------------------
    The owner's own follow-up, in Persian: "هر ردیف و سطح یک رنگ جدا ولی در یک
@@ -356,83 +370,84 @@
    distinct high-contrast black/white plate instead of a row hue, further
    down this file.
 
-   THE PALETTE ITSELF WAS REPLACED THIS ROUND. It used to be ten hues on one
-   narrow blue-to-violet arc at a single shared saturation — the owner has
-   since lifted that restriction ("greens, blues and so on are fine") while
-   keeping the two rules that mattered: not harsh, not lifeless, and one
-   colour per ROW. So this is now a deliberate ten-stop walk once around the
-   wheel, top of the chart to bottom — teal, sky, indigo, violet, plum, rose,
-   clay, amber, moss, green — which gives the chart a readable sense of
-   descent as well as ten distinguishable neighbours.
+   THE PALETTE WAS REPLACED AGAIN THIS ROUND, THIS TIME ON THE OWNER'S DIRECT
+   REJECTION OF THE ONE ABOVE. The ten-hue rainbow arc that used to sit here
+   (teal, sky, indigo, violet, plum, rose, clay, amber, moss, green, each at
+   a medium 46%-64% saturation and a medium lightness mixed into --paper —
+   see the fill rule below for exactly what that produced) read, in the
+   owner's own words, as a coloured PASTEL chart, not a chart built from
+   Foolad Tabar's own card language — dark plate, white text, the same
+   idiom the "us" card has always used for itself, further down this file.
+   The instruction this time was narrow and explicit: dark colours, white
+   text, and only two hue families anywhere on the chart — dark blue and
+   dark green — nothing else, nothing pastel.
 
-   NOT GARISH, AND NOT DEAD, is bought per hue rather than by one global
-   number: each row sets BOTH its hue (--rc-row-h) and its own saturation
-   (--rc-row-s), because equal saturation does not read equally across the
-   wheel — a 62% amber is lively where a 62% plum is lurid. Saturations sit
-   between 46% and 64% (RAISED from an earlier 32%-48% band — see below):
-   high enough that a card reads as coloured at a glance from across the
-   chart, low enough that ten of them together are calm. Lightness is NOT
-   per row (48% light / 58% dark), so the whole palette keeps one consistent
-   weight and the same text contrast on every card.
+   So the ten stops below are confined to one continuous arc from green
+   through teal to blue (hue ~140 through ~230) and nowhere else on the
+   wheel. Row order deliberately ALTERNATES back and forth across that arc —
+   green, blue, teal, blue, green, teal, blue, green, teal, blue — rather
+   than walking it once end to end, because two rows stacked next to each
+   other on the chart are what actually need to contrast; a monotonic walk
+   through a 90°-wide arc puts immediate neighbours only a few degrees apart
+   and they blur together. Saturation stays in a similar rich band to
+   before (56%-68%) — the owner's complaint was never that the old palette
+   was too saturated, it was that "dark" had to come from saturation alone
+   while lightness sat in the middle of the scale; saturation here is still
+   doing real work, but see the fill rule below for where "dark" actually
+   comes from now (lightness, not saturation, and no --paper in the mix). */
+.rc-node[data-row-index="0"]{ --rc-row-h:145; --rc-row-s:62%; }  /* licensor / sponsor — green      */
+.rc-node[data-row-index="1"]{ --rc-row-h:215; --rc-row-s:66%; }  /* owner              — blue       */
+.rc-node[data-row-index="2"]{ --rc-row-h:175; --rc-row-s:60%; }  /* project / phase    — teal       */
+.rc-node[data-row-index="3"]{ --rc-row-h:230; --rc-row-s:64%; }  /* pmt / mc           — deep blue  */
+.rc-node[data-row-index="4"]{ --rc-row-h:150; --rc-row-s:58%; }  /* design / superv.   — green      */
+.rc-node[data-row-index="5"]{ --rc-row-h:190; --rc-row-s:62%; }  /* c / p / pc / epc   — teal       */
+.rc-node[data-row-index="6"]{ --rc-row-h:220; --rc-row-s:68%; }  /* the subcontractors — blue       */
+.rc-node[data-row-index="7"]{ --rc-row-h:140; --rc-row-s:56%; }  /* tpi / laboratory   — green      */
+.rc-node[data-row-index="8"]{ --rc-row-h:200; --rc-row-s:64%; }  /* us                 — teal-blue  */
+.rc-node[data-row-index="9"]{ --rc-row-h:160; --rc-row-s:60%; }  /* rival / supplier   — teal-green */
+/* TO CHANGE ONE ROW'S COLOUR LATER: edit that row's own one-line block
+   above (hue + saturation) and, if it needs to be darker/lighter than its
+   neighbours specifically, add a --rc-row-l override on that same line —
+   see the fallback in the fill rule just below. Nothing else in this file
+   needs to change; every rule that paints a row (idle fill/stroke, the
+   is-lit query highlight) reads these three custom properties rather than
+   hardcoding a colour of its own.
 
-   RAISED THIS ROUND, TOGETHER WITH THE FILL MIX BELOW: the owner's own
-   complaint was that filled cards read as pale/washed-out ("رنگ‌ها باید
-   پرروح‌تر باشند" — richer, more full of life) next to an empty card, which
-   should read as a much starker white gap once its neighbours are
-   genuinely coloured. Saturation and the fill-mix ratio are RAISED
-   TOGETHER because either one alone still under-delivers: a higher
-   saturation at the old 32% mix stayed pale (32% of a punchier hue is
-   still mostly --paper), and a higher mix at the old saturation just
-   produced a darker GREY rather than a richer colour. Moving both is what
-   actually reads as "alive" rather than "loud" — see the mix rule below for
-   the actual ratio and its own contrast note. The relative spacing between
-   rows (their saturation deltas) is otherwise preserved from before, so ten
-   neighbours are still as distinguishable as they were, just each one
-   further from --paper.
-
-   Both custom properties are then read by the shared color-mix fill/stroke
-   rules (here and on .rc-node.has-entries .rc-box above), so there are two
-   fill rules for ten rows rather than ten near-duplicates. */
-.rc-node[data-row-index="0"]{ --rc-row-h:174; --rc-row-s:58%; }  /* licensor / sponsor — teal   */
-.rc-node[data-row-index="1"]{ --rc-row-h:205; --rc-row-s:64%; }  /* owner              — sky    */
-.rc-node[data-row-index="2"]{ --rc-row-h:232; --rc-row-s:60%; }  /* project / phase    — indigo */
-.rc-node[data-row-index="3"]{ --rc-row-h:266; --rc-row-s:50%; }  /* pmt / mc           — violet */
-.rc-node[data-row-index="4"]{ --rc-row-h:310; --rc-row-s:46%; }  /* design / superv.   — plum   */
-.rc-node[data-row-index="5"]{ --rc-row-h:344; --rc-row-s:56%; }  /* c / p / pc / epc   — rose   */
-.rc-node[data-row-index="6"]{ --rc-row-h:16;  --rc-row-s:62%; }  /* the subcontractors — clay   */
-.rc-node[data-row-index="7"]{ --rc-row-h:38;  --rc-row-s:60%; }  /* tpi / laboratory   — amber  */
-.rc-node[data-row-index="8"]{ --rc-row-h:92;  --rc-row-s:48%; }  /* us                 — moss   */
-.rc-node[data-row-index="9"]{ --rc-row-h:150; --rc-row-s:54%; }  /* rival / supplier   — green  */
-/* A filled card is deliberately saturated (the owner's own follow-up: filled
+   A filled card is deliberately saturated (the owner's own follow-up: filled
    cards should "look rich", and an empty one should be obvious beside them at
    a glance). The confident border that goes with it is on
    .rc-node.has-entries .rc-box further up (it reads the same two properties),
    so a filled card differs from an empty one in fill, stroke colour, stroke
    weight AND dash pattern, not in a single faint tint.
 
-   THE MIX RATIO WAS RAISED FROM 32% TO 46% THIS ROUND, alongside the
-   saturation bump above — 32% of even a much more saturated hue was still
-   reading as a tint rather than a colour; 46% is roughly half again as much
-   of the row's own hue in the blend, which is what actually crosses from
-   "pastel" to "genuinely coloured" while --paper still shows through enough
-   to keep --ink text comfortably legible on top of it (see the dark-mode
-   note just below for the measured contrast that keeps this honest, not
-   assumed). */
+   THE FORMULA CHANGED THIS ROUND, NOT JUST THE NUMBERS IN IT. The old rule
+   mixed a MEDIUM-lightness hue (48% light / 58% dark) into --paper — a
+   light/near-white base — at 40%-46%. That is structurally incapable of
+   reading as "dark": even at the high end of that mix, more than half of
+   the result was still --paper, and the hue being mixed in was itself never
+   dark to start with. Raising the mix ratio further on the same formula
+   could not fix that; it would only interpolate further between "pale" and
+   "medium", never reach "dark", because the far end of the interpolation
+   was never dark. So the formula changes instead: each row's own HSL colour
+   is used DIRECTLY as the fill, at a genuinely low lightness (26% —
+   dark blue / dark green, inside the owner's own named range), with no
+   --paper in the blend at all. --rc-row-l is a per-row override for the odd
+   row whose hue reads lighter or darker than its neighbours at the same
+   numeric lightness (a strict area/hue trade-off — judged live against the
+   rendered chart, not assumed); the 26% fallback covers every row that
+   doesn't need one, which today is all ten.
+
+   THIS IS ALSO WHAT MAKES THE FILL UNCONDITIONAL ACROSS THE LIGHT/DARK APP
+   THEME — the owner's own instruction, repeated for the "us" card further
+   down this file: "a card's own colour is the row's identity, not something
+   that should look different depending on the reader's theme preference." A
+   literal hsl() with no --paper reference cannot flip with the theme, so the
+   dark-mode restatement the old formula needed here (a second, lighter hue
+   mixed against the theme's own darker --paper) is gone outright — there is
+   nothing left for it to restate; this same fill is correct, unmodified, in
+   both [data-mode="dark"]/[data-theme="dark"] and light. */
 .rc-node.has-entries[data-kind="label"] .rc-box{
-  fill:color-mix(in srgb, hsl(var(--rc-row-h) var(--rc-row-s) 48%) 46%, var(--paper));
-}
-/* Dark: the same hue at a lighter 58% against the theme's own dark --paper
-   (#1e293b), mixed at a slightly lower 40% rather than light mode's 46% —
-   dark mode's own lighter row lightness (58% vs. light's 48%) already pushes
-   more colour into the blend for the same mix ratio, so matching light
-   mode's 46% here would start crowding --ink's (#e2e8f0) contrast margin on
-   the palette's lightest members (amber, sky) rather than its darkest.
-   Measured, not assumed: 40% still lands every one of the ten rows
-   comfortably past 4.5:1 against --ink, the same bar the previous 32%
-   mix was held to. */
-[data-mode="dark"] .rc-node.has-entries[data-kind="label"] .rc-box,
-[data-theme="dark"] .rc-node.has-entries[data-kind="label"] .rc-box{
-  fill:color-mix(in srgb, hsl(var(--rc-row-h) var(--rc-row-s) 58%) 40%, var(--paper));
+  fill:hsl(var(--rc-row-h) var(--rc-row-s) var(--rc-row-l, 26%));
 }
 /* is-focus/is-lit/is-case-anchor (query mode, further down this file) must
    still read clearly on TOP of a row-tinted card, not get muddied by it —
@@ -550,12 +565,22 @@
    شیشه‌ای داشته باشند" — is emphatically not what this is; nothing here
    touches opacity at all.)
 
-   Both rules are token-based (--paper/--muted/--ink all flip with the theme,
-   and the tint reads the same per-row --rc-row-h/--rc-row-s the idle chart
-   uses), so light and dark need only the one lightness swap each already has
-   above rather than a second pair of selectors here. */
+   THE LIT FILL NOW MATCHES THE IDLE DARK BASE, NOT THE OLD PALETTE'S PALE
+   TINT. It used to be its own separate color-mix, lighter than the idle
+   fill of that round (a highlighted card was meant to look brighter than a
+   plain filled one, which was itself already a pale tint) — against the new
+   dark idle base further up this file, that same "lighter" mix would have
+   read as a return to the rejected pastel look the moment a query ran,
+   exactly the regression the owner is trying to get away from. So this is
+   the same per-row hsl() the idle fill uses, just a touch brighter/more
+   saturated to still read as "this is the one that's highlighted" rather
+   than a no-op: +6 lightness and +6 saturation over the idle 26%/row-own-
+   saturation, judged live against the running chart rather than assumed.
+   Being a literal hsl() with no --paper reference, it is unconditional
+   across the theme exactly like the idle fill is, so the dark-mode
+   restatement this rule used to need is gone for the same reason. */
 .rc-chart.is-query .rc-node.is-lit[data-kind="label"] .rc-box{
-  fill:color-mix(in srgb, hsl(var(--rc-row-h) var(--rc-row-s) 48%) 44%, var(--paper));
+  fill:hsl(var(--rc-row-h) calc(var(--rc-row-s) + 6%) calc(var(--rc-row-l, 26%) + 6%));
 }
 /* A card the query REACHED is never drawn with the empty card's dashed
    "waiting to be filled" outline, even when it is itself .is-empty.
@@ -569,10 +594,6 @@
 .rc-chart.is-query .rc-node.is-lit .rc-box,
 .rc-chart.is-query .rc-node.is-focus .rc-box{
   stroke-dasharray:none;
-}
-[data-mode="dark"] .rc-chart.is-query .rc-node.is-lit[data-kind="label"] .rc-box,
-[data-theme="dark"] .rc-chart.is-query .rc-node.is-lit[data-kind="label"] .rc-box{
-  fill:color-mix(in srgb, hsl(var(--rc-row-h) var(--rc-row-s) 58%) 42%, var(--paper));
 }
 /* The white-out. Scoped to .has-entries because an .is-empty card is already
    the plain dashed --paper plate this is aiming at and must keep its own
@@ -593,6 +614,43 @@
      be carried at closer to full strength there to read as an outline at
      all. */
   stroke:color-mix(in srgb, var(--muted) 70%, transparent);
+}
+/* THE WHITE-OUT (AND is-focus) MUST KEEP --ink TEXT, NOT THE NEW FIXED WHITE.
+   .rc-node.has-entries .rc-role/.rc-abbr further up this file were changed to
+   a fixed white this round, for the idle and is-lit cards whose own fill is
+   now a fixed dark colour in both themes (see that rule's own comment). The
+   white-out and is-focus states are NOT that case: a white-out card's fill is
+   plain --paper above, and is-focus's own fill (further up, in the query-mode
+   section) is a pale color-mix INTO --paper — both still genuinely flip
+   between near-white (light theme) and near-black (dark theme) the way the
+   old per-row fill used to. Inheriting the new fixed white text onto either
+   would go invisible the moment a reader is in light theme: white text on a
+   white (or pale-accent-on-white) card. So both states restate --ink here,
+   at higher specificity than the plain has-entries rule, exactly the text
+   treatment they always had — nothing about THIS text changes this round,
+   only the idle/is-lit text above it does.
+
+   [data-kind="us"] IS EXCLUDED FROM THE is-focus PART OF THIS, DELIBERATELY.
+   "us" is not always merely lit — its own all-cases search runs the exact
+   same query machinery with "us" itself as ``focusField`` (see
+   chart_interact.js's own note on that), so is-focus can land on the "us"
+   card too. Unlike an ordinary label card, "us" never takes is-focus's pale
+   --paper-mix fill in the first place — its own rule further down this file
+   keeps the plate fixed black through query mode regardless of is-focus —
+   so restoring --ink text here would fight that fixed-black plate instead of
+   matching it: near-black --ink text on a near-black plate in light theme,
+   exactly the illegible pairing this whole fix is meant to prevent
+   elsewhere. "us" keeps its own fixed white text (further down this file)
+   in every state; only a genuine label card's is-focus needs --ink back. */
+.rc-chart.is-query .rc-node.is-focus:not([data-kind="us"]) .rc-role,
+.rc-chart.is-query .rc-node.is-focus:not([data-kind="us"]) .rc-abbr,
+.rc-chart.is-query .rc-node.has-entries:not(.is-focus):not(.is-lit):not([data-kind="us"]) .rc-role,
+.rc-chart.is-query .rc-node.has-entries:not(.is-focus):not(.is-lit):not([data-kind="us"]) .rc-abbr{
+  fill:var(--ink);
+}
+.rc-chart.is-query .rc-node.is-focus:not([data-kind="us"]) .rc-abbr,
+.rc-chart.is-query .rc-node.has-entries:not(.is-focus):not(.is-lit):not([data-kind="us"]) .rc-abbr{
+  fill-opacity:.72;
 }
 /* A white card is still a control, and must still SAY so on hover/keyboard
    focus. The shared .rc-node:hover .rc-box accent stroke is far less specific
@@ -732,42 +790,74 @@
 /* ---- "Us" (Foolad Tabar): the one card that is not a row --------------------
    Every other card on this chart says "some company plays this role"; this
    one says "we do". The owner asked for it to look categorically different
-   from the twenty row-tinted cards around it — black/white, their own words —
+   from the ten row-tinted cards around it — black/white, their own words —
    rather than picking up row 8's hue as if it were just another slot.
 
-   --ink/--paper are the platform's own two extremes and BOTH flip with the
-   theme (static/css/app.css), so this single pair of rules is already the
-   correct treatment in light (a black plate with white text) and in dark (a
-   white plate with black text) without a [data-mode="dark"] block of its own
-   for the plate itself.
+   UNCONDITIONALLY BLACK NOW — THIS SUPERSEDES THE EARLIER "FLIPS WITH THE
+   THEME" DECISION THAT USED TO LIVE HERE. The plate used to be var(--ink)
+   and the text var(--paper) — both platform tokens that flip with the app
+   theme — which read as a deliberate black-plate/white-text card in light
+   theme but, since --ink is near-white and --paper is near-black in dark
+   theme, silently INVERTED there to a white plate with black text. That was
+   a considered choice at the time (see prior revisions of this comment) —
+   it kept the card's own tokens internally consistent with each other. The
+   owner has now reversed it outright: this card must look like Foolad
+   Tabar's own card, full stop, and "Foolad Tabar's own card" does not
+   repaint itself when a reader flips their OWN theme preference — the exact
+   same reasoning now governing the per-row fill above (see "THIS IS ALSO
+   WHAT MAKES THE FILL UNCONDITIONAL" in that block). So the plate is a
+   literal fixed near-black and the text a literal fixed near-white below,
+   neither one a theme token, and BOTH read identically in light and in dark
+   — verified live in both, not assumed (see this round's own verification
+   notes). A near-black (#0a0f1a) rather than pure #000 is used for the same
+   reason the platform's own --navy/--ink tokens already sit just off pure
+   black: a hair of blue keeps it from reading as a flat void next to the
+   also-dark blue/green row cards now surrounding it.
 
    PLACED AFTER the query-mode section deliberately. is-focus's own accent
    FILL (.rc-chart.is-query .rc-node.is-focus .rc-box) is strictly more
    specific than any [data-kind="us"] rule could be without piling on classes,
-   and letting it win here would paint a pale accent fill under text that is
-   --paper — i.e. white on near-white. So the two rules at the bottom of this
-   block restate the plate for query mode at matching specificity (and match
-   the dark focus rule's specificity for the dark case), winning on source
-   order alone; the accent RING and glow is-focus/is-lit also set are left
-   entirely alone, so this card still marks itself as focused/lit exactly like
-   every other card does. */
+   and letting it win here would paint a pale accent fill under white text —
+   pale-blue-on-white-ish, illegible. So the rule(s) at the bottom of this
+   block restate the plate for query mode at matching specificity, winning on
+   source order alone; the accent RING and glow is-focus/is-lit also set are
+   left entirely alone, so this card still marks itself as focused/lit
+   exactly like every other card does. UNLIKE the idle plate above, this
+   restatement still needs its own [data-mode="dark"]/[data-theme="dark"]
+   pair even though the FILL VALUE is now identical in both — the reason is
+   specificity, not colour: the dark-theme focus-fill rule this is racing
+   against (further up this file) carries its own [data-mode="dark"]
+   attribute, one selector heavier than the plain query-mode restatement
+   below, so without a matching dark-scoped rule here the focused "us" card
+   would lose to the accent fill in dark theme specifically. Checked live,
+   not assumed: dropping this pair and keeping only the unscoped restatement
+   left the focused "us" card showing the accent-tinted fill in dark theme
+   during a query, so it stays. */
 .rc-node[data-kind="us"] .rc-box{
-  fill:var(--ink); stroke:var(--ink); stroke-width:2; stroke-dasharray:none;
+  fill:#0a0f1a; stroke:#0a0f1a; stroke-width:2; stroke-dasharray:none;
 }
 .rc-node[data-kind="us"] .rc-role,
-.rc-node[data-kind="us"] .rc-abbr{ fill:var(--paper); fill-opacity:1; }
-.rc-node[data-kind="us"] .rc-badge{ fill:var(--paper); stroke:var(--paper); }
-.rc-node[data-kind="us"] .rc-badge-text{ fill:var(--ink); }
+.rc-node[data-kind="us"] .rc-abbr{ fill:#f8fafc; fill-opacity:1; }
+/* The badge pill used to flip with the theme too (--paper/--ink, the same
+   pair the plate itself used to use) — now fixed for the same reason: a
+   light pill with dark text, so it stays a clearly legible "count" chip
+   sitting on top of the fixed-black plate in both themes, rather than
+   turning into a dark-on-dark pill the moment the plate stopped flipping
+   out from under it in dark theme. */
+.rc-node[data-kind="us"] .rc-badge{ fill:#eef2f7; stroke:#eef2f7; }
+.rc-node[data-kind="us"] .rc-badge-text{ fill:#0f172a; }
 /* Hover/keyboard focus must still recolour this card's own border the way it
    does every other card's — the shared .rc-node:hover .rc-box rule sits
    ABOVE this block and would otherwise lose to it on source order. */
 .rc-node[data-kind="us"]:hover .rc-box,
 .rc-node[data-kind="us"]:focus-visible .rc-box{ stroke:var(--accent); }
-/* See this block's own note above: keep the black/white plate through query
-   mode instead of taking is-focus's own accent-tinted fill. */
-.rc-chart.is-query .rc-node[data-kind="us"] .rc-box{ fill:var(--ink); }
+/* See this block's own note above: keep the fixed-black plate through query
+   mode instead of taking is-focus's own accent-tinted fill. The value is the
+   same literal in both rules — only the selector's specificity differs,
+   which is the whole reason the second rule still exists (see above). */
+.rc-chart.is-query .rc-node[data-kind="us"] .rc-box{ fill:#0a0f1a; }
 [data-mode="dark"] .rc-chart.is-query .rc-node[data-kind="us"] .rc-box,
-[data-theme="dark"] .rc-chart.is-query .rc-node[data-kind="us"] .rc-box{ fill:var(--ink); }
+[data-theme="dark"] .rc-chart.is-query .rc-node[data-kind="us"] .rc-box{ fill:#0a0f1a; }
 
 /* The "us" cases panel's own per-case-group branch lines (drawn in
    drawUsCasesConnector, chart_interact.js) — one light, thin flourish per

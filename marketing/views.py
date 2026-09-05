@@ -279,7 +279,26 @@ def label_companies(request):
 @login_required
 @require_POST
 def label_toggle(request):
-    """POST client_id=, label=, add=1|0 -> add/remove THIS USER's own manual tag."""
+    """POST client_id=, label=, add=1|0 -> add/remove THIS USER's own manual tag.
+
+    Returns ``count``, the field's fresh viewer-scoped total, alongside
+    ``ok`` — added so the chart's own JS can update that card's badge/fill
+    THE INSTANT this write lands, instead of only after a full page reload.
+    Before this, the client had no way to know the field's new count short of
+    re-fetching the whole chart: the badge/class pair is baked into the SVG
+    server-side at page load (see ``marketing/rolechart.py::_node``) and
+    nothing after that ever refreshed it — see chart_interact.js's
+    ``applyLiveCount`` for the write side of this fix.
+
+    ``services.label_counts`` is called again here, once, for exactly this
+    reason: its own docstring says it is two queries total REGARDLESS of
+    client count, so paying for it a second time after a single write is
+    cheap — nowhere near the cost of a second per-key query, which is the
+    N+1 shape that function was written to replace in the first place. Only
+    the one field that could have changed (``label`` — the POST field this
+    view already validated above) is read back out of it; toggling a manual
+    label can never move any OTHER field's count.
+    """
     access = access_for(request)
     if not access.can_edit:
         return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
@@ -296,7 +315,8 @@ def label_toggle(request):
         return JsonResponse({"ok": False, "error": "Unknown client."}, status=404)
     add = (request.POST.get("add") or "1").strip() not in ("0", "false", "False", "")
     services.toggle_manual_label(client, label, request.user, add)
-    return JsonResponse({"ok": True})
+    count = services.label_counts(request.user, access.scope).get(label, 0)
+    return JsonResponse({"ok": True, "count": count})
 
 
 @login_required
@@ -322,6 +342,27 @@ def connection_toggle(request):
     param for the full visibility rule. Every caller that never sends
     ``case_id`` (every write outside case mode) keeps behaving exactly as
     before: a general, case-less edge.
+
+    Returns ``count``, the TARGET field's fresh viewer-scoped total —
+    the same live-update need ``label_toggle`` above now serves, and for the
+    same reason: the target card's badge/fill on the main chart has to move
+    the instant a connection lands, not only after a reload (see
+    chart_interact.js's ``applyLiveCount``). The ANCHOR's own field never
+    needs this: creating or removing a connection never adds or removes a
+    ``ClientLabel`` on the anchor (it already holds its own role — that is
+    what makes it eligible to be an anchor at all), so the anchor's card
+    never has anything to refresh here. The TARGET's field genuinely CAN
+    move on ``add`` — ``services.create_connection`` may register a fresh
+    ``ClientLabel`` for the target if it did not already hold ``target_role``
+    (see that function's own docstring) — and by the same rule the target's
+    count is UNCHANGED on ``remove``: ``services.remove_connection``
+    deliberately never undoes that grant (a role, once given, stays — see
+    its own docstring). ``count`` is still computed and returned on the
+    ``remove`` branch too, rather than only on ``add``: the alternative is an
+    ``if add`` in the JSON body, which would just push that same branch onto
+    every caller in chart_interact.js instead of removing it — one extra,
+    already-cheap ``label_counts`` call here buys a single shared
+    ``applyLiveCount(field, count)`` call on the JS side for both directions.
     """
     access = access_for(request)
     if not access.can_edit:
@@ -352,7 +393,8 @@ def connection_toggle(request):
         services.create_connection(anchor_client, anchor_role, target_client, target_role, request.user, case=case)
     else:
         services.remove_connection(anchor_client, anchor_role, target_client, target_role, case, request.user)
-    return JsonResponse({"ok": True})
+    count = services.label_counts(request.user, access.scope).get(target_role, 0)
+    return JsonResponse({"ok": True, "count": count})
 
 
 @login_required
