@@ -2005,7 +2005,7 @@ def case_report_add(request, pk):
             request,
             "The report needs at least one option ticked or some text.")
     return redirect(
-        "%s?mkttab=reports#marketing" % reverse("cases:case_detail", args=[case.pk]))
+        "%s?opentab=reports" % reverse("cases:case_detail", args=[case.pk]))
 
 
 @login_required
@@ -2051,7 +2051,7 @@ def case_reminder_add(request, pk):
     else:
         messages.error(request, "Enter a note and a valid Jalali date/time.")
     return redirect(
-        "%s?mkttab=reminders#marketing" % reverse("cases:case_detail", args=[case.pk]))
+        "%s?opentab=reminders" % reverse("cases:case_detail", args=[case.pk]))
 
 
 def _event_visible_to(event, unit) -> bool:

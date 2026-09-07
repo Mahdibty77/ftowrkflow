@@ -49,20 +49,73 @@
    app.css's .chip.c-draft — the same chip the roles card at the top of the
    company page uses — so it needs no rule of its own here either. */
 
-/* The roles card on the company detail page: the legend under the list is a
-   quiet two-item row rather than a paragraph. */
-.dir-label-chips{ gap:.4rem; }
-.dir-label-legend{
-  display:flex;
-  flex-wrap:wrap;
-  gap:.35rem 1rem;
-  margin-top:.7rem;
-}
-.dir-label-legend i{ color:var(--accent-strong); margin-right:.25rem; }
+/* THERE IS NO .dir-label-legend RULE ANY MORE. It styled the two-line
+   "from this company's cases" / "tagged by hand on the relationship chart"
+   block under the roles list; the owner asked for both lines gone with
+   nothing put in their place, the template stopped rendering that div, and
+   the rule went with it rather than sitting here matching nothing — the
+   same housekeeping this file's own .dir-tl-role comment above already
+   explains the reasoning for. The per-role source is still available on
+   hover (the `title=` on each `<li>` in .dir-roles-list, untouched).
+
+   .dir-label-chips (once the roles card's OTHER legend-adjacent rule) was
+   already unused before this round — nothing in this template ever carried
+   that class — so it is left exactly as it was found; this cleanup only
+   removes what THIS change made dead. */
 /* app.css's .empty is sized for a full-width table with nothing in it; this
    card is one panel in a three-panel row, and the same 2.5rem of air makes an
    untagged company's card noticeably taller than the ones beside it. */
 .dir-roles-card .empty{ padding:1.35rem 1rem; }
+
+/* THE TOP ROW OF THE COMPANY PAGE — Company | Roles | Cases — per the
+   owner's ask this round: Roles noticeably WIDER, Company and Cases
+   correspondingly narrower, because the roles list below renders in two CSS
+   columns (`.dir-roles-list`, right below this) and an even three-way split
+   left a Persian role label with nowhere near enough room to sit on one
+   line inside its column.
+
+   NOT `.grid-3` (app.css) — that class is still three EQUAL columns for
+   every OTHER row that uses it on this same page (the Reports/Reminders
+   filter grids further down in company_detail.html), so this row gets its
+   own class instead of widening `.grid-3` for everyone. `.grid` alone still
+   supplies display:grid/gap — only the column split is overridden here.
+
+   THE RATIO WAS MEASURED, NOT GUESSED, against a company seeded with seven
+   real roles (one of them "مشاور طراح — DESIGN CONSULTANT — FEED / DED", at
+   310px the longest label that still leaves Company and Cases usable —
+   the true worst case across every role this app can label a company with,
+   "پیمانکار طرح، خرید و اجرا — EPC — ...", runs to 376px and would force
+   Company/Cases below the width their OWN content needs to avoid visibly
+   overlapping the Roles card beside them; that combination is rare enough,
+   and every shorter role common enough, that it is left to wrap on its own
+   rather than shrinking the other two cards to chase it):
+
+   * `minmax(0,Nfr)`, not a bare `Nfr`, on all three columns. A bare `Nfr`
+     column's automatic minimum is its own content's natural (max-content)
+     size, not zero — with three of those competing for a fixed-width row,
+     Chrome pins each column at whatever that natural size happens to be and
+     STOPS RESPONDING to the fr ratio the moment the row runs out of free
+     space to redistribute (measured live: 4fr, 5fr and 6fr rendered
+     pixel-for-pixel identically). `minmax(0,Nfr)` removes that content-based
+     floor so the three columns actually divide the row by the ratio given.
+   * `1fr 3fr 1fr` is the ratio itself: Roles gets three times either of
+     Company/Cases. Below ~1580px there is no longer enough row for that
+     split to avoid the Roles card visually overlapping Company's own values
+     (measured: at 1440px wide, 1fr 3fr 1fr overlaps the two by ~28px), so
+     the ratio steps back down to the three EQUAL columns this row always
+     used, at the same 1100px/680px walls `.grid-3` itself already steps
+     down at (repeated here rather than shared, since this row's own default
+     is not `.grid-3`'s). */
+.dir-top-grid{ grid-template-columns:minmax(0,1fr) minmax(0,3fr) minmax(0,1fr); }
+@media (max-width:1580px){
+  .dir-top-grid{ grid-template-columns:repeat(3,1fr); }
+}
+@media (max-width:1100px){
+  .dir-top-grid{ grid-template-columns:repeat(2,1fr); }
+}
+@media (max-width:680px){
+  .dir-top-grid{ grid-template-columns:1fr; }
+}
 
 /* THE ROLES LIST ITSELF — one role per row, in TWO COLUMNS, per the owner's
    own ask this round. Plain CSS multi-column flow (not a second .grid): a

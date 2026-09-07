@@ -385,6 +385,27 @@
       <i class="fa-solid fa-layer-group"></i> {{ sd.label }}
     </button>
   {% endfor %}
+  {# REPORTS AND REMINDERS — case-wide facts (a report is not "the Internal    #}
+  {# side's report"), so on a multi-side case they live ONCE, here at the      #}
+  {# outer switch, rather than once per side inside each side's own tab bar    #}
+  {# (see _side_section.html's own comment: that per-side pair is gated       #}
+  {# `{% if not multi_side %}` for exactly this reason, so the two homes never #}
+  {# both render at once). Placed BEFORE "Combined timeline" in the DOM,       #}
+  {# unconditional on `hide_combined` (that flag only hides ONE button, not    #}
+  {# this pair) — DELIBERATELY THE OPPOSITE of a first guess. The obvious      #}
+  {# reasoning ("this page is RTL, so DOM order runs right-to-left, so         #}
+  {# appending AFTER Combined timeline puts these two on its left") turned out #}
+  {# to be wrong when checked against the actual rendered page: this row is    #}
+  {# `direction:ltr` / `flex-direction:row` like the rest of this app (see     #}
+  {# static/css/app.css — nothing here overrides it to RTL), so it lays out    #}
+  {# in plain left-to-right DOM order, and appending after Combined timeline    #}
+  {# put these two to its RIGHT, not its left. Measured live (each button's    #}
+  {# own `getBoundingClientRect().x`) before settling on this order, per the   #}
+  {# owner's own words ("در کنار تب combined timeline سمت چپ این تب" — next    #}
+  {# to the Combined timeline tab, on its left) rather than trusting the RTL   #}
+  {# assumption blind.                                                        #}
+  <button type="button" class="side-tab" data-side-tab="reports"><i class="fa-solid fa-file-lines"></i> Reports</button>
+  <button type="button" class="side-tab" data-side-tab="reminders"><i class="fa-solid fa-bell"></i> Reminders</button>
   {% if not hide_combined %}<button type="button" class="side-tab" data-side-tab="ALL"><i class="fa-solid fa-list-ul"></i> Combined timeline</button>{% endif %}
 </div>
 {% endif %}
@@ -435,17 +456,36 @@
 </div>
 {% endif %}
 
+{% if multi_side %}
 {# --------------------------------------------------------------- marketing #}
-{# Reports, Reminders and a marketing-style Timeline for THIS case — a       #}
-{# SEPARATE card from the audit timeline above, deliberately: that timeline  #}
-{# is this case's own workflow history (forms, routing, comments); this one  #}
-{# is Marketing's record of it, and the two are different kinds of row that  #}
-{# should never be merged into one list. Every row below comes straight out  #}
-{# of marketing.models.CompanyReport / Reminder / ClientEvent through the    #}
-{# same service functions the company's own Marketing directory page uses   #}
-{# (see cases/views.py::case_detail and the three _case_marketing_* helpers  #}
-{# above it) — a report or reminder written from either page is the exact    #}
-{# same database row and shows up on both.                                   #}
+{# Reports and Reminders for THIS case — case-wide facts, so on a multi-side #}
+{# case they live here, once, at the OUTER side-switch level (see the        #}
+{# `.side-switch` block above: two `.side-tab` buttons, `data-side-tab=      #}
+{# "reports"`/`"reminders"`, appended after "Combined timeline") rather than  #}
+{# inside either side's own tab bar — a report is not "the Internal side's   #}
+{# report", it is the case's. THIS USED TO BE A SEPARATE STANDALONE          #}
+{# "Marketing" CARD WITH ITS OWN INDEPENDENT TAB SWITCHER (#caseMktTabs /     #}
+{# [data-mkt-tab] / #caseMktPanels, plus a dedicated <script> block); it is   #}
+{# gone, and no new JavaScript replaces it — the SAME two switcher scripts    #}
+{# already on this page (the `.side-switch .side-tab` click handler and the   #}
+{# generic `.side-tabs .tab` → `#panel-<name>` handler, both further down)    #}
+{# already handle these two `.side-section`s generically, exactly as they     #}
+{# already handle "ALL"/Combined timeline above and every per-side panel      #}
+{# below — confirmed live rather than assumed (see this round's verification  #}
+{# notes).                                                                    #}
+{#                                                                            #}
+{# THE OLD THIRD TAB — a small marketing-style "Timeline" of REPORT_ADDED /   #}
+{# CASE_ROLE_CHANGED events (cases/views.py::_case_marketing_timeline,        #}
+{# `case_mkt_timeline`) — IS DELIBERATELY DROPPED, NOT RELOCATED. The owner   #}
+{# asked only to move Reports and Reminders; folding that content into the    #}
+{# audit timeline above would contradict this file's own established         #}
+{# reasoning (that timeline is this case's workflow history, the marketing    #}
+{# one is Marketing's record of it, "and the two are different kinds of row   #}
+{# that should never be merged into one list"); and `case_mkt_timeline` is    #}
+{# not read anywhere else on this page, so dropping it leaves no dangling     #}
+{# reference — the same fact this file's own view (cases/views.py::           #}
+{# case_detail) still computes and hands to the template unused, left alone   #}
+{# rather than removed, since this round touches templates only.             #}
 {#                                                                            #}
 {# VIEWING is open to anyone who reached this page at all (the owner's own   #}
 {# words: whoever has access to the case, per their role, may see these      #}
@@ -456,20 +496,13 @@
 {# is_case_commercial_owner), and the two inline forms below only ever       #}
 {# render for that one person; case_report_add/case_reminder_add re-check    #}
 {# the same rule server-side regardless.                                     #}
-<div class="card">
-  <div class="card-head">
-    <h3><i class="fa-solid fa-share-nodes" style="color:var(--accent-strong);margin-right:.4rem;"></i>Marketing</h3>
-  </div>
+<div class="side-section" data-side-panel="reports" style="display:none;">
+  <div class="tab-panel active" id="panel-reports">
+    <div class="card">
+      <div class="card-head">
+        <h3><i class="fa-solid fa-file-lines" style="color:var(--accent-strong);margin-right:.4rem;"></i>Reports</h3>
+      </div>
 
-  <div class="tabs" id="caseMktTabs">
-    <div class="tab active" data-mkt-tab="reports"><i class="fa-solid fa-file-lines"></i> Reports <span class="count">{{ case_reports|length }}</span></div>
-    <div class="tab" data-mkt-tab="reminders"><i class="fa-solid fa-bell"></i> Reminders <span class="count">{{ case_reminders|length }}</span></div>
-    <div class="tab" data-mkt-tab="timeline"><i class="fa-solid fa-clock-rotate-left"></i> Timeline</div>
-  </div>
-
-  <div id="caseMktPanels">
-    {# --------------------------------------------------------------- reports #}
-    <div class="tab-panel active" id="mkt-panel-reports">
       {% if is_case_owner %}
       {# A native <details> disclosure — no JavaScript needed to show/hide  #}
       {# it, and it starts closed so the reports table above it is the      #}
@@ -542,9 +575,18 @@
         </tbody>
       </table>
     </div>
+  </div>
+</div>
 
-    {# ------------------------------------------------------------- reminders #}
-    <div class="tab-panel" id="mkt-panel-reminders">
+{# ---------------------------------------------------------------- reminders #}
+{# Relocated wholesale, same reasoning as Reports above. #}
+<div class="side-section" data-side-panel="reminders" style="display:none;">
+  <div class="tab-panel active" id="panel-reminders">
+    <div class="card">
+      <div class="card-head">
+        <h3><i class="fa-solid fa-bell" style="color:var(--accent-strong);margin-right:.4rem;"></i>Reminders</h3>
+      </div>
+
       {% if is_case_owner %}
       <details class="card" style="margin-bottom:.8rem;">
         <summary class="btn btn-sm btn-primary" style="display:inline-flex;width:auto;cursor:pointer;">
@@ -621,60 +663,9 @@
         </tbody>
       </table>
     </div>
-
-    {# -------------------------------------------------------------- timeline #}
-    <div class="tab-panel" id="mkt-panel-timeline">
-      <ul class="timeline">
-        {% for ev in case_mkt_timeline %}
-        <li>
-          <div class="tl-action">
-            {% if ev.action == 'REPORT_ADDED' %}
-            Wrote a report on this case
-            {% elif ev.action == 'CASE_ROLE_CHANGED' %}
-            Changed this case's role:
-            <span class="chip c-draft" dir="auto"><i class="fa-solid fa-right-left"></i>{{ ev.subject_role }}</span>
-            {% else %}
-            {{ ev.action_label }}
-            {% endif %}
-          </div>
-          <div class="tl-meta"><span dir="auto">{{ ev.actor_name|default:"—" }}</span> · {{ ev.created_at|jalali:"Y.m.d H:i" }}</div>
-          {% if ev.comment %}<div class="tl-comment" dir="auto">{{ ev.comment }}</div>{% endif %}
-        </li>
-        {% empty %}
-        <li class="muted">No marketing activity recorded on this case yet.</li>
-        {% endfor %}
-      </ul>
-    </div>
   </div>
 </div>
-
-<script>
-  // The Marketing card's own tab switcher — deliberately independent of the
-  // Internal/External side switcher below (different id/class names
-  // throughout: #caseMktTabs / [data-mkt-tab] / #caseMktPanels, never
-  // .side-tabs or .side-section), so a click here can never touch that
-  // switcher's own "active" bookkeeping and vice versa. See this file's own
-  // side-switcher script for the failure this avoids: that one scopes its
-  // querySelectorAll to the closest .side-section (or document), and a
-  // shared class name here would have made one switcher blindly clear the
-  // other's active tab-panel on every click.
-  (function () {
-    var tabs = document.querySelectorAll('#caseMktTabs .tab');
-    var panels = document.querySelectorAll('#caseMktPanels .tab-panel');
-    function activate(name) {
-      tabs.forEach(function (t) { t.classList.toggle('active', t.dataset.mktTab === name); });
-      panels.forEach(function (p) { p.classList.toggle('active', p.id === 'mkt-panel-' + name); });
-    }
-    tabs.forEach(function (t) {
-      t.addEventListener('click', function () { activate(t.dataset.mktTab); });
-    });
-    // Reopens the tab a write action just redirected back to (?mkttab=...),
-    // the same convention marketing/views.py::reminder_add uses (?tab=...)
-    // for its own company-page redirect.
-    var wanted = new URLSearchParams(window.location.search).get('mkttab');
-    if (wanted) activate(wanted);
-  })();
-</script>
+{% endif %}
 
 <script>
   // Internal/External side switcher + per-section tab switcher.
@@ -714,6 +705,22 @@
     document.querySelectorAll('.side-tabs .tab').forEach(function (t) {
       t.addEventListener('click', function () { activateTab(t); });
     });
+
+    // Reopens the tab a Report/Reminder write just redirected back to
+    // (?opentab=reports|reminders — cases/views.py's case_report_add and
+    // case_reminder_add). Tries the outer side-switch button first (a multi-
+    // side case has Reports/Reminders there, not per-side); falls back to the
+    // per-side tab (a single-side case has them in its own .side-tabs, with a
+    // side-code suffix on data-tab, e.g. "reports-INTERNAL") since there is
+    // exactly one such tab on a single-side page. Simply clicking the real
+    // element reuses the two handlers above rather than duplicating their
+    // active/panel-swap logic a third time.
+    var wanted = new URLSearchParams(window.location.search).get('opentab');
+    if (wanted) {
+      var outer = document.querySelector('.side-switch .side-tab[data-side-tab="' + wanted + '"]');
+      var inner = document.querySelector('.side-tabs .tab[data-tab^="' + wanted + '-"]');
+      if (outer) { outer.click(); } else if (inner) { inner.click(); }
+    }
 
     // AJAX comment posting: keep the user on the same tab, just update the list.
     document.querySelectorAll('.ajax-comment-form').forEach(function (form) {

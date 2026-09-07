@@ -89,10 +89,19 @@
 </div>
 
 {# ------------------------------------------------- the three summary cards #}
-{# Company | Roles | Cases, in that order, one plain .card apiece in a       #}
-{# .grid.grid-3 — three EQUAL columns (app.css collapses to two, then one, on #}
-{# a narrower screen), not the old wide-card-plus-narrow-card split.         #}
-<div class="grid grid-3">
+{# Company | Roles | Cases, in that order, one plain .card apiece — but NOT  #}
+{# `.grid.grid-3` any more (that shared class still means three EQUAL        #}
+{# columns everywhere else this page uses it — the Reports/Reminders filter  #}
+{# grids further down — and this row is the only one the owner asked to      #}
+{# change). This row gets its own modifier, `.dir-top-grid`                  #}
+{# (marketing/static/marketing/css/directory.css), which keeps `.grid`'s     #}
+{# display:grid/gap but replaces the column split with one measured          #}
+{# specifically for this row: Roles renders its list in TWO CSS columns      #}
+{# (`.dir-roles-list` below) and a Persian role label routinely runs to 30+  #}
+{# characters plus its bracketed English abbreviation, so an equal third was #}
+{# never wide enough for one role per line — see that CSS rule's own comment #}
+{# for the actual measurements this ratio and its breakpoints came from.     #}
+<div class="grid dir-top-grid">
 
   {# --------------------------------------------------------------- company #}
   <div class="card">
@@ -145,10 +154,11 @@
       </li>
       {% endfor %}
     </ul>
-    <div class="help dir-label-legend">
-      <span><i class="fa-solid fa-folder-open"></i> from this company's cases</span>
-      <span><i class="fa-solid fa-tag"></i> tagged by hand on the relationship chart</span>
-    </div>
+    {# THE TWO-LINE LEGEND THAT USED TO SIT HERE IS GONE — the owner asked    #}
+    {# for both lines removed outright, with nothing put in their place. The  #}
+    {# per-role source is still available on hover (the `title=` on each      #}
+    {# `<li>` above, untouched), it is simply no longer spelled out in a      #}
+    {# permanent block under the list.                                       #}
     {% else %}
     <div class="empty">This company carries no roles yet.</div>
     {% endif %}

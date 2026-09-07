@@ -3,6 +3,27 @@
   <div class="tab active" data-tab="inq-{{ sd.code }}">Inquiry</div>
   <div class="tab" data-tab="to-{{ sd.code }}">Technical Offer</div>
   <div class="tab" data-tab="pi-{{ sd.code }}">Proforma</div>
+  {# REPORTS AND REMINDERS — moved here this round from what used to be a       #}
+  {# separate standalone "Marketing" card with its own independent tab          #}
+  {# switcher (see case_detail.html's own long comment on why that card is      #}
+  {# gone). Seated right before this side's own Timeline tab, per the owner's   #}
+  {# own words for where Reminders belongs on the company page too ("قبل از تب  #}
+  {# تایم لاین") — applied here identically.                                    #}
+  {#                                                                            #}
+  {# GATED ON `{% if not multi_side %}` — REPORTS AND REMINDERS ARE CASE-WIDE   #}
+  {# FACTS, NOT PER-SIDE ONES (a report is not "the Internal side's report",    #}
+  {# it is the case's), so on a case that actually HAS two sides they live      #}
+  {# ONCE, at the OUTER side-switch level (case_detail.html's own              #}
+  {# `.side-switch`, next to "Combined timeline" — see that block), never       #}
+  {# duplicated into each side's own tab bar as well. This include only reaches #}
+  {# `multi_side` because case_detail.html hands its whole context down to it   #}
+  {# (no `only` on the `{% include %}`) — the SAME variable that block's own    #}
+  {# `{% if multi_side %} · {{ sd.label }}{% endif %}` a few lines below        #}
+  {# already reads, confirming it really is in scope here.                     #}
+  {% if not multi_side %}
+  <div class="tab" data-tab="reports-{{ sd.code }}">Reports</div>
+  <div class="tab" data-tab="reminders-{{ sd.code }}">Reminders</div>
+  {% endif %}
   <div class="tab" data-tab="tl-{{ sd.code }}">Timeline</div>
   {% if export_logs is not None %}
   <div class="tab" data-tab="export-tl-{{ sd.code }}">Export Timeline</div>
@@ -336,6 +357,165 @@
   {% endif %}
   {% include "cases/_versioned_section.html" with forms=sd.version_lists.PI group_id="pi-"|add:sd.code empty_text="No proforma yet." %}
 </div>
+
+{% if not multi_side %}
+{# ----------------------------------------------------------------- reports #}
+{# Relocated wholesale from the old standalone "Marketing" card — same        #}
+{# markup, same context variables (case_reports / is_case_owner /             #}
+{# case_report_form, all inherited from case_detail.html's own context),      #}
+{# only the panel id gained this side's `-{{ sd.code }}` suffix so it can sit  #}
+{# beside this tab bar's other panels. VIEWING/WRITING are gated exactly as    #}
+{# case_detail.html's own long comment above the old card explained: viewing  #}
+{# is open to anyone who reached this page at all, writing is is_case_owner-  #}
+{# only and case_report_add re-checks that server-side regardless.            #}
+<div class="tab-panel" id="panel-reports-{{ sd.code }}">
+  {% if is_case_owner %}
+  <details class="card" style="margin-bottom:.8rem;">
+    <summary class="btn btn-sm btn-primary" style="display:inline-flex;width:auto;cursor:pointer;">
+      <i class="fa-solid fa-file-pen"></i> Write a report
+    </summary>
+    <form method="post" action="{% url 'cases:case_report_add' case.pk %}" style="margin-top:.8rem;" autocomplete="off">
+      {% csrf_token %}
+      {% if case_report_form.non_field_errors %}
+      <div class="flash flash-error">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>{% for e in case_report_form.non_field_errors %}{{ e }}{% endfor %}</span>
+      </div>
+      {% endif %}
+      <div class="field">
+        <label><i class="fa-solid fa-list-check"></i> {{ case_report_form.options.label }}</label>
+        {{ case_report_form.options }}
+        {% if not case_report_form.options_available %}
+        <div class="help">No report options exist yet — write the report in the box below instead.</div>
+        {% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ case_report_form.text.id_for_label }}"><i class="fa-solid fa-file-lines"></i> {{ case_report_form.text.label }}</label>
+        {{ case_report_form.text }}
+        <div class="help">Tick at least one option above, write the report here, or do both.</div>
+      </div>
+      <div class="btn-row">
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-check"></i> Confirm report</button>
+      </div>
+    </form>
+  </details>
+  {% endif %}
+
+  <table class="data">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Author</th>
+        <th>What it's about</th>
+        <th>Report</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in case_reports %}
+      <tr>
+        <td class="mono muted">{{ r.created_at|jalali:"Y.m.d H:i" }}</td>
+        <td dir="auto">{{ r.author|default:"—" }}</td>
+        <td>
+          {% if r.options %}
+          <div class="chips-row">
+            {% for opt in r.options %}
+            <span class="chip c-draft" dir="auto"><i class="fa-solid fa-check"></i>{{ opt }}</span>
+            {% endfor %}
+          </div>
+          {% else %}<span class="muted">—</span>{% endif %}
+        </td>
+        <td dir="auto" style="white-space:pre-line;max-width:32ch;overflow-wrap:anywhere;">{{ r.text|default:"—" }}</td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="4" class="empty">
+          {% if is_case_owner %}No reports have been written on this case yet — use “Write a report” to add the first one.
+          {% else %}No reports have been written on this case yet.{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{# ---------------------------------------------------------------- reminders #}
+{# Relocated wholesale, same as Reports above. #}
+<div class="tab-panel" id="panel-reminders-{{ sd.code }}">
+  {% if is_case_owner %}
+  <details class="card" style="margin-bottom:.8rem;">
+    <summary class="btn btn-sm btn-primary" style="display:inline-flex;width:auto;cursor:pointer;">
+      <i class="fa-solid fa-bell"></i> Set a reminder
+    </summary>
+    <form method="post" action="{% url 'cases:case_reminder_add' case.pk %}" style="margin-top:.8rem;" autocomplete="off">
+      {% csrf_token %}
+      {% if case_reminder_form.non_field_errors %}
+      <div class="flash flash-error">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>{% for e in case_reminder_form.non_field_errors %}{{ e }}{% endfor %}</span>
+      </div>
+      {% endif %}
+      <div class="field">
+        <label for="{{ case_reminder_form.due_at.id_for_label }}"><i class="fa-regular fa-clock"></i> {{ case_reminder_form.due_at.label }}</label>
+        {{ case_reminder_form.due_at }}
+      </div>
+      <div class="field">
+        <label for="{{ case_reminder_form.note.id_for_label }}"><i class="fa-solid fa-pen"></i> {{ case_reminder_form.note.label }}</label>
+        {{ case_reminder_form.note }}
+      </div>
+      <div class="btn-row">
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-bell"></i> Set reminder</button>
+      </div>
+    </form>
+  </details>
+  {% endif %}
+
+  {# Said in words, the same way the company page's own Reminders tab says    #}
+  {# it — see cases/views.py::_case_marketing_reminders for why this stays    #}
+  {# owner-scoped by default, widened only for the admin/GM tier.             #}
+  <div class="help" style="margin:0 0 .7rem;">
+    {% if sees_all_case_reminders %}You see every reminder set on this case.
+    {% else %}You see your own reminders on this case — a reminder is a private note to its own owner.{% endif %}
+  </div>
+
+  <table class="data">
+    <thead>
+      <tr>
+        <th>Due</th>
+        <th>Note</th>
+        <th>State</th>
+        {% if sees_all_case_reminders %}<th>Set by</th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in case_reminders %}
+      <tr>
+        <td class="mono{% if r.is_due and not r.is_done %} c-rej{% endif %}">{{ r.due_at|jalali:"Y.m.d H:i" }}</td>
+        <td dir="auto" style="white-space:pre-line;max-width:32ch;overflow-wrap:anywhere;">{{ r.note }}</td>
+        <td>
+          {% if r.is_done %}
+          <span class="chip c-ok"><i class="fa-solid fa-check"></i>Dealt with</span>
+          {% elif r.is_due %}
+          <span class="chip c-rej"><i class="fa-solid fa-bell"></i>Due</span>
+          {% else %}
+          <span class="chip c-draft"><i class="fa-regular fa-clock"></i>Waiting</span>
+          {% endif %}
+        </td>
+        {% if sees_all_case_reminders %}
+        <td dir="auto">{{ r.owner.get_full_name|default:r.owner.username }}</td>
+        {% endif %}
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="{% if sees_all_case_reminders %}4{% else %}3{% endif %}" class="empty">
+          {% if is_case_owner %}No reminders set on this case yet — use “Set a reminder” to add one.
+          {% else %}No reminders on this case are visible to you.{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
 
 <div class="tab-panel" id="panel-tl-{{ sd.code }}">
   {% if can_open_marketing_chart %}
