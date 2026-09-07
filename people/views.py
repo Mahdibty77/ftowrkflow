@@ -11,7 +11,13 @@ by name, not by line number.
   rendered from the card spec in ``people.spec`` via ``people.forms``.
 * THE SHIFT PAGE — ``person_shift`` and ``person_shift_month`` draw one
   employee's Jalali year and month of worked hours. They compute nothing
-  themselves; every figure comes from ``people.shift_hours``.
+  themselves; every figure comes from ``people.shift_hours``. NOT
+  administrator-only, unlike the rest of this file — gated by
+  ``admin_or_self_required`` (defined just below ``admin_required``), which
+  lets an administrator open anyone's copy exactly as before AND lets a
+  person open their own. The "Daily hours" edit card is still
+  administrator-only within that shared page — see the template's own guard
+  and ``person_shift``'s own docstring.
 * THE HEARTBEAT — ``shift_presence_ping`` is the endpoint the signed-in
   person's open tab POSTs to every few seconds, and ``shift_ended`` is the
   goodbye screen the middleware sends them to when the shift closes. Neither is
@@ -105,6 +111,51 @@ def admin_or_impersonating_admin_required(view):
         if actor is None or not actor.is_active or not _is_admin(actor):
             return redirect_to_login(request.get_full_path(), reverse("accounts:login"))
         return view(request, *args, **kwargs)
+
+    return _wrapped
+
+
+def admin_or_self_required(view):
+    """Admin viewing anyone's shift calendar, OR a person viewing their OWN.
+
+    Built for ``person_shift`` / ``person_shift_month`` — the two views the
+    owner asked to open up so a person can see their own worked/planned hours
+    without becoming administrator-only. Every OTHER shift-adjacent view (the
+    edit POST inside ``person_shift`` itself is guarded separately, right
+    where it branches — see that view's own comment) stays exactly as
+    strict as ``admin_required`` already was; this decorator exists for
+    these two GET-first pages alone, not as a general-purpose replacement for
+    ``admin_required`` elsewhere in this file.
+
+    THE TEST, IN ORDER: an administrator (``_is_admin``, re-read off the
+    database on every request, same as ``admin_required`` itself) is let
+    through unconditionally — an admin looking at their OWN record is still
+    an admin looking at a shift page, nothing about that case is special.
+    Failing that, the requester is let through only when the URL's own
+    ``pk`` names THEIR OWN linked ``Person`` (``work_shift.person_for_user``
+    — the same lookup ``my_tasks`` and the work-shift middleware already use
+    to answer "who is this login"), so a person can open their own two pages
+    and no one else's. Anyone else — no admin, no matching person — gets the
+    same login-redirect ``admin_required`` would have given them; this is
+    strictly a WIDENING of who gets through, never a narrowing.
+
+    A GENERIC HELPER, NOT A ONE-OFF: reads ``pk`` out of the view's own
+    keyword arguments (Django hands named URL converters through as kwargs)
+    rather than assuming a fixed argument position, so it applies unchanged
+    to both ``person_shift(request, pk)`` and
+    ``person_shift_month(request, pk, year, month)``.
+    """
+
+    @wraps(view)
+    def _wrapped(request, *args, **kwargs):
+        if _is_admin(request.user):
+            return view(request, *args, **kwargs)
+        from .work_shift import person_for_user
+
+        person = person_for_user(request.user)
+        if person is not None and person.pk == kwargs.get("pk"):
+            return view(request, *args, **kwargs)
+        return redirect_to_login(request.get_full_path(), reverse("accounts:login"))
 
     return _wrapped
 
@@ -250,19 +301,177 @@ def person_edit(request, pk):
     })
 
 
+def _reminder_day_counts_for_person(person):
+    """This person's own currently-open reminders, one query, bucketed by the
+    LOCAL Jalali calendar day each is due on.
+
+    ``marketing.models.Reminder`` HAS NO "OPEN" FLAG TO FILTER ON — this
+    round's own close-by-report flow means a reminder that has been dealt
+    with is a report row now, not a ``Reminder`` row at all (see that
+    model's own docstring and ``marketing/reminders.py::close_with_report``).
+    So "open" here is simply "the row still exists": every ``Reminder`` this
+    person's login owns, no ``state`` filter needed or possible.
+
+    ``owner`` IS A ``User``, NOT A ``Person`` (see ``Reminder.owner``) — the
+    login that actually created the row, not the personnel record it belongs
+    to on this page. ``PersonAccount`` is the one link between the two (a
+    person has AT MOST ONE login ``User``, per that model's own docstring),
+    so this reads it the same direction ``people.seats.primary_login``
+    already does, rather than inventing a second notion of "this person's
+    account".
+
+    ONE QUERY FOR THE WHOLE PAGE, NOT ONE PER CARD — a person's own reminder
+    list is small (it is a private to-do list, not a company-wide table), so
+    fetching every ``due_at`` this login owns and bucketing it here in Python
+    costs one round trip regardless of how many year/month/day cards the two
+    templates go on to render, instead of a query per card that would grow
+    with the calendar. ``person_shift``/``person_shift_month`` each call this
+    exactly once and then look their own cards up in the ``Counter`` it
+    returns — see ``_reminder_count_for_year``/``_reminder_count_for_month``
+    just below, and the per-day lookup inline in ``person_shift_month``.
+    """
+    from collections import Counter
+
+    from django.utils import timezone as dj_timezone
+
+    from cases.jalali import gregorian_to_jalali
+    from marketing.models import Reminder
+
+    from .models import PersonAccount
+    from .work_shift import _tz
+
+    counts = Counter()
+    user_ids = list(
+        PersonAccount.objects.filter(person=person).values_list("user_id", flat=True)
+    )
+    if not user_ids:
+        # No login at all (a personnel record with no seat) means no
+        # ``Reminder`` row could ever name this person as ``owner`` — every
+        # card's count is genuinely zero, not merely unknown.
+        return counts
+    tz = _tz()
+    due_ats = Reminder.objects.filter(owner_id__in=user_ids).values_list("due_at", flat=True)
+    for due_at in due_ats:
+        local = dj_timezone.localtime(due_at, tz)
+        jy, jm, jd = gregorian_to_jalali(local.year, local.month, local.day)
+        counts[f"{jy:04d}-{jm:02d}-{jd:02d}"] += 1
+    return counts
+
+
+def _reminder_count_for_year(day_counts, jy: int) -> int:
+    """Sum of ``day_counts`` (see ``_reminder_day_counts_for_person``) for
+    every day of one Jalali year — a prefix sum over its own keys, never a
+    second query."""
+    prefix = f"{jy:04d}-"
+    return sum(v for k, v in day_counts.items() if k.startswith(prefix))
+
+
+def _reminder_count_for_month(day_counts, jy: int, jm: int) -> int:
+    """The same prefix sum as ``_reminder_count_for_year``, narrowed to one
+    Jalali month."""
+    prefix = f"{jy:04d}-{jm:02d}-"
+    return sum(v for k, v in day_counts.items() if k.startswith(prefix))
+
+
+def _my_tasks_period_url(jy: int, jm: int | None = None, jd: int | None = None) -> str:
+    """The "My Tasks" Reminders-tab URL, pre-filtered to one Jalali period
+    (a year, a month, or a single day — whichever of ``jm``/``jd`` is given).
+
+    REUSES THE SAME DATE-RANGE FILTER THAT TAB ALREADY DRAWS — not a second
+    filtering mechanism. ``marketing/templates/marketing/_my_tasks_reminders.html``
+    already carries a From/To pair of ``data-jalali-datetime`` inputs wired
+    through ``static/js/ui.js``'s own ``data-filter-table`` pass
+    (``data-filter-colname="Due"``, ``gte``/``lte``) — the exact mechanism
+    ``cases/templates/cases/archive.html`` already drives from its own
+    ``?ffrom=``/``?fto=`` query parameters (see ``cases/views.py``'s
+    ``f_active``). ``marketing/views.py::my_tasks`` now reads this page's
+    ``?from=``/``?to=`` the same way and hands them straight back onto those
+    two inputs' own ``value=`` attribute — ``ui.js`` runs its filter pass on
+    page load regardless of whether a value arrived by typing or by markup,
+    so no new JavaScript and no server-side row filtering was written for
+    this: the browser filters exactly as it would if the viewer had typed
+    these two dates in by hand. ``?tab=reminders`` selects the tab through
+    the identical ``?tab=`` mechanism ``marketing/static/marketing/js/
+    directory.js`` already reads (shared with the company page's own tab
+    strip).
+
+    VALUES ARE PLAIN JALALI STRINGS, never converted to Gregorian — the
+    filter compares the Due column's own printed text (also Jalali,
+    ``r.due_at|jalali:"Y.m.d H:i"``) against these two, so handing it
+    anything else would silently compare two different calendars. A whole
+    day/month/year is expressed as its FIRST moment through its LAST
+    (00:00 through 23:59); the client-side comparison only ever reads the
+    date part of each side (see ``ui.js``'s own ``dateKey``), so the exact
+    minute chosen here matters only for what a reader would see if they
+    opened the date picker themselves.
+    """
+    from urllib.parse import urlencode
+
+    from . import shift_hours as sh
+
+    if jd is not None:
+        frm = f"{jy:04d}-{jm:02d}-{jd:02d} 00:00"
+        to = f"{jy:04d}-{jm:02d}-{jd:02d} 23:59"
+    elif jm is not None:
+        length = sh.jalali_month_length(jy, jm)
+        frm = f"{jy:04d}-{jm:02d}-01 00:00"
+        to = f"{jy:04d}-{jm:02d}-{length:02d} 23:59"
+    else:
+        length = sh.jalali_month_length(jy, 12)
+        frm = f"{jy:04d}-01-01 00:00"
+        to = f"{jy:04d}-12-{length:02d} 23:59"
+    qs = urlencode({"tab": "reminders", "from": frm, "to": to})
+    return f"{reverse('marketing:my_tasks')}?{qs}"
+
+
 @login_required
-@admin_required
+@admin_or_self_required
 def person_shift(request, pk):
-    """Edit daily work-shift hours + monthly/yearly hour reports."""
+    """Edit daily work-shift hours + monthly/yearly hour reports.
+
+    OPENED UP BEYOND ADMINISTRATORS BY ``admin_or_self_required`` (see that
+    decorator's own docstring) — a person can now reach their OWN copy of
+    this page, but with the "Daily hours" edit card hidden entirely, not
+    merely disabled: see ``is_admin`` in the returned context and the
+    template's own guard around ``.ppl-shift-card``. ``viewer_is_self``
+    (whether the URL's ``pk`` names the SIGNED-IN login's own linked
+    ``Person`` — computed once here, not re-derived per card) is what the
+    reminder-count badges below use to decide whether their own click can
+    safely land on "My Tasks": that page always shows ``request.user``'s OWN
+    reminders, so a badge is only ever made a link when THIS is that same
+    person; an administrator looking at somebody else's calendar sees the
+    right OTHER person's count (see ``_reminder_day_counts_for_person``) but
+    the badge stays a plain, unlinked count for them, never a link that
+    would silently open the admin's own tasks instead — see the template.
+    """
     from datetime import datetime as dt
     from datetime import time as dtime
 
     from cases.jalali import gregorian_to_jalali
 
     from . import shift_hours as sh
-    from .work_shift import shift_window
+    from .work_shift import person_for_user, shift_window
 
     person = get_object_or_404(Person, pk=pk)
+    # Who is actually looking, and at whose record — see this view's own
+    # docstring and ``admin_or_self_required``. Computed once, up front,
+    # because both the template guard around "Daily hours" and every
+    # reminder-count badge below need the same answer.
+    is_admin = _is_admin(request.user)
+    viewer_person = person_for_user(request.user)
+    viewer_is_self = bool(viewer_person and viewer_person.pk == person.pk)
+
+    if request.method == "POST" and not is_admin:
+        # The "Daily hours" card that posts here is hidden from a self-viewer
+        # entirely (see the template), but hiding a button is a display
+        # choice, not a permission check — this is the actual gate: a
+        # signed-in person who reaches this URL by hand (or replays an old
+        # form) still cannot change their OWN shift definition. Only an
+        # administrator may ever submit this form; a person let in by
+        # ``admin_or_self_required`` for the read-only view below gets
+        # bounced straight back to that read-only page instead.
+        return redirect("people:person_shift", pk=person.pk)
+
     start, end = shift_window(person)
     sh.prune_empty_past_snapshots(person)
     sh.freeze_past_months(person)
@@ -288,6 +497,27 @@ def person_shift(request, pk):
     )
     for c in year_cards:
         c["is_selected"] = c["jalali_year"] == view_year
+
+    # Open-reminder badges — TASK 3 of this round. One query for the whole
+    # page (see ``_reminder_day_counts_for_person``'s own docstring for why),
+    # then a prefix sum per card. ``reminder_url`` is only ever set when
+    # ``viewer_is_self`` — an admin looking at someone ELSE's calendar still
+    # gets that other person's own correct count (never the admin's own),
+    # but as a plain unlinked badge, because "My Tasks" has no way yet to
+    # open anyone's list but the signed-in login's own; see this view's own
+    # docstring and the template.
+    reminder_day_counts = _reminder_day_counts_for_person(person)
+    for c in year_cards:
+        c["reminder_count"] = _reminder_count_for_year(reminder_day_counts, c["jalali_year"])
+        c["reminder_url"] = (
+            _my_tasks_period_url(c["jalali_year"]) if viewer_is_self else None
+        )
+    for c in month_cards:
+        c["reminder_count"] = _reminder_count_for_month(
+            reminder_day_counts, view_year, c["month"])
+        c["reminder_url"] = (
+            _my_tasks_period_url(view_year, c["month"]) if viewer_is_self else None
+        )
 
     tracking_start = sh.get_tracking_start()
     ty, tm, td = gregorian_to_jalali(
@@ -322,6 +552,8 @@ def person_shift(request, pk):
             "report_year": view_year,
             "tracking_label": f"{td} {sh.month_name_en(tm)} {ty}",
             "hours_per_day": round(sh.shift_minutes(s, e) / 60, 2),
+            "is_admin": is_admin,
+            "viewer_is_self": viewer_is_self,
         }
 
     def _parse_posted_time(prefix: str):
@@ -395,12 +627,20 @@ def person_shift(request, pk):
 
 
 @login_required
-@admin_required
+@admin_or_self_required
 def person_shift_month(request, pk, year, month):
-    """Day cards for one Jalali month."""
+    """Day cards for one Jalali month.
+
+    OPENED UP THE SAME WAY ``person_shift`` WAS — see
+    ``admin_or_self_required``'s own docstring. This page carries no edit
+    form of its own (it is drill-down only), so unlike its parent there is
+    no POST branch to additionally guard: read access is the entire
+    permission surface here.
+    """
     from cases.jalali import gregorian_to_jalali
 
     from . import shift_hours as sh
+    from .work_shift import person_for_user
 
     person = get_object_or_404(Person, pk=pk)
     month = int(month)
@@ -409,12 +649,31 @@ def person_shift_month(request, pk, year, month):
         messages.error(request, "Invalid month.")
         return redirect("people:person_shift", pk=person.pk)
 
+    # Same "who is looking, at whose record" pair ``person_shift`` computes —
+    # see that view's own docstring. This page has no admin-only card to
+    # hide, so ``is_admin`` is not needed here, only ``viewer_is_self`` for
+    # the reminder-count badges' own link-or-not decision (see the template
+    # and ``_my_tasks_period_url``).
+    viewer_person = person_for_user(request.user)
+    viewer_is_self = bool(viewer_person and viewer_person.pk == person.pk)
+
     sh.freeze_past_months(person)
     days = sh.month_day_details(person, year, month)
     now = sh.now_local()
     cy, cm, _ = gregorian_to_jalali(now.year, now.month, now.day)
     cards = sh.year_month_cards(person, year)
     month_card = next((c for c in cards if c["month"] == month), None)
+
+    # Open-reminder badges, one per day card — see
+    # ``_reminder_day_counts_for_person``'s own docstring for why this is one
+    # query for the whole month rather than one per day.
+    reminder_day_counts = _reminder_day_counts_for_person(person)
+    for d in days:
+        key = f"{year:04d}-{month:02d}-{d['jalali_day']:02d}"
+        d["reminder_count"] = reminder_day_counts.get(key, 0)
+        d["reminder_url"] = (
+            _my_tasks_period_url(year, month, d["jalali_day"]) if viewer_is_self else None
+        )
 
     return render(request, "people/person_shift_month.html", {
         "person": person,
@@ -424,6 +683,7 @@ def person_shift_month(request, pk, year, month):
         "days": days,
         "month_card": month_card,
         "is_current_month": (year, month) == (cy, cm),
+        "viewer_is_self": viewer_is_self,
     })
 
 @login_required

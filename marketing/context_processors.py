@@ -17,18 +17,42 @@ Everything below is wrapped, and every failure path returns ``{}`` — the same
 neutral value an anonymous visitor gets — so a malformed seat row, a cache
 backend that is down or a missing table can cost the banner and nothing else.
 
+THE GATE WAS WRONG FOR A WHILE, AND IS FIXED HERE RATHER THAN QUIETLY LEFT.
+An earlier version of this module gated on ``marketing/access.py
+::can_reach_marketing`` — a Marketing seat, or GM/admin — because at the time
+that was also the entire population that could ever HOLD a reminder: only
+someone who could open ``reminder_add`` could create one. The "My Tasks" round
+moved the ground out from under that gate without anyone updating it:
+reminders (and the personal "My Tasks" hub they live in) are now open to
+EVERY logged-in user with a linked ``people.Person`` record, seat or no seat
+at all — see ``marketing/views.py``'s own "My Tasks" section head comment, and
+``core/context_processors.py::theme``'s ``nav_show_person_requests``, which
+opens the sidebar's "Personal" nav group (and, inside it, "My Tasks") on the
+IDENTICAL test. Gating the BANNER on ``can_reach_marketing`` left a plain
+Commercial Expert, or a person with no seat whatsoever, with a due reminder
+that showed correctly in their own My Tasks table but never surfaced as the
+top-of-page notification anywhere else in the site — the notification's own
+reason for existing ("the top of the screen wherever the person happens to
+be") quietly failing for most of its actual audience while still working for
+the one population — a Marketing seat holder — that happened to satisfy a gate
+nobody had gone back to widen.
+
 THE OWNER'S CONSTRAINT IS WHAT SHAPES THE ORDER OF THE TWO CHECKS. "This must
 not make the site slow or heavy", so:
 
-1. THE CHEAP GATE RUNS FIRST. ``marketing/access.py::can_reach_marketing``
-   answers from the seat data ``core.context_processors.theme`` has ALREADY
-   loaded and memoised for this same request (``people.role_nav`` keeps a
-   per-request memo, which is why ``access._person_roles`` goes through it), so
-   for the overwhelming majority of logins — Commercial, Technical, Supply, with
-   no Marketing seat at all — this returns False having touched the database not
-   once, and the reminder machinery is never entered. It is also the honest
-   gate: only these people can hold a reminder, because only they can reach the
-   screen that creates one.
+1. THE CHEAP GATE RUNS FIRST. ``people.work_shift.person_for_user`` answers
+   from a per-request memo on the ``User`` instance (see that function's own
+   docstring — the identical memo ``core.context_processors.theme`` already
+   reads for ``nav_show_person_requests``, so a page that renders both context
+   processors pays for this lookup once, not twice), so a login with no linked
+   Person record — an account that was never given a personnel record at all —
+   returns ``None`` cheaply and the reminder machinery is never entered. This
+   is now the honest gate: it is exactly "does this login have anything a
+   reminder could belong to", which is the same question ``my_tasks``'s own
+   view-level gate asks on arrival (see ``marketing/views.py
+   ::_my_tasks_person_or_redirect``) — a banner that could fire for a login
+   the destination page itself would turn away is exactly the kind of drift
+   this project keeps one gate for, not two that could disagree.
 2. ONLY THEN THE CACHED LOOKUP. ``marketing/reminders.py::due_notification``
    serves the answer from the shared cache when it can, and otherwise runs ONE
    indexed query for this one user. See that module for the index, for what the
@@ -38,13 +62,17 @@ There is no scheduler, no background job and no polling loop anywhere in this
 feature; "due" is a comparison made at render time. See
 ``marketing/models.py::ReminderState`` for why that is not a shortcut.
 
-WHY THE ADMIN AND THE GENERAL MANAGER PASS THE GATE AND STILL SEE NOTHING. Both
-are inside ``can_reach_marketing`` (they may open the section, read-only), so
-they do reach step 2 — and it answers ``{}`` for them, because they cannot
-create a reminder (``views.reminder_add`` is gated on ``can_edit``, which they
-do not have) and this query only ever returns rows they own themselves. That is
-the right outcome twice over: the banner never shows them somebody else's
-private note, and it never shows them one of their own that cannot exist.
+WHY AN ADMIN, THE GENERAL MANAGER, OR ANYONE WITH NO REMINDERS AT ALL PASSES
+THE GATE AND STILL SEES NOTHING. ``due_notification`` (via
+``marketing/reminders.py::_due_rows``) filters on ``owner=user`` alone — no
+seat check of its own, verified by reading that module fresh rather than
+assumed from an earlier round's investigation — so it only ever returns rows
+this exact login created for themselves. A platform admin or a General
+Manager has a linked Person record only if one was deliberately set up for
+them (most are not), and even then they can only ever see a reminder they
+personally set — the query never returns anyone else's. That is the right
+outcome twice over: the banner never shows a viewer somebody else's private
+note, and it never shows them one of their own that does not exist.
 
 WHAT THE BANNER RENDERS, AND THE CHECK IT RUNS. The payload carries the
 attached case's DOCUMENT NUMBER, and that number IS put through
@@ -85,9 +113,16 @@ def reminder_notice(request):
     if user is None or not getattr(user, "is_authenticated", False):
         return {}
     try:
-        from .access import can_reach_marketing
+        from people.work_shift import person_for_user
 
-        if not can_reach_marketing(request):
+        # THE SAME GATE ``nav_show_person_requests`` USES, NOT
+        # ``can_reach_marketing`` — see the module docstring's "THE GATE WAS
+        # WRONG FOR A WHILE" section. A reminder belongs to a LOGIN, and every
+        # login with a linked Person may hold one via "My Tasks" now, seat or
+        # no seat at all; a Marketing-seat check here would silently withhold
+        # the banner from most of that population while still letting them
+        # see the identical reminder in their own My Tasks table.
+        if person_for_user(user) is None:
             return {}
         from . import reminders
 

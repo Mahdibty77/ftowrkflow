@@ -25,9 +25,12 @@ shaped the same way:
     directory/<pk>/reports/add/     report, step 1    -> marketing:report_add
     directory/<pk>/reports/create/  report, step 2    -> marketing:report_create
     directory/<pk>/reminders/add/   set a reminder    -> marketing:reminder_add
-    reminders/                      YOUR own list     -> marketing:reminder_list
-    reminders/<id>/time/            set a new time    -> marketing:reminder_retime
-    reminders/<id>/done/            mark dealt with   -> marketing:reminder_done
+    reminders/                      redirects to      -> marketing:my_tasks
+    tasks/                          "My Tasks" hub     -> marketing:my_tasks
+    tasks/all/                      admin-wide My Tasks -> marketing:my_tasks_all
+    tasks/add/                      add / next reminder -> marketing:my_tasks_add
+    tasks/<id>/report/               close it out       -> marketing:my_tasks_report
+    tasks/reports/add/               standalone report   -> marketing:my_tasks_report_add
 
 THE REMINDER LIST IS NOT UNDER ``directory/``, AND THAT IS THE POINT OF ITS
 ADDRESS. Everything under ``directory/`` is about a COMPANY and carries that
@@ -39,12 +42,69 @@ come from the URL, which is the whole of the visibility rule (see
 reached from one company's page and is about that company, so it lives under
 ``directory/<pk>/`` beside the contact and report flows it is modelled on.
 
-The two mutating reminder routes are POST-only (see ``views.reminder_retime`` /
-``views.reminder_done``) and carry the reminder's own id in the path, exactly as
-the contact-removal route does — the id a mutation is about belongs in the
-address, not in a body parameter the view might forget to re-check. Neither
-route carries an owner: the signed-in person IS the owner, and a route that
-could name a different one would be a route that has to be checked for it.
+``tasks/`` IS THE NEW "MY TASKS" HUB (see ``views.my_tasks``'s own docstring)
+AND ``reminders/`` NO LONGER RENDERS A PAGE OF ITS OWN — it 302s to
+``tasks/`` so every existing link by that name keeps working (see
+``views.reminder_list``). ``tasks/`` sits OUTSIDE ``directory/`` for the
+identical reason ``reminders/`` always did: it is about the PERSON, not one
+company, and it is reached from the sidebar's own "Personal" nav group rather
+than from anywhere under this app's own Marketing-gated navigation — see
+``core/templates/base.html``. ``tasks/add/`` serves BOTH "add a brand-new
+task" and, carrying ``?client=``/``?case=``/``?next=``, the "set your next
+reminder" step that follows closing one out — ONE route for both, because the
+form the two moments show a person is the identical one (see
+``views.my_tasks_add``). ``tasks/<id>/report/`` is the OTHER half of closing a
+reminder out — writing the report that accounts for it
+(``views.my_tasks_report``) — and it is POST-capable but NOT
+``@require_POST``: unlike the retired ``reminder_retime``/``reminder_done``
+pair (see the comment above ``tasks/`` in the URL list below), its GET
+renders the write-a-report SCREEN (the way ``report_add``'s own GET does),
+and its POST is the one request that actually calls
+``marketing/reminders.py::close_with_report``.
+
+``tasks/all/`` IS THE ADMIN-WIDE VARIANT OF ``tasks/`` — the SAME view
+(``views.my_tasks``), reached with ``scope="all"`` bound in the URL itself
+(a ``path()`` extra keyword argument, not a query string a viewer could
+strip or add) rather than a second view function or a second template — see
+``views.my_tasks``'s own docstring for the full story of why this is one
+parameterised page and not two that could drift apart. It sits under
+``tasks/`` rather than off the section root for the same "about the PERSON,
+or here, about EVERY person" reasoning ``tasks/`` itself already carries,
+just widened one step further. It is NOT reached from anywhere ``tasks/``
+itself is (the sidebar's own "Personal" nav group) — its only real entry
+point is the admin-only "People" nav group instead
+(``people/templates/people/_nav.html``) — but the URL is gated on the view
+itself (``views._my_tasks_is_admin``), a plain 403 to anyone else regardless
+of how they arrived, exactly the reasoning the module docstring already gives
+for every other admin-only refusal in this app.
+
+``tasks/reports/add/`` IS A THIRD, SEPARATE ROUTE — the STANDALONE "ADD
+REPORT" screen on My Tasks' own Reports tab (``views.my_tasks_report_add``),
+reached with no reminder in play at all: company and case are both optional
+and independently searchable rather than implied by a reminder or a URL.
+It hangs off ``tasks/`` rather than ``directory/<pk>/`` for the identical
+reason ``tasks/`` itself does — it is about the PERSON writing the report,
+not about one company's own page. It is distinct from ``tasks/<id>/report/``
+above (note the plural "reports" versus a reminder's own numeric id) and the
+two can never collide: the ``<int:reminder_id>`` converter on that route
+never matches the literal segment "reports".
+
+THE MUTATING REMINDER ROUTE, TODAY, IS ``tasks/<id>/report/``
+(``views.my_tasks_report``) — it carries the reminder's own id in the path,
+exactly as the contact-removal route does, so the id the write is about
+belongs in the address, not in a body parameter the view might forget to
+re-check. It carries no owner of its own: the signed-in person IS the owner,
+and a route that could name a different one would be a route that has to be
+checked for it. THERE USED TO BE TWO SUCH ROUTES, ``reminders/<id>/time/``
+and ``reminders/<id>/done/`` (``views.reminder_retime``/``reminder_done``),
+POST-only in the identical shape — a plain reschedule or a mark-done with no
+report ever required. Both are gone: they were a live, working bypass of the
+mandatory close-only-via-a-report cycle this whole feature is built around,
+still reachable from ``marketing/templates/marketing/company_detail.html``'s
+own Reminders tab after the rest of the app had already moved to
+close-via-report, and were retired for exactly that reason once nothing
+legitimate was left calling them — see the comment left above ``tasks/`` in
+the URL list below.
 
 The removal route is POST-only (see ``views.contact_remove``) and carries the
 contact's own id in the path rather than in the body, so the two ids a removal
@@ -86,10 +146,27 @@ urlpatterns = [
     path("directory/<int:pk>/reminders/add/",
          views.reminder_add, name="reminder_add"),
     path("reminders/", views.reminder_list, name="reminder_list"),
-    path("reminders/<int:reminder_id>/time/",
-         views.reminder_retime, name="reminder_retime"),
-    path("reminders/<int:reminder_id>/done/",
-         views.reminder_done, name="reminder_done"),
+    # ``reminders/<id>/time/`` (``reminder_retime``) and ``reminders/<id>/
+    # done/`` (``reminder_done``) USED TO BE HERE — a plain "set a new time"
+    # / "mark dealt with" pair that closed (or reopened) a reminder with NO
+    # report ever required. They were removed, routes and views both, as a
+    # live bypass of the mandatory close-only-via-a-report cycle
+    # ``tasks/<id>/report/`` below now enforces as the ONE way a reminder
+    # ever closes — see the comment left in ``views.py`` where they used to
+    # be defined for the fuller story, and this module's own "THE MUTATING
+    # REMINDER ROUTE, TODAY" section below for what replaced them.
+    path("tasks/", views.my_tasks, name="my_tasks"),
+    # The admin-wide variant — see this module's own head comment's
+    # "``tasks/all/``" section and ``views.my_tasks``'s own docstring. The
+    # SAME view function as the line above, bound to ``scope="all"`` here in
+    # the URL itself rather than read from anything a viewer's own request
+    # could set.
+    path("tasks/all/", views.my_tasks, {"scope": "all"}, name="my_tasks_all"),
+    path("tasks/add/", views.my_tasks_add, name="my_tasks_add"),
+    path("tasks/reports/add/",
+         views.my_tasks_report_add, name="my_tasks_report_add"),
+    path("tasks/<int:reminder_id>/report/",
+         views.my_tasks_report, name="my_tasks_report"),
     path("entities/clients/search/", views.client_search, name="client_search"),
     path("entities/clients/create/", views.client_create, name="client_create"),
     path("entities/clients/connections/", views.client_connections, name="client_connections"),

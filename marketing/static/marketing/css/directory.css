@@ -247,7 +247,13 @@
 }
 
 /* ---------------------------------------------------------------------------
-   MY REMINDERS — the per-person list (marketing/reminder_list.html).
+   MY REMINDERS. Originally built for the per-person list on the now-removed
+   marketing/reminder_list.html (see marketing/urls.py's own module
+   docstring); that page is gone, but these classes are not dead — the
+   report-closes-a-reminder screens now reuse them verbatim
+   (marketing/templates/marketing/task_form.html and
+   marketing/templates/marketing/task_report_form.html both carry
+   .dir-reminder-* blocks), so this rule stays.
 
    Built on the report list above rather than beside it: .dir-reminders is
    .dir-reports' own flex column, and the head row inside each item reuses

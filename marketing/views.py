@@ -1,7 +1,8 @@
 """The Marketing unit's own screens.
 
-TWO screens now, and they are deliberately separate pages rather than two tabs
-of one:
+THREE screens now, and they are deliberately separate pages rather than tabs
+of one — the third, "My Tasks", is also the one screen in this file that is
+NOT gated on Marketing access at all; see its own section below for why:
 
 * THE MARKETING WORKSPACE (``home``) — the project role chart
   (``marketing/templates/marketing/_role_chart.html`` +
@@ -26,23 +27,42 @@ of one:
   page is the case detail page (same ``.card``/``.card-head`` panels, same tab
   strip, same ``.timeline`` markup and the same ``|jalali`` stamp on every
   row).
-* REMINDERS (``reminder_add``, ``reminder_list``, ``reminder_retime``,
-  ``reminder_done``) — a person's own notes-to-self about a company, set from
-  the company detail page and listed there (a Reminders tab) as well as on a
-  screen of their own. SEEING them now follows the SAME "own"/"all" split as
-  Reports — an ordinary Marketing Expert sees only their own, a Supervisor
-  sees the union of everyone's, and (for consistency with every other
-  elevated-access surface in this app) so do the General Manager and the
-  platform admin — a DELIBERATE REVERSAL of an earlier round's decision that
-  this app's own docstrings used to describe as permanent; see
+* REMINDERS (``reminder_add``) — a person's own notes-to-self about a
+  company, set from the company detail page and listed there (a Reminders
+  tab). ``reminder_list`` — the URL that used to be this section's OWN
+  standalone list — is now a plain redirect to "My Tasks" below, which
+  replaced it; see that view's own docstring. SEEING a company's Reminders
+  tab now follows the SAME "own"/"all" split as Reports — an ordinary
+  Marketing Expert sees only their own, a Supervisor sees the union of
+  everyone's, and (for consistency with every other elevated-access surface
+  in this app) so do the General Manager and the platform admin — a
+  DELIBERATE REVERSAL of an earlier round's decision that this app's own
+  docstrings used to describe as permanent; see
   ``marketing/models.py::Reminder`` for that history stated plainly rather
-  than quietly rewritten. What did NOT widen: CREATING one, and RE-TIMING or
-  CLOSING one out, both stay strictly owner-only (see
-  ``marketing/reminders.py::_own``), and the top-of-page due notification
-  stays scoped to the viewer alone (see
+  than quietly rewritten. What did NOT widen: CREATING one, and CLOSING one
+  out, both stay strictly owner-only (see ``marketing/reminders.py::_own``),
+  and the top-of-page due notification stays scoped to the viewer alone (see
   ``marketing/context_processors.py::reminder_notice``) — see the section
   above those views for the full split, and ``marketing/reminders.py``, which
-  owns the due check and its cache.
+  owns the due check and its cache. CLOSING is now the ONLY way to act on a
+  reminder, and it is done from ``my_tasks_report`` below, never from this
+  section: ``reminder_retime``/``reminder_done`` — a plain reschedule or a
+  mark-done with no report ever required — used to live here too, and have
+  been removed as a live bypass of the mandatory close-only-via-a-report
+  cycle "My Tasks" was built around (see the comment left in this file where
+  they used to be defined). The company page's own Reminders tab now carries
+  the same "Submit report" control My Tasks does, linking to the same view.
+* MY TASKS (``my_tasks``, ``my_tasks_add``, ``my_tasks_report``) — the
+  platform-wide personal hub, reached from the sidebar's own "Personal" nav
+  group rather than from anywhere under this section's Marketing-gated
+  navigation, and open to every login with a linked ``people.Person`` record
+  — Marketing seat or none at all. It REPLACED the standalone "My reminders"
+  page (``reminder_list``, now a redirect into it). See the dedicated "My
+  Tasks" section further down this file for the full story: why it is gated
+  differently from every other view above, why its own listing stays
+  strictly owner-scoped even though Reminders elsewhere in this app can now
+  answer "all", and how its case picker answers the one genuinely new
+  permission question this section asks.
 
 WHO MAY OPEN IT, AND HOW MUCH THEY GET. See ``marketing/access.py`` for the
 actual decision (``access_for``) — this is the plain-language version of it:
@@ -79,8 +99,11 @@ open this" is the honest answer to give.
 """
 from __future__ import annotations
 
+import dataclasses
+
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import urlencode
@@ -91,11 +114,13 @@ from cases.models import Case, Client
 
 from . import reminders, rolechart, services
 from .access import (
-    access_for, can_reach_marketing, case_access_for, case_open_url,
+    access_for, case_access_for, case_open_url,
     marketing_seat_role, scope_case_rows,
 )
-from .forms import ContactForm, ReminderForm, ReminderTimeForm, ReportForm
-from .models import ClientEventAction, ContactRole, ReminderState, ReportOption
+from .forms import ContactForm, ReminderForm, ReportForm, TaskForm
+from .models import (
+    ClientEventAction, CompanyReport, ContactRole, ReminderState, ReportOption,
+)
 
 
 def _int_or_none(raw):
@@ -775,6 +800,46 @@ def _visible_case_rows(client, request, case_access) -> list:
     ]
 
 
+def _visible_case_rows_all(request, case_access) -> list:
+    """``services.all_cases()`` narrowed to what this viewer may see — the
+    SAME shape :func:`_visible_case_rows` returns (plus ``client_id``/
+    ``client_name``, since a row with no single company in scope has to say
+    which one it belongs to), but over EVERY case platform-wide instead of
+    one client's.
+
+    FOR A PAGE THAT HAS NO CLIENT IN ITS OWN URL AT ALL — the later "My
+    Tasks" stage's reminder/report picker, which is reached from nowhere that
+    already names a company the way ``company_detail`` does. That picker
+    still has to obey the exact same "never offer a case this viewer cannot
+    open" rule ``_visible_case_rows`` already enforces (see that function's
+    own comment above it), it just cannot narrow the CANDIDATE set to one
+    client first, because there is no client to narrow it to.
+
+    THIS IS NOT A NEW AUTHORIZATION RULE — IT IS THE SAME ONE, GENUINELY
+    UN-NARROWED, AND THAT IS A DELIBERATE, VERIFIED CLAIM, NOT AN ASSUMPTION.
+    ``marketing/access.py::case_access_for`` and ``scope_case_rows`` both take
+    NO ``client`` argument at all — read their own docstrings: the four-way
+    table (admin/GM see everything; a Commercial Manager seat sees the
+    entire archive; an ordinary Commercial Expert seat sees only cases
+    ``created_by`` their own seat; a Marketing-only seat, holding no
+    Commercial seat at all, sees nothing) is already resolved platform-wide,
+    with no per-client component anywhere in it. ``_visible_case_rows``
+    reaches that same platform-wide answer and then narrows the CANDIDATE
+    ROWS to one client before scoping; this function skips only that
+    narrowing step and scopes the full candidate set with the identical
+    ``case_access``/``scope_case_rows`` call — so a viewer sees EXACTLY the
+    union, across every company, of what ``_visible_case_rows`` would have
+    shown them company by company, never more.
+    """
+    rows = scope_case_rows(services.all_cases(), case_access)
+    return [
+        dict(row,
+             label_fa=services.FIELD_LABELS.get(row["label"], row["label"]),
+             open_url=case_open_url(case_access, row["case_id"]))
+        for row in rows
+    ]
+
+
 def _counts_over(case_rows) -> dict:
     """``{"approved","cancelled","pending","total"}`` over exactly ``case_rows``.
 
@@ -814,6 +879,28 @@ def _counts_over(case_rows) -> dict:
 # must not become one shared name), and a future change to either rule must
 # not silently retarget the other just because they once agreed.
 _CASE_CARD_CANCELLED = frozenset({CaseStatus.BURNED, CaseStatus.CANCELLED})
+
+
+def _case_card_bucket(status) -> str:
+    """Which of the Cases CARD's four buckets a raw ``status`` falls into —
+    ``"closed"``, ``"approved"``, ``"cancelled"`` or ``"pending"``.
+
+    Pulled out of ``_case_card_counts`` below so that ``_pi_money_by_bucket``
+    (added this round, for the card's per-bucket PI totals) classifies every
+    case EXACTLY the same way the counts do, from one place, rather than
+    carrying its own copy of this if/elif chain that could quietly drift from
+    the counts' version over some future edit. Two functions computing "which
+    bucket" by two separate rules is exactly the trap ``_case_card_counts``'s
+    own docstring warns about for ``_counts_over`` vs. this card — the fix
+    here is the same one: one rule, read by both callers.
+    """
+    if status == CaseStatus.FINAL_CLOSED:
+        return "closed"
+    if status == CaseStatus.FINAL_APPROVED:
+        return "approved"
+    if status in _CASE_CARD_CANCELLED:
+        return "cancelled"
+    return "pending"
 
 
 def _case_card_counts(case_rows) -> dict:
@@ -863,16 +950,8 @@ def _case_card_counts(case_rows) -> dict:
     """
     counts = {"total": 0, "approved": 0, "closed": 0, "cancelled": 0, "pending": 0}
     for row in case_rows:
-        status = row["status"]
         counts["total"] += 1
-        if status == CaseStatus.FINAL_CLOSED:
-            counts["closed"] += 1
-        elif status == CaseStatus.FINAL_APPROVED:
-            counts["approved"] += 1
-        elif status in _CASE_CARD_CANCELLED:
-            counts["cancelled"] += 1
-        else:
-            counts["pending"] += 1
+        counts[_case_card_bucket(row["status"])] += 1
     return counts
 
 
@@ -1014,6 +1093,67 @@ def _pi_money_total(case_rows, case_access) -> str:
         list(Case.objects.filter(pk__in=ids).only("id")))
     total = sum(gt_map.values()) if gt_map else 0.0
     return format_money_amount(total) if total else "—"
+
+
+def _pi_money_by_bucket(case_rows, case_access) -> dict:
+    """The Cases CARD's four PI totals — one per ``_case_card_counts`` bucket
+    (``"approved"``, ``"cancelled"``, ``"closed"``, ``"pending"``) — each
+    already formatted, or ``"—"`` for a bucket whose total is genuinely zero.
+
+    THE OWNER ASKED THE ONE GRAND TOTAL SPLIT INTO FOUR, one beside each
+    count line on the Cases card, so that a reader does not have to guess how
+    much of the single figure belonged to, say, the closed cases versus the
+    ones still pending. This is a SIBLING of ``_pi_money_total`` above, not a
+    replacement of it: that function still backs the Cases TAB's own "Grand
+    total (all PI)" banner (``pi_total_display`` in this view's context),
+    which the owner did not ask this round to touch, so it is left computing
+    the one company-wide figure exactly as it always has. Both functions call
+    the SAME ``archive_attach_money`` for the SAME visible ``case_rows`` —
+    there is no second, independent read of the money here, only a second way
+    of adding up the one map ``archive_attach_money`` already returned.
+
+    EVERY CASE IS PUT IN A BUCKET WITH ``_case_card_bucket``, the identical
+    per-row rule ``_case_card_counts`` uses for the count lines this dict sits
+    beside — so the count and the money total on any one line always describe
+    the same set of cases. Computing the bucket here by some second rule of
+    this function's own would risk a line whose count and total quietly
+    describe two different groups of cases, which is exactly the failure mode
+    the owner's "reuse the exact same bucket assignment" instruction rules
+    out.
+
+    GATED IDENTICALLY TO ``_pi_money_total``: an empty dict when
+    ``case_access.show_money`` is False, so the template's own
+    ``{% if show_money %}`` continues to be the one gate that decides whether
+    any money renders on this card at all — this function does not add a
+    second, looser way to see a figure the grand total already hides.
+    """
+    if not case_access.show_money:
+        return {}
+    # Every case_id sorted into its bucket up front — mirrors the counts'
+    # own single pass over case_rows, just keeping the ids instead of a tally.
+    bucket_ids = {"approved": [], "cancelled": [], "closed": [], "pending": []}
+    for row in case_rows:
+        case_id = row.get("case_id")
+        if case_id is None:
+            continue
+        bucket_ids[_case_card_bucket(row["status"])].append(case_id)
+    all_ids = [cid for ids in bucket_ids.values() for cid in ids]
+    if not all_ids:
+        return {bucket: "—" for bucket in bucket_ids}
+
+    from cases import services as case_services
+    from cases.export_data import format_money_amount
+
+    # One call over every visible case, exactly as ``_pi_money_total`` makes
+    # — the per-bucket split below is pure arithmetic over the map it hands
+    # back, not a second query.
+    gt_map = case_services.archive_attach_money(
+        list(Case.objects.filter(pk__in=all_ids).only("id")))
+    result = {}
+    for bucket, ids in bucket_ids.items():
+        bucket_total = sum(gt_map.get(cid, 0.0) for cid in ids) if gt_map else 0.0
+        result[bucket] = format_money_amount(bucket_total) if bucket_total else "—"
+    return result
 
 
 def _can_manage_roles(access) -> bool:
@@ -1226,6 +1366,13 @@ def company_detail(request, pk):
         # UNCHANGED by this round: the owner's spec keeps this gate exactly as
         # it was.
         "pi_total_display": _pi_money_total(case_rows, case_access),
+        # The Cases CARD's own four per-bucket totals (approved/cancelled/
+        # closed/pending), replacing that card's old single grand-total line
+        # — see ``_pi_money_by_bucket`` for why this is a sibling of
+        # ``_pi_money_total`` above rather than a replacement of it. Gated
+        # identically: an empty dict, same as "" above, when show_money is
+        # False.
+        "pi_totals": _pi_money_by_bucket(case_rows, case_access),
         "show_money": case_access.show_money,
         "timeline": _timeline_with_icons(
             services.client_timeline(client, request.user, access.scope,
@@ -1567,23 +1714,31 @@ def report_create(request, pk):
 # --------------------------------------------------------------------------- #
 # Reminders — set one on a company, and the person's own list of them
 # --------------------------------------------------------------------------- #
-# THREE SCREENS' WORTH OF ROUTES, AND ONE RULE THAT USED TO NOT BE LIKE THE
-# REST OF THIS FILE — SEEING is now the same shape CONTACTS and REPORTS already
-# use, and ACTING ON one still is not. See ``marketing/models.py::Reminder``
-# for the full history of this: it used to say, at length, that a reminder
-# belongs to exactly one person and NOBODY else ever reads it, and the owner
-# has since explicitly reversed that half of it — Reminders now work like
-# Reports: an ordinary Marketing Expert sees only their own, a Supervisor sees
-# everyone's, and (for consistency with every other elevated-access surface in
-# this app) so do the General Manager and the platform admin.
+# SEEING is the same shape CONTACTS and REPORTS already use, and ACTING ON
+# one is not. See ``marketing/models.py::Reminder`` for the full history of
+# this: it used to say, at length, that a reminder belongs to exactly one
+# person and NOBODY else ever reads it, and the owner has since explicitly
+# reversed that half of it — Reminders now work like Reports: an ordinary
+# Marketing Expert sees only their own, a Supervisor sees everyone's, and
+# (for consistency with every other elevated-access surface in this app) so
+# do the General Manager and the platform admin.
 #
 # WHAT STAYS OWNER-ONLY, WITH NO ``elevated`` ESCAPE HATCH AT ALL, UNLIKE
-# ``toggle_manual_label``/``remove_connection``: giving a reminder a new time
-# or marking it dealt with (``reminder_retime``/``reminder_done``, both going
-# through ``marketing/reminders.py::_own`` with no ``scope`` argument passed).
-# The owner asked to let a Supervisor SEE the unit's reminders, not to let one
-# re-time or close out somebody else's private note — those two verbs are a
-# materially different, bigger grant that was never asked for.
+# ``toggle_manual_label``/``remove_connection``: CLOSING a reminder out
+# (``marketing/views.py::my_tasks_report``, which goes through
+# ``marketing/reminders.py::close_with_report`` — see that function's own
+# docstring, called with no ``scope`` argument, which stays strictly
+# ``owner=user``). The owner asked to let a Supervisor SEE the unit's
+# reminders, not to let one close out somebody else's private note — those
+# are a materially different, bigger grant that was never asked for. THIS IS
+# THE ONLY WAY A REMINDER EVER CLOSES, DELIBERATELY, per the mandatory
+# close-only-via-a-report cycle this whole round was built around — a
+# reschedule or a mark-done with no report ever required USED to be possible
+# here too, through ``reminder_retime``/``reminder_done``, which have since
+# been REMOVED (routes and views both — see the comment where they used to
+# sit, just below ``reminder_list``) precisely because they were a second,
+# working path around this rule that nothing in this section's own history
+# ever closed off.
 #
 # WHO MAY OPEN THESE SCREENS AT ALL is still answered by the two gates this
 # file already uses, and neither of them is what decides "own" vs "all" —
@@ -1594,20 +1749,17 @@ def report_create(request, pk):
 #     exactly like ``contact_add`` and ``report_add`` — ``can_view and
 #     can_edit`` — and the view-only tier (the GM and the platform admin) is
 #     refused, on the URL and not merely in the template.
-#   * READING and RE-TIMING is gated on ``access.can_reach_marketing`` instead,
-#     which is the existing union "may open the section now, OR holds a
-#     Marketing seat they are not sitting in". That is deliberately the WIDER
-#     of the two tests and it grants nothing extra: it decides only whether the
-#     page opens at all, not how much of the table it then shows — that second
-#     question is ``access_for(request).scope``, read once the page is already
-#     open, exactly the way ``company_detail`` already reads it for contacts
-#     and reports. The notification that links here is rendered for exactly
-#     the same "may open the section" population (see
-#     ``marketing/context_processors.py``). Gating page-access on
-#     ``access_for`` instead of ``can_reach_marketing`` would answer 403 to a
-#     dual-seat person who clicked their own notification from a case screen —
-#     a permission wall in front of their own note to self — which is why that
-#     gate is unchanged even though what it reveals now can be wider than "own".
+#   * READING one's OWN list is gated on having a linked ``people.Person``
+#     record at all (``_my_tasks_person_or_redirect``, below) — the SAME,
+#     wider population ``core/templates/base.html``'s own "Personal" nav
+#     group and due-reminder banner are now offered to (see
+#     ``marketing/context_processors.py::reminder_notice``), not
+#     ``access.can_reach_marketing`` — a Marketing-seat-only gate would 403 a
+#     Commercial or Technical seat with no Marketing seat at all who clicked
+#     their own notification, which is exactly the population "My Tasks" was
+#     built to include. ``reminder_list`` itself (immediately below) no
+#     longer renders anything of its own; it is a plain, ungated redirect
+#     onto ``my_tasks``, which runs this gate on arrival.
 
 
 def _reminder_case_choices(client, request, case_access) -> list:
@@ -1742,114 +1894,1025 @@ def _reminder_rows(request, *, scope: str = "own", client=None) -> list:
     return rows
 
 
-def _render_reminder_list(request, *, time_form=None, retime_id=None):
-    """The reminders list page, rendered from one place.
+@login_required
+def reminder_list(request):
+    """GONE AS A PAGE OF ITS OWN — "My Tasks" (``my_tasks`` below) REPLACES
+    IT, and this view now exists only so the URL name (and every link that
+    still points at it) keeps working. See ``my_tasks``'s own docstring for
+    the full page this became part of.
 
-    Two routes end here — the list itself and both mutations' re-render or
-    redirect paths — and factoring it out is what keeps a failed re-time from
-    having to rebuild the page a second, slightly different way.
+    THE OWNER'S OWN WORDS ARE WHY: this page used to be reachable only by
+    someone ``can_reach_marketing`` let in, and the owner has since asked for
+    a personal hub "even with no seat at all" — a wider population than this
+    URL was ever gated for. Rather than widen THIS view's own gate in place
+    (which would leave two pages answering "your reminders", one of them
+    stranded with no link pointing at it any more — the exact "second,
+    separate reminders list" the owner asked NOT to end up with), every
+    caller of this URL name is simply sent on to the page that replaced it:
+    ``core/templates/base.html``'s own due-reminder banner links straight at
+    ``my_tasks`` now and does not pass through here at all, but
+    ``marketing/templates/marketing/directory.html`` and
+    ``reminder_form.html`` still carry an older link by this name, and a
+    redirect is what keeps them correct with no template edit required
+    beyond this one function's body.
 
-    ``time_form`` is a BOUND ``ReminderTimeForm`` carrying an error, and
-    ``retime_id`` is the row it belongs to, so the template can print the
-    message under that row's own box instead of at the top of a list where it
-    would not say which reminder it was about.
-
-    ``scope`` IS RESOLVED HERE, ONCE, FROM ``access_for`` — see
-    ``reminder_list``'s own docstring for why this page's OWN "may I open it
-    at all" gate (``can_reach_marketing``) is deliberately a different, wider
-    test than the one that decides how much of the table a viewer then sees.
-    A viewer ``access_for`` does not currently recognise (can_view False —
-    typically a dual-seat person not presently on their Marketing seat) falls
-    back to ``Access``'s own default scope, "own", which is the fail-closed
-    direction and also exactly this page's previous, unconditional behaviour
-    for everybody — nobody who could open this page before sees less than
-    they used to.
+    A PLAIN, UNGATED REDIRECT — ``my_tasks`` runs its OWN gate on arrival
+    (a linked Person record, not ``can_reach_marketing``), so re-checking
+    anything here would only risk the two gates drifting apart; the one true
+    answer to "may this viewer open the page reminders now live on" belongs
+    in exactly one place.
     """
-    scope = access_for(request).scope
-    return render(request, "marketing/reminder_list.html", {
-        "rows": _reminder_rows(request, scope=scope),
-        "sees_all_reminders": scope == "all",
-        "retime_error": (time_form.errors.get("due_at")
-                         if time_form is not None else None),
-        "retime_id": retime_id,
+    return redirect("marketing:my_tasks")
+
+
+# ``reminder_retime``/``reminder_done`` USED TO LIVE HERE, AND HAVE BEEN
+# REMOVED ENTIRELY RATHER THAN LEFT WORKING AND UNLINKED. They were the
+# original "set a new time" / "mark dealt with" pair — a plain reschedule or
+# a mark-done with NO report ever required — from before this round's
+# mandatory close-only-via-a-report cycle existed
+# (``marketing/reminders.py::close_with_report``,
+# ``marketing/views.py::my_tasks_report``). Retiring the CYCLE without
+# retiring these two left a live, working bypass of it: any Marketing-seat
+# viewer could still close out their own reminder here with zero report
+# behind it, or silently reschedule one straight past
+# ``TaskForm``'s own work-shift-window check, from a control that
+# ``marketing/templates/marketing/company_detail.html``'s own Reminders tab
+# (a tab this same round's company-page task edited) went on rendering.
+# ``marketing/templates/marketing/company_detail.html``'s Reminders tab is
+# the only template that still posted to them; it now carries the same
+# "Submit report" control My Tasks already has, wired to the SAME
+# ``my_tasks_report`` view below — see that template's own comment. With no
+# caller left anywhere in the repo (confirmed by grepping for
+# ``reminder_retime``/``reminder_done``/``reminders.reschedule``/
+# ``reminders.mark_done`` before deleting any of it), a route that still
+# worked would have been a live backdoor a saved bookmark or a forged POST
+# could still hit — a REMOVED route 404s, which is the safe failure mode; a
+# route that quietly still works is not, and is exactly what the reviewer
+# who asked for this fix reproduced. The two service functions they alone
+# called, ``marketing/reminders.py::reschedule``/``mark_done``, are removed
+# with them for the identical reason — see that module's own comment where
+# they used to be defined.
+
+
+# --------------------------------------------------------------------------- #
+# "My Tasks" (کارهای من) — the personal hub, open to every person with a
+# linked Person record, seat or no seat at all
+# --------------------------------------------------------------------------- #
+# A DIFFERENT KIND OF PAGE FROM EVERYTHING ELSE IN THIS FILE, AND GATED
+# DIFFERENTLY ON PURPOSE. Every other view above answers "may this viewer
+# reach the MARKETING section" (``access_for``/``can_reach_marketing``) before
+# it answers anything else; this page answers a wider question — "does this
+# login have a linked personnel record at all" — the SAME question
+# ``core/templates/base.html``'s own "Personal" nav group already asks for
+# the neighbouring "Requests" entry (``nav_show_person_requests``, in
+# ``core/context_processors.py``). The owner's own words are why: this page
+# exists for every person, "even with no seat at all", so a Supply expert or
+# a Technical manager who holds no Marketing seat at all still gets their own
+# private to-do list here, the same one a Marketing Supervisor gets.
+#
+# REPLACES ``reminder_list`` ("My reminders") RATHER THAN SITTING BESIDE IT —
+# see that view's own docstring, now a plain redirect here. AN EARLIER STAGE
+# BUILT ONLY ITS REMINDERS TAB; THIS STAGE IS THE "LATER, ADDITIVE STAGE" that
+# earlier one's own comments named — the Reports tab now sits beside it, on
+# the exact same ``.tabs``/``.tab-panel`` shape ``company_detail.html`` already
+# uses for its own five tabs, added with no change to that earlier tab's own
+# markup or view logic — see ``marketing/templates/marketing/my_tasks.html``'s
+# own head comment.
+#
+# WHAT DID NOT WIDEN, EVEN HERE: the LISTING this stage shows is deliberately
+# ``scope="own"`` and nothing else — see ``my_tasks``'s own docstring for why
+# an admin-wide equivalent is a later stage's job, not something to fold in
+# quietly because ``reminders.list_for_user`` happens to be able to answer
+# "all" now.
+#
+# THE CASE PICKER IS THE ONE GENUINELY NEW PERMISSION QUESTION THIS SECTION
+# ASKS, because it is the first surface in this app that is NOT itself gated
+# on Marketing access yet still needs to know which cases a viewer may see —
+# see ``_my_tasks_case_access``'s own docstring for the full argument and why
+# it is NOT simply ``case_access_for(request, access_for(request))`` the way
+# every other Marketing page's is.
+
+
+def _my_tasks_person_or_redirect(request):
+    """This viewer's own linked Person record, or ``None`` after already
+    sending them back to the workspace with a message telling them why.
+
+    THE SAME GATE ``core/templates/base.html``'s own "Personal" nav group
+    uses for the entry beside this one (``nav_show_person_requests`` in
+    ``core/context_processors.py``) — a linked ``people.Person`` record and
+    NOTHING role- or seat-specific — because My Tasks hangs off that exact
+    group and must open for exactly the population it is offered to.
+    ``people/views_requests.py::_person_or_redirect`` is the identical shape
+    for "Requests", the neighbouring entry in that same group; this is that
+    pattern applied here, not a second rule that could quietly drift from it.
+    """
+    from people.work_shift import person_for_user
+
+    person = person_for_user(request.user)
+    if person is None:
+        messages.error(request, "No personnel record is linked to this login.")
+    return person
+
+
+def _my_tasks_is_admin(request) -> bool:
+    """Whether THIS login may open My Tasks' admin-wide variant
+    (``scope="all"``, reached only through ``marketing:my_tasks_all`` — see
+    ``my_tasks``'s own docstring for the full story of that entry point).
+
+    REUSES ``people/views.py::_is_admin`` — THE EXACT SAME TEST THAT ALREADY
+    GATES THE PEOPLE SECTION'S OWN ADMIN PAGES (``person_list``,
+    ``person_seats`` and every other view behind ``admin_required``/
+    ``admin_or_impersonating_admin_required`` in that file), rather than
+    inventing a second admin check here or reaching for this app's own,
+    BROADER ``marketing/access.py::Access.is_gm_or_admin`` tier, which also
+    covers the General Manager. That is a deliberate, narrower choice, not an
+    oversight: the owner's own wording for this entry point was "ادمین در
+    قسمت اشخاص" — "the ADMIN, in the People section" — naming the
+    administrator specifically, from the exact screen this check already
+    gates, not the wider "Supervisor/GM/admin" population several OTHER
+    Marketing screens use for their own "sees everyone" split (see, e.g.,
+    ``company_detail``'s ``sees_all_reports``/``sees_all_reminders``, both
+    keyed on ``access.is_gm_or_admin``). A Marketing Supervisor already sees
+    every report and reminder ON ONE COMPANY from that company's own page,
+    per an earlier round — a real, but NARROWER grant than this screen's
+    "every row, on every company, from one list", which stays admin-only
+    until the owner asks in as many words to widen it to the GM too.
+
+    Imported locally, the same way ``_my_tasks_person_or_redirect`` reaches
+    into ``people.work_shift`` rather than at module level — ``people.views``
+    already imports ``marketing.models`` the identical way, inside a function
+    body, for the identical reason: importing either module at the top of the
+    other would be circular.
+    """
+    from people.views import _is_admin
+
+    return _is_admin(request.user)
+
+
+def _task_person_map(user_ids) -> dict:
+    """``{user_id: Person}`` for every login among ``user_ids`` that has one
+    linked — built for the admin-wide My Tasks list's own "Person" column and
+    filter, so a reminder's ``owner`` or a report's ``created_by`` can be
+    shown and searched by the PERSON who holds that login rather than by the
+    raw account.
+
+    ONE QUERY FOR THE WHOLE PAGE, not one per row — the same reasoning
+    ``_task_rows``/``_task_report_rows`` already give for their own single
+    case-visibility query, applied here to the new lookup this round adds.
+    Goes through ``people.PersonAccount`` — the single seat-to-person link
+    every login goes through (see that model's own docstring) — the SAME
+    join ``people/work_shift.py::person_for_user`` reads for one user at a
+    time; this is that lookup, batched.
+
+    A ``user_id`` with no matching row (a seat-only login nobody has claimed
+    as their own Person, or a ``None`` from a deleted ``created_by``) is
+    simply absent from the returned dict — callers fall back to the account's
+    own display name rather than treating a missing Person as an error, the
+    same "show something rather than nothing" reasoning
+    ``CompanyReport.author_display_name`` already applies to a vanished
+    account.
+    """
+    from people.models import PersonAccount
+
+    ids = {i for i in user_ids if i is not None}
+    if not ids:
+        return {}
+    return {
+        a.user_id: a.person
+        for a in PersonAccount.objects.filter(user_id__in=ids)
+                                       .select_related("person")
+    }
+
+
+def _my_tasks_case_access(request):
+    """The case-visibility decision for My Tasks — the SAME four-way table
+    ``marketing/access.py::case_access_for`` documents on its own docstring
+    (admin/GM see every case; a Commercial MANAGER seat sees the entire
+    archive; an ordinary Commercial seat sees only cases IT created; no
+    Commercial seat at all sees none) — reached WITHOUT first requiring
+    MARKETING-section access, because this page does not require it either.
+
+    ``case_access_for``'S OWN FIRST LINE — ``if not access.can_view: return
+    CaseAccess(can_open=False, all_cases=False)`` — has never had to be
+    questioned before now. EVERY EXISTING caller of that function (the
+    company page, the chart's own panel, the all-cases search) is itself a
+    MARKETING page, already refused to anyone ``access_for`` would not let
+    past its own gate — so that ``can_view`` check has only ever repeated a
+    decision the caller had already made, one query earlier. My Tasks is the
+    first caller that is NOT such a page (see this section's own header
+    comment and ``my_tasks``'s docstring): an ordinary Commercial Expert with
+    no Marketing access AT ALL would fail that very first line, for a reason
+    (no Marketing access) that has nothing to do with which cases their OWN
+    commercial seat created — and would be shown an empty case picker on a
+    page that explicitly promises them their own cases, exactly the table
+    ``_visible_case_rows_all``'s own docstring quotes.
+
+    So this passes ``case_access_for`` a COPY of the real
+    ``access_for(request)`` result with ``can_view`` forced ``True`` — the
+    ONE field that guard reads. ``is_gm_or_admin`` (the only other field
+    ``case_access_for``/``_case_money_visible`` ever look at) is left exactly
+    as ``access_for`` computed it, so the admin/GM branch is still answered by
+    the REAL decision, never by this override. Every branch reached past that
+    guard — the Commercial Manager line, an ordinary Commercial seat's own
+    created cases, no Commercial seat at all — reads THIS request's own seat
+    list directly (``access.py::_own_commercial_seat_users`` and neighbours)
+    and never reads ``can_view`` again, so the override touches exactly the
+    one line it means to and nothing beneath it.
+    """
+    access = access_for(request)
+    return case_access_for(request, dataclasses.replace(access, can_view=True))
+
+
+def _task_rows(request, case_access, scope: str = "own") -> list:
+    """This viewer's OWN reminders — or, when ``scope="all"``, EVERYONE's,
+    for the admin-wide variant of this page (see ``my_tasks``'s own
+    docstring's "``scope``" section for who may ever pass "all" here) — plus
+    the display fields the template and its client-side filter/grouping both
+    need:
+
+    * ``person_name`` / ``person_key`` — ONLY MEANINGFUL, AND ONLY COMPUTED,
+      WHEN ``scope="all"``: the admin-wide list's new "Person" column and
+      filter target (see ``_task_person_map``). ``person_key`` is the row's
+      owner's linked ``Person.detail_code`` — a stable, unique, never-reused
+      identity (see ``people/models.py::Person.detail_code``'s own docstring)
+      — rather than the display name, so two people who happen to share a
+      name can never be confused by the equals-filter the way a name-keyed
+      picker could risk (the same reason ``client_names`` below is safe to
+      key on the plain company NAME instead: ``cases.Client`` names have no
+      such collision risk documented anywhere in this app, ``Person`` full
+      names are never asserted unique). A row whose owner holds no linked
+      Person at all falls back to the account's own display name for
+      ``person_name`` and an empty ``person_key`` — present in the list,
+      simply unreachable through the Person filter, the identical "show
+      something, filter on nothing" degrade ``_task_person_map`` documents.
+
+    * ``is_due`` / ``state_text`` — derived off ONE ``timezone.now()`` for the
+      whole page, the same "due is a comparison, never a stored value"
+      reasoning ``marketing/models.py::ReminderState`` documents at length;
+      ``state_text`` is the exact chip word the table prints ("Due" /
+      "Waiting" / "Dealt with"), read straight back by the missed-only
+      toggle's own client-side filter (see the template) so the two can
+      never print one word and filter on another.
+    * ``show_case_no`` / ``case_open_url`` — the SAME "a document number is
+      case identity, withheld the instant this viewer's own access to it is
+      gone" rule ``_reminder_rows`` already enforces for the company page,
+      over THIS page's own ``case_access`` (see ``_my_tasks_case_access``)
+      rather than the plain ``case_access_for(request)`` every other caller
+      of this pattern uses — the reason is identical: this page's own
+      population is wider than Marketing access alone.
+    * ``day_key`` / ``hour_key`` — plain LOCAL strings (``YYYY-MM-DD`` and a
+      zero-padded 24-hour ``HH``), computed off ``timezone.localtime`` the
+      same way ``core/templatetags/ft_extras.py::jalali`` converts before it
+      prints a stamp, so a row's own group key and its own printed time can
+      never disagree about which calendar day or hour it falls in. They
+      exist purely for the CLIENT-SIDE day/hour pills
+      (``marketing/static/marketing/js/my_tasks.js``) — nothing server-side
+      ever reads them back.
+
+    ONE QUERY for the rows (``reminders.list_for_user``, already
+    ``select_related`` for client/case/owner) plus ONE for the case-
+    visibility check, plus — ``scope="all"`` ONLY — ONE MORE for
+    ``_task_person_map``, still a fixed, small number of queries regardless
+    of how many rows come back, the same two-(now three-)query shape
+    ``_reminder_rows`` already uses for the company page's own Reminders tab.
+    """
+    from django.utils import timezone
+
+    now = timezone.now()
+    rows = reminders.list_for_user(request.user, scope=scope)
+    visible = services._visible_case_ids(
+        [r.case_id for r in rows], case_access)
+    # See this function's own docstring's "person_name / person_key" section
+    # — computed only for the admin-wide list, since an ordinary "own" visit
+    # never renders a Person column or filter to begin with, and every row
+    # in that case is this exact viewer regardless.
+    person_map = _task_person_map(
+        (r.owner_id for r in rows)) if scope == "all" else {}
+    for row in rows:
+        row.is_due = (row.state == ReminderState.OPEN and row.due_at <= now)
+        # scope="all" can hand back somebody else's row (see this function's
+        # own docstring) - the template's "Submit report" control must only
+        # ever draw for a row this viewer actually owns, the exact is_own
+        # pairing _reminder_rows already computes for the company page's own
+        # Reminders tab (see that function, a few hundred lines up). Without
+        # this, the admin-wide list drew the control on every row regardless
+        # of owner - my_tasks_report's own server-side ownership check
+        # (reminders.get_own) always refused it, so nothing was ever exposed,
+        # but a control the server will refuse is still a bug (this file's
+        # own stated principle, quoted in company_detail.html's own header).
+        row.is_own = (row.owner_id == getattr(request.user, "pk", None))
+        row.show_case_no = (row.case_id is not None and row.case_id in visible)
+        row.case_open_url = (
+            case_open_url(case_access, row.case_id) if row.show_case_no else "")
+        local_due = timezone.localtime(row.due_at)
+        row.day_key = local_due.date().isoformat()
+        row.hour_key = "%02d" % local_due.hour
+        if scope == "all":
+            person = person_map.get(row.owner_id)
+            row.person_name = (
+                person.full_name if person is not None
+                else row.owner.get_full_name() or row.owner.username)
+            row.person_key = person.detail_code if person is not None else ""
+        row.state_text = (
+            "Dealt with" if row.is_done
+            else "Due" if row.is_due
+            else "Waiting"
+        )
+    return rows
+
+
+def _task_day_groups(rows) -> list:
+    """The day-pill data for My Tasks' Reminders tab — Today and Tomorrow
+    ALWAYS (even carrying nothing, so the person can still open Today and see
+    their own now-empty shift laid out in hour blocks), then every FUTURE day
+    past tomorrow that has at least one of THESE rows due on it and no
+    others — the owner's own instruction, "do not show empty future days": a
+    pill for a day the table underneath has nothing in is a control that
+    opens an empty list for no reason.
+
+    BUILT OFF THE SAME ``rows`` THE TABLE RENDERS, never a second query — it
+    groups by ``row.day_key`` (see ``_task_rows``), so the count printed on
+    each pill and the rows that pill's click actually reveals (matched on
+    that identical key, client-side) can never disagree.
+    """
+    import datetime as _dt
+    from collections import Counter
+
+    from django.utils import timezone
+
+    today = timezone.localtime(timezone.now()).date()
+    tomorrow = today + _dt.timedelta(days=1)
+    today_key, tomorrow_key = today.isoformat(), tomorrow.isoformat()
+    counts = Counter(row.day_key for row in rows)
+    groups = [
+        {"key": today_key, "label": "Today", "date": None,
+         "count": counts.get(today_key, 0), "is_today": True},
+        {"key": tomorrow_key, "label": "Tomorrow", "date": None,
+         "count": counts.get(tomorrow_key, 0), "is_today": False},
+    ]
+    for key in sorted(k for k in counts if k > tomorrow_key):
+        groups.append({
+            "key": key, "label": None, "date": _dt.date.fromisoformat(key),
+            "count": counts[key], "is_today": False,
+        })
+    return groups
+
+
+def _task_hour_blocks(user) -> list:
+    """Hour-block pills for TODAY, spanning THIS person's own work-shift
+    window rather than a flat 24-hour grid — the owner's own wording,
+    "طبق شیفت کاری اش" (according to their own work shift). Built off
+    ``people/work_shift.py::shift_window(person_for_user(user))`` — the SAME
+    pair ``marketing/reminders.py::validate_due_at_shift`` reads, so the
+    blocks a person sees here and the window their own submitted time is
+    actually checked against can never disagree.
+
+    REUSES ``_in_window`` RATHER THAN RE-DERIVING THE SAME COMPARISON A
+    SECOND TIME — the identical overnight-safe helper
+    ``validate_due_at_shift`` already leans on for its own reason (see that
+    function's docstring). ONE PROBE PER HOUR, at its first minute and its
+    last, is what turns "is this instant inside the window" into "does this
+    whole hour overlap the window at all" with no separate wrap-around case
+    to get wrong a second time — a shift that legitimately wraps past
+    midnight still produces the right blocks instead of none.
+    """
+    import datetime as _dt
+
+    from people.work_shift import _in_window, person_for_user, shift_window
+
+    person = person_for_user(user)
+    start, end = shift_window(person)
+    blocks = []
+    for h in range(24):
+        if (_in_window(_dt.time(h, 0), start, end)
+                or _in_window(_dt.time(h, 59), start, end)):
+            blocks.append({"key": "%02d" % h, "label": "%02d:00" % h})
+    return blocks
+
+
+def _task_report_rows(request, case_access, scope: str = "own") -> list:
+    """My Tasks' own Reports tab rows — every ``CompanyReport``
+    ``services.list_reports_for_user`` returns for this viewer under
+    ``scope`` (see ``my_tasks``'s own docstring for who may ever pass
+    ``"all"``), each carrying the display fields the template needs beyond
+    what ``_report_row`` already puts on the dict:
+
+    * ``case_open_url`` — WHERE this row's case number actually links to, the
+      identical ``access.case_open_url`` call ``_task_rows`` already makes for
+      the Reminders tab, over this page's own ``case_access`` (see
+      ``_my_tasks_case_access``) rather than the plain
+      ``case_access_for(request)`` every Marketing-gated page uses — computed
+      only when ``case_id`` survived ``_report_row``'s own redaction (i.e. is
+      not ``None``), since a redacted case has no number to link either.
+    * ``has_timeline`` — whether THIS report closed out a reminder, i.e.
+      whether ``close_with_report`` (and not the ordinary ``add_report`` path)
+      is the row's writer. ``reminder_set_at`` is the one of the three frozen
+      fields that can never be a legitimately-blank value on a row that DID
+      close a reminder (an owner who set one with no note still has a real
+      "set" instant), so testing it — and not, say, ``reminder_note``, which
+      a standalone report also leaves blank — is the one test that cannot
+      mistake a plain report for a closed-reminder one or the reverse. See
+      ``marketing/models.py::CompanyReport``'s own docstring for why these
+      three columns can only ever be a frozen copy in the first place.
+    * ``person_name`` / ``person_key`` — ``scope="all"`` ONLY, the identical
+      pair ``_task_rows`` computes for the Reminders tab and for the same
+      reason (see that function's own docstring); here keyed off
+      ``created_by_id`` rather than ``owner_id`` since a report's writer is
+      recorded under that name. A report whose ``created_by`` has since been
+      removed (``SET_NULL`` — see ``CompanyReport``'s own docstring) falls
+      back to the row's own FROZEN ``author`` name rather than the account
+      lookup, which finds nothing for a ``None`` id — the one column on this
+      row that was built to survive exactly that.
+
+    ONE QUERY for the rows (``services.list_reports_for_user``, itself already
+    ``select_related``/``prefetch_related`` for a company-spanning list) plus
+    ONE for the case-visibility check, plus — ``scope="all"`` ONLY — ONE MORE
+    for ``_task_person_map``, the same fixed-count shape ``_task_rows`` uses
+    for the identical reason.
+    """
+    rows = services.list_reports_for_user(request.user, case_access, scope=scope)
+    person_map = _task_person_map(
+        (r.get("created_by_id") for r in rows)) if scope == "all" else {}
+    for row in rows:
+        row["case_open_url"] = (
+            case_open_url(case_access, row["case_id"])
+            if row.get("case_id") is not None else "")
+        row["has_timeline"] = row.get("reminder_set_at") is not None
+        if scope == "all":
+            person = person_map.get(row.get("created_by_id"))
+            row["person_name"] = (
+                person.full_name if person is not None else row["author"])
+            row["person_key"] = person.detail_code if person is not None else ""
+    return rows
+
+
+@login_required
+def my_tasks(request, scope: str = "own"):
+    """"My Tasks" (کارهای من) — the personal hub every person with a linked
+    Person record reaches from the sidebar's own "Personal" group, seat or
+    no seat at all. AN EARLIER STAGE BUILT ITS REMINDERS TAB; A LATER ONE
+    ADDED THE REPORTS TAB BESIDE IT, on the same page — see the template's
+    own head comment for the tab-strip structure that addition slots into,
+    with no change to the Reminders tab's own markup or the view logic
+    behind it.
+
+    ``scope`` — "own" (the default, every existing URL into this view) OR
+    "all", reached ONLY through the separate ``marketing:my_tasks_all`` URL
+    (``/marketing/tasks/all/``) the People section's own sidebar links to
+    (``people/templates/people/_nav.html``) — is THIS ROUND'S OWN ADDITION,
+    the admin-wide variant of this exact page the owner asked for: "ادمین در
+    قسمت اشخاص" ("the admin, in the People section") should be able to see
+    EVERYONE's reports and reminders, not just their own, with one more
+    filter — by PERSON — beyond the case/company/date-range filters this
+    page already had.
+
+    THIS IS DELIBERATELY THE SAME VIEW AND THE SAME TEMPLATE, PARAMETERISED
+    BY ``scope``, NOT A SECOND, PARALLEL PAGE — the owner's own instruction
+    for this round, and the shape ``marketing/reminders.py::_scoped`` and
+    ``marketing/access.py``'s own ``scope`` concept already use everywhere
+    else in this app for exactly an admin/GM-sees-everyone split. Every
+    difference between the two visits — whose rows come back
+    (``_task_rows``/``_task_report_rows``, both threaded ``scope``), and
+    whether the Person filter field and column exist at all
+    (``scope_all`` — see ``_my_tasks_reminders.html``/
+    ``_my_tasks_reports.html``) — is confined to those two call sites and a
+    handful of ``{% if scope_all %}`` blocks in the templates; the layout,
+    the tab strip, the day/hour grouping, and every OTHER filter are the
+    SAME markup for both visits, so a fix to one can never silently miss the
+    other the way two separate templates could drift.
+
+    GATED, FOR ``scope="all"`` ONLY, ON ``_my_tasks_is_admin`` — see that
+    helper's own docstring for exactly which population this is (admin
+    only, not the wider Marketing "Supervisor/GM/admin" tier several other
+    screens in this app use for their own "sees everyone" split) and why.
+    Checked HERE, on the view, not merely hidden from nav — the nav link in
+    ``_nav.html`` is reachable only from that same "People section, admin
+    only" sidebar group to begin with, but a link is not a permission, and a
+    typed URL must be refused exactly as one that arrives from nowhere at
+    all. Refused with the SAME ``marketing/denied.html`` 403 page every
+    other admin/access refusal in this app already uses, never a redirect —
+    the section header comment above gives the reason: a redirect would have
+    to guess a destination for a login this decision does not cover, and "you
+    may not open this" is the honest answer to give. An UNRECOGNISED ``scope``
+    value (there is no way to reach one through either real URL, both of
+    which pass a literal string, but a defensive read costs nothing) is
+    folded into "own" before anything else runs — the same fail-closed
+    direction ``reminders.py::_scoped`` documents for its own unrecognised
+    ``scope``: too little rather than somebody else's private notes.
+
+    THE PERSONAL-PERSON-RECORD GATE (``_my_tasks_person_or_redirect``, see
+    below) APPLIES ONLY TO ``scope="own"``. The admin-wide visit is not a
+    personal hub at all — it is reached from an ADMIN-ONLY sidebar group by
+    a login that has already cleared ``_my_tasks_is_admin``, and the
+    reserved platform ``admin`` account this app's own docstrings describe
+    elsewhere (``accounts/models.py``: "the reserved ``admin`` login and
+    nothing else") is never guaranteed a linked ``people.Person`` at all —
+    so requiring one here would lock the very login this screen is built for
+    out of it. ``person`` is still resolved, without the redirect, so the
+    "Work calendar" button keeps working for an admin who DOES happen to
+    hold a linked Person record, and simply does not render for one who does
+    not (see the template's own existing ``{% if person %}`` guard — nothing
+    new needed there).
+
+    THE REPORTS TAB, IN ONE LINE: every ``CompanyReport`` this exact viewer
+    wrote (``created_by=request.user`` — or, under ``scope="all"``, every
+    ``CompanyReport`` anyone wrote; see ``services.list_reports_for_user``'s
+    own docstring for that split), across every company at once, filterable
+    the same way the Reminders tab is (a searchable case picker, a searchable
+    company picker, a Jalali date-range pair — this time on the report's own
+    ``created_at``, its natural date field, plus, under ``scope="all"``, the
+    same Person picker the Reminders tab gains), and
+    rendered by ``_task_report_rows``/``marketing/templates/marketing/
+    _my_tasks_reports.html``. A report that CLOSED OUT a reminder carries its
+    three frozen ``reminder_set_at``/``reminder_due_at``/``reminder_note``
+    fields (see ``marketing/models.py::CompanyReport``'s own docstring) and
+    the template draws them as a horizontal Set → Due → Reported timeline;
+    ``my_tasks_add``'s own ``closed_report`` display already shows the
+    identical three fields once, right after closing, but THIS tab is where
+    the report actually lives afterwards, so the same timeline is drawn here
+    too rather than being a one-time confirmation nobody can find again. A
+    PLAIN report — never tied to a reminder — has all three blank and is
+    shown with no timeline at all; see ``_task_report_rows``'s own
+    ``has_timeline`` flag, which is exactly that test. "ADD REPORT"
+    (``my_tasks_report_add``) is a separate, standalone creation form, not a
+    third step bolted onto the reminder-closing flow — see that view's own
+    docstring for why company and case are independently optional there too.
+
+    REPLACES the standalone "My reminders" page (``reminder_list``, now a
+    redirect here — see that view's own docstring) rather than living beside
+    it: one page answers "what do I need to deal with", not two.
+
+    GATED ON A LINKED PERSON RECORD, NOT ON ``access_for``/
+    ``can_reach_marketing`` — see this section's own header comment and
+    ``_my_tasks_person_or_redirect``. Deliberately the SAME, wider population
+    ``core/templates/base.html``'s own "Personal" nav group is offered to.
+
+    LISTING STAYS THE ORDINARY, OWNER-SCOPED VIEW FOR EVERY VISIT EXCEPT THE
+    ADMIN-WIDE ONE — ``scope="own"`` is still the one and only value every
+    pre-existing URL into this view ever passes, so "MY Tasks" reached from
+    the "Personal" nav group still shows exactly what it always has, never
+    "everyone's", the exact surprise widening an earlier round's version of
+    this docstring warned against. ``scope="all"`` is that widening, made
+    real at last — but ONLY through the separate, admin-gated
+    ``marketing:my_tasks_all`` URL this round adds, never by loosening what
+    the ordinary ``marketing:my_tasks`` URL means.
+
+    THE CASE PICKER GOES THROUGH ``_visible_case_rows_all``/
+    ``_my_tasks_case_access`` — see that helper's own docstring for why this
+    page cannot simply reuse ``case_access_for(request, access_for(request))``
+    the way every other Marketing page does, and never offers a case this
+    viewer's own commercial seat access would refuse.
+
+    DAY/HOUR GROUPING AND THE FILTER CARD ARE BOTH CLIENT-SIDE, over the ONE
+    table this view renders every one of this viewer's own rows into —
+    ``static/js/ui.js``'s existing ``data-filter-table`` pass, the exact
+    mechanism the case archive and ``company_detail.html``'s own Reports/
+    Reminders tabs already use, driven here by a few extra HIDDEN columns
+    (Day/Hour/State) and a small page-only script
+    (``marketing/static/marketing/js/my_tasks.js``) that sets those hidden
+    controls' values and re-runs the SAME filter pass ui.js already exposes
+    (``table.ftApplyFilters``) rather than teaching the table a second way to
+    hide a row. See the template for the full wiring.
+
+    ``?from=``/``?to=`` PRE-FILL THE REMINDERS TAB'S OWN DUE-DATE RANGE, A
+    NEW ENTRY POINT ADDED FOR THE SHIFT PAGE'S OPEN-REMINDER BADGES
+    (``people/views.py::person_shift``/``person_shift_month``, each card's
+    own count of THIS person's open reminders due in that year/month/day).
+    ``people/views.py::_my_tasks_period_url`` builds exactly this URL. THIS
+    IS NOT A SECOND FILTERING MECHANISM: the two values are handed straight
+    back onto the SAME ``data-jalali-datetime``/``data-filter-mode="gte"``/
+    ``"lte"`` inputs the Reminders tab's own filter card already carries
+    (see ``_my_tasks_reminders.html``) via their ``value=`` attribute, the
+    identical pattern ``cases/templates/cases/archive.html`` already uses
+    for its own ``?ffrom=``/``?fto=`` (see ``cases/views.py``'s
+    ``f_active``) — ``static/js/ui.js``'s existing filter pass runs on page
+    load regardless of whether a value arrived by typing or by markup, so no
+    new row-hiding logic was written for this, only two more values threaded
+    through to inputs that already drive it. A visit with neither parameter
+    (every ordinary link into this page) renders those two inputs exactly as
+    empty as before — this is purely additive.
+    """
+    # See this function's own docstring's "``scope``" section — the only
+    # two values either real URL ever passes are "own" and "all"; anything
+    # else (unreachable through either, but read defensively) fails closed
+    # to "own", the same direction ``reminders.py::_scoped`` documents for
+    # its own unrecognised ``scope``.
+    if scope != "all":
+        scope = "own"
+
+    if scope == "all":
+        if not _my_tasks_is_admin(request):
+            return render(request, "marketing/denied.html", status=403)
+        # See the docstring's "THE PERSONAL-PERSON-RECORD GATE" section — no
+        # redirect on a miss here, unlike the "own" branch just below: this
+        # visit is not gated on holding a linked Person at all.
+        from people.work_shift import person_for_user
+        person = person_for_user(request.user)
+    else:
+        person = _my_tasks_person_or_redirect(request)
+        if person is None:
+            return redirect("core:home")
+
+    case_access = _my_tasks_case_access(request)
+    case_choices = _visible_case_rows_all(request, case_access)
+    rows = _task_rows(request, case_access, scope=scope)
+    report_rows = _task_report_rows(request, case_access, scope=scope)
+
+    return render(request, "marketing/my_tasks.html", {
+        "active_tab": "reminders",
+        # This viewer's own linked Person, when they have one — used only by
+        # the "Work calendar" entry point in the page head (see the
+        # template), which links to ``people:person_shift`` for THIS exact
+        # ``pk`` and is itself guarded by ``{% if person %}`` there.
+        # Guaranteed non-``None`` for ``scope="own"`` by the redirect above;
+        # may genuinely be ``None`` for ``scope="all"`` (see the docstring).
+        "person": person,
+        # ``scope``/``scope_all`` — read by the template for every place the
+        # two visits differ: page heading and helper text, the Person filter
+        # field and column on both tabs, and (see ``my_tasks.html``'s own
+        # head comment) nothing about the tab strip or layout itself, which
+        # stays identical either way.
+        "scope": scope,
+        "scope_all": scope == "all",
+        "rows": rows,
+        "case_choices": case_choices,
+        "client_names": sorted({r.client.name for r in rows if r.client_id}),
+        # The Reminders tab's own Person picker — ``[]`` outside
+        # ``scope="all"``, which is fine: the template never draws the field
+        # at all outside ``scope_all``, so this is simply unused then.
+        # GUARDED ON ``scope``, NOT MERELY ON ``r.person_key`` — ``_task_rows``
+        # never sets ``person_name``/``person_key`` on a ``scope="own"`` row
+        # at all (see that function's own docstring), so reading either
+        # attribute unconditionally here would raise ``AttributeError``
+        # rather than quietly finding nothing.
+        "person_choices": sorted(
+            {(r.person_name, r.person_key) for r in rows if r.person_key}
+        ) if scope == "all" else [],
+        "day_groups": _task_day_groups(rows),
+        "hour_blocks": _task_hour_blocks(request.user),
+        # The Reminders tab's own Due-date range, pre-filled from the query
+        # string — see this view's own docstring's "``?from=``/``?to=``"
+        # section. Blank on every ordinary visit (``request.GET`` carries
+        # neither key), so this changes nothing for any link into this page
+        # that does not ask for it.
+        "due_from": (request.GET.get("from") or "").strip(),
+        "due_to": (request.GET.get("to") or "").strip(),
+        # The Reports tab — see this view's own docstring's "THE REPORTS TAB"
+        # section. ``case_choices`` above is reused as-is for its own case
+        # picker (the SAME scoped rows, the SAME reason ``_reminder_case_choices``
+        # and ``_report_case_choices`` already share one list on the company
+        # page): never offer, on either tab, a case the other one would have
+        # refused.
+        "report_rows": report_rows,
+        "report_client_names": sorted(
+            {r["client_name"] for r in report_rows if r["client_id"]}),
+        # The Reports tab's own Person picker — same reasoning as
+        # ``person_choices`` above, over the Reports tab's own rows.
+        "report_person_choices": sorted(
+            {(r["person_name"], r["person_key"])
+             for r in report_rows if r.get("person_key")}),
     })
 
 
 @login_required
-def reminder_list(request):
-    """Your reminders, soonest first — your own alone, or the whole unit's.
+def my_tasks_add(request):
+    """Add a task from My Tasks — OR, when reached with ``?client=``/
+    ``?case=``/``?next=`` in the query string, the "set your next reminder"
+    step that follows closing one out (see ``my_tasks_report`` below, and
+    ``marketing/reminders.py::close_with_report``'s own docstring for the
+    full two-step cycle this is the second half of). ONE VIEW SERVES BOTH,
+    deliberately: the form is identical either way — company optional, case
+    optional, a note, a due time — and the only real difference is which
+    values arrive already picked. The query string is read ONLY for that
+    pre-fill and for the template's own heading/button wording
+    (``is_next_step``), never to change what gets validated or written.
 
-    THE DESTINATION THE NOTIFICATION LINKS TO. The owner's flow is: the banner
-    appears, you click it, you land here, you set a new time (or mark the thing
-    dealt with) and the banner goes. Both controls are on this page and nowhere
-    else.
+    THE OWNER'S OWN WORDING IS WHY BOTH FIELDS ARE INDEPENDENTLY OPTIONAL —
+    see ``marketing/forms.py::TaskForm``'s own class docstring: "می‌تواند به
+    اسم یک شرکت یا پرونده وصل کند یا حتی نه".
 
-    SEEING follows ``access_for(request).scope`` NOW — an ordinary Marketing
-    Expert still sees only their own rows, exactly as before this round; a
-    Marketing Supervisor, the General Manager and the platform admin now see
-    the union of everyone's, the same "own"/"all" split Reports already use.
-    See the section header above and ``marketing/models.py::Reminder`` for why
-    this is a deliberate reversal of an earlier decision and not an oversight.
-    RE-TIMING AND MARKING DEALT WITH DID NOT WIDEN: both stay strictly
-    owner-only (``marketing/reminders.py::_own``), so a wider view here never
-    becomes a wider write.
+    WHEN A CASE IS PICKED BUT NO COMPANY WAS, this view attaches that case's
+    OWN company as the reminder's company — a judgement call, not a rule the
+    owner spelled out (their wording allows either reading), made on the
+    reasoning that "a reminder about this case" already says which company it
+    is about, so leaving the reminder's own company blank in that situation
+    would be a worse answer than the one already implied by the case. AN
+    EXPLICITLY PICKED COMPANY IS NEVER OVERRIDDEN BY THIS — a person naming a
+    company that differs from their chosen case's own is a coherent thing to
+    mean ("about this company, particularly this case elsewhere in it"), not
+    a mistake for this view to silently correct.
 
-    Gated on ``can_reach_marketing`` rather than ``access_for`` — see the
-    section header for why the wider of the two tests is the right one for
-    deciding whether this page opens AT ALL; ``access_for`` is still what
-    decides how much of the table it then shows, inside
-    ``_render_reminder_list``.
+    THE CASE IS RE-VALIDATED AGAINST THIS VIEWER'S OWN VISIBLE ROWS, ON
+    WRITE, exactly as every other case-attaching view in this app already
+    does (see ``reminder_add``) — the form's own ``ChoiceField`` has already
+    refused anything outside what it was offered, but a hidden/POSTed value
+    is a value the browser sends, never a fact.
+
+    ``?report=`` (carried alongside ``?client=``/``?case=`` — see
+    ``my_tasks_report``'s own redirect) IS WHERE THE CLOSED-OUT REPORT'S
+    THREE FROZEN DATES FIRST GET SHOWN — the owner's own requirement that
+    "when the reminder was SET, when it was DUE, and when the REPORT was
+    SUBMITTED" appear together as one timeline SOMEWHERE the report is
+    displayed. This screen is that "somewhere" for THIS stage (a later
+    stage's Reports tab is free to show the identical three fields again —
+    they are columns on the row, not a one-time message). Scoped to
+    ``created_by=request.user`` on the lookup — never trust the id alone —
+    so a guessed or tampered ``?report=`` value cannot surface a report
+    written by somebody else on THIS, otherwise fully personal, screen.
     """
-    if not can_reach_marketing(request):
-        return render(request, "marketing/denied.html", status=403)
-    return _render_reminder_list(request)
+    person = _my_tasks_person_or_redirect(request)
+    if person is None:
+        return redirect("core:home")
+
+    case_access = _my_tasks_case_access(request)
+    case_choices = _visible_case_rows_all(request, case_access)
+    # EVERY COMPANY IN THE DIRECTORY, not just this viewer's own reminders'
+    # companies — see ``marketing/forms.py::TaskForm``'s own docstring: unlike
+    # the case picker, there is no access rule at all over WHICH company a
+    # bare marketing note may name (``Client`` rows are shared, platform-wide
+    # directory data — see ``marketing/models.py``'s own module docstring),
+    # so the full directory is the more useful list to search, the same
+    # queryset ``marketing/views.py::directory`` itself starts from.
+    client_choices = Client.objects.all()
+
+    is_next_step = bool(
+        request.GET.get("client") or request.GET.get("case")
+        or request.GET.get("next"))
+    # See the docstring's "``?report=``" section — a plain-scoped lookup,
+    # never trusted on the id alone, so this is safe even from a hand-edited
+    # URL that names a report belonging to somebody else.
+    report_id = _int_or_none(request.GET.get("report"))
+    closed_report = (
+        CompanyReport.objects.filter(pk=report_id, created_by=request.user)
+        .prefetch_related("options").first()
+        if report_id is not None else None
+    )
+
+    if request.method == "POST":
+        form = TaskForm(
+            request.POST, user=request.user,
+            client_choices=client_choices, case_choices=case_choices,
+        )
+        if form.is_valid():
+            data = form.cleaned_data
+            allowed_case_ids = {row["case_id"] for row in case_choices}
+            case_id = data.get("case_id")
+            case = (Case.objects.filter(pk=case_id).select_related("client").first()
+                    if case_id in allowed_case_ids else None)
+            client_id = data.get("client_id")
+            client = (Client.objects.filter(pk=client_id).first()
+                      if client_id else None)
+            # See the docstring's "WHEN A CASE IS PICKED BUT NO COMPANY WAS"
+            # section: this only ever FILLS IN a blank, never overrides an
+            # explicit pick.
+            if client is None and case is not None:
+                client = case.client
+            reminders.create(
+                request.user, client,
+                note=data["note"], due_at=data["due_at"], case=case,
+            )
+            return redirect("marketing:my_tasks")
+    else:
+        initial = {}
+        client_raw = _int_or_none(request.GET.get("client"))
+        case_raw = _int_or_none(request.GET.get("case"))
+        if client_raw is not None:
+            initial["client_id"] = str(client_raw)
+        if case_raw is not None:
+            initial["case_id"] = str(case_raw)
+        form = TaskForm(
+            initial=initial, user=request.user,
+            client_choices=client_choices, case_choices=case_choices,
+        )
+
+    return render(request, "marketing/task_form.html", {
+        "form": form,
+        "is_next_step": is_next_step,
+        "closed_report": closed_report,
+    })
 
 
 @login_required
-@require_POST
-def reminder_retime(request, reminder_id):
-    """Set a new time on one of your own reminders.
+def my_tasks_report(request, reminder_id):
+    """STEP 1 of closing a reminder from My Tasks: write the report that
+    accounts for it. NO CASE PICKER AT ALL — the case (if any) is whichever
+    one this reminder was already about, exactly the shape
+    ``cases/views.py::case_report_add`` already uses for its own inline,
+    case-IMPLIED report form (see that view's own docstring, which this one
+    follows point for point): ``marketing.forms.ReportForm`` is reused
+    UNCHANGED, its own hidden ``case_id`` field simply never read —
+    ``marketing/reminders.py::close_with_report`` takes no case argument at
+    all, it reads ``reminder.client``/``reminder.case`` itself, so a
+    tampered hidden field could not attach the report to a different case
+    even if this view tried to read it.
 
-    POST-ONLY, from a real form with a CSRF token, for ``contact_remove``'s
-    reason: it changes a row, and a mutation behind a GET is one prefetching
-    browser away from doing itself.
+    OWNER-SCOPED BEFORE THIS VIEW EVEN RENDERS A FORM — ``reminders.get_own``
+    is the SAME ownership check ``close_with_report`` itself runs a second
+    time on submit; a reminder that does not exist and one that belongs to
+    somebody else are answered identically here, a 404, for
+    ``marketing/reminders.py::_own``'s own reason — a response must never be
+    usable to discover that somebody else's private note exists.
 
-    THIS IS THE LOOP THE OWNER DESCRIBED — reminded, report written, next
-    reminder set — so it also REOPENS a row that had been marked dealt with;
-    see ``reminders.reschedule``, which is where that rule lives.
-
-    A reminder id belonging to someone else is indistinguishable from one that
-    does not exist: ``reminders.reschedule`` answers False to both and this
-    redirects exactly as it would on success, so the response cannot be used to
-    discover that another person's reminder exists. THIS IS STILL TRUE FOR A
-    SUPERVISOR who can now SEE that reminder on the list page — ``reschedule``
-    is called with no ``scope`` argument, which stays owner-only by default
-    (see ``marketing/reminders.py::_own``), so being able to see a colleague's
-    row on the page is not being able to act on it from this endpoint.
+    ON A VALID SUBMIT, ``reminders.close_with_report`` DOES EVERYTHING STAGE
+    1 DESIGNED IT TO DO, IN ONE TRANSACTION — writes the report, freezes the
+    closed reminder's own set/due/note dates onto it, and deletes the
+    reminder — and this view's only remaining job is THE REDIRECT: on to
+    ``my_tasks_add`` with ``?client=``/``?case=`` carrying the just-CLOSED
+    report's OWN client/case (never anything from this request), so the "set
+    your next reminder" step lands pre-filled with exactly what this
+    reminder was about. See ``my_tasks_add``'s own docstring for that half of
+    the cycle, and ``close_with_report``'s own docstring for why "then open a
+    form for the next reminder" is deliberately a VIEW-level redirect and not
+    something that function does itself: if the person cancels or navigates
+    away at that next step, nothing more happens — the report this view just
+    wrote is already saved and the old reminder is already gone regardless.
     """
-    if not can_reach_marketing(request):
-        return render(request, "marketing/denied.html", status=403)
-    form = ReminderTimeForm(request.POST)
-    if not form.is_valid():
-        # Re-rendered rather than redirected, because a redirect would drop the
-        # message telling the person what was wrong with what they typed.
-        return _render_reminder_list(
-            request, time_form=form, retime_id=_int_or_none(reminder_id))
-    reminders.reschedule(request.user, reminder_id, form.cleaned_data["due_at"])
-    return redirect("marketing:reminder_list")
+    person = _my_tasks_person_or_redirect(request)
+    if person is None:
+        return redirect("core:home")
+
+    reminder = reminders.get_own(request.user, reminder_id)
+    if reminder is None:
+        raise Http404("No such reminder.")
+
+    access = access_for(request)
+    can_manage_options = _can_manage_options(access)
+
+    if request.method == "POST":
+        form = ReportForm(request.POST, can_manage_options=can_manage_options)
+        if form.is_valid():
+            data = form.cleaned_data
+            options = list(data["options"])
+            new_option = (
+                (data.get("new_option") or "").strip()
+                if can_manage_options else ""
+            )
+            if new_option:
+                # get_or_create, not create — same shape, same reason, as
+                # ``report_create``'s own identical block.
+                option, _created = ReportOption.objects.get_or_create(
+                    name=new_option, defaults={"created_by": request.user})
+                if option.pk not in {o.pk for o in options}:
+                    options.append(option)
+            report = reminders.close_with_report(
+                reminder_id, request.user, text=data["text"], options=options)
+            params = {"next": "1", "report": report.pk}
+            if report.client_id:
+                params["client"] = report.client_id
+            if report.case_id:
+                params["case"] = report.case_id
+            return redirect(
+                "%s?%s" % (reverse("marketing:my_tasks_add"), urlencode(params)))
+    else:
+        form = ReportForm(can_manage_options=can_manage_options)
+
+    return render(request, "marketing/task_report_form.html", {
+        "reminder": reminder,
+        "form": form,
+        "can_manage_options": can_manage_options,
+    })
 
 
 @login_required
-@require_POST
-def reminder_done(request, reminder_id):
-    """Mark one of your own reminders dealt with.
+def my_tasks_report_add(request):
+    """"ADD REPORT" on My Tasks' own Reports tab — a STANDALONE creation
+    form, entirely independent of ``my_tasks_report`` above. That view closes
+    ONE SPECIFIC reminder and offers no case/company picker at all, because
+    the reminder it closes already names both (or names neither, for a bare
+    personal note); THIS view is reached with no reminder in play whatsoever
+    — the owner's own ask for a report a person can simply sit down and write,
+    the platform-wide equivalent of the company page's own ``report_add`` ->
+    ``report_create`` pair, but with the company itself now an optional pick
+    too rather than fixed by the URL.
 
-    The other way to act on the notification, and the one that ends the loop
-    rather than continuing it. POST-only and ownership-checked exactly as
-    ``reminder_retime`` above; the row is kept rather than deleted, because this
-    person's own list is where they see what they have already handled.
+    COMPANY AND CASE ARE BOTH INDEPENDENTLY OPTIONAL, exactly the shape
+    ``marketing/forms.py::TaskForm`` already argues at length for a bare
+    reminder — "می‌تواند به اسم یک شرکت یا پرونده وصل کند یا حتی نه" applies
+    here word for word, a report is no less allowed to name neither. Neither
+    field is a Django ``ChoiceField`` on any form class: they are plain
+    ``<select data-combo>`` controls in the template, unbound to any Form
+    object, the exact same shape ``report_case.html``'s own case picker
+    already uses for the company page's step 1 — a picker that only ever
+    DECIDES which screen to draw or which id to carry forward is not a rule
+    that needs ``clean()``, and the VIEW re-validates whatever comes back
+    against this viewer's own visible rows regardless (see below), a
+    ``<select>`` being a value the browser sends and never a fact.
+
+    THE REPORT ITSELF — OPTIONS, FREE TEXT, THE "AT LEAST ONE OF THEM" RULE,
+    THE INLINE "ADD A NEW OPTION" FIELD — IS ``marketing/forms.py::ReportForm``,
+    REUSED WHOLLY UNCHANGED, the identical class the company page's
+    ``report_create`` and the case page's ``cases/views.py::case_report_add``
+    already build on. Its own declared ``case_id`` (a plain, hidden
+    ``IntegerField`` — see that class's own docstring for why it is validated
+    here only as a NUMBER, never as a permission) is simply never rendered by
+    this screen's own template; the visible case ``<select>`` below carries
+    the SAME field name instead, so Django's own POST binding reads it in
+    exactly the same way regardless of which control on the page wrote it —
+    one extra widget in the markup, not a second form class or a change to
+    this one.
+
+    WHEN A CASE IS PICKED BUT NO COMPANY WAS, this view attaches that case's
+    OWN company to the report — ``my_tasks_add``'s identical judgement call,
+    restated here for a REASON THAT IS NOT MERELY COSMETIC ON THIS SCREEN: a
+    report attached to a case but naming no company of its own would never
+    appear on that case's own company page at all. ``services.list_reports``
+    (the company page's own reader) filters ``CompanyReport.objects.filter
+    (client=client)`` FIRST and only THEN narrows to ``case=case``
+    (``cases/views.py::_case_marketing_reports``, the case page's own caller,
+    passes ``case.client`` as exactly that first filter) — so a report whose
+    ``client`` disagrees with its own ``case``'s company would silently vanish
+    from both the company page's Reports tab and the case page's, the exact
+    "should just work" claim this round was asked to verify rather than
+    assume. Filling the blank in here is what keeps that claim true, not an
+    afterthought. AN EXPLICITLY PICKED COMPANY IS NEVER OVERRIDDEN BY THIS —
+    a person naming a company that differs from their chosen case's own is a
+    coherent thing to mean, not a mistake for this view to silently correct.
+
+    THE COMPANY PICKER SEARCHES THE FULL DIRECTORY, ``Client.objects.all()``,
+    the identical queryset ``my_tasks_add`` already builds ``client_choices``
+    from and for the identical reason (see ``TaskForm``'s own docstring): a
+    ``Client`` is shared, platform-wide directory data with no access rule of
+    its own, so there is nothing to scope here the way the case picker must
+    be scoped. THE CASE PICKER IS ``_visible_case_rows_all``/
+    ``_my_tasks_case_access``, the SAME pair every other My Tasks screen uses
+    — never offer a case this viewer's own commercial seat access would
+    refuse.
+
+    ``services.add_report`` DOES THE WRITING (and the timeline row, when the
+    resolved company is not ``None``), so there remains exactly one place in
+    the app that creates a ``CompanyReport`` — this view resolves the company/
+    case/options and hands ``cleaned_data`` over, precisely as
+    ``report_create`` already does for the company page's own flow.
+
+    REDIRECTS TO ``my_tasks`` WITH ``?tab=reports`` on success — the SAME
+    ``?tab=`` mechanism ``reminder_add`` already uses to land back on the tab
+    a write was made from (``marketing/static/marketing/js/directory.js``
+    reads it once on load; the tab strip this page shares with
+    ``company_detail.html`` needs no code of its own for this), so the writer
+    sees the report they just filed rather than the Reminders tab's default.
     """
-    if not can_reach_marketing(request):
-        return render(request, "marketing/denied.html", status=403)
-    reminders.mark_done(request.user, reminder_id)
-    return redirect("marketing:reminder_list")
+    person = _my_tasks_person_or_redirect(request)
+    if person is None:
+        return redirect("core:home")
+
+    case_access = _my_tasks_case_access(request)
+    case_choices = _visible_case_rows_all(request, case_access)
+    # EVERY COMPANY IN THE DIRECTORY — see the docstring's "THE COMPANY
+    # PICKER SEARCHES THE FULL DIRECTORY" section.
+    client_choices = Client.objects.all()
+
+    access = access_for(request)
+    can_manage_options = _can_manage_options(access)
+
+    # Read here, before validation, so an invalid submit can still re-render
+    # the page with whichever company/case the writer had already picked —
+    # the same courtesy ``report_create``'s own ``kept_id`` gives its own
+    # case picker on a rejected step 2.
+    selected_client_id = None
+    selected_case_id = None
+
+    if request.method == "POST":
+        selected_client_id = _int_or_none(request.POST.get("client_id"))
+        selected_case_id = _int_or_none(request.POST.get("case_id"))
+        form = ReportForm(request.POST, can_manage_options=can_manage_options)
+        if form.is_valid():
+            data = form.cleaned_data
+            allowed_case_ids = {row["case_id"] for row in case_choices}
+            case_id = data.get("case_id")
+            case = (Case.objects.filter(pk=case_id).select_related("client").first()
+                    if case_id in allowed_case_ids else None)
+            client = (Client.objects.filter(pk=selected_client_id).first()
+                      if selected_client_id else None)
+            # See the docstring's "WHEN A CASE IS PICKED BUT NO COMPANY WAS"
+            # section — fills in a blank only, never overrides an explicit pick.
+            if client is None and case is not None:
+                client = case.client
+            options = list(data["options"])
+            new_option = (
+                (data.get("new_option") or "").strip()
+                if can_manage_options else ""
+            )
+            if new_option:
+                # get_or_create, not create — the same shape, the same reason,
+                # as every other inline-vocabulary write in this file.
+                option, _created = ReportOption.objects.get_or_create(
+                    name=new_option, defaults={"created_by": request.user})
+                if option.pk not in {o.pk for o in options}:
+                    options.append(option)
+            services.add_report(
+                client, request.user,
+                text=data["text"], options=options, case=case,
+            )
+            return redirect(
+                "%s?tab=reports" % reverse("marketing:my_tasks"))
+    else:
+        form = ReportForm(can_manage_options=can_manage_options)
+
+    return render(request, "marketing/task_report_add.html", {
+        "form": form,
+        "client_choices": client_choices,
+        "case_choices": case_choices,
+        "can_manage_options": can_manage_options,
+        "selected_client_id": selected_client_id,
+        "selected_case_id": selected_case_id,
+    })

@@ -787,10 +787,55 @@ class CompanyReport(models.Model):
     Only the NAME is frozen, not the role label: the owner asked for the
     timeline to stop showing role labels beside names, and there is no screen
     that wants one here.
+
+    ``client`` IS NOW OPTIONAL, WIDENED FOR THE SAME REASON
+    ``marketing/models.py::Reminder.client`` WAS: a report can now be born
+    from CLOSING OUT a reminder (see :func:`~marketing.reminders.close_with_report`),
+    and a bare personal reminder — the owner's new "note to self with no
+    company and no case at all" — can be closed exactly like any other one.
+    Closing it has to be able to write a report that also names no company,
+    or the cycle "reminder comes due, write a report to close it, the
+    reminder is deleted, open the next one" would have no way to represent
+    its plainest case. ``SET_NULL`` for the same reason ``case`` above already
+    is: the report was still written and still says what it says even if the
+    company is later removed from the directory (or, for a report closing a
+    bare reminder, never named one to begin with).
+
+    ``reminder_set_at`` / ``reminder_due_at`` / ``reminder_note`` ARE FROZEN
+    COPIES OF THE REMINDER THAT PRODUCED THIS REPORT, NOT A LIVE FOREIGN KEY
+    TO ``Reminder`` — AND THAT IS THE ONLY POSSIBLE SHAPE, NOT A STYLE CHOICE.
+    ``close_with_report`` DELETES the reminder row in the same transaction
+    that writes this report (see that function's own docstring for the
+    "write, freeze, delete" sequence), so by the time anyone reads these three
+    columns the reminder they describe no longer exists — there is nothing
+    left in the database for a live FK to point at. A nullable FK with
+    ``SET_NULL`` would not help either: it would read as "this report was
+    never closing a reminder" the instant the reminder is deleted, which is
+    exactly the fact these fields exist to keep. So the reminder's own
+    ``created_at`` (renamed here to ``reminder_set_at`` — "created" on a
+    report already means something else, the report's own timestamp, and
+    reusing that word for a second, different moment on the same row would be
+    the confusion this renaming avoids), its own ``due_at``, and its own
+    ``note`` text are copied onto the report at the moment it is written, the
+    same "freeze it now because it will not be readable later" reasoning
+    ``ClientEvent.actor_name`` and this class's own ``author_name`` already
+    use for a different kind of vanishing fact (there, a user account that
+    might be deleted; here, a row that is deleted on purpose, immediately,
+    every single time).
+
+    ALL THREE STAY BLANK/NULL FOR A STANDALONE REPORT — one written the
+    ordinary way, from the company page's own "Add report" flow, that never
+    closed any reminder. ``add_report`` does not set them; only
+    ``close_with_report`` does. A report with all three empty is therefore
+    not a report missing data, it is a report that was never asked to freeze
+    anything, and every existing report in the database (written before this
+    round) reads exactly that way once these columns exist.
     """
 
+    # NULLABLE — see the class docstring's "``client`` IS NOW OPTIONAL" section.
     client = models.ForeignKey(
-        Client, on_delete=models.CASCADE, related_name="marketing_reports")
+        Client, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="marketing_reports")
     # See the class docstring: optional by the owner's rule, SET_NULL so a
     # removed case never removes the report that was written about it.
     case = models.ForeignKey(
@@ -807,6 +852,15 @@ class CompanyReport(models.Model):
     # The frozen author snapshot — see the class docstring.
     author_name = models.CharField(max_length=160, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    # The three frozen reminder snapshots — see the class docstring's
+    # "``reminder_set_at`` / ``reminder_due_at`` / ``reminder_note`` ARE
+    # FROZEN COPIES" section for why these exist at all and why they cannot
+    # be a live FK. Populated ONLY by
+    # ``marketing/reminders.py::close_with_report``; every other writer of
+    # this model leaves them at their defaults.
+    reminder_set_at = models.DateTimeField(null=True, blank=True)
+    reminder_due_at = models.DateTimeField(null=True, blank=True)
+    reminder_note = models.TextField(blank=True, default="")
 
     class Meta:
         ordering = ["-created_at"]
@@ -852,6 +906,21 @@ class ReminderState:
     migration and no rewrite of every ``is_done`` test in the codebase. It also
     reads correctly in the composite index this model carries — see
     :class:`Reminder`.
+
+    ``DONE`` OUTLIVES THE ONLY CODE THAT USED TO WRITE IT. Before the
+    mandatory close-only-via-a-report cycle, marking a reminder dealt with
+    (``marketing/reminders.py::mark_done``, since removed as a live bypass of
+    that cycle — see the comment left where it used to sit) simply flipped a
+    row to this state and kept it, with no report behind it at all. Nothing
+    in the codebase can produce a NEW ``DONE`` row any more — the only way a
+    reminder closes now is :func:`~marketing.reminders.close_with_report`,
+    which deletes the row outright rather than leaving it ``DONE`` (see that
+    function's own docstring). The value itself stays, unremoved, because
+    rows already left in this state by the old flow, before this fix, are
+    still real data: ``Reminder.is_done`` and every template that reads it
+    (My Tasks, the company page's own Reminders tab, the case detail page's
+    Reminders tab) must keep rendering them correctly as "Dealt with" rather
+    than erroring or silently reclassifying them as open.
     """
 
     OPEN = "OPEN"
@@ -912,16 +981,23 @@ class Reminder(models.Model):
       in this app.
     * CREATING AND ACTING ON A ROW DID NOT. Setting a reminder
       (``reminders.create``) is still something only the person themselves
-      does, about themselves. Giving one a new time or marking it dealt with
-      (``reminders.reschedule`` / ``reminders.mark_done``, both going through
-      ``reminders._own``) is STILL strictly owner-only, with no elevated
-      escape hatch — unlike ``toggle_manual_label``'s or ``remove_connection``'s
-      ``elevated=True`` branch for a Supervisor, there is no such branch here,
-      because the owner asked only to let a Supervisor SEE the unit's
-      reminders, not to let them re-time or close out somebody else's private
-      note. A Supervisor who sees a colleague's overdue reminder acts on it the
-      way the model has always intended a THIRD party to act on someone else's
-      note: by talking to them, not by editing their row.
+      does, about themselves. Closing one out
+      (``reminders.close_with_report``, going through ``reminders._own``) is
+      STILL strictly owner-only, with no elevated escape hatch — unlike
+      ``toggle_manual_label``'s or ``remove_connection``'s ``elevated=True``
+      branch for a Supervisor, there is no such branch here, because the
+      owner asked only to let a Supervisor SEE the unit's reminders, not to
+      let them close out somebody else's private note. A Supervisor who sees
+      a colleague's overdue reminder acts on it the way the model has always
+      intended a THIRD party to act on someone else's note: by talking to
+      them, not by editing their row. (There used to be a SECOND way to act
+      on a row that stopped short of closing it — ``reminders.reschedule`` /
+      ``reminders.mark_done``, a plain re-time or a mark-done with no report
+      ever required. Both were removed in a later fix, alongside the two
+      views that were their only callers, for being a live bypass of the
+      mandatory close-only-via-a-report cycle a still later round of this
+      same feature was built around — see the comment left in
+      ``marketing/reminders.py`` where they used to be defined.)
     * THE TOP-OF-PAGE DUE NOTIFICATION DID NOT WIDEN EITHER, deliberately, and
       that is a judgement call made THIS round, not a leftover of the old
       rule: see ``marketing/context_processors.py::reminder_notice`` and
@@ -944,6 +1020,31 @@ class Reminder(models.Model):
     ``related_name="marketing_reminders"`` keeps this app's ``marketing_*``
     prefix on the reverse accessor, exactly as ``ClientLabel`` and
     ``CompanyContact`` do.
+
+    ``client`` IS NOW OPTIONAL TOO — A SECOND WIDENING, LATER THAN THE ONE
+    ABOVE, AND FOR A DIFFERENT REASON. Every earlier version of this reminder
+    was "a note about a COMPANY" full stop; the owner has since asked for a
+    bare personal note that names no company and no case at all — a private
+    to-do with nothing more to say about it than the text and the time. So
+    ``client`` drops its own ``on_delete=CASCADE`` requirement of always
+    being present (``null=True, blank=True``, ``SET_NULL`` rather than
+    ``CASCADE``, matching ``case`` immediately below it for the identical
+    reason: a reminder that outlives the company it was about, or that never
+    named one, is still a real note the owner should see). Every reader of
+    this field — the due-notification banner
+    (``marketing/reminders.py::_payload``), the "My Tasks" reminders list
+    (``marketing/templates/marketing/_my_tasks_reminders.html`` — the
+    standalone "My reminders" page this replaced,
+    ``marketing/templates/marketing/reminder_list.html``, is gone; see
+    ``marketing/urls.py``'s own module docstring), and
+    :func:`~marketing.reminders.create`'s own signature — was updated
+    alongside this change to degrade to "no company shown" rather than
+    breaking on ``None``; see each of those in turn for how. The company
+    detail page's OWN Reminders tab is unaffected: every reminder it creates
+    or lists is still filtered to one particular ``client``, so a bare note
+    (client is None) simply never appears there — it belongs to the
+    company-less "My Tasks" surface a later stage builds, not to a page whose
+    URL already names a company.
 
     ``case`` IS OPTIONAL, by the owner's own wording, and ``SET_NULL`` for
     :class:`CompanyReport`'s reason: the reminder is still a real note about
@@ -981,8 +1082,14 @@ class Reminder(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
         related_name="marketing_reminders",
     )
+    # NULLABLE — see the class docstring's "``client`` IS NOW OPTIONAL TOO"
+    # section: a bare personal note names neither a company nor a case.
+    # SET_NULL rather than CASCADE for the same reason ``case`` just below is
+    # SET_NULL: the note the person wrote is still theirs even if the company
+    # it was about is later removed from the directory.
     client = models.ForeignKey(
-        Client, on_delete=models.CASCADE, related_name="marketing_reminders")
+        Client, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="marketing_reminders")
     case = models.ForeignKey(
         "cases.Case", null=True, blank=True,
         on_delete=models.SET_NULL, related_name="marketing_reminders",
@@ -1005,7 +1112,13 @@ class Reminder(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.client_id} · reminder for {self.owner_id} at {self.due_at:%Y-%m-%d %H:%M}"
+        # ``client_id`` can now be ``None`` (a bare personal note — see the
+        # class docstring) so it is named explicitly rather than printed as
+        # the literal string "None", which would read as a data error to
+        # anyone skimming the admin/shell rather than as the supported,
+        # company-less case it actually is.
+        company = self.client_id if self.client_id is not None else "no company"
+        return f"{company} · reminder for {self.owner_id} at {self.due_at:%Y-%m-%d %H:%M}"
 
     @property
     def is_done(self) -> bool:

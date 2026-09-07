@@ -721,6 +721,24 @@ a.ppl-month-link:hover{
 .ppl-month-card.is-frozen{background:var(--cloud);}
 .ppl-month-card.is-idle,
 .ppl-month-card.is-upcoming{opacity:.9;}
+
+/* Open-reminder badge overlaid on every year/month card (and, via the same
+   two classes, every day card on the month drill-down page below) — see
+   people/templates/people/person_shift.html and person_shift_month.html's
+   own comments for why it sits OUTSIDE the year/month card's own <a> rather
+   than inside it. ``.ppl-card-has-badge`` just gives the card (or, for an
+   active month, the small wrapper around its <a>) the ``position:relative``
+   the badge's own ``absolute`` needs to anchor to THAT card's own corner
+   instead of the page. */
+.ppl-card-has-badge{position:relative;}
+.ppl-month-card-outer{position:relative;display:block;}
+.ppl-month-card-outer > .ppl-month-card{height:100%;}
+.ppl-reminder-badge{
+  position:absolute;top:.5rem;inset-inline-end:.5rem;z-index:2;
+  font-size:.66rem;padding:.12rem .45rem;box-shadow:0 1px 4px rgba(0,0,0,.12);
+}
+.ppl-day-card .ppl-reminder-badge{position:static;box-shadow:none;}
+
 .ppl-month-head{
   display:flex;align-items:center;justify-content:space-between;gap:.35rem;margin-bottom:.4rem;
 }

@@ -46,13 +46,12 @@
     <div class="sub">Every company on the relationship chart, with the roles it carries.</div>
   </div>
   <div class="row-flex" style="align-items:center;gap:1rem;flex-wrap:wrap;">
-    {# The reminders list is per PERSON, not per company, so its way in belongs #}
-    {# on the section's own entry screen rather than on any one company's page. #}
-    {# Ungated here on purpose: the page it opens shows the viewer their own    #}
-    {# rows and nothing else, and marketing/views.py::reminder_list re-checks   #}
-    {# who may reach the section anyway — see that view's own gate.             #}
-    <a href="{% url 'marketing:reminder_list' %}" class="btn btn-sm">
-      <i class="fa-solid fa-bell"></i> My reminders
+    {# "My reminders" became "My Tasks" — a platform-wide personal hub, not a #}
+    {# Marketing-section screen any more (see marketing/views.py::my_tasks). #}
+    {# Linked straight at it rather than through the retired reminder_list   #}
+    {# URL (which now just redirects here) — one hop fewer for every click.  #}
+    <a href="{% url 'marketing:my_tasks' %}" class="btn btn-sm">
+      <i class="fa-solid fa-bell"></i> My Tasks
     </a>
     <a href="{% url 'marketing:home' %}" class="btn btn-sm">
       <i class="fa-solid fa-diagram-project"></i> Relationship chart

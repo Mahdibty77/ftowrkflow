@@ -67,6 +67,28 @@
           <span class="ppl-day-weekday">{{ d.weekday_short }}</span>
         </div>
         <div class="ppl-day-card-tags">
+          {% comment %}
+            OPEN-REMINDER BADGE — THIS PERSON'S OWN open reminders due on
+            THIS single Jalali day (people/views.py::person_shift_month, the
+            per-day lookup into ``_reminder_day_counts_for_person``'s own
+            ``Counter``). Same link-or-count-only rule as the year/month
+            cards one level up: only ever a link when the viewer IS this
+            person (``d.reminder_url``), so an admin reading someone else's
+            day never lands on their OWN My Tasks by mistake. Sits inline
+            with the other tags here rather than overlaid — a day card
+            carries no card-wide ``<a>`` for it to clash with.
+          {% endcomment %}
+          {% if d.reminder_url %}
+          <a href="{{ d.reminder_url }}" class="chip ppl-reminder-badge"
+             title="Your own open reminders due on Day {{ d.jalali_day }} — open My Tasks filtered to this day">
+            <i class="fa-solid fa-bell"></i> {{ d.reminder_count }}
+          </a>
+          {% else %}
+          <span class="chip ppl-reminder-badge"
+                title="{{ person.display_name }}'s open reminders due on Day {{ d.jalali_day }}">
+            <i class="fa-solid fa-bell"></i> {{ d.reminder_count }}
+          </span>
+          {% endif %}
           {% if d.ot_request_url %}
           <a href="{{ d.ot_request_url }}" class="ppl-ot-tag" title="{{ d.ot_request_code|default:'Overtime request' }}">OT</a>
           {% endif %}

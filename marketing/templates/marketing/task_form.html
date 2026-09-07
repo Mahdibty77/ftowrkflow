@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% load ft_extras static %}
+{% comment %}
+  ADD A TASK — or, when is_next_step is true, the "set your next reminder"
+  step that follows closing one out. ONE TEMPLATE FOR BOTH, because
+  marketing/views.py::my_tasks_add is one view for both — see that view's own
+  docstring. is_next_step only changes the WORDING below; the fields, the
+  validation and what gets written are identical either way.
+
+  SAME SHAPE AS reminder_form.html, widened by one field (Company) — see
+  marketing/forms.py::TaskForm's own docstring for why this page needs one
+  of its own rather than reusing ReminderForm unchanged: there is no company
+  id in this page's URL for a company to be implied by.
+
+  BOTH <select>s CARRY data-combo — the exact searchable-select pattern
+  every other picker in this app already uses, zero new JavaScript.
+
+  THE DUE-AT BOX CARRIES data-jalali-datetime, the same picker every other
+  Jalali field in this app uses. static/js/jalali_picker.js does not support
+  constraining its TIME portion to a min/max (see that file), so the shift
+  window is not wired into the picker itself — the inline hint below the
+  field (form.shift_window_text) says it in words instead, and
+  marketing/forms.py::TaskForm.clean_due_at is the real, server-side check;
+  see that method's own docstring.
+{% endcomment %}
+{% block title %}{% if is_next_step %}Next reminder{% else %}Add Task{% endif %} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% if is_next_step %}Set your next reminder{% else %}Add Task{% endif %}{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'marketing/css/directory.css' %}">
+{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1>{% if is_next_step %}Set your next reminder{% else %}Add a task{% endif %}</h1>
+    <div class="sub">
+      {% if is_next_step %}
+      The report is already saved and the old reminder is gone — this is
+      only the next one, and it is entirely optional.
+      {% else %}
+      A private note to yourself. Nobody else can see it.
+      {% endif %}
+    </div>
+  </div>
+  <a href="{% url 'marketing:my_tasks' %}" class="btn btn-sm">
+    <i class="fa-solid fa-arrow-left"></i> {% if is_next_step %}Skip — back to My Tasks{% else %}Back to My Tasks{% endif %}
+  </a>
+</div>
+
+{% if closed_report %}
+{# THE THREE FROZEN DATES, AS ONE TIMELINE — the owner's own requirement:   #}
+{# when the reminder was SET, when it was DUE, and when the REPORT was      #}
+{# SUBMITTED, laid out together rather than as three separate stamps        #}
+{# scattered over the page. reminder_set_at/reminder_due_at/reminder_note   #}
+{# are frozen at the instant marketing/reminders.py::close_with_report ran  #}
+{# — see marketing/models.py::CompanyReport's own docstring for why they    #}
+{# cannot be a live FK back to the (now-deleted) reminder. Shown here, on   #}
+{# this ONE-TIME confirmation step, because it is the moment the writer is  #}
+{# already looking at — but this is no longer the only place it lives: the  #}
+{# identical three fields, on the identical row, are ALSO on My Tasks' own  #}
+{# Reports tab now (marketing/templates/marketing/_my_tasks_reports.html),  #}
+{# which is where the report actually lives long-term, once this one-time   #}
+{# confirmation page is gone from the screen. They are columns on the row,  #}
+{# not a one-time message, so showing them twice is not a duplication to    #}
+{# remove — it is the same fact read from the same place by two different   #}
+{# screens at two different moments.                                        #}
+<div class="card" style="margin-bottom:1rem;">
+  <div class="card-head">
+    <h3><i class="fa-solid fa-file-circle-check" style="color:var(--ok);margin-right:.4rem;"></i>Report saved</h3>
+  </div>
+  <div class="help" style="margin:-.2rem 0 .8rem;">This reminder is closed — the old row is gone, and this is what got recorded.</div>
+  <div class="row-flex" style="gap:1.2rem;flex-wrap:wrap;margin-bottom:.8rem;">
+    <div>
+      <div class="muted" style="font-size:.78rem;"><i class="fa-regular fa-clock"></i> Set</div>
+      <div class="mono">{{ closed_report.reminder_set_at|jalali:"Y.m.d H:i" }}</div>
+    </div>
+    <div class="muted" style="align-self:center;">→</div>
+    <div>
+      <div class="muted" style="font-size:.78rem;"><i class="fa-solid fa-bell"></i> Due</div>
+      <div class="mono">{{ closed_report.reminder_due_at|jalali:"Y.m.d H:i" }}</div>
+    </div>
+    <div class="muted" style="align-self:center;">→</div>
+    <div>
+      <div class="muted" style="font-size:.78rem;"><i class="fa-solid fa-file-circle-check"></i> Reported</div>
+      <div class="mono">{{ closed_report.created_at|jalali:"Y.m.d H:i" }}</div>
+    </div>
+  </div>
+  {% if closed_report.reminder_note %}
+  <div class="field">
+    <label><i class="fa-solid fa-note-sticky"></i> The reminder's own note</label>
+    <div class="dir-reminder-text" dir="auto" style="white-space:pre-line;">{{ closed_report.reminder_note }}</div>
+  </div>
+  {% endif %}
+  <div class="field">
+    <label><i class="fa-solid fa-file-lines"></i> The report</label>
+    {% if closed_report.options.all %}
+    <div class="row-flex" style="gap:.35rem;flex-wrap:wrap;margin-bottom:.4rem;">
+      {% for o in closed_report.options.all %}<span class="chip" dir="auto">{{ o.name }}</span>{% endfor %}
+    </div>
+    {% endif %}
+    {% if closed_report.text %}
+    <div class="dir-reminder-text" dir="auto" style="white-space:pre-line;">{{ closed_report.text }}</div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<form method="post" class="card form-narrow" autocomplete="off">
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+  <div class="flash flash-error">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <span>{% for e in form.non_field_errors %}{{ e }}{% endfor %}</span>
+  </div>
+  {% endif %}
+
+  <div class="field">
+    <label for="{{ form.due_at.id_for_label }}"><i class="fa-regular fa-clock"></i> {{ form.due_at.label }}</label>
+    {{ form.due_at }}
+    {% if form.due_at.errors %}<ul class="errorlist">{% for e in form.due_at.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    <div class="help">
+      When this time passes, a notification appears at the top of your screen and stays until you close it out.
+      {% if form.shift_window_text %}Pick a time inside your own work shift ({{ form.shift_window_text }}).{% endif %}
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="{{ form.client_id.id_for_label }}"><i class="fa-solid fa-building"></i> {{ form.client_id.label }}</label>
+    {{ form.client_id }}
+    {% if form.client_id.errors %}<ul class="errorlist">{% for e in form.client_id.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+  </div>
+
+  <div class="field">
+    <label for="{{ form.case_id.id_for_label }}"><i class="fa-solid fa-folder-open"></i> {{ form.case_id.label }}</label>
+    {{ form.case_id }}
+    {% if form.case_id.errors %}<ul class="errorlist">{% for e in form.case_id.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    {% if not form.cases_available %}
+    <div class="help">There are no cases your own access lets you see. The reminder can still name a company, or nothing at all.</div>
+    {% endif %}
+  </div>
+
+  <div class="field">
+    <label for="{{ form.note.id_for_label }}"><i class="fa-solid fa-pen"></i> {{ form.note.label }}</label>
+    {{ form.note }}
+    {% if form.note.errors %}<ul class="errorlist">{% for e in form.note.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+  </div>
+
+  <div class="btn-row">
+    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-bell"></i> {% if is_next_step %}Set reminder{% else %}Add task{% endif %}</button>
+    <a href="{% url 'marketing:my_tasks' %}" class="btn btn-ghost">{% if is_next_step %}Skip{% else %}Cancel{% endif %}</a>
+  </div>
+</form>
+{% endblock %}

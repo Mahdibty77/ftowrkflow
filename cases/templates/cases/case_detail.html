@@ -539,7 +539,43 @@
       </details>
       {% endif %}
 
-      <table class="data">
+      {# FILTER CARD — new this round, the exact same reusable mechanism         #}
+      {# marketing/templates/marketing/company_detail.html's own Reports tab     #}
+      {# uses (static/js/ui.js's data-filter-table pass; no JavaScript of this   #}
+      {# page's own). That page's version also carries a "Case" field, because   #}
+      {# ITS list spans every case on a company; this page needs no such field — #}
+      {# a case detail page is already scoped to the one case whose reports      #}
+      {# these are — so the field it has in its place is the equivalent          #}
+      {# free-text search this list actually wants: over the report text         #}
+      {# itself. The date range targets "Date", the column this table already    #}
+      {# sorts/displays by.                                                      #}
+      <div class="card" style="margin-bottom:.8rem;">
+        <div class="card-head">
+          <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-right:.4rem;"></i>Filters</h3>
+          <button type="button" class="btn btn-sm" data-filter-clear="caseReportsTable" title="Reset all filters">
+            <i class="fa-solid fa-eraser"></i> Clear filters
+          </button>
+        </div>
+        <div class="grid grid-3">
+          <div class="field">
+            <label><i class="fa-solid fa-magnifying-glass"></i> Search</label>
+            <input type="text" data-filter-for="caseReportsTable" data-filter-colname="Report"
+                   data-filter-mode="contains" placeholder="Search report text…" autocomplete="off">
+          </div>
+          <div class="field">
+            <label><i class="fa-solid fa-calendar-day"></i> From date (Jalali)</label>
+            <input type="text" data-jalali-datetime data-filter-for="caseReportsTable"
+                   data-filter-colname="Date" data-filter-mode="gte" placeholder="From date" autocomplete="off">
+          </div>
+          <div class="field">
+            <label><i class="fa-solid fa-calendar-day"></i> To date (Jalali)</label>
+            <input type="text" data-jalali-datetime data-filter-for="caseReportsTable"
+                   data-filter-colname="Date" data-filter-mode="lte" placeholder="To date" autocomplete="off">
+          </div>
+        </div>
+      </div>
+
+      <table class="data" id="caseReportsTable" data-filter-table>
         <thead>
           <tr>
             <th>Date</th>
@@ -625,7 +661,38 @@
         {% else %}You see your own reminders on this case — a reminder is a private note to its own owner.{% endif %}
       </div>
 
-      <table class="data">
+      {# FILTER CARD — same reasoning as the Reports panel's own, immediately    #}
+      {# above: the company page's Reminders tab has a "Case" field this page    #}
+      {# has no use for (already scoped to one case), so in its place a          #}
+      {# free-text search over the note itself; the date range targets "Due",    #}
+      {# the column this table already sorts by and shows the overdue colour on. #}
+      <div class="card" style="margin-bottom:.8rem;">
+        <div class="card-head">
+          <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-right:.4rem;"></i>Filters</h3>
+          <button type="button" class="btn btn-sm" data-filter-clear="caseRemindersTable" title="Reset all filters">
+            <i class="fa-solid fa-eraser"></i> Clear filters
+          </button>
+        </div>
+        <div class="grid grid-3">
+          <div class="field">
+            <label><i class="fa-solid fa-magnifying-glass"></i> Search</label>
+            <input type="text" data-filter-for="caseRemindersTable" data-filter-colname="Note"
+                   data-filter-mode="contains" placeholder="Search reminder text…" autocomplete="off">
+          </div>
+          <div class="field">
+            <label><i class="fa-solid fa-calendar-day"></i> From date (Jalali)</label>
+            <input type="text" data-jalali-datetime data-filter-for="caseRemindersTable"
+                   data-filter-colname="Due" data-filter-mode="gte" placeholder="From date" autocomplete="off">
+          </div>
+          <div class="field">
+            <label><i class="fa-solid fa-calendar-day"></i> To date (Jalali)</label>
+            <input type="text" data-jalali-datetime data-filter-for="caseRemindersTable"
+                   data-filter-colname="Due" data-filter-mode="lte" placeholder="To date" autocomplete="off">
+          </div>
+        </div>
+      </div>
+
+      <table class="data" id="caseRemindersTable" data-filter-table>
         <thead>
           <tr>
             <th>Due</th>

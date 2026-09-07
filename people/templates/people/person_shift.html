@@ -23,6 +23,17 @@
   </div>
 </div>
 
+{% comment %}
+  THE ADMIN EDIT CARD — hidden ENTIRELY (not merely its controls) from a
+  non-admin self-viewer, per the owner's own instruction: this card is the
+  one thing a person is NOT meant to see about their own record, even though
+  everything past it on this page (year tiles, month cards, and the per-day
+  drill-down one level down) renders identically for them. ``is_admin`` is
+  ``people/views.py::person_shift``'s own answer to "who is looking", not a
+  re-derivation here — an administrator sees this exactly as before,
+  whichever record (their own or somebody else's) they opened it from.
+{% endcomment %}
+{% if is_admin %}
 <div class="card ppl-shift-card">
   <div class="card-head"><h3><i class="fa-solid fa-hourglass-half"></i> Daily hours</h3></div>
   <p class="muted" style="font-size:.86rem;margin:0 0 1rem;line-height:1.5;">
@@ -140,11 +151,34 @@
   </form>
   {% endif %}
 </div>
+{% endif %}
 
 <div class="ppl-shift-branch">
   <div class="ppl-month-grid">
     {% for y in year_cards %}
-      <div class="ppl-month-card{% if y.is_current %} is-current{% endif %}{% if y.frozen %} is-frozen{% endif %}">
+      <div class="ppl-month-card ppl-card-has-badge{% if y.is_current %} is-current{% endif %}{% if y.frozen %} is-frozen{% endif %}">
+        {% comment %}
+          OPEN-REMINDER BADGE — THIS PERSON'S OWN open reminders due within
+          this Jalali year (people/views.py::person_shift,
+          ``_reminder_count_for_year`` over ``_reminder_day_counts_for_person``
+          — "open" needs no state check at all, since a closed reminder no
+          longer exists as a row). Clickable ONLY when the viewer IS this
+          person (``y.reminder_url`` is ``None`` otherwise) — see that
+          view's own docstring for why an admin looking at someone ELSE's
+          year sees the right count but never a link that would silently
+          open the admin's OWN "My Tasks" instead.
+        {% endcomment %}
+        {% if y.reminder_url %}
+        <a href="{{ y.reminder_url }}" class="chip ppl-reminder-badge"
+           title="Your own open reminders due in {{ y.jalali_year }} — open My Tasks filtered to this year">
+          <i class="fa-solid fa-bell"></i> {{ y.reminder_count }}
+        </a>
+        {% else %}
+        <span class="chip ppl-reminder-badge"
+              title="{{ person.display_name }}'s open reminders due in {{ y.jalali_year }}">
+          <i class="fa-solid fa-bell"></i> {{ y.reminder_count }}
+        </span>
+        {% endif %}
         <div class="ppl-month-head">
           <strong>Year {{ y.jalali_year }}</strong>
           {% if y.is_current %}<span class="pill pill-green">Current</span>
@@ -174,8 +208,31 @@
     </p>
     <div class="ppl-month-grid">
       {% for m in month_cards %}
+        {% comment %}
+          THE SAME OPEN-REMINDER BADGE AS THE YEAR TILES ABOVE, now for one
+          Jalali month (``_reminder_count_for_month``) — reused verbatim for
+          BOTH branches below (idle and active) so a month never started
+          still shows its own true count. The active branch's card is
+          itself an ``<a>`` to ``person_shift_month`` — a second ``<a>``
+          cannot nest inside it, so THAT branch wraps both in one relatively
+          positioned ``.ppl-month-card-outer`` and the badge sits over its
+          corner (``.ppl-reminder-badge``, see people.css) rather than
+          inside the month link; clicking the badge goes to My Tasks,
+          clicking anywhere else on the card still opens the month.
+        {% endcomment %}
         {% if m.status == 'idle' %}
-          <div class="ppl-month-card is-idle">
+          <div class="ppl-month-card is-idle ppl-card-has-badge">
+            {% if m.reminder_url %}
+            <a href="{{ m.reminder_url }}" class="chip ppl-reminder-badge"
+               title="Your own open reminders due in {{ m.name }} {{ report_year }} — open My Tasks filtered to this month">
+              <i class="fa-solid fa-bell"></i> {{ m.reminder_count }}
+            </a>
+            {% else %}
+            <span class="chip ppl-reminder-badge"
+                  title="{{ person.display_name }}'s open reminders due in {{ m.name }} {{ report_year }}">
+              <i class="fa-solid fa-bell"></i> {{ m.reminder_count }}
+            </span>
+            {% endif %}
             <div class="ppl-month-head">
               <strong>{{ m.name }}</strong>
               <span class="pill pill-grey">—</span>
@@ -183,26 +240,39 @@
             <div class="ppl-month-idle muted">Not started</div>
           </div>
         {% else %}
-          <a href="{% url 'people:person_shift_month' person.pk report_year m.month %}"
-             class="ppl-month-card is-{{ m.status }} ppl-month-link">
-            <div class="ppl-month-head">
-              <strong>{{ m.name }}</strong>
-              {% if m.status == 'current' %}<span class="pill pill-green">Current</span>
-              {% elif m.status == 'frozen' %}<span class="pill pill-grey">Frozen</span>
-              {% elif m.status == 'upcoming' %}<span class="pill pill-grey">Soon</span>{% endif %}
-            </div>
-            <div class="ppl-month-stats">
-              <div><span class="muted">Plan</span><strong>{{ m.planned_hours }} h</strong></div>
-              <div><span class="muted">Done</span><strong>{{ m.worked_hours }} h{% if m.excess_hours %} <span class="ppl-ot-chip">{{ m.excess_hours }}h (OT)</span>{% endif %}</strong></div>
-              <div><span class="muted">Work days</span><strong>{{ m.working_days }}</strong></div>
-              <div><span class="muted">Off days</span><strong>{{ m.off_days }}</strong></div>
-            </div>
-            <div class="ppl-month-bar ppl-bar-tall" title="{{ m.worked_hours }} / {{ m.planned_hours }} h">
-              <span style="width:{{ m.bar_pct }}%;"></span>
-              <em class="ppl-bar-pct">{{ m.bar_pct }}%</em>
-            </div>
-            <div class="ppl-month-foot muted">{{ m.hours_per_day }} h / day · {{ m.shift_label }}</div>
-          </a>
+          <div class="ppl-month-card-outer ppl-card-has-badge">
+            <a href="{% url 'people:person_shift_month' person.pk report_year m.month %}"
+               class="ppl-month-card is-{{ m.status }} ppl-month-link">
+              <div class="ppl-month-head">
+                <strong>{{ m.name }}</strong>
+                {% if m.status == 'current' %}<span class="pill pill-green">Current</span>
+                {% elif m.status == 'frozen' %}<span class="pill pill-grey">Frozen</span>
+                {% elif m.status == 'upcoming' %}<span class="pill pill-grey">Soon</span>{% endif %}
+              </div>
+              <div class="ppl-month-stats">
+                <div><span class="muted">Plan</span><strong>{{ m.planned_hours }} h</strong></div>
+                <div><span class="muted">Done</span><strong>{{ m.worked_hours }} h{% if m.excess_hours %} <span class="ppl-ot-chip">{{ m.excess_hours }}h (OT)</span>{% endif %}</strong></div>
+                <div><span class="muted">Work days</span><strong>{{ m.working_days }}</strong></div>
+                <div><span class="muted">Off days</span><strong>{{ m.off_days }}</strong></div>
+              </div>
+              <div class="ppl-month-bar ppl-bar-tall" title="{{ m.worked_hours }} / {{ m.planned_hours }} h">
+                <span style="width:{{ m.bar_pct }}%;"></span>
+                <em class="ppl-bar-pct">{{ m.bar_pct }}%</em>
+              </div>
+              <div class="ppl-month-foot muted">{{ m.hours_per_day }} h / day · {{ m.shift_label }}</div>
+            </a>
+            {% if m.reminder_url %}
+            <a href="{{ m.reminder_url }}" class="chip ppl-reminder-badge"
+               title="Your own open reminders due in {{ m.name }} {{ report_year }} — open My Tasks filtered to this month">
+              <i class="fa-solid fa-bell"></i> {{ m.reminder_count }}
+            </a>
+            {% else %}
+            <span class="chip ppl-reminder-badge"
+                  title="{{ person.display_name }}'s open reminders due in {{ m.name }} {{ report_year }}">
+              <i class="fa-solid fa-bell"></i> {{ m.reminder_count }}
+            </span>
+            {% endif %}
+          </div>
         {% endif %}
       {% endfor %}
     </div>

@@ -10,7 +10,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Foolad Tabar Workflow{% endblock %}</title>
   {% include "includes/favicon.html" %}
-  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=shift-end-14">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=my-tasks-1">
   <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-17">
   <link rel="stylesheet" href="{% static 'css/icons-offline.css' %}?v=shift-icons-4">
   <script>
@@ -476,6 +476,17 @@
           {% endif %}
           {% if nav_show_person_requests %}
           <div class="sb-group">Personal</div>
+          {# SAME GATE AS "Requests" BELOW — nav_show_person_requests, a      #}
+          {# linked Person record and nothing role/seat-specific (see        #}
+          {# core/context_processors.py::theme). The owner's own words: My   #}
+          {# Tasks exists for every person, "even with no seat at all", so   #}
+          {# it sits in this exact group rather than under any unit's own    #}
+          {# accordion. See marketing/views.py::my_tasks for the page this   #}
+          {# opens and marketing/urls.py for why the URL itself is not under #}
+          {# that app's "directory/" prefix.                                 #}
+          <a href="{% url 'marketing:my_tasks' %}" class="sb-item">
+            <span class="ic"><i class="fa-solid fa-list-check"></i></span>My Tasks
+          </a>
           <a href="{% url 'people:my_requests' %}" class="sb-item">
             <span class="ic"><i class="fa-solid fa-clipboard-check"></i></span>Requests
             {% if nav_person_request_answers %}<span class="nav-badge">{{ nav_person_request_answers }}</span>{% endif %}
@@ -615,25 +626,67 @@
       time, or mark it dealt with). It stays until one of those happens: nothing
       here dismisses it, because a banner that can be waved away is a reminder
       you can forget twice.
+
+      REDESIGNED THIS ROUND — the owner's own ask was purely layout: the old
+      shape was one run-on line ("Reminder due · Company · DOC-1 ·
+      2026.06.01 10:30 — note text +3 more due") where the due stamp, the
+      company, the case number and the "how many others" count all fought for
+      the same line with no visual priority between them, and the "+N more
+      due" count trailed off the end of the note — easy to miss if the note
+      ran long, and positioned as if it were part of the note rather than a
+      fact about the whole banner. The DATA is exactly what it was before
+      (reminder_notice.client_name / case_doc_no / due_at / note / others —
+      see marketing/reminders.py::_payload, unchanged by this round); only the
+      markup changed, into the four pieces the new CSS below actually lays
+      out: a headline row (the due stamp — the single fact this banner exists
+      to deliver — first and largest), a facts row underneath it (company,
+      then case number, each its own small chip so either can be absent
+      without leaving a stray separator), the note text on its own line
+      below that, and the "N more due/overdue" count pinned to the banner's
+      OWN bottom-right corner via .reminder-notice's CSS (position:relative +
+      the count's own position:absolute), not the end of whichever text
+      happens to be last. See static/css/app.css's own comment on
+      .reminder-notice for the layout mechanics.
+
+      NO COMPANY, NO EMPTY CHIP — a bare reminder (see
+      marketing/models.py::Reminder.client) has an empty client_name
+      (marketing/reminders.py::_payload turns its NULL into ""), so the
+      company chip below is guarded on it exactly as the old inline version
+      guarded its separator; a reminder with neither a company nor a case
+      degrades to just the due stamp and the note, with no empty facts row
+      left behind (that row itself is guarded on having at least one of the
+      two chips to show).
     {% endcomment %}
     {% if reminder_notice %}
-      <a class="flash flash-warning" href="{% url 'marketing:reminder_list' %}"
-         style="text-decoration:none;color:inherit;">
-        <i class="fa-solid fa-bell"></i>
-        <span>
-          <strong>Reminder due</strong> ·
-          <span dir="auto">{{ reminder_notice.client_name }}</span>
-          {% if reminder_notice.case_doc_no %}
-          · <span class="mono">{{ reminder_notice.case_doc_no }}</span>
+      {# Points at "My Tasks" now, not the retired standalone reminders     #}
+      {# page — see marketing/views.py::my_tasks/::reminder_list. That URL  #}
+      {# name still exists (it 302s here), so this could still resolve      #}
+      {# through it, but linking straight at the real destination is one    #}
+      {# hop fewer for every click this banner gets.                       #}
+      <a class="flash flash-warning reminder-notice" href="{% url 'marketing:my_tasks' %}">
+        <i class="fa-solid fa-bell reminder-notice-icon"></i>
+        <div class="reminder-notice-body">
+          <div class="reminder-notice-head">
+            <strong class="reminder-notice-time">{{ reminder_notice.due_at|jalali:"Y.m.d H:i" }}</strong>
+            <span class="reminder-notice-label">Reminder due</span>
+          </div>
+          {% if reminder_notice.client_name or reminder_notice.case_doc_no %}
+          <div class="reminder-notice-facts">
+            {% if reminder_notice.client_name %}
+            <span class="chip reminder-notice-chip"><i class="fa-solid fa-building"></i><span dir="auto">{{ reminder_notice.client_name }}</span></span>
+            {% endif %}
+            {% if reminder_notice.case_doc_no %}
+            <span class="chip reminder-notice-chip"><i class="fa-solid fa-folder-open"></i><span class="mono">{{ reminder_notice.case_doc_no }}</span></span>
+            {% endif %}
+          </div>
           {% endif %}
-          · {{ reminder_notice.due_at|jalali:"Y.m.d H:i" }}
           {% if reminder_notice.note %}
-          — <span dir="auto">{{ reminder_notice.note|truncatechars:120 }}</span>
+          <div class="reminder-notice-note" dir="auto">{{ reminder_notice.note|truncatechars:120 }}</div>
           {% endif %}
-          {% if reminder_notice.others %}
-          <span class="count">+{{ reminder_notice.others }} more due</span>
-          {% endif %}
-        </span>
+        </div>
+        {% if reminder_notice.others %}
+        <span class="count reminder-notice-others">+{{ reminder_notice.others }} more due</span>
+        {% endif %}
       </a>
     {% endif %}
 

@@ -417,6 +417,46 @@ html[data-theme="dark"] .shift-ot-link:hover{
 .flash-warning{background:var(--warnbg);border-color:var(--warnline);color:var(--warn)}
 .flash-info{background:var(--infobg);border-color:var(--infoline);color:var(--info)}
 
+/* ---------------- Reminder due notification (core/templates/base.html) ----
+   Redesigned this round for clearer hierarchy (see that template's own long
+   comment for why): .flash/.flash-warning still supply the box and the
+   warning colours (unchanged — see the comment above), this block only adds
+   the INTERNAL layout. The anchor becomes a row: a bell icon, a body column
+   that stacks the due stamp / company+case chips / note top-to-bottom, and
+   (when reminder_notice.others is truthy) the "+N more due" count as a THIRD
+   flex child of its own, pushed to the far end of the row and to the row's
+   own bottom edge by align-self:flex-end on a wrapper that itself grows to
+   the banner's full height — the owner's explicit ask was this count sitting
+   at the banner's BOTTOM-RIGHT rather than trailing the note text, and that
+   is a corner of the whole strip, not of the note. align-items:stretch (the
+   .reminder-notice override below) is what gives that flex-end anything to
+   land against — plain .flash centers everything on one line and has no
+   "bottom" for a child to sit at. text-decoration/color are reset here
+   instead of via an inline style="" (the old markup's own), since a
+   redesign with several new child selectors is exactly the situation an
+   inline style stops scaling for. */
+.reminder-notice{align-items:stretch;flex-wrap:wrap;text-decoration:none;color:inherit;gap:.7rem}
+.reminder-notice-icon{align-self:flex-start;margin-top:.15rem;font-size:1rem}
+.reminder-notice-body{flex:1 1 16rem;min-width:0;display:flex;flex-direction:column;gap:.2rem}
+.reminder-notice-head{display:flex;align-items:baseline;gap:.5rem;flex-wrap:wrap}
+/* The due stamp is the headline fact this banner exists to deliver, so it   */
+/* leads and reads largest; "Reminder due" becomes the caption beside it     */
+/* rather than the opening word, the reverse of the old sentence order.      */
+.reminder-notice-time{font-size:1rem;font-weight:750;font-variant-numeric:tabular-nums}
+.reminder-notice-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;opacity:.8}
+.reminder-notice-facts{display:flex;gap:.4rem;flex-wrap:wrap}
+/* .chip's own base rule already sets the pill shape/border; this only swaps  */
+/* its colours for the warning palette so a company/case chip reads as part  */
+/* of this banner rather than the neutral grey .chip carries everywhere else. */
+.reminder-notice-chip{background:color-mix(in srgb,var(--warn) 12%,var(--warnbg));border-color:var(--warnline);color:var(--warn)}
+.reminder-notice-note{font-size:.84rem;opacity:.92;overflow-wrap:anywhere}
+/* Pinned to the strip's own bottom-right, not the note's end — see the      */
+/* template comment. align-self:flex-end works because .reminder-notice     */
+/* above is align-items:stretch, which is what gives this flex child a full- */
+/* height track to push itself to the bottom of; margin-left:auto pushes it  */
+/* to the right within the wrapped row instead of sitting flush after body.  */
+.reminder-notice-others{align-self:flex-end;margin-left:auto;white-space:nowrap}
+
 /* ---------------- Cards / panels ---------------- */
 .card,.panel{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.1rem 1.25rem;margin-bottom:1rem}
 .card-head,.panel-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem}
@@ -1449,6 +1489,14 @@ table.data td.client-no { font-weight: 650; opacity: .75; }
    inside a tab (e.g. With / Technical). Zero-count tabs are
    omitted server-side. All sits with the other tabs.
    ============================================================ */
+/* Same idiom as .shift-warn-banner[hidden] / .filter-clear-x[hidden] above:
+   a `hidden` attribute is beaten by this class's own `display:flex` at equal
+   specificity (an author rule always outranks the UA [hidden] rule it would
+   otherwise tie with), so a hidden .archive-status-tabs — the "My Tasks"
+   hour-pill row (marketing/templates/marketing/_my_tasks_reminders.html)
+   toggles this on it via the `hidden` attribute rather than its own inline
+   style — needs this explicit override to actually disappear. */
+.archive-status-tabs[hidden]{display:none !important;}
 .archive-status-tabs{
   display:flex; flex-wrap:nowrap; align-items:stretch; flex-shrink:0;
   gap:.3rem; margin:0 0 .85rem; padding:.4rem;

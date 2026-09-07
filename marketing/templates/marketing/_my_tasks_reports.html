@@ -1,0 +1,234 @@
+{% load ft_extras %}
+{% comment %}
+  MY TASKS — REPORTS TAB. Included by my_tasks.html's own #panel-reports;
+  its own sibling partial beside `_my_tasks_reminders.html`, for the
+  identical reason that one is split out on its own (see its head comment).
+
+  EVERY ``CompanyReport`` THIS VIEWER WROTE (``created_by=request.user``),
+  ACROSS EVERY COMPANY AT ONCE — never scope-widened, unlike Reports
+  elsewhere in this app (an ordinary Marketing seat sees its own; a
+  Supervisor/GM/admin sees the unit's) — see
+  marketing/services.py::list_reports_for_user's own docstring for why this
+  tab stays the literal, unconditional "mine" regardless of whatever
+  Marketing seat this viewer might separately hold. Rows come from
+  marketing/views.py::_task_report_rows.
+
+  SAME FILTER CAPABILITIES AS THE REMINDERS TAB — a searchable case picker
+  (equals, against exact document numbers), a searchable company picker
+  (equals, against exact names) and a Jalali date-range pair — but on THIS
+  tab's own natural date field, the report's own ``created_at`` (labelled
+  "Date" below), rather than a reminder's ``due_at``. Same mechanism as
+  every other filter card in this app: static/js/ui.js's own
+  `data-filter-table` pass, reading the plain `data-filter-for="myTasksReportsTable"`/
+  `data-filter-colname`/`data-filter-mode` attributes below — no JavaScript
+  of this tab's own, unlike the Reminders tab, which layers day/hour pills
+  on top through `marketing/static/marketing/js/my_tasks.js`; this tab has
+  no such grouping and needs none of that script's own machinery.
+
+  THE CLOSED-REMINDER TIMELINE — a report that closed out a reminder
+  (marketing/reminders.py::close_with_report) carries three frozen
+  timestamps (reminder_set_at/reminder_due_at/reminder_note — see
+  marketing/models.py::CompanyReport's own docstring for why these can only
+  ever be a frozen copy, never a live lookup) alongside its own text. This is
+  where that report actually LIVES, long after my_tasks_add's own
+  `closed_report` confirmation screen (shown once, immediately after
+  closing) has scrolled out of view — so the identical three-point
+  Set → Due → Reported timeline is drawn again here, in the "When" column,
+  for every row that has one (r.has_timeline — marketing/views.py::_task_report_rows's
+  own flag, true iff reminder_set_at is not null). A PLAIN report — never
+  tied to a reminder, whether written from THIS tab's own "Add report" form
+  or, in principle, from anywhere else in the app — carries no such
+  timeline and that column simply reads "—".
+
+  THE PERSON FILTER/COLUMN (`scope_all` ONLY) IS THE IDENTICAL MECHANISM THE
+  REMINDERS TAB CARRIES — see `_my_tasks_reminders.html`'s own head comment's
+  "THE PERSON FILTER" section for the full reasoning (matched on
+  `r.person_key`, a stable `Person.detail_code`, not the printed name; built
+  by the view off THIS tab's own rows, exactly as `report_client_names`
+  already is for the Company picker beside it). The one difference: a
+  report's `person_name` falls back to its own FROZEN `author` field, not a
+  live account lookup, when its writer's account is gone — see
+  marketing/views.py::_task_report_rows's own docstring.
+{% endcomment %}
+
+<div class="card" style="margin-bottom:1rem;">
+  <div class="card-head">
+    <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-right:.4rem;"></i>Filters</h3>
+    <button type="button" class="btn btn-sm" data-filter-clear="myTasksReportsTable" title="Reset all filters">
+      <i class="fa-solid fa-eraser"></i> Clear filters
+    </button>
+  </div>
+  <div class="grid grid-4">
+    <div class="field">
+      <label><i class="fa-solid fa-folder-open"></i> Case</label>
+      {# EQUALS, not contains — same reasoning as the Reminders tab's own    #}
+      {# Case filter: a document number could otherwise sit inside another   #}
+      {# one as a substring. Never offers a case case_access_for/            #}
+      {# scope_case_rows would refuse this viewer — see                      #}
+      {# marketing/views.py::_my_tasks_case_access.                          #}
+      <select data-combo data-placeholder="Search a case…"
+              data-filter-for="myTasksReportsTable" data-filter-colname="Case" data-filter-mode="equals">
+        <option value=""></option>
+        {% for row in case_choices %}
+        <option value="{{ row.doc_no }}">{{ row.doc_no }} · {{ row.client_name }} · {{ row.label_fa|default:row.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label><i class="fa-solid fa-building"></i> Company</label>
+      <select data-combo data-placeholder="Search a company…"
+              data-filter-for="myTasksReportsTable" data-filter-colname="Company" data-filter-mode="equals">
+        <option value=""></option>
+        {% for name in report_client_names %}
+        <option value="{{ name }}" dir="auto">{{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label><i class="fa-solid fa-calendar-day"></i> From date (Jalali)</label>
+      <input type="text" data-jalali-datetime data-filter-for="myTasksReportsTable"
+             data-filter-colname="Date" data-filter-mode="gte" placeholder="From date" autocomplete="off">
+    </div>
+    <div class="field">
+      <label><i class="fa-solid fa-calendar-day"></i> To date (Jalali)</label>
+      <input type="text" data-jalali-datetime data-filter-for="myTasksReportsTable"
+             data-filter-colname="Date" data-filter-mode="lte" placeholder="To date" autocomplete="off">
+    </div>
+    {% if scope_all %}
+    <div class="field">
+      <label><i class="fa-solid fa-user"></i> Person</label>
+      <select data-combo data-placeholder="Search a person…"
+              data-filter-for="myTasksReportsTable" data-filter-colname="Person" data-filter-mode="equals">
+        <option value=""></option>
+        {% for name, key in report_person_choices %}
+        <option value="{{ key }}" dir="auto">{{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h3><i class="fa-solid fa-file-lines" style="color:var(--accent-strong);margin-right:.4rem;"></i>Reports
+      <span class="count" data-filter-count="myTasksReportsTable">{{ report_rows|length }}</span>
+    </h3>
+    {# STANDALONE — no reminder in play, company and case both optional.    #}
+    {# See marketing/views.py::my_tasks_report_add's own docstring.         #}
+    <a href="{% url 'marketing:my_tasks_report_add' %}" class="btn btn-sm btn-primary">
+      <i class="fa-solid fa-file-pen"></i> Add report
+    </a>
+  </div>
+
+  <div class="help" style="margin:-.35rem 0 .7rem;">
+    {% if scope_all %}
+    Newest first. Every report anyone has written, on any company, any case, or nothing at all.
+    {% else %}
+    Newest first. Nobody else can see these — your own reports, on any company, any case, or nothing at all.
+    {% endif %}
+  </div>
+
+  <div class="vscroll">
+  <table class="data" id="myTasksReportsTable" data-filter-table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        {% if scope_all %}<th>Person</th>{% endif %}
+        <th>Company</th>
+        <th>Case</th>
+        <th>Reminder timeline</th>
+        <th>Report</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in report_rows %}
+      <tr>
+        <td class="mono muted">{{ r.created_at|jalali:"Y.m.d H:i" }}</td>
+        {% if scope_all %}
+        <td data-fval="{{ r.person_key }}" dir="auto">{{ r.person_name }}</td>
+        {% endif %}
+        <td>
+          {% if r.client_id %}
+          <a class="chip" href="{% url 'marketing:company_detail' r.client_id %}">
+            <i class="fa-solid fa-building"></i><span dir="auto">{{ r.client_name }}</span>
+          </a>
+          {% else %}<span class="muted">—</span>{% endif %}
+        </td>
+        <td>
+          {% comment %}
+            r.case_id/r.case_doc_no are already redacted by
+            services._report_row over THIS viewer's own case_access — a case
+            this viewer may no longer open still shows the row IS about a
+            case, but never its identity, exactly the Reminders tab's own
+            r.show_case_no rule (see that tab's own template).
+          {% endcomment %}
+          {% if r.case_id %}
+          <a class="chip" href="{{ r.case_open_url }}">
+            <i class="fa-solid fa-folder-open"></i><span class="mono">{{ r.case_doc_no }}</span>
+          </a>
+          {% elif r.has_case %}
+          <span class="chip c-draft"><i class="fa-solid fa-folder-open"></i>On a case</span>
+          {% else %}<span class="muted">—</span>{% endif %}
+        </td>
+        <td>
+          {% comment %}
+            THE THREE-POINT TIMELINE — see this file's own head comment. Set
+            and Due come from the CLOSED reminder's own frozen columns;
+            Reported is this report's own created_at, i.e. this same row's
+            own Date column, repeated here so all three points read as one
+            connected line rather than sending the reader back to the first
+            column to find the third point.
+          {% endcomment %}
+          {% if r.has_timeline %}
+          <div class="row-flex" style="gap:.5rem;align-items:center;flex-wrap:nowrap;font-size:.78rem;">
+            <div>
+              <div class="muted" style="font-size:.68rem;">Set</div>
+              <div class="mono">{{ r.reminder_set_at|jalali:"Y.m.d H:i" }}</div>
+            </div>
+            <span class="muted">→</span>
+            <div>
+              <div class="muted" style="font-size:.68rem;">Due</div>
+              <div class="mono">{{ r.reminder_due_at|jalali:"Y.m.d H:i" }}</div>
+            </div>
+            <span class="muted">→</span>
+            <div>
+              <div class="muted" style="font-size:.68rem;">Reported</div>
+              <div class="mono">{{ r.created_at|jalali:"Y.m.d H:i" }}</div>
+            </div>
+          </div>
+          {% if r.reminder_note %}
+          <div class="help" style="margin-top:.3rem;white-space:pre-line;max-width:26ch;overflow-wrap:anywhere;" dir="auto">
+            <i class="fa-solid fa-note-sticky"></i> {{ r.reminder_note }}
+          </div>
+          {% endif %}
+          {% else %}
+          <span class="muted">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if r.options %}
+          <div class="chips-row" style="margin-bottom:.3rem;">
+            {% for opt in r.options %}
+            <span class="chip c-draft" dir="auto"><i class="fa-solid fa-check"></i>{{ opt }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+          <div dir="auto" style="white-space:pre-line;max-width:32ch;overflow-wrap:anywhere;">{{ r.text|default:"—" }}</div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="{% if scope_all %}6{% else %}5{% endif %}" class="empty">
+          {% if scope_all %}
+          Nobody has written any reports yet.
+          {% else %}
+          You have not written any reports yet — use “Add report” above to write the first one.
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>

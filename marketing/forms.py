@@ -45,12 +45,25 @@ all (they are not ``is_staff``) even though
 seats that administer it — and the report screen told them to go there anyway.
 One capability governing two vocabularies now has one mechanism for both.
 
-:class:`ReminderForm` and :class:`ReminderTimeForm` are the third and fourth,
-and they follow the same split again — they validate, they never write
-(``marketing/reminders.py`` does) — with one thing the other two do not need:
-they are the only forms in this app that take a Jalali DATE AND TIME. See
-``_clean_jalali_datetime`` for why that parse lives here rather than being
-borrowed from ``cases/forms.py``, and why it is written once for both.
+:class:`ReminderForm` is the third, and it follows the same split again — it
+validates, it never writes (``marketing/reminders.py`` does) — with one thing
+the other two do not need: it is one of the forms in this app that takes a
+Jalali DATE AND TIME (:class:`TaskForm`, in ``my_tasks``' own section further
+down, is the other). See ``_clean_jalali_datetime`` for why that parse lives
+here rather than being borrowed from ``cases/forms.py``, and why it is
+written once for every form that needs it.
+
+THERE USED TO BE A FOURTH, ``ReminderTimeForm`` — "just the time", backing the
+old "Set new time" control on the pre-"My Tasks" reminders list and on
+``company_detail.html``'s own Reminders tab. It is gone, removed alongside
+the two views that were its only callers
+(``marketing/views.py::reminder_retime``/``reminder_done`` — see the comment
+now sitting where they used to be defined) when those were retired as a
+live bypass of this round's mandatory close-only-via-a-report cycle. A
+reminder's time is no longer ever changed on its own; the only way to act on
+one now is to close it out with a report
+(``marketing/reminders.py::close_with_report``) and, if there is a next step,
+set a brand-new one through :class:`TaskForm`.
 """
 from __future__ import annotations
 
@@ -634,23 +647,177 @@ class ReminderForm(forms.Form):
         return _clean_jalali_datetime(self.cleaned_data.get("due_at"))
 
 
-class ReminderTimeForm(forms.Form):
-    """Just the time — the "set a new time" control on the reminders list page.
+def _shift_window_text(user) -> str:
+    """"HH:MM–HH:MM" for ``user``'s own work-shift window, or "" if it cannot
+    be resolved (no request-less way to ask, or the lookup itself failed).
 
-    ONE FIELD, BUILT BY THE SAME FACTORY AND PARSED BY THE SAME FUNCTION as
-    :class:`ReminderForm`'s, for the reason given at the top of this section.
+    THE SAME PAIR ``marketing/reminders.py::validate_due_at_shift`` READS,
+    through the identical ``person_for_user``/``shift_window`` call — never a
+    second guess at the window, only a second, human-readable RENDERING of the
+    one that function already enforces. Used by :class:`TaskForm` for the
+    inline hint under its own due-at field, and reused as the wording inside
+    the rejection message when a submitted time falls outside it, so the hint
+    a person reads BEFORE typing and the error they get AFTER typing something
+    outside it can never disagree about what the window actually is.
+    """
+    if user is None:
+        return ""
+    try:
+        from people.work_shift import person_for_user, shift_window
+        person = person_for_user(user)
+        start, end = shift_window(person)
+        return "%s–%s" % (start.strftime("%H:%M"), end.strftime("%H:%M"))
+    except Exception:
+        return ""
 
-    A form class rather than a bare ``request.POST`` read in the view because
-    the parse CAN fail, and a failure needs somewhere to put its message: the
-    list page re-renders carrying it, exactly as every other screen in this
-    section does.
+
+class TaskForm(forms.Form):
+    """Set a reminder from "My Tasks" — the platform-wide, company-INDEPENDENT
+    screen every person with a linked Person record reaches from the
+    sidebar's own "Personal" group, not from any one company's page. This is
+    the third form built on ``ReminderForm``'s own shape, widened for the one
+    thing that screen does not need and this one does: a COMPANY field of its
+    own, because there is no client id in this page's URL for one to be
+    implied by (see ``marketing/views.py::my_tasks``).
+
+    THE OWNER'S OWN WORDING IS THE SPEC FOR WHAT IS OPTIONAL: "می‌تواند به اسم
+    یک شرکت یا پرونده وصل کند یا حتی نه" — it may be attached to a company's
+    name, or to a case, or to neither. So both ``client_id`` and ``case_id``
+    are ``required=False`` here, independently of one another — picking a
+    case never requires having picked a company first, and picking a company
+    never requires a case. ``marketing/views.py::my_tasks_add`` is what
+    decides, once both are cleaned, what the reminder's OWN company ends up
+    being when a case was picked but no company was — see that view's own
+    comment for the judgement call and why it is documented there rather than
+    silently baked into this form's ``clean()``.
+
+    ``case_id``'S CHOICES COME FROM ``_visible_case_rows_all``, PLATFORM-WIDE,
+    NOT FROM ONE COMPANY'S CASES — the whole reason this form exists rather
+    than reusing ``ReminderForm`` unchanged. The picker still NEVER offers a
+    case this viewer's own commercial seat access would refuse — see
+    ``marketing/views.py::_visible_case_rows_all`` and its own docstring's
+    "PERMISSION RULE FOR THE CASE PICKER" section for why that authority is
+    not re-derived here, and re-checked again by the view on submit, exactly
+    as ``ReminderForm``'s own docstring already argues for its narrower,
+    single-company version of the same list.
+
+    THE DUE-AT TIME IS VALIDATED AGAINST ``user``'S OWN WORK-SHIFT WINDOW,
+    SERVER-SIDE, in :meth:`clean_due_at` — the one rule this form owns beyond
+    what ``ReminderForm``'s shared ``_clean_jalali_datetime`` already checks.
+    ``marketing/reminders.py::validate_due_at_shift`` is the single decision
+    (see that function's own docstring for why ``people/work_shift.py`` is
+    the authority reused rather than re-derived); this method is only the
+    one place a violation of it is turned into a message a person filling in
+    a screen can act on, exactly the split ``ReportForm.clean`` and
+    ``ContactForm.clean`` already document for their own screen-only rules.
+    ``user`` is threaded through ``__init__`` rather than read off a request
+    this form does not have, the same way ``can_manage_options`` reaches
+    ``ReportForm``.
     """
 
     def use_required_attribute(self, field):
-        # Same override, same reason, as the two forms above.
+        # Same override, same reason, as ReminderForm above: the two <select>
+        # fields below carry data-combo and are hidden behind a drawn combo by
+        # static/js/ui.js, and a hidden control carrying the native `required`
+        # attribute blocks a legitimate submit with an error nobody can act on.
         return False
 
-    due_at = _due_at_field(label="New time")
+    client_id = forms.ChoiceField(
+        required=False, label="Company (optional)",
+        widget=forms.Select(attrs={
+            "data-combo": "1", "data-placeholder": "Search a company...",
+        }),
+    )
+    case_id = forms.ChoiceField(
+        required=False, label="Case (optional)",
+        widget=forms.Select(attrs={
+            "data-combo": "1", "data-placeholder": "Search a case...",
+        }),
+    )
+    note = forms.CharField(
+        required=True, label="What should you do when this comes up?",
+        widget=forms.Textarea(attrs={
+            "rows": 4, "dir": "auto", "autocomplete": "off",
+            "placeholder": "What should you do when this comes up?",
+        }),
+    )
+    due_at = _due_at_field(label="Due at (Jalali date and time)")
+
+    def __init__(self, *args, user=None, client_choices=(), case_choices=(), **kwargs):
+        super().__init__(*args, **kwargs)
+        self._user = user
+        # Empty option first for both — the same reason ReminderForm's own
+        # case_id choices lead with one: neither attachment is required, and
+        # the default answer has to be the one that satisfies neither.
+        self.fields["client_id"].choices = [("", "- No company -")] + [
+            (str(c.pk), c.name) for c in (client_choices or ())
+        ]
+        rows = list(case_choices or ())
+        self.fields["case_id"].choices = [("", "- No case -")] + [
+            (str(row["case_id"]),
+             "%s · %s · %s" % (row.get("doc_no", ""),
+                               row.get("client_name", ""),
+                               row.get("label_fa") or row.get("label", "")))
+            for row in rows
+        ]
+        # Said in words when empty, ReminderForm's own idiom — "no cases you
+        # may see" is a statement about THIS viewer's access, never "no cases
+        # exist" at all.
+        self.cases_available = bool(rows)
+        # Rendered as an inline hint under the due-at field — see
+        # _shift_window_text's own docstring for why this is the identical
+        # pair clean_due_at enforces, not a second guess at it.
+        self.shift_window_text = _shift_window_text(user)
+
+    def clean_note(self):
+        return (self.cleaned_data.get("note") or "").strip()
+
+    def clean_client_id(self):
+        """The chosen company id as an int, or None — ChoiceField has already
+        refused anything outside the offered rows (see ``__init__``)."""
+        raw = (self.cleaned_data.get("client_id") or "").strip()
+        if not raw:
+            return None
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return None
+
+    def clean_case_id(self):
+        """The chosen case id as an int, or None — same shape as
+        ``clean_client_id``, and ``ReminderForm.clean_case_id``'s reason."""
+        raw = (self.cleaned_data.get("case_id") or "").strip()
+        if not raw:
+            return None
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return None
 
     def clean_due_at(self):
-        return _clean_jalali_datetime(self.cleaned_data.get("due_at"))
+        """The parsed due-at, ALSO checked against ``user``'s own shift
+        window — see the class docstring's "THE DUE-AT TIME IS VALIDATED"
+        section. Raised on THIS field (not as a non-field error) because it
+        is true of exactly one box on the screen and the person should see
+        the message right where they need to fix it, the same placement
+        ``_clean_jalali_datetime``'s own round-trip error already uses for a
+        malformed date.
+
+        Skipped when ``due_at`` failed to parse at all (``None``) or when this
+        form was built with no ``user`` (should never happen from a real
+        request; a defensive no-op rather than a crash if it ever does) — a
+        blank or unparsable box already has its own error from
+        ``_clean_jalali_datetime`` and does not need a second one stacked on
+        top of it.
+        """
+        due_at = _clean_jalali_datetime(self.cleaned_data.get("due_at"))
+        if due_at is not None and self._user is not None:
+            from . import reminders as _reminders
+            if not _reminders.validate_due_at_shift(self._user, due_at):
+                window = self.shift_window_text or _shift_window_text(self._user)
+                raise forms.ValidationError(
+                    "Pick a time inside your own work shift%s." % (
+                        " (%s)" % window if window else ""))
+        return due_at
+
+

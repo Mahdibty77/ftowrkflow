@@ -32,8 +32,10 @@
   for consistency with every other elevated surface in this app, the General
   Manager and the platform admin) can now see it on the unit's own reminders
   list, the same way they already see this person's reports. What did NOT
-  change is that nobody can re-time or close it out but the person themselves,
-  and it is still not written anywhere on the company's own shared timeline.
+  change is that nobody can close it out but the person themselves — and
+  "close it out" means exactly one thing now, writing the report that
+  accounts for it (see marketing/reminders.py::close_with_report) — and it is
+  still not written anywhere on the company's own shared timeline.
 {% endcomment %}
 {% block title %}Set a reminder · {{ client.name }} · Foolad Tabar Workflow{% endblock %}
 {% block topbar %}Set a reminder{% endblock %}
@@ -48,8 +50,9 @@
     <div class="sub">on <span dir="auto">{{ client.name }}</span> <span class="mono">({{ client.code }})</span></div>
   </div>
   <div class="row-flex" style="align-items:center;gap:.5rem;flex-wrap:wrap;">
-    <a href="{% url 'marketing:reminder_list' %}" class="btn btn-sm">
-      <i class="fa-solid fa-bell"></i> My reminders
+    {# "My reminders" became "My Tasks" — see marketing/views.py::my_tasks. #}
+    <a href="{% url 'marketing:my_tasks' %}" class="btn btn-sm">
+      <i class="fa-solid fa-bell"></i> My Tasks
     </a>
     <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-sm">
       <i class="fa-solid fa-arrow-left"></i> Back to company
@@ -71,8 +74,8 @@
     <i class="fa-solid fa-lock"></i>
     Like your reports, a Marketing Supervisor (and the platform admin) can see
     this reminder on your unit's reminders list — nobody outside Marketing
-    does, only you can re-time or close it out, and it is still not recorded
-    on the company's own timeline.
+    does, only you can close it out (by submitting the report it calls for),
+    and it is still not recorded on the company's own timeline.
   </div>
 
   <div class="field">

@@ -953,6 +953,50 @@ def cases_for_client(client: Client) -> list:
     ]
 
 
+def all_cases() -> list:
+    """Every case in the system, any client, any status — the platform-wide
+    counterpart to :func:`cases_for_client` immediately above, added for a
+    picker that has no single company in scope at all. See
+    ``marketing/views.py::_visible_case_rows_all``, its only caller: the new
+    "My Tasks" surface a later stage builds reaches this page with no client
+    in its own URL, so it cannot narrow to one company's cases the way the
+    existing company-page pickers do — it has to offer every case the viewer
+    is allowed to see, platform-wide, and let picking one imply which company
+    it belongs to.
+
+    THE SAME PER-ROW SHAPE AS ``cases_for_client``, PLUS TWO EXTRA KEYS.
+    ``case_id``/``doc_no``/``label``/``status``/``status_fa`` are computed
+    identically — the very same ``_effective_label``/``_status_fa`` calls —
+    so a reader that already knows how to render a ``cases_for_client`` row
+    needs to learn nothing new to render one of these. ``client_id`` and
+    ``client_name`` ride along on top of that shape, not in place of it: a
+    row with no client in scope at all is useless to a reader unless the row
+    itself says which company it belongs to, and ``cases_for_client``'s own
+    callers never needed that key because the client was already the thing
+    they had picked before asking for its cases.
+
+    UNSCOPED, EXACTLY LIKE ``cases_for_client`` — case data belongs to
+    Commercial/Technical/Supply, not to Marketing, so this returns the
+    identical list to every viewer regardless of who is asking. Narrowing it
+    to what ONE particular viewer may actually see is
+    ``marketing/access.py::scope_case_rows``'s job, applied by the caller the
+    same way it already is over ``cases_for_client``'s own output — this
+    function is not a second, competing access rule, it is the same
+    unscoped-fact-then-scope-it-at-the-call-site split applied to every case
+    at once instead of one client's.
+    """
+    cases = Case.objects.select_related("client").only(
+        "id", "doc_no", "marketing_label", "status", "client__name")
+    return [
+        {
+            "case_id": c.pk, "doc_no": c.doc_no, "label": _effective_label(c),
+            "status": c.status, "status_fa": _status_fa(c.status),
+            "client_id": c.client_id, "client_name": c.client.name,
+        }
+        for c in cases
+    ]
+
+
 def label_counts(user, scope) -> dict:
     """``{label key: how many companies carry it}`` for all twenty keys.
 
@@ -2205,6 +2249,33 @@ def _report_row(report: CompanyReport, user, visible_case_ids=frozenset()) -> di
     ``case_doc_no`` (an id is case identity too — see the module docstring) and
     ``has_case`` is carried instead, purely so the template can say "on a case"
     without saying WHICH rather than mislabel the row "on the company".
+
+    ``client_id``/``client_name`` ARE READ LIVE OFF THE FK, NOT FROZEN — added
+    for ``list_reports_for_user`` below, whose whole reason for existing is a
+    list that SPANS every company at once (My Tasks' own Reports tab), so a
+    row needs to say which company it is on the way ``case_doc_no`` says which
+    case. Every existing caller of this function already narrows to one known
+    ``Client`` before it ever reaches here (``list_reports``'s own ``client``
+    argument), so these two keys are simply unused by their templates rather
+    than a behaviour change for them. Live, not frozen, for
+    ``case_doc_no``'s own reason: a report is a live working record that
+    points at a live company, not an immutable audit row, so it should follow
+    a rename rather than keep claiming the old one. ``client_id`` can be
+    ``None`` — a report that closed out a BARE reminder never named a company
+    at all (see ``marketing/models.py::CompanyReport``'s own docstring) — and
+    ``client_name`` is then "" rather than raising on a ``None`` FK.
+
+    ``reminder_set_at``/``reminder_due_at``/``reminder_note`` ARE THE THREE
+    FROZEN SNAPSHOTS COPIED STRAIGHT OFF THE ROW, no re-shaping — see
+    ``CompanyReport``'s own docstring for why these three can only ever be a
+    frozen copy and never a live lookup. All three are blank/``None`` for a
+    standalone report (one never born from ``close_with_report``), and a
+    template tells the two kinds of row apart by testing
+    ``reminder_set_at`` for exactly that reason: it is the one of the three
+    that is never a legitimately-blank FREE-TEXT field the way ``reminder_note``
+    can be (an owner who set a reminder with no note still has a real
+    ``reminder_set_at``), so it is the one flag that can never lie about
+    whether this report closed a reminder or not.
     """
     case_visible = report.case_id is not None and report.case_id in visible_case_ids
     return {
@@ -2220,6 +2291,15 @@ def _report_row(report: CompanyReport, user, visible_case_ids=frozenset()) -> di
         "author": report.author_display_name,
         "created_by_id": report.created_by_id,
         "created_at": report.created_at,
+        # See the docstring's "client_id/client_name" section — live off the
+        # FK, empty/blank for a report that named no company at all.
+        "client_id": report.client_id,
+        "client_name": report.client.name if report.client_id and report.client else "",
+        # See the docstring's "reminder_set_at/..." section — frozen copies,
+        # populated only by ``marketing/reminders.py::close_with_report``.
+        "reminder_set_at": report.reminder_set_at,
+        "reminder_due_at": report.reminder_due_at,
+        "reminder_note": report.reminder_note,
         # True iff THIS user wrote the row — the same ``removable``-style
         # ownership flag ``_contact_row`` carries, kept under an honest name
         # because reports are not removable at all: nothing in this module
@@ -2270,14 +2350,93 @@ def list_reports(client: Client, user, scope, *, case=None,
     qs = _scoped(CompanyReport.objects.filter(client=client), user, scope)
     if case is not None:
         qs = qs.filter(case=case)
-    reports = list(qs.select_related("case").prefetch_related("options"))
+    # ``select_related("client")`` ADDED ALONGSIDE ``_report_row``'s NEW
+    # ``client_name`` KEY — every row here already carries the SAME known
+    # ``client`` (the function's own argument), so this join costs nothing new
+    # in practice; it exists so ``_report_row``'s ``report.client.name`` read
+    # never fires a per-row query on the rare caller that does not already
+    # have the instance warm some other way.
+    reports = list(qs.select_related("case", "client").prefetch_related("options"))
     visible = _visible_case_ids([r.case_id for r in reports], case_access)
     return [_report_row(r, user, visible) for r in reports]
 
 
-def add_report(client: Client, user, *, text: str = "", options=(),
+def list_reports_for_user(user, case_access: CaseAccess = NO_CASE_ACCESS,
+                          scope: str = "own") -> list:
+    """Every ``CompanyReport`` this exact ``user`` wrote — ACROSS EVERY COMPANY
+    AT ONCE, unlike ``list_reports`` above, which is always one company's own
+    list.
+
+    BUILT FOR "MY TASKS"' OWN REPORTS TAB, the company-INDEPENDENT screen every
+    person with a linked ``people.Person`` record reaches from the sidebar's
+    own "Personal" group — see ``marketing/views.py``'s "MY TASKS" section for
+    the full story of that page. There is no single ``Client`` in that page's
+    URL for ``list_reports`` to be called once per company against, and the
+    owner's own wording for THAT tab is "every report THIS viewer authored" —
+    literally ``created_by=user``.
+
+    ``scope`` NOW EXISTS, AND THE DEFAULT IS STILL "OWN" — the same reversal
+    ``marketing/reminders.py::list_for_user`` already went through, applied
+    here for the identical reason: a LATER round built an admin-wide variant
+    of My Tasks (``marketing/views.py::my_tasks``'s own ``scope`` parameter,
+    reached only through ``marketing:my_tasks_all`` and gated on the exact
+    same admin check that already guards the People section's own admin
+    pages — see that view's docstring), and "every report ever written, by
+    anyone" is precisely what that screen has to be able to ask for. This
+    still takes no MARKETING-seat concept at all (an ordinary Marketing
+    seat's own "own"/"all" split, resolved from ``access_for``, is a
+    different question this function has never answered and still does not)
+    — ``scope`` here is resolved by the CALLER from the admin check on THIS
+    page alone, never from a Marketing seat, so a Marketing Supervisor's own
+    visit to the ordinary "My Tasks" page is completely unaffected: it always
+    passes ``scope="own"`` (the default), and the surprise widening this
+    docstring used to warn against — a Supervisor's "My Tasks" quietly
+    showing a colleague's report on a page titled "mine" — still cannot
+    happen through this function. ``"own"`` filters to
+    ``created_by=user`` through the SAME ``_scoped`` helper every other
+    reports list in this module already goes through; ``"all"`` is
+    unfiltered, the union of everyone's, read live off the table with no
+    further narrowing.
+
+    REUSES ``_report_row`` UNCHANGED, the same shaping every other reports
+    list in this app goes through, so a report a viewer can see HERE and the
+    identical row they can see on that report's own company page (or its
+    case's own page) can never disagree about what it says — only which LIST
+    it happens to appear in differs. ``case_access`` is resolved by the
+    caller exactly as every other caller in this module resolves it — see
+    ``marketing/views.py::_my_tasks_case_access`` for why My Tasks' own
+    version of that decision is not simply ``case_access_for(request,
+    access_for(request))`` the way every Marketing-gated page's is.
+
+    Newest first (``CompanyReport.Meta.ordering``), the identical order
+    ``list_reports`` already returns. ``select_related`` on the case AND the
+    client (unlike ``list_reports``, which already has a known, single client
+    and only needs the case) — this list spans every company at once, so
+    ``_report_row``'s new ``client_name`` read would otherwise cost one query
+    per row.
+    """
+    qs = _scoped(
+        CompanyReport.objects.select_related("case", "client")
+        .prefetch_related("options"),
+        user, scope,
+    )
+    reports = list(qs)
+    visible = _visible_case_ids([r.case_id for r in reports], case_access)
+    return [_report_row(r, user, visible) for r in reports]
+
+
+def add_report(client: Client | None, user, *, text: str = "", options=(),
                case=None) -> CompanyReport:
     """Record one report on ``client``, written by ``user``.
+
+    ``client`` MAY NOW BE ``None`` — widened alongside
+    ``marketing/models.py::CompanyReport.client`` (see that field's own
+    comment) so ``marketing/reminders.py::close_with_report`` can write the
+    report that closes a BARE reminder, one that names no company and no case
+    at all. Every ordinary caller (``marketing/views.py::report_create``)
+    still always passes a real ``Client`` — the company page a report is
+    written from cannot exist without one — so ``None`` only ever arrives
+    through the reminder-closing path.
 
     Keyword-only past ``client``/``user`` for ``add_contact``'s reason: the
     remaining arguments are three optional-looking things of three different
@@ -2332,8 +2491,20 @@ def add_report(client: Client, user, *, text: str = "", options=(),
     # than an omission. The report's own TEXT is deliberately not copied onto
     # the timeline row: the timeline records that a report was written, and the
     # report itself is where it is read.
-    _try_log(client, user, ClientEventAction.REPORT_ADDED,
-             subject=(getattr(case, "doc_no", "") or "").strip())
+    #
+    # ``client is not None`` GUARDS THIS RATHER THAN LEAVING IT TO
+    # ``_try_log``'S SWALLOW. ``ClientEvent.client`` is still a required FK —
+    # there is no such thing as a company-less timeline entry, because there
+    # is no company to have one — so a report born from closing a BARE
+    # reminder (no client at all) has no timeline to write to at all, not a
+    # timeline write that happens to fail. ``_try_log`` WOULD swallow the
+    # resulting IntegrityError and leave the report itself intact either way,
+    # but skipping the attempt outright says plainly "this report has no
+    # company" instead of spending a savepoint and a rollback to arrive at
+    # the same place every single time.
+    if client is not None:
+        _try_log(client, user, ClientEventAction.REPORT_ADDED,
+                 subject=(getattr(case, "doc_no", "") or "").strip())
     return report
 
 

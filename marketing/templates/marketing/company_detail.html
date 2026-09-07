@@ -37,13 +37,29 @@
   "Add contact", "Add report" and "Set new reminder" are all {% if can_edit %},
   which is the same flag marketing/views.py::contact_add / ::report_add /
   ::reminder_add refuse on; the per-row contact delete is c.can_remove; a
-  reminder row's own retime/mark-done controls are r.is_own (see
+  reminder row's own "Submit report" control is r.is_own (see
   marketing/views.py::_reminder_rows — acting on a reminder stays strictly
   owner-only even now that SEEING the tab can show a Supervisor everyone's
   rows); and the PI money figure is behind show_money. A hidden control is
   not a permission — every one of those URLs re-checks for itself — but a
   drawn control that the server will refuse is a bug, so the two sides are
   kept saying the same thing.
+
+  THE REMINDERS TAB'S OWN CLOSE CONTROL USED TO BE A DIFFERENT PAIR —
+  "Set new time" (posting to marketing:reminder_retime) and "Mark dealt
+  with" (posting to marketing:reminder_done), a plain reschedule or a
+  mark-done with NO report ever required. Those two views/routes are gone —
+  see marketing/urls.py's own module docstring and the comment left in
+  marketing/views.py where they used to be defined — because they were a
+  live, working bypass of the mandatory close-only-via-a-report cycle this
+  whole round was built around: a reminder on THIS page could close with no
+  report behind it, or reopen with a fresh due date, while every other
+  screen in the app had already moved to marketing:my_tasks_report /
+  marketing/reminders.py::close_with_report. This tab now carries the SAME
+  "Submit report" control marketing/templates/marketing/
+  _my_tasks_reminders.html already has, linking to the SAME view — not a
+  second, separate close mechanism — so a reminder closes identically no
+  matter which page it was closed from.
 
   Nothing here formats a date itself: every stamp goes through the |jalali
   filter from core/templatetags/ft_extras.py, the same filter the case page's
@@ -171,6 +187,11 @@
   {# marketing/views.py::_case_card_counts, this card's OWN four-way split   #}
   {# (see that function's docstring for why it is a separate function from  #}
   {# the one the relationship chart's own panel still relies on, untouched).#}
+  {# pi_totals carries that SAME four-way split's own PI money, one figure   #}
+  {# per bucket instead of the old single "Grand total (all PI)" line — see  #}
+  {# marketing/views.py::_pi_money_by_bucket, which buckets every case by    #}
+  {# the identical rule counts does, so a line's count and its money always  #}
+  {# describe the same cases.                                                #}
   <div class="card">
     <div class="card-head">
       <h3><i class="fa-solid fa-folder-open" style="color:var(--accent-strong);margin-right:.4rem;"></i>Cases</h3>
@@ -179,26 +200,46 @@
       <dt><i class="fa-solid fa-layer-group"></i>Total cases</dt>
       <dd>{{ counts.total }}</dd>
       <dt><i class="fa-solid fa-circle-check"></i>Approved</dt>
-      <dd>{{ counts.approved }}</dd>
+      <dd>
+        {{ counts.approved }}
+        {# The old single "Grand total (all PI)" line is gone — the owner    #}
+        {# asked for the money split one figure per bucket, right beside the #}
+        {# count it belongs to, so each of the four lines below now carries  #}
+        {# its own total instead of one lump sum at the bottom of the card.  #}
+        {# Gated exactly as the old single figure was: show_money is whether #}
+        {# this viewer may see money at all, and pi_totals.approved is "—"   #}
+        {# for a genuinely-zero bucket, never absent for a nonzero one — see #}
+        {# marketing/views.py::_pi_money_by_bucket.                         #}
+        {% if show_money and pi_totals.approved %}
+        <span class="mono muted" style="margin-left:.5rem;">{{ pi_totals.approved }}</span>
+        {% endif %}
+      </dd>
       {# Burned + Cancelled, summed into this one line — the owner's own      #}
       {# words: "کنسل شده ها که شامل پرونده های سوخته شده و کنسل شده میشه جمع #}
       {# انها". See marketing/views.py::_CASE_CARD_CANCELLED.                #}
       <dt><i class="fa-solid fa-ban"></i>Cancelled</dt>
-      <dd>{{ counts.cancelled }}</dd>
+      <dd>
+        {{ counts.cancelled }}
+        {% if show_money and pi_totals.cancelled %}
+        <span class="mono muted" style="margin-left:.5rem;">{{ pi_totals.cancelled }}</span>
+        {% endif %}
+      </dd>
       {# NEW this round — final-closed cases, split out of Approved for this #}
       {# card specifically. Did not exist on this page before.               #}
       <dt><i class="fa-solid fa-flag-checkered"></i>Closed</dt>
-      <dd>{{ counts.closed }}</dd>
+      <dd>
+        {{ counts.closed }}
+        {% if show_money and pi_totals.closed %}
+        <span class="mono muted" style="margin-left:.5rem;">{{ pi_totals.closed }}</span>
+        {% endif %}
+      </dd>
       <dt><i class="fa-solid fa-hourglass-half"></i>No result</dt>
-      <dd>{{ counts.pending }}</dd>
-      {# THE MONEY, GATED EXACTLY AS BEFORE THIS ROUND — this task does not   #}
-      {# touch money visibility. Two conditions, both required: show_money   #}
-      {# is whether this viewer may be shown money at all, and               #}
-      {# pi_total_display is "" when there is no figure to draw.             #}
-      {% if show_money and pi_total_display %}
-      <dt><i class="fa-solid fa-coins"></i>Grand total (all PI)</dt>
-      <dd class="mono">{{ pi_total_display }}</dd>
-      {% endif %}
+      <dd>
+        {{ counts.pending }}
+        {% if show_money and pi_totals.pending %}
+        <span class="mono muted" style="margin-left:.5rem;">{{ pi_totals.pending }}</span>
+        {% endif %}
+      </dd>
     </dl>
   </div>
 </div>
@@ -596,33 +637,42 @@
           {% if sees_all_reminders %}
           <td dir="auto">{{ r.owner.get_full_name|default:r.owner.username }}</td>
           {% endif %}
-          {# ACTING ON A REMINDER STAYS OWNER-ONLY, EVEN NOW THAT SEEING ONE    #}
-          {# CAN BE WIDER — r.is_own is what marketing/views.py::_reminder_rows #}
-          {# computes to keep these two controls off a row where pressing them #}
-          {# would silently do nothing (marketing/reminders.py::_own is called #}
-          {# with no scope argument by both, and stays strictly owner=user).   #}
+          {% comment %}
+            ACTING ON A REMINDER STAYS OWNER-ONLY, EVEN NOW THAT SEEING ONE
+            CAN BE WIDER — r.is_own is what marketing/views.py::_reminder_rows
+            computes to keep this control off a row where using it would
+            close out somebody else's private note (marketing/reminders.py
+            ::_own is called with no scope argument by close_with_report, and
+            stays strictly owner=user). A Marketing Supervisor reading a
+            colleague's row on this same tab sees the row but gets no
+            control here at all.
+
+            THE SAME "Submit report" CONTROL MY TASKS ALREADY HAS, LINKING TO
+            THE SAME VIEW (marketing:my_tasks_report) — not a second,
+            separate close mechanism. This used to be a different pair,
+            "Set new time"/"Mark dealt with", posting straight to
+            marketing:reminder_retime/marketing:reminder_done — a plain
+            reschedule or a mark-done with no report ever required, and a
+            live bypass of the mandatory close-only-via-a-report cycle this
+            whole round was built around (see this template's own head
+            comment's "THE REMINDERS TAB'S OWN CLOSE CONTROL" section, and
+            marketing/urls.py's own module docstring). Both routes are gone;
+            closing a reminder from here now produces the identical result
+            closing one from My Tasks does — the reminder disappears,
+            replaced by the report that accounts for it, and the writer
+            lands on the same pre-filled "set your next reminder" step (see
+            marketing/views.py::my_tasks_report/::my_tasks_add). Gated on
+            `not r.is_done` for the identical reason
+            _my_tasks_reminders.html's own copy of this control is: a
+            reminder already left "Dealt with" by the OLD flow (before this
+            fix) has nothing left here to close, and nothing can put a row
+            back into that state any more regardless.
+          {% endcomment %}
           <td style="white-space:nowrap;">
-            {% if r.is_own %}
-            <form method="post" action="{% url 'marketing:reminder_retime' r.pk %}"
-                  style="display:inline-flex;gap:.3rem;align-items:center;">
-              {% csrf_token %}
-              <input type="text" name="due_at" data-jalali-datetime autocomplete="off"
-                     style="max-width:150px;" value="{{ r.due_at|jalali:'Y-m-d H:i' }}">
-              <button type="submit" class="btn btn-sm btn-primary" title="Set new time">
-                <i class="fa-regular fa-clock"></i>
-              </button>
-            </form>
-            {% if not r.is_done %}
-            <form method="post" action="{% url 'marketing:reminder_done' r.pk %}" style="display:inline-block;margin-left:.3rem;">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-sm btn-ghost" title="Mark dealt with">
-                <i class="fa-solid fa-check"></i>
-              </button>
-            </form>
-            {% endif %}
-            {% if retime_error and retime_id == r.pk %}
-            <ul class="errorlist">{% for e in retime_error %}<li>{{ e }}</li>{% endfor %}</ul>
-            {% endif %}
+            {% if r.is_own and not r.is_done %}
+            <a href="{% url 'marketing:my_tasks_report' r.pk %}" class="btn btn-sm btn-primary">
+              <i class="fa-solid fa-file-circle-check"></i> Submit report
+            </a>
             {% endif %}
           </td>
         </tr>

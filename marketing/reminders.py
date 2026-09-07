@@ -35,12 +35,16 @@ SO, PRECISELY, WHAT CHANGED AND WHAT DID NOT:
   opposite — so nothing that already calls these two functions changes
   behaviour by standing still.
 * :func:`_own` ALSO takes a ``scope`` argument now, for the same shape, but
-  its two real callers — :func:`reschedule` and :func:`mark_done` — do NOT
-  pass one, and must not: ACTING ON a reminder (giving it a new time, marking
-  it dealt with) stays exactly as owner-only as it always was. Widening who
+  its real callers — :func:`get_own` and :func:`close_with_report` — do NOT
+  pass one, and must not: ACTING ON a reminder (which, per the mandatory
+  close-only-via-a-report cycle, means exactly one thing now — closing it out
+  with a report) stays exactly as owner-only as it always was. Widening who
   may SEE a person's reminders is not the same decision as widening who may
   CHANGE them, and the owner asked only for the former. See :func:`_own`'s
-  own docstring.
+  own docstring — including the note there about ``reschedule``/``mark_done``,
+  the reschedule-or-mark-done-with-no-report pair that used to also call
+  through here and has since been removed for being a live bypass of that
+  cycle.
 * :func:`due_notification` (and the ``_due_rows`` call inside it) DELIBERATELY
   keeps calling with ``scope="own"``, EXPLICITLY, even though the function it
   calls can now do more. The top-of-page banner tells a person about THEIR
@@ -102,9 +106,9 @@ make the site slow or heavy. So:
   cache read happens either.
 
 EVERY WRITE INVALIDATES, AND THAT IS WHY EVERY WRITE LIVES HERE. A reminder
-created, rescheduled or marked dealt-with changes what the banner should say,
-and a banner that keeps insisting on a reminder the person just handled is
-exactly the "it stays until you act on it" promise turned into a bug. Views call
+created or closed out with a report changes what the banner should say, and a
+banner that keeps insisting on a reminder the person just closed is exactly
+the "it stays until you act on it" promise turned into a bug. Views call
 these functions and never touch ``Reminder.objects`` themselves, so there is no
 path that writes without clearing the key.
 """
@@ -113,7 +117,7 @@ from __future__ import annotations
 from django.db import transaction
 from django.utils import timezone
 
-from .models import Reminder, ReminderState
+from .models import CompanyReport, Reminder, ReminderState
 
 # How long a user's due-notification payload may be served from the cache.
 #
@@ -197,6 +201,12 @@ def _due_rows(user, scope: str = "own") -> list:
     rendered, never saved: it keeps the payload to plain types the cache can
     store and pulls the company name and the case's document
     number through the same single query instead of a lazy FK per row.
+    ``client_id``/``client__name`` come back as plain ``None`` for a bare
+    reminder that names no company at all (see
+    ``marketing/models.py::Reminder.client``) — ``values()`` never raises on a
+    NULL FK, it is just a row whose join found nothing, so no special case is
+    needed here; :func:`_payload` below is what turns that ``None`` into the
+    empty string the banner actually renders.
 
     DELIBERATELY NOT LIMITED. A ``[:n]`` slice would make the "and N others"
     count in the notification silently saturate, and a count that quietly
@@ -236,6 +246,18 @@ def _payload(rows, visible_case_ids=None) -> dict:
     the owner's "plus a count of any others that are also due or overdue" —
     counted off the same rows, so the headline and the count can never come from
     two different reads.
+
+    ``client_name`` IS ``""`` FOR A BARE REMINDER, NOT ``None`` AND NOT A
+    TEMPLATE ERROR. ``top["client__name"] or ""`` already covers it — a
+    reminder with no ``client`` produces ``client__name is None`` off the
+    join, and ``or ""`` turns that into the same empty string a template
+    already renders as "nothing here" for any other blank field. The banner
+    template (``core/templates/base.html``) prints this value unconditionally
+    once the notice exists at all, and an empty string prints as nothing —
+    exactly the "no company shown" degrade the bare-reminder case needs,
+    with no template change required for this field specifically. (The
+    ``·`` SEPARATOR beside it is guarded in the template itself, so a blank
+    name does not leave a stray bullet floating in the sentence.)
     """
     if not rows:
         return {}
@@ -381,12 +403,21 @@ def list_for_user(user, scope: str = "own", *, client=None, case=None) -> list:
     return list(_scoped(qs, user, scope))
 
 
-def create(owner, client, *, note: str, due_at, case=None) -> Reminder:
+def create(owner, client=None, *, note: str, due_at, case=None) -> Reminder:
     """Set one reminder. The only place a ``Reminder`` row is created.
 
     Keyword-only past ``owner``/``client`` for ``services.add_report``'s reason:
     the rest are optional-looking values of different kinds and a positional
     call site would be one swap away from filing the case as the note.
+
+    ``client`` DEFAULTS TO ``None``, WIDENED ALONGSIDE
+    ``marketing/models.py::Reminder.client`` — see that field's own comment
+    for why. A reminder about no particular company at all — a bare personal
+    note — is now a supported answer, not an error; the company-page
+    ``reminder_add`` view still always passes a real ``Client`` (the screen
+    it is reached from names one in its own URL), so ``None`` only ever
+    arrives from a caller that genuinely has no company in scope, which today
+    means the platform-wide "My Tasks" screen a later stage builds.
 
     WHICH CASE MAY BE ATTACHED IS NOT CHECKED HERE, deliberately and exactly as
     ``services.add_report`` does not check it either: this function has no
@@ -402,7 +433,8 @@ def create(owner, client, *, note: str, due_at, case=None) -> Reminder:
     would publish the existence, the timing and the company of something this
     model goes out of its way to keep private, and it would say nothing about
     the company that anyone else could act on. The report the person writes when
-    the reminder fires is the shared record, and that one does log.
+    the reminder fires is the shared record, and that one does log. (A bare,
+    company-less reminder has no company timeline to write to in any case.)
     """
     reminder = Reminder.objects.create(
         owner=owner,
@@ -419,26 +451,59 @@ def _own(user, reminder_id, scope: str = "own"):
     """This reminder, narrowed by ``scope`` — ``user``'s own by default, or
     None.
 
-    THE OWNERSHIP CHECK, IN ONE PLACE. Both mutations below go through it, so
-    neither can be written as "fetch by id, then remember to compare the owner".
-    A reminder belonging to somebody else and a reminder that does not exist are
-    the same answer — None — so a response can never be used to discover that
-    somebody else's reminder exists, which is ``views.contact_remove``'s own
-    rule applied to a stricter kind of privacy.
+    THE OWNERSHIP CHECK, IN ONE PLACE. Every real caller below goes through
+    it, so none of them can be written as "fetch by id, then remember to
+    compare the owner". A reminder belonging to somebody else and a reminder
+    that does not exist are the same answer — None — so a response can never
+    be used to discover that somebody else's reminder exists, which is
+    ``views.contact_remove``'s own rule applied to a stricter kind of
+    privacy.
 
     ``scope`` EXISTS FOR THE SAME SHAPE-CONSISTENCY REASON ``_due_rows`` HAS
-    IT, NOT BECAUSE ITS TWO REAL CALLERS USE ANYTHING BUT THE DEFAULT.
-    :func:`reschedule` and :func:`mark_done` both call this with NO ``scope``
-    argument, deliberately, and must keep doing so: ACTING ON a reminder
-    (giving it a new time, marking it dealt with) stays exactly as
+    IT, NOT BECAUSE ITS REAL CALLERS USE ANYTHING BUT THE DEFAULT. :func:`get_own`
+    and :func:`close_with_report` both call this with NO ``scope`` argument,
+    deliberately, and must keep doing so: ACTING ON a reminder — the only way
+    left to, which is closing it out with a report — stays exactly as
     owner-only as it always was, even now that VIEWING one is scope-aware for
     a Supervisor/GM/admin — see the module docstring's "THIS ROUND REVERSES
     PART OF AN EARLIER DECISION" section, which names this split explicitly.
-    Widening this default would let a Supervisor re-time or close out
-    someone else's private note, which the owner never asked for and which
+    Widening this default would let a Supervisor close out someone else's
+    private note on their behalf, which the owner never asked for and which
     is a materially bigger change than "let them see it".
+
+    THIS USED TO ALSO BACK ``reschedule``/``mark_done`` — giving a reminder a
+    new time, or marking it dealt with, with NO report required either way.
+    Both functions are gone: they were the service-layer half of
+    ``marketing/views.py::reminder_retime``/``reminder_done``, which let a
+    reminder close (or silently reopen with a fresh due date) without ever
+    passing through ``close_with_report`` — a live bypass of the mandatory
+    close-only-via-a-report cycle this whole round was built around, retired
+    for exactly that reason. See the comment left in ``marketing/views.py``
+    where those two views used to be defined for the fuller story.
     """
     return _scoped(Reminder.objects.filter(pk=reminder_id), user, scope).first()
+
+
+def get_own(user, reminder_id):
+    """One of ``user``'s own reminders, by id — or ``None``.
+
+    A THIN PUBLIC WRAPPER OVER :func:`_own`, added for "My Tasks"'s own
+    "Submit report" step (``marketing/views.py::my_tasks_report``), which has
+    to READ the reminder it is about to close — its client, its case, its
+    note, its own due date — before ``close_with_report`` deletes the row.
+    That is a plain lookup, not a mutation, but it must be exactly as
+    owner-scoped as :func:`close_with_report` already is: showing a person a
+    report-writing screen pre-titled with
+    somebody ELSE's private note would leak the existence, timing and company
+    of that note before the write it is guarding even happens. Calling
+    :func:`_own` directly here rather than writing a second, matching
+    ``Reminder.objects.filter(pk=..., owner=user).first()`` is what keeps
+    this from being a second copy of that rule that could quietly drift from
+    it — see :func:`_own`'s own docstring for why a reminder belonging to
+    somebody else and one that does not exist are the identical answer,
+    ``None``, on purpose.
+    """
+    return _own(user, reminder_id)
 
 
 def count_open_for_client(user, client) -> int:
@@ -461,46 +526,191 @@ def count_open_for_client(user, client) -> int:
     ).count()
 
 
-def reschedule(user, reminder_id, due_at) -> bool:
-    """Give one of ``user``'s own reminders a new time, and reopen it.
+# ``reschedule``/``mark_done`` USED TO LIVE HERE — "give one of user's own
+# reminders a new time, and reopen it" / "mark one of user's own reminders
+# dealt with", both routed through ``_own`` with no ``scope`` argument. They
+# were the service-layer half of ``marketing/views.py
+# ::reminder_retime``/``reminder_done``, the pre-"My Tasks" reschedule/
+# mark-done pair that closed (or reopened) a reminder with NO report ever
+# required. Retiring those two views without also retiring these left a
+# live, callable path that quietly bypassed the mandatory
+# close-only-via-a-report cycle this whole round was built around — grepping
+# the repo after removing the views turned up no OTHER caller of either
+# function, so both are removed with them rather than kept "just in case".
+# ``close_with_report`` below is now the only way a reminder is ever closed,
+# and it is the only place ``ReminderState.OPEN`` is ever left for something
+# other than itself — see that constant's own docstring on
+# ``marketing/models.py::ReminderState`` for why ``DONE`` remains a real,
+# readable state even so: rows already marked dealt-with the old way, before
+# this fix, still exist and must go on rendering correctly as "Dealt with"
+# everywhere ``Reminder.is_done`` is read, even though nothing can produce a
+# new one from here on.
 
-    THE LOOP THE OWNER DESCRIBED IS THIS FUNCTION: a case gets a reminder, the
-    person is reminded, they write a report, they set the next time — until the
-    case ends. So setting a new time is what "acting on it" normally means, and
-    it puts the row back in the OPEN state unconditionally: a reminder that had
-    been marked dealt with and is now given a fresh time is waiting again, and
-    leaving it DONE would silently produce a row that can never fire.
 
-    Returns whether anything was changed, so a caller can tell a no-op from a
-    write; the view redirects identically either way (see
-    ``views.contact_remove`` for why a mutation that quietly does nothing is the
-    right answer to a request for a row that is not yours).
+def close_with_report(reminder_id, user, *, text: str = "", options=()) -> CompanyReport:
+    """Close out one of ``user``'s own reminders by writing the report that
+    accounts for it, and delete the reminder — the "write report, freeze this
+    reminder's own dates onto it, then remove the reminder" half of the loop
+    the owner described (see ``marketing/models.py::Reminder``'s own
+    docstring for the full rhythm: a case gets a reminder, the person is
+    reminded, they write a report, they set the next reminder, until the case
+    ends). Returns the created :class:`~marketing.models.CompanyReport`.
+
+    OWNER-SCOPED, LIKE EVERY OTHER WRITE IN THIS MODULE — routed through
+    :func:`_own` with NO ``scope`` argument, so only the reminder's OWN owner
+    may close it out (see :func:`_own`'s own docstring, and the module
+    docstring's "ACTING ON a reminder ... stays exactly as owner-only as it
+    always was" point): a Supervisor who can now SEE a colleague's reminder
+    must not also be able
+    to close it out on their behalf — that is a materially bigger grant than
+    "may see", and the owner never asked for it. A reminder that does not
+    exist, or exists but belongs to somebody else, raises
+    ``Reminder.DoesNotExist`` either way — the two are indistinguishable on
+    purpose (``_own``'s own rule), so a caller cannot use the failure to
+    discover that somebody else's private reminder exists.
+
+    ``client``/``case`` COME FROM THE REMINDER BEING CLOSED, NEVER FROM THE
+    CALLER — a report that closes a reminder is always about whatever that
+    reminder was about, not something a caller gets to override by passing a
+    different one. ``reminder.client`` may itself be ``None`` (a bare,
+    company-less reminder — see ``marketing/models.py::Reminder.client``),
+    which closes into an equally bare report; that is exactly why
+    ``marketing/models.py::CompanyReport.client`` and
+    ``marketing/services.py::add_report``'s own signature were widened
+    alongside it — see both of their comments for the reasoning this
+    function leans on.
+
+    THE THREE FROZEN FIELDS ARE WHY THIS FUNCTION EXISTS AS ONE PLACE RATHER
+    THAN BEING LEFT FOR A VIEW TO ASSEMBLE FROM TWO SEPARATE CALLS.
+    ``CompanyReport.reminder_set_at`` / ``reminder_due_at`` / ``reminder_note``
+    are frozen copies of the closed reminder's own ``created_at`` / ``due_at``
+    / ``note`` because the reminder itself is about to be deleted — see that
+    field's own docstring on ``CompanyReport`` for why a live FK cannot do
+    this job. They are read off ``reminder`` and written onto the just-created
+    ``report`` inside the SAME transaction that goes on to delete
+    ``reminder``, which is what guarantees the freeze can never observe a
+    reminder that something else has already changed or removed out from
+    under it.
+
+    ONE TRANSACTION, START TO FINISH: ``services.add_report`` writes the
+    report (its own ``transaction.atomic()`` becomes a savepoint nested
+    inside this one, not a second top-level transaction), the three frozen
+    fields are set and saved on that same report, and the reminder row is
+    then deleted — all of it commits together or none of it does, so a
+    report can never be left pointing at a reminder that also still exists,
+    and a reminder can never be removed without the report that was supposed
+    to replace it having actually been written.
+
+    THE "THEN OPEN A FORM FOR THE NEXT REMINDER, SAME COMPANY/CASE" HALF OF
+    THE CYCLE IS DELIBERATELY NOT HERE. That is a VIEW-level redirect
+    decision — a later stage's "My Tasks - Reminders" screen reads the
+    ``client``/``case`` off the ``CompanyReport`` this function returns and
+    decides what to do next; this function's own job ends the instant the
+    reminder it was closing is gone. Keeping that decision out of the service
+    layer is the same split every other write in this module already makes
+    between "what changed in the database" and "where the browser goes next".
+
+    ``text``/``options`` ARE THE FRESHLY-WRITTEN REPORT'S OWN CONTENT — passed
+    straight through to ``services.add_report`` unvalidated, for that
+    function's own stated reason (the "at least one of options/text" rule is
+    a FORM-layer rule, enforced where a violation can be reported against the
+    field the writer actually left blank): this is the SERVICE layer, and a
+    future form's ``clean()`` is where that rule will actually be enforced,
+    exactly as it already is for a standalone report.
     """
-    reminder = _own(user, reminder_id)
-    if reminder is None or due_at is None:
-        return False
-    with transaction.atomic():
-        reminder.due_at = due_at
-        reminder.state = ReminderState.OPEN
-        reminder.save(update_fields=["due_at", "state"])
-    invalidate(user)
-    return True
+    from . import services
 
-
-def mark_done(user, reminder_id) -> bool:
-    """Mark one of ``user``'s own reminders dealt with.
-
-    The other way to act on a notification: the thing is handled and there is no
-    next time to set. The row is kept rather than deleted — the person's own
-    list is where they see what they have already dealt with, and nothing else
-    in this app reads it — and it drops out of :func:`_due_rows` immediately
-    because that query asks for OPEN rows only.
-    """
     reminder = _own(user, reminder_id)
     if reminder is None:
-        return False
-    if reminder.state != ReminderState.DONE:
-        reminder.state = ReminderState.DONE
-        reminder.save(update_fields=["state"])
+        raise Reminder.DoesNotExist(
+            "No open reminder %r belongs to this user." % (reminder_id,))
+    with transaction.atomic():
+        report = services.add_report(
+            reminder.client, user,
+            text=text, options=options, case=reminder.case,
+        )
+        # THE FREEZE. Read off ``reminder`` — still a live row at this point,
+        # not yet deleted — and written onto the report that will outlive it.
+        # See the docstring's "THE THREE FROZEN FIELDS" section for why this
+        # cannot instead be a live FK from the report to the reminder.
+        report.reminder_set_at = reminder.created_at
+        report.reminder_due_at = reminder.due_at
+        report.reminder_note = reminder.note
+        report.save(update_fields=[
+            "reminder_set_at", "reminder_due_at", "reminder_note",
+        ])
+        # THE REMINDER IS DELETED, NOT MARKED DONE. This is what makes the
+        # report the only surviving record of the reminder's own timing —
+        # exactly the premise the three frozen fields above exist to answer
+        # for, and exactly what the owner described: the reminder is gone the
+        # instant the report that closes it is saved, not kept around in a
+        # DONE state the way :func:`mark_done` leaves an ordinary "no next
+        # step" reminder.
+        reminder.delete()
     invalidate(user)
-    return True
+    return report
+
+
+def validate_due_at_shift(user, due_at) -> bool:
+    """Does ``due_at``'s TIME OF DAY fall inside ``user``'s own work-shift
+    window? ``True``/``False``, never raises — the caller decides what a
+    ``False`` means to it (a form's ``clean()`` turns it into a
+    ``ValidationError`` on the field; a plain call site can just branch on
+    it).
+
+    ENFORCEMENT INFRASTRUCTURE ONLY, THIS ROUND — nothing in this module or
+    ``marketing/forms.py`` calls this yet. Both the existing company-page
+    ``ReminderForm`` and a later stage's company-less "My Tasks" reminder
+    form are meant to wire this into their own ``clean()`` so a reminder
+    cannot be set for a time its owner is never at their desk to be reminded
+    at, but doing that wiring — and deciding how the rejection reads on
+    screen — is that later stage's job. This function only has to exist,
+    behave correctly on its own, and be trivially unit-testable in isolation,
+    which is exactly what it is.
+
+    WHY WORK SHIFT AND NOT SOMETHING RECOMPUTED HERE: ``people/work_shift.py``
+    already answers "what is this person's own daily window" once, correctly,
+    for the whole platform (login gating, the end-of-shift banner, approved
+    overtime) — see that module's own docstring. Reusing
+    ``person_for_user``/``shift_window`` rather than re-deriving the same
+    answer a second time is what keeps a reminder's own notion of "inside the
+    shift" from silently drifting from every other screen's.
+
+    ONLY THE TIME OF DAY IS CHECKED, NOT THE DATE. ``shift_window`` returns a
+    ``(start, end)`` pair of plain ``datetime.time`` values with no date
+    attached — a person's shift is the same 08:00-17:00 (or whatever their
+    own ``Person.work_start``/``work_end`` says) on every working day this
+    function is asked about, so comparing ``due_at.time()`` against that pair
+    is the whole check. Which CALENDAR DAYS count as a working day at all
+    (weekends, holidays) is a different question this function does not
+    answer and was not asked to.
+
+    AN OVERNIGHT WINDOW (e.g. 22:00-06:00) IS HANDLED BY REUSING
+    ``people/work_shift.py::_in_window`` DIRECTLY, NOT BY RE-DERIVING THE SAME
+    COMPARISON A SECOND TIME. That helper already carries the "``start > end``
+    means the window wraps past midnight, so a time counts as inside it when
+    it is at or after ``start`` OR before ``end``" logic for login gating; a
+    second, hand-written copy of that comparison here could silently drift
+    from it (a boundary fixed on one side and not the other, say) the next
+    time either one is touched. The leading underscore on ``_in_window``
+    marks it private to the ``people`` APP, not to that one module — the same
+    convention ``marketing/services.py`` already leans on for
+    ``cases.services._actor_snapshot`` — and reading a pure, side-effect-free
+    comparison across that line is safe for the identical reason.
+
+    ``due_at`` IS EXPECTED TO BE A ``datetime`` (naive or aware; only
+    ``.time()`` is read, and Django's own form field already returns one in
+    the project's local time — see ``marketing/forms.py::_clean_jalali_datetime``
+    — so no timezone conversion happens here). ``None`` is treated as
+    invalid (``False``) rather than raising, since "no time was even picked"
+    is exactly the kind of input a form's ``clean()`` hands this function on
+    a still-invalid submission.
+    """
+    if due_at is None or getattr(due_at, "time", None) is None:
+        return False
+    from people.work_shift import _in_window, person_for_user, shift_window
+
+    person = person_for_user(user)
+    start, end = shift_window(person)
+    due_time = due_at.time().replace(microsecond=0)
+    return _in_window(due_time, start, end)
