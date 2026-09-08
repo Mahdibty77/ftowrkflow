@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static ft_extras %}
+{% load static ft_extras i18n %}
 {% block title %}Request · Foolad Tabar Workflow{% endblock %}
 {% block topbar %}Request detail{% endblock %}
 {% block head_extra %}
@@ -11,9 +11,9 @@
     <h1><i class="fa-solid {{ req.request_type.icon }}"></i> {{ req.request_type.title }}</h1>
     <div class="sub">
       {% if is_manager_view %}<span dir="auto">{{ req.person.display_name }}</span> · {% endif %}
-      {% if req.status == 'approved' %}<span class="pill pill-green">Approved</span>
-      {% elif req.status == 'rejected' %}<span class="pill pill-rejected">Rejected</span>
-      {% elif req.status == 'submitted' %}<span class="pill pill-submitted">Submitted</span>
+      {% if req.status == 'approved' %}<span class="pill pill-green">{% trans "Approved" %}</span>
+      {% elif req.status == 'rejected' %}<span class="pill pill-rejected">{% trans "Rejected" %}</span>
+      {% elif req.status == 'submitted' %}<span class="pill pill-submitted">{% trans "Submitted" %}</span>
       {% else %}<span class="pill pill-grey">{{ req.get_status_display }}</span>{% endif %}
     </div>
   </div>
@@ -26,14 +26,14 @@
   <dl class="kv compact">
     <dt>Code</dt><dd class="mono">{{ req.request_code|default:req.pk }}</dd>
     {% if is_manager_view %}
-    <dt>Person</dt><dd><span dir="auto">{{ req.person.display_name }}</span>{% if req.person.detail_code %} <span class="muted mono">({{ req.person.detail_code }})</span>{% endif %}</dd>
+    <dt>{% trans "Person" %}</dt><dd><span dir="auto">{{ req.person.display_name }}</span>{% if req.person.detail_code %} <span class="muted mono">({{ req.person.detail_code }})</span>{% endif %}</dd>
     {% endif %}
     <dt>Type</dt><dd dir="auto">{{ req.request_type.title }}</dd>
-    <dt>Status</dt>
+    <dt>{% trans "Status" %}</dt>
     <dd>
-      {% if req.status == 'approved' %}<span class="pill pill-green">Approved</span>
-      {% elif req.status == 'rejected' %}<span class="pill pill-rejected">Rejected</span>
-      {% elif req.status == 'submitted' %}<span class="pill pill-submitted">Submitted</span>
+      {% if req.status == 'approved' %}<span class="pill pill-green">{% trans "Approved" %}</span>
+      {% elif req.status == 'rejected' %}<span class="pill pill-rejected">{% trans "Rejected" %}</span>
+      {% elif req.status == 'submitted' %}<span class="pill pill-submitted">{% trans "Submitted" %}</span>
       {% else %}<span class="pill pill-grey">{{ req.get_status_display }}</span>{% endif %}
     </dd>
     <dt>Submitted</dt><dd class="mono">{{ req.submitted_at|default:req.created_at|jalali:"Y.m.d H:i" }}</dd>
@@ -62,7 +62,7 @@
     </dd>
     {% endif %}
     {% if req.decision_note %}
-    <dt>Note</dt>
+    <dt>{% trans "Note" %}</dt>
     <dd>{% if req.status == 'rejected' %}Not approved: {% endif %}<span dir="auto">{{ req.decision_note }}</span></dd>
     {% endif %}
   </dl>

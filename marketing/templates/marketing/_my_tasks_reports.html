@@ -1,4 +1,4 @@
-{% load ft_extras %}
+{% load ft_extras i18n %}
 {% comment %}
   MY TASKS — REPORTS TAB. Included by my_tasks.html's own #panel-reports;
   its own sibling partial beside `_my_tasks_reminders.html`, for the
@@ -59,14 +59,14 @@
 
 <div class="card" style="margin-bottom:1rem;">
   <div class="card-head">
-    <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-right:.4rem;"></i>Filters</h3>
-    <button type="button" class="btn btn-sm" data-filter-clear="myTasksReportsTable" title="Reset all filters">
-      <i class="fa-solid fa-eraser"></i> Clear filters
+    <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Filters" %}</h3>
+    <button type="button" class="btn btn-sm" data-filter-clear="myTasksReportsTable" title="{% trans "Reset all filters" %}">
+      <i class="fa-solid fa-eraser"></i> {% trans "Clear filters" %}
     </button>
   </div>
   <div class="grid grid-4">
     <div class="field">
-      <label><i class="fa-solid fa-magnifying-glass"></i> Search</label>
+      <label><i class="fa-solid fa-magnifying-glass"></i> {% trans "Search" %}</label>
       {# LIVE, FREE-TEXT, AGAINST THE REPORT'S OWN TEXT — the identical         #}
       {# `data-filter-colname`/`data-filter-mode="contains"` plain-<input>      #}
       {# mechanism cases/templates/cases/case_detail.html's own Reports tab     #}
@@ -78,18 +78,18 @@
       {# "Reminder note", the separate frozen-note column beside it (see this   #}
       {# file's own head comment's "THE CLOSED-REMINDER TIMELINE" section for   #}
       {# why those two are different columns).                                 #}
-      <input type="text" data-filter-for="myTasksReportsTable" data-filter-colname="Report"
-             data-filter-mode="contains" placeholder="Search report text…" autocomplete="off">
+      <input type="text" data-filter-for="myTasksReportsTable" data-filter-colname="{% trans "Report" %}"
+             data-filter-mode="contains" placeholder="{% trans "Search report text…" %}" autocomplete="off">
     </div>
     <div class="field">
-      <label><i class="fa-solid fa-folder-open"></i> Case</label>
+      <label><i class="fa-solid fa-folder-open"></i> {% trans "Case" %}</label>
       {# EQUALS, not contains — same reasoning as the Reminders tab's own    #}
       {# Case filter: a document number could otherwise sit inside another   #}
       {# one as a substring. Never offers a case case_access_for/            #}
       {# scope_case_rows would refuse this viewer — see                      #}
       {# marketing/views.py::_my_tasks_case_access.                          #}
-      <select data-combo data-placeholder="Search a case…"
-              data-filter-for="myTasksReportsTable" data-filter-colname="Case" data-filter-mode="equals">
+      <select data-combo data-placeholder="{% trans "Search a case…" %}"
+              data-filter-for="myTasksReportsTable" data-filter-colname="{% trans "Case" %}" data-filter-mode="equals">
         <option value=""></option>
         {% for row in case_choices %}
         <option value="{{ row.doc_no }}">{{ row.doc_no }} · {{ row.client_name }} · {{ row.label_fa|default:row.label }}</option>
@@ -97,9 +97,9 @@
       </select>
     </div>
     <div class="field">
-      <label><i class="fa-solid fa-building"></i> Company</label>
-      <select data-combo data-placeholder="Search a company…"
-              data-filter-for="myTasksReportsTable" data-filter-colname="Company" data-filter-mode="equals">
+      <label><i class="fa-solid fa-building"></i> {% trans "Company" %}</label>
+      <select data-combo data-placeholder="{% trans "Search a company…" %}"
+              data-filter-for="myTasksReportsTable" data-filter-colname="{% trans "Company" %}" data-filter-mode="equals">
         <option value=""></option>
         {% for name in report_client_names %}
         <option value="{{ name }}" dir="auto">{{ name }}</option>
@@ -107,20 +107,20 @@
       </select>
     </div>
     <div class="field">
-      <label><i class="fa-solid fa-calendar-day"></i> From date (Jalali)</label>
+      <label><i class="fa-solid fa-calendar-day"></i> {% trans "From date (Jalali)" %}</label>
       <input type="text" data-jalali-datetime data-filter-for="myTasksReportsTable"
-             data-filter-colname="Date" data-filter-mode="gte" placeholder="From date" autocomplete="off">
+             data-filter-colname="{% trans "Date" %}" data-filter-mode="gte" placeholder="{% trans "From date" %}" autocomplete="off">
     </div>
     <div class="field">
-      <label><i class="fa-solid fa-calendar-day"></i> To date (Jalali)</label>
+      <label><i class="fa-solid fa-calendar-day"></i> {% trans "To date (Jalali)" %}</label>
       <input type="text" data-jalali-datetime data-filter-for="myTasksReportsTable"
-             data-filter-colname="Date" data-filter-mode="lte" placeholder="To date" autocomplete="off">
+             data-filter-colname="{% trans "Date" %}" data-filter-mode="lte" placeholder="{% trans "To date" %}" autocomplete="off">
     </div>
     {% if scope_all %}
     <div class="field">
-      <label><i class="fa-solid fa-user"></i> Person</label>
-      <select data-combo data-placeholder="Search a person…"
-              data-filter-for="myTasksReportsTable" data-filter-colname="Person" data-filter-mode="equals">
+      <label><i class="fa-solid fa-user"></i> {% trans "Person" %}</label>
+      <select data-combo data-placeholder="{% trans "Search a person…" %}"
+              data-filter-for="myTasksReportsTable" data-filter-colname="{% trans "Person" %}" data-filter-mode="equals">
         <option value=""></option>
         {% for name, key in report_person_choices %}
         <option value="{{ key }}" dir="auto">{{ name }}</option>
@@ -133,21 +133,21 @@
 
 <div class="card">
   <div class="card-head">
-    <h3><i class="fa-solid fa-file-lines" style="color:var(--accent-strong);margin-right:.4rem;"></i>Reports
+    <h3><i class="fa-solid fa-file-lines" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Reports" %}
       <span class="count" data-filter-count="myTasksReportsTable">{{ report_rows|length }}</span>
     </h3>
     {# STANDALONE — no reminder in play, company and case both optional.    #}
     {# See marketing/views.py::my_tasks_report_add's own docstring.         #}
     <a href="{% url 'marketing:my_tasks_report_add' %}" class="btn btn-sm btn-primary">
-      <i class="fa-solid fa-file-pen"></i> Add report
+      <i class="fa-solid fa-file-pen"></i> {% trans "Add report" %}
     </a>
   </div>
 
   <div class="help" style="margin:-.35rem 0 .7rem;">
     {% if scope_all %}
-    Newest first. Every report anyone has written, on any company, any case, or nothing at all.
+    {% trans "Newest first. Every report anyone has written, on any company, any case, or nothing at all." %}
     {% else %}
-    Newest first. Nobody else can see these — your own reports, on any company, any case, or nothing at all.
+    {% trans "Newest first. Nobody else can see these — your own reports, on any company, any case, or nothing at all." %}
     {% endif %}
   </div>
 
@@ -155,12 +155,12 @@
   <table class="data" id="myTasksReportsTable" data-filter-table>
     <thead>
       <tr>
-        <th>Date</th>
-        {% if scope_all %}<th>Person</th>{% endif %}
-        <th>Company</th>
-        <th>Case</th>
-        <th>Reminder note</th>
-        <th>Report</th>
+        <th>{% trans "Date" %}</th>
+        {% if scope_all %}<th>{% trans "Person" %}</th>{% endif %}
+        <th>{% trans "Company" %}</th>
+        <th>{% trans "Case" %}</th>
+        <th>{% trans "Reminder note" %}</th>
+        <th>{% trans "Report" %}</th>
       </tr>
     </thead>
     <tbody>
@@ -190,7 +190,7 @@
             <i class="fa-solid fa-folder-open"></i><span class="mono">{{ r.case_doc_no }}</span>
           </a>
           {% elif r.has_case %}
-          <span class="chip c-draft"><i class="fa-solid fa-folder-open"></i>On a case</span>
+          <span class="chip c-draft"><i class="fa-solid fa-folder-open"></i>{% trans "On a case" %}</span>
           {% else %}<span class="muted">—</span>{% endif %}
         </td>
         <td>
@@ -250,17 +250,17 @@
         <td colspan="{% if scope_all %}6{% else %}5{% endif %}" style="border-top:none;padding-top:0;">
           <div class="row-flex" style="gap:.5rem;align-items:center;flex-wrap:nowrap;font-size:.78rem;justify-content:flex-end;">
             <div>
-              <div class="muted" style="font-size:.68rem;">Set</div>
+              <div class="muted" style="font-size:.68rem;">{% trans "Set" %}</div>
               <div class="mono">{{ r.reminder_set_at|jalali:"Y.m.d H:i" }}</div>
             </div>
             <span class="muted">→</span>
             <div>
-              <div class="muted" style="font-size:.68rem;">Due</div>
+              <div class="muted" style="font-size:.68rem;">{% trans "Due" %}</div>
               <div class="mono">{{ r.reminder_due_at|jalali:"Y.m.d H:i" }}</div>
             </div>
             <span class="muted">→</span>
             <div>
-              <div class="muted" style="font-size:.68rem;">Reported</div>
+              <div class="muted" style="font-size:.68rem;">{% trans "Reported" %}</div>
               <div class="mono">{{ r.created_at|jalali:"Y.m.d H:i" }}</div>
             </div>
           </div>
@@ -271,9 +271,9 @@
       <tr>
         <td colspan="{% if scope_all %}6{% else %}5{% endif %}" class="empty">
           {% if scope_all %}
-          Nobody has written any reports yet.
+          {% trans "Nobody has written any reports yet." %}
           {% else %}
-          You have not written any reports yet — use “Add report” above to write the first one.
+          {% blocktrans %}You have not written any reports yet — use "Add report" above to write the first one.{% endblocktrans %}
           {% endif %}
         </td>
       </tr>

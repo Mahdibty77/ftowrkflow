@@ -74,6 +74,8 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
+from django.utils.translation import gettext as _
+
 from cases.jalali import gregorian_to_jalali, jalali_to_gregorian
 
 from .iran_holidays import WEEKEND_WEEKDAYS, is_official_holiday
@@ -856,11 +858,11 @@ def month_day_details(person, jy: int, jm: int) -> list[dict[str, Any]]:
             logout_t = _fmt_hm(log.last_logout)
 
         if is_holiday and is_weekend:
-            off_reason = "Holiday · Weekend"
+            off_reason = _("Holiday · Weekend")
         elif is_holiday:
-            off_reason = "Holiday"
+            off_reason = _("Holiday")
         elif is_weekend:
-            off_reason = "Weekend"
+            off_reason = _("Weekend")
         else:
             off_reason = ""
 

@@ -1,4 +1,4 @@
-{% load ft_extras %}
+{% load ft_extras i18n %}
 {% if type_tabs %}
 <nav class="archive-status-tabs" id="{{ table_id }}TypeTabs" role="tablist" aria-label="Filter by request type">
   {% for tab in type_tabs %}
@@ -66,9 +66,14 @@
       </select>
     </div>
     <div class="field">
-      <label><i class="fa-solid fa-circle-info"></i> Status</label>
+      <label><i class="fa-solid fa-circle-info"></i> {% trans "Status" %}</label>
+      {# data-filter-colname wrapped in the same {% trans %} tag as the       #}
+      {# "Status" <th> below — static/js/ui.js matches this attribute        #}
+      {# against the header cell's own rendered text at runtime, so leaving  #}
+      {# one of the two as the bare English literal would silently stop this #}
+      {# filter from finding its column once the header renders in Persian.  #}
       <select data-combo data-placeholder="Search status…"
-              data-filter-for="{{ table_id }}" data-filter-colname="Status" data-filter-mode="equals">
+              data-filter-for="{{ table_id }}" data-filter-colname="{% trans "Status" %}" data-filter-mode="equals">
         <option value=""></option>
         {% for v in f_statuses %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
       </select>
@@ -91,7 +96,7 @@
           <th>Code</th>
           {% if show_person %}<th>Requester</th>{% endif %}
           <th>Type</th>
-          <th>Status</th>
+          <th>{% trans "Status" %}</th>
           <th>Submitted</th>
           <th>Description</th>
           <th>Response</th>
@@ -112,9 +117,9 @@
           {% if show_person %}<td dir="auto">{{ row.req.person.display_name }}</td>{% endif %}
           <td dir="auto">{{ row.req.request_type.title }}</td>
           <td data-fval="{{ row.req.get_status_display }}">
-            {% if row.req.status == 'approved' %}<span class="pill pill-green">Approved</span>
-            {% elif row.req.status == 'rejected' %}<span class="pill pill-rejected">Rejected</span>
-            {% elif row.req.status == 'submitted' %}<span class="pill pill-submitted">Submitted</span>
+            {% if row.req.status == 'approved' %}<span class="pill pill-green">{% trans "Approved" %}</span>
+            {% elif row.req.status == 'rejected' %}<span class="pill pill-rejected">{% trans "Rejected" %}</span>
+            {% elif row.req.status == 'submitted' %}<span class="pill pill-submitted">{% trans "Submitted" %}</span>
             {% else %}<span class="pill pill-grey">{{ row.req.get_status_display }}</span>{% endif %}
           </td>
           <td class="muted mono">{{ row.req.submitted_at|default:row.req.created_at|jalali:"Y.m.d H:i" }}</td>

@@ -70,6 +70,7 @@ from __future__ import annotations
 from itertools import zip_longest
 
 from django import forms
+from django.utils.translation import gettext_lazy as _
 
 from .models import ContactGender, ContactRole, ReportOption
 
@@ -104,11 +105,11 @@ class ContactForm(forms.Form):
         return False
 
     first_name = forms.CharField(
-        max_length=120, required=True, label="First name",
+        max_length=120, required=True, label=_("First name"),
         widget=forms.TextInput(attrs={"autocomplete": "off", "dir": "auto"}),
     )
     last_name = forms.CharField(
-        max_length=120, required=True, label="Last name",
+        max_length=120, required=True, label=_("Last name"),
         widget=forms.TextInput(attrs={"autocomplete": "off", "dir": "auto"}),
     )
     # required=False at the FIELD level, required in ``clean()`` — because
@@ -117,14 +118,14 @@ class ContactForm(forms.Form):
     # supervisor who legitimately used the second one. See ``clean()``.
     role = forms.ModelChoiceField(
         queryset=ContactRole.objects.all(), required=False,
-        label="Contact role", empty_label="— Select a contact role —",
+        label=_("Contact role"), empty_label=_("— Select a contact role —"),
         widget=forms.Select(attrs={
-            "data-combo": "1", "data-placeholder": "Search contact role…",
+            "data-combo": "1", "data-placeholder": _("Search contact role…"),
         }),
     )
     gender = forms.ChoiceField(
-        choices=[("", "— Select —")] + list(ContactGender.CHOICES),
-        required=True, label="Gender",
+        choices=[("", _("— Select —"))] + list(ContactGender.CHOICES),
+        required=True, label=_("Gender"),
     )
     # NO phone_prefix/phone/phone_ext FIELDS DECLARED HERE ANY MORE — a
     # contact can now carry any number of phone rows (see
@@ -141,7 +142,7 @@ class ContactForm(forms.Form):
     # cell: the NUMBER of rows a submission carries is decided by the user in
     # the browser, not known when this class is written.
     email = forms.EmailField(
-        required=False, label="Email",
+        required=False, label=_("Email"),
         widget=forms.EmailInput(attrs={"autocomplete": "off", "dir": "ltr"}),
     )
 
@@ -152,10 +153,10 @@ class ContactForm(forms.Form):
             # Added here rather than declared above so that a viewer without
             # the grant has no such field at all — see the class docstring.
             self.fields["new_role"] = forms.CharField(
-                max_length=120, required=False, label="…or add a new role",
+                max_length=120, required=False, label=_("…or add a new role"),
                 widget=forms.TextInput(attrs={
                     "autocomplete": "off", "dir": "auto",
-                    "placeholder": "e.g. Head of QC",
+                    "placeholder": _("e.g. Head of QC"),
                 }),
             )
         # The role list is a managed vocabulary that can legitimately be EMPTY
@@ -265,10 +266,10 @@ class ContactForm(forms.Form):
         if role and new_role:
             self.add_error(
                 "new_role",
-                "Either pick a contact role from the list or add a new one — not both.",
+                _("Either pick a contact role from the list or add a new one — not both."),
             )
         elif not role and not new_role:
-            self.add_error("role", "A contact role is required.")
+            self.add_error("role", _("A contact role is required."))
 
         # Only rows with SOMETHING in them are kept — a blank row left over
         # from an "+ Add phone" click the user then abandoned must not become
@@ -284,8 +285,8 @@ class ContactForm(forms.Form):
         email = (cleaned.get("email") or "").strip()
         if not has_phone_number and not email:
             raise forms.ValidationError(
-                "Enter at least one way to contact this person — a phone number "
-                "or an email address."
+                _("Enter at least one way to contact this person — a phone number "
+                  "or an email address.")
             )
         return cleaned
 
@@ -339,14 +340,14 @@ class ReportForm(forms.Form):
 
     options = forms.ModelMultipleChoiceField(
         queryset=ReportOption.objects.all(), required=False,
-        label="What is this report about?",
+        label=_("What is this report about?"),
         widget=forms.CheckboxSelectMultiple,
     )
     text = forms.CharField(
-        required=False, label="Report",
+        required=False, label=_("Report"),
         widget=forms.Textarea(attrs={
             "rows": 6, "dir": "auto", "autocomplete": "off",
-            "placeholder": "Write the report in your own words…",
+            "placeholder": _("Write the report in your own words…"),
         }),
     )
     # Hidden, and carried rather than re-picked — see the class docstring.
@@ -363,10 +364,10 @@ class ReportForm(forms.Form):
             # list, and two different mechanisms for one capability would be
             # two chances to disagree about who holds it.
             self.fields["new_option"] = forms.CharField(
-                max_length=200, required=False, label="…or add a new option",
+                max_length=200, required=False, label=_("…or add a new option"),
                 widget=forms.TextInput(attrs={
                     "autocomplete": "off", "dir": "auto",
-                    "placeholder": "e.g. On-site visit",
+                    "placeholder": _("e.g. On-site visit"),
                 }),
             )
         # The preset list is a managed vocabulary that can legitimately be EMPTY
@@ -445,8 +446,8 @@ class ReportForm(forms.Form):
         )
         if not options and not text and not new_option:
             raise forms.ValidationError(
-                "A report has to say something — tick at least one option, "
-                "write the report yourself, or do both."
+                _("A report has to say something — tick at least one option, "
+                  "write the report yourself, or do both.")
             )
         return cleaned
 
@@ -462,7 +463,7 @@ class ReportForm(forms.Form):
 # argument this codebase already makes for having one Jalali implementation.
 
 
-def _due_at_field(label: str = "Remind me at (Jalali date and time)"):
+def _due_at_field(label=_("Remind me at (Jalali date and time)")):
     """The Jalali date-and-time box, built the same way for both forms below.
 
     A plain ``CharField``, NOT a ``DateTimeField``: the box is filled by
@@ -476,12 +477,28 @@ def _due_at_field(label: str = "Remind me at (Jalali date and time)"):
     and ``data-required`` is how a screen in this platform marks a box as
     required given that the native attribute is deliberately not emitted — see
     ``use_required_attribute`` on the forms above.
+
+    ``placeholder`` IS EXPLICIT HERE, not left for the picker to invent one:
+    ``jalali_picker.js``'s own ``build()`` reads the real input's own
+    ``placeholder`` attribute and copies it onto the visible display box it
+    swaps in, but falls back to a hard-coded English "Pick a date" when that
+    attribute is missing — and this field never carried one before this round,
+    so that fallback text used to show up on screen regardless of which
+    interface language was active. Every OTHER Jalali box on these same
+    screens (the "From date"/"To date" range filters in company_detail.html,
+    _my_tasks_reminders.html, _my_tasks_reports.html) already sets its own
+    ``placeholder="{% trans ... %}"`` directly in the template, which is why
+    only this one shared helper needed the fix. The example text mirrors
+    ``_clean_jalali_datetime``'s own validation-error example below, digits
+    kept as plain ASCII the same way "e.g. 021"/"e.g. 214" above do — only the
+    word "e.g." itself is translated.
     """
     return forms.CharField(
         required=True, label=label,
         widget=forms.TextInput(attrs={
             "data-jalali-datetime": "1", "autocomplete": "off",
             "data-required": "1",
+            "placeholder": _("e.g. 1405-03-27 14:30"),
         }),
     )
 
@@ -544,7 +561,7 @@ def _clean_jalali_datetime(raw):
         naive = _dt.datetime(gy, gm, gd, hh, mm)
     except (ValueError, TypeError, OverflowError):
         raise forms.ValidationError(
-            "Enter the date and time as a Jalali value, e.g. 1405-03-27 14:30.")
+            _("Enter the date and time as a Jalali value, e.g. 1405-03-27 14:30."))
     tz = timezone.get_current_timezone()
     return (timezone.make_aware(naive, tz)
             if timezone.is_naive(naive) else naive)
@@ -586,17 +603,17 @@ class ReminderForm(forms.Form):
         return False
 
     note = forms.CharField(
-        required=True, label="Reminder note",
+        required=True, label=_("Reminder note"),
         widget=forms.Textarea(attrs={
             "rows": 4, "dir": "auto", "autocomplete": "off",
-            "placeholder": "What should you do when this comes up?",
+            "placeholder": _("What should you do when this comes up?"),
         }),
     )
     due_at = _due_at_field()
     case_id = forms.ChoiceField(
-        required=False, label="About one specific case (optional)",
+        required=False, label=_("About one specific case (optional)"),
         widget=forms.Select(attrs={
-            "data-combo": "1", "data-placeholder": "Search a case...",
+            "data-combo": "1", "data-placeholder": _("Search a case..."),
         }),
     )
 
@@ -605,7 +622,7 @@ class ReminderForm(forms.Form):
         rows = list(case_choices or ())
         # The empty option first, because attaching a case is optional by the
         # owner's own wording and the default has to be the optional answer.
-        self.fields["case_id"].choices = [("", "- No case -")] + [
+        self.fields["case_id"].choices = [("", _("- No case -"))] + [
             (str(row["case_id"]),
              "%s · %s · %s" % (row.get("doc_no", ""),
                                row.get("label_fa") or row.get("label", ""),
@@ -723,25 +740,25 @@ class TaskForm(forms.Form):
         return False
 
     client_id = forms.ChoiceField(
-        required=False, label="Company (optional)",
+        required=False, label=_("Company (optional)"),
         widget=forms.Select(attrs={
-            "data-combo": "1", "data-placeholder": "Search a company...",
+            "data-combo": "1", "data-placeholder": _("Search a company..."),
         }),
     )
     case_id = forms.ChoiceField(
-        required=False, label="Case (optional)",
+        required=False, label=_("Case (optional)"),
         widget=forms.Select(attrs={
-            "data-combo": "1", "data-placeholder": "Search a case...",
+            "data-combo": "1", "data-placeholder": _("Search a case..."),
         }),
     )
     note = forms.CharField(
-        required=True, label="What should you do when this comes up?",
+        required=True, label=_("What should you do when this comes up?"),
         widget=forms.Textarea(attrs={
             "rows": 4, "dir": "auto", "autocomplete": "off",
-            "placeholder": "What should you do when this comes up?",
+            "placeholder": _("What should you do when this comes up?"),
         }),
     )
-    due_at = _due_at_field(label="Due at (Jalali date and time)")
+    due_at = _due_at_field(label=_("Due at (Jalali date and time)"))
 
     def __init__(self, *args, user=None, client_choices=(), case_choices=(), **kwargs):
         super().__init__(*args, **kwargs)
@@ -749,11 +766,11 @@ class TaskForm(forms.Form):
         # Empty option first for both — the same reason ReminderForm's own
         # case_id choices lead with one: neither attachment is required, and
         # the default answer has to be the one that satisfies neither.
-        self.fields["client_id"].choices = [("", "- No company -")] + [
+        self.fields["client_id"].choices = [("", _("- No company -"))] + [
             (str(c.pk), c.name) for c in (client_choices or ())
         ]
         rows = list(case_choices or ())
-        self.fields["case_id"].choices = [("", "- No case -")] + [
+        self.fields["case_id"].choices = [("", _("- No case -"))] + [
             (str(row["case_id"]),
              "%s · %s · %s" % (row.get("doc_no", ""),
                                row.get("client_name", ""),
@@ -816,7 +833,7 @@ class TaskForm(forms.Form):
             if not _reminders.validate_due_at_shift(self._user, due_at):
                 window = self.shift_window_text or _shift_window_text(self._user)
                 raise forms.ValidationError(
-                    "Pick a time inside your own work shift%s." % (
+                    _("Pick a time inside your own work shift%s.") % (
                         " (%s)" % window if window else ""))
         return due_at
 

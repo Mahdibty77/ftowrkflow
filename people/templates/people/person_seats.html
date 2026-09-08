@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 {% block title %}Seats · {{ person.display_name }} · Foolad Tabar Workflow{% endblock %}
 {% block topbar %}Seats · {{ person.display_name }}{% endblock %}
 
@@ -44,12 +44,12 @@
         <span class="muted">Not set — add a Latin name first.</span>
       {% endif %}
     </dd>
-    <dt>Status</dt>
+    <dt>{% trans "Status" %}</dt>
     <dd>
       {% if person.is_active %}
-        <span class="pill pill-green">Active</span>
+        <span class="pill pill-green">{% trans "Active" %}</span>
       {% else %}
-        <span class="pill pill-grey">Departed</span>
+        <span class="pill pill-grey">{% trans "Departed" %}</span>
       {% endif %}
     </dd>
   </dl>
@@ -202,8 +202,8 @@
       <div class="av-scroll" id="avScroll">
         <div class="av-grid av-head" role="row">
           <div class="av-c av-c-idx">Index</div>
-          <div class="av-c av-c-person">Person</div>
-          <div class="av-c av-c-status">Status</div>
+          <div class="av-c av-c-person">{% trans "Person" %}</div>
+          <div class="av-c av-c-status">{% trans "Status" %}</div>
           <div class="av-c av-c-act"></div>
         </div>
         {% for g in free_groups %}
@@ -223,12 +223,12 @@
                       <div>{{ s.holder.display_name }}</div>
                       <div class="mono muted" style="font-size:.74rem;">{{ s.holder.username }} · {{ s.holder.detail_code }}</div>
                     {% else %}
-                      <span class="muted">Vacant</span>
+                      <span class="muted">{% trans "Vacant" %}</span>
                     {% endif %}
                   </div>
                   <div class="av-c av-c-status">
-                    {% if s.active %}<span class="pill pill-green">Active</span>
-                    {% else %}<span class="pill pill-grey">Vacant</span>{% endif %}
+                    {% if s.active %}<span class="pill pill-green">{% trans "Active" %}</span>
+                    {% else %}<span class="pill pill-grey">{% trans "Vacant" %}</span>{% endif %}
                   </div>
                   <div class="av-c av-c-act">
                     <button type="button" class="btn btn-sm" data-confirm-toggle="claim-{{ s.user.pk }}">

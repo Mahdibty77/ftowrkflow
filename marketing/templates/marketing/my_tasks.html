@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 {% comment %}
   MY TASKS (کارهای من) — the personal hub every person with a linked Person
   record reaches from the sidebar's own "Personal" nav group, seat or no seat
@@ -50,8 +50,8 @@
   (`#myTasksReportsTable`, see `_my_tasks_reports.html`) and no hidden
   day/hour/state columns of its own for that script to ever look for.
 {% endcomment %}
-{% block title %}{% if scope_all %}All Reports &amp; Reminders{% else %}My Tasks{% endif %} · Foolad Tabar Workflow{% endblock %}
-{% block topbar %}{% if scope_all %}All Reports &amp; Reminders{% else %}My Tasks{% endif %}{% endblock %}
+{% block title %}{% if scope_all %}{% trans "All Reports & Reminders" %}{% else %}{% trans "My Tasks" %}{% endif %} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% if scope_all %}{% trans "All Reports & Reminders" %}{% else %}{% trans "My Tasks" %}{% endif %}{% endblock %}
 {% block head_extra %}
 <link rel="stylesheet" href="{% static 'marketing/css/directory.css' %}">
 {% endblock %}
@@ -59,12 +59,30 @@
 
 <div class="page-head" style="align-items:center;">
   <div>
+    {% comment %}
+      THE PERSIAN PARENTHETICAL THAT USED TO SIT BESIDE EACH HEADING BELOW
+      ((کارهای همه) / (کارهای من)) HAS BEEN REMOVED BY THIS CLEANUP STAGE —
+      it was a pre-existing leak of Persian text into what should be pure
+      chrome (the owner's own example of it, referenced by name when this
+      i18n round was scoped: "My Tasks (کارهای من)"). An earlier stage in
+      this round correctly wrapped and translated the ENGLISH heading text
+      itself ("All Reports & Reminders" / "My Tasks") but, per this file's
+      own then-current head comment, deliberately left the already-Persian
+      parenthetical untouched, since finding and fixing every such leak
+      across the whole app was scoped to this later stage instead — done
+      once, here, rather than piecemeal. With the leak gone, {% trans %}
+      alone is what decides the heading's language in both directions: the
+      English default reads as plain "My Tasks" / "All Reports & Reminders"
+      with no stray Persian beside it, and the Persian toggle still shows
+      this same heading's own Persian translation from the catalog, exactly
+      as it did before this parenthetical was removed.
+    {% endcomment %}
     {% if scope_all %}
-    <h1>All Reports &amp; Reminders <span class="muted" style="font-weight:500;font-size:.85em;" dir="auto">(کارهای همه)</span></h1>
-    <div class="sub">Every reminder and report anyone has set or written, on any company or case, or on nothing at all — filterable by person.</div>
+    <h1>{% trans "All Reports & Reminders" %}</h1>
+    <div class="sub">{% trans "Every reminder and report anyone has set or written, on any company or case, or on nothing at all — filterable by person." %}</div>
     {% else %}
-    <h1>My Tasks <span class="muted" style="font-weight:500;font-size:.85em;" dir="auto">(کارهای من)</span></h1>
-    <div class="sub">Every reminder and report you have set or written for yourself, on any company or case — or on nothing at all.</div>
+    <h1>{% trans "My Tasks" %}</h1>
+    <div class="sub">{% trans "Every reminder and report you have set or written for yourself, on any company or case — or on nothing at all." %}</div>
     {% endif %}
   </div>
   <div class="row-flex" style="align-items:center;gap:.5rem;flex-wrap:wrap;">
@@ -81,11 +99,11 @@
     {% endcomment %}
     {% if person %}
     <a href="{% url 'people:person_shift' person.pk %}" class="btn btn-sm">
-      <i class="fa-solid fa-hourglass-half"></i> Work calendar
+      <i class="fa-solid fa-hourglass-half"></i> {% trans "Work calendar" %}
     </a>
     {% endif %}
     <a href="{% url 'marketing:my_tasks_add' %}" class="btn btn-sm btn-primary">
-      <i class="fa-solid fa-plus"></i> Add Task
+      <i class="fa-solid fa-plus"></i> {% trans "Add Task" %}
     </a>
   </div>
 </div>
@@ -94,8 +112,8 @@
 {# head comment: this strip and the #companyTabs id it reuses were built to  #}
 {# take this second tab with no change to the Reminders tab's own markup.   #}
 <div class="tabs" id="companyTabs">
-  <div class="tab active" data-tab="reminders"><i class="fa-solid fa-bell"></i> Reminders</div>
-  <div class="tab" data-tab="reports"><i class="fa-solid fa-file-lines"></i> Reports</div>
+  <div class="tab active" data-tab="reminders"><i class="fa-solid fa-bell"></i> {% trans "Reminders" %}</div>
+  <div class="tab" data-tab="reports"><i class="fa-solid fa-file-lines"></i> {% trans "Reports" %}</div>
 </div>
 
 <div class="tab-panel active" id="panel-reminders">

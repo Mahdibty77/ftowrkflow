@@ -75,6 +75,7 @@ to. A tenure that is still current has ``ended_at`` null. ``SeatEventLog`` and
 """
 from django.conf import settings
 from django.db import models, transaction
+from django.utils.translation import gettext_lazy as _
 
 from .constants import DETAIL_CODE_COUNTER_KEY, DETAIL_CODE_START, PersonStatus
 
@@ -515,9 +516,13 @@ class SeatTenure(models.Model):
 
     KIND_OWNER = "OWNER"
     KIND_SUBSTITUTE = "SUBSTITUTE"
+    # gettext_lazy, not gettext — this list is built once at import time,
+    # before any request (and therefore any viewer's language) exists; see
+    # cases/constants.py's own CHOICES lists for the full explanation this
+    # module reuses everywhere a choices= label needs to translate per viewer.
     KIND_CHOICES = [
-        (KIND_OWNER, "Owner"),
-        (KIND_SUBSTITUTE, "Substitute"),
+        (KIND_OWNER, _("Owner")),
+        (KIND_SUBSTITUTE, _("Substitute")),
     ]
 
     REASON_ASSIGN = "ASSIGN"
@@ -526,11 +531,11 @@ class SeatTenure(models.Model):
     REASON_CLOSE = "CLOSE"
     REASON_RELEASE = "RELEASE"
     REASON_CHOICES = [
-        (REASON_ASSIGN, "Assign"),
-        (REASON_TRANSLATE, "Translate"),
-        (REASON_RETURN, "Return"),
-        (REASON_CLOSE, "Close"),
-        (REASON_RELEASE, "Release"),
+        (REASON_ASSIGN, _("Assign")),
+        (REASON_TRANSLATE, _("Translate")),
+        (REASON_RETURN, _("Return")),
+        (REASON_CLOSE, _("Close")),
+        (REASON_RELEASE, _("Release")),
     ]
 
     source_user = models.ForeignKey(
@@ -588,14 +593,17 @@ class SeatEventLog(models.Model):
     DELEGATED = "DELEGATED"
     CLOSED = "CLOSED"
     VACANT = "VACANT"
+    # gettext_lazy — see SeatTenure.KIND_CHOICES above / cases/constants.py
+    # for why: this list is built once at import time, before any viewer's
+    # language is known.
     EVENT_CHOICES = [
-        (CREATED, "Created"),
-        (ASSIGNED, "Assigned"),
-        (TRANSLATED, "Translated"),
-        (RETURNED, "Returned"),
-        (DELEGATED, "Delegated"),
-        (CLOSED, "Closed"),
-        (VACANT, "Vacant"),
+        (CREATED, _("Created")),
+        (ASSIGNED, _("Assigned")),
+        (TRANSLATED, _("Translated")),
+        (RETURNED, _("Returned")),
+        (DELEGATED, _("Delegated")),
+        (CLOSED, _("Closed")),
+        (VACANT, _("Vacant")),
     ]
 
     source_user = models.ForeignKey(
@@ -800,11 +808,18 @@ class StaffRequest(models.Model):
     STATUS_SUBMITTED = "submitted"
     STATUS_APPROVED = "approved"
     STATUS_REJECTED = "rejected"
+    # gettext_lazy — see SeatTenure.KIND_CHOICES above / cases/constants.py
+    # for why: this tuple is built once at import time, before any viewer's
+    # language is known. "Approved" reuses the same English source string
+    # marketing/templates/marketing/company_detail.html already passes
+    # through {% trans %}, so a request approved here and a case marked
+    # Final Approved there read as the identical Persian word rather than
+    # two independently-chosen translations of "Approved" drifting apart.
     STATUS_CHOICES = (
-        (STATUS_DRAFT, "Draft"),
-        (STATUS_SUBMITTED, "Submitted"),
-        (STATUS_APPROVED, "Approved"),
-        (STATUS_REJECTED, "Rejected"),
+        (STATUS_DRAFT, _("Draft")),
+        (STATUS_SUBMITTED, _("Submitted")),
+        (STATUS_APPROVED, _("Approved")),
+        (STATUS_REJECTED, _("Rejected")),
     )
 
     person = models.ForeignKey(

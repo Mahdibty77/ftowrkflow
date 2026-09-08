@@ -25,6 +25,11 @@ import secrets
 
 from django import forms
 from django.contrib.auth.models import User
+# gettext_lazy, not plain gettext: `label=` below is a Python-level string
+# evaluated once at class-definition (import) time — the exact `choices=`
+# timing hazard cases/constants.py's own comment explains at length — so it
+# must resolve per viewer at render time, not once at import time.
+from django.utils.translation import gettext_lazy as _
 
 from .constants import Gender, Role, Unit, SupplyKind
 from .models import PlatformConfig, Profile
@@ -578,16 +583,16 @@ class AdminPlatformForm(forms.ModelForm):
         model = PlatformConfig
         fields = ["login_welcome_message", "vat_percent"]
         labels = {
-            "login_welcome_message": "Sign-in welcome message",
-            "vat_percent": "VAT percent (%)",
+            "login_welcome_message": _("Sign-in welcome message"),
+            "vat_percent": _("VAT percent (%)"),
         }
         help_texts = {
             "login_welcome_message": (
-                "Displayed for every user after “Hi, <name>” on successful sign-in."
+                _("Displayed for every user after “Hi, <name>” on successful sign-in.")
             ),
             "vat_percent": (
-                "Used on Proforma totals: VAT = Subtotal × this percent / 100. "
-                "Shown as “VAT (N%)” on PDF/Excel preview totals."
+                _("Used on Proforma totals: VAT = Subtotal × this percent / 100. "
+                  "Shown as “VAT (N%)” on PDF/Excel preview totals.")
             ),
         }
 
@@ -599,14 +604,14 @@ class AdminUnitStampsForm(forms.ModelForm):
         model = PlatformConfig
         fields = ["stamp_commercial", "stamp_technical", "stamp_supply"]
         labels = {
-            "stamp_commercial": "Commercial stamp",
-            "stamp_technical": "Technical stamp",
-            "stamp_supply": "Supply stamp",
+            "stamp_commercial": _("Commercial stamp"),
+            "stamp_technical": _("Technical stamp"),
+            "stamp_supply": _("Supply stamp"),
         }
         help_texts = {
-            "stamp_commercial": "PNG or SVG — stamped on Proforma (PI) exports.",
-            "stamp_technical": "PNG or SVG — stamped on Technical Offer (TO) exports.",
-            "stamp_supply": "PNG or SVG — reserved for Supply exports.",
+            "stamp_commercial": _("PNG or SVG — stamped on Proforma (PI) exports."),
+            "stamp_technical": _("PNG or SVG — stamped on Technical Offer (TO) exports."),
+            "stamp_supply": _("PNG or SVG — reserved for Supply exports."),
         }
         widgets = {
             "stamp_commercial": StampFileInput(),
@@ -731,13 +736,13 @@ class SelfPasswordForm(forms.Form):
 
     current_password = forms.CharField(
         widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}),
-        label="Current password")
+        label=_("Current password"))
     new_password = forms.CharField(
         widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
-        min_length=6, label="New password")
+        min_length=6, label=_("New password"))
     confirm_password = forms.CharField(
         widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
-        label="Confirm new password")
+        label=_("Confirm new password"))
 
     def __init__(self, *args, user=None, **kwargs):
         self.user = user
@@ -746,7 +751,7 @@ class SelfPasswordForm(forms.Form):
     def clean_current_password(self):
         pw = self.cleaned_data["current_password"]
         if not self.user.check_password(pw):
-            raise forms.ValidationError("Your current password is incorrect.")
+            raise forms.ValidationError(_("Your current password is incorrect."))
         return pw
 
     def clean(self):
@@ -754,7 +759,7 @@ class SelfPasswordForm(forms.Form):
         new = cleaned.get("new_password")
         confirm = cleaned.get("confirm_password")
         if new and confirm and new != confirm:
-            self.add_error("confirm_password", "The new passwords do not match.")
+            self.add_error("confirm_password", _("The new passwords do not match."))
         return cleaned
 
     def save(self):

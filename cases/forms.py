@@ -1,5 +1,6 @@
 """Forms for case creation and the commercial master-data screens."""
 from django import forms
+from django.utils.translation import gettext_lazy as _
 
 from core.persian_text import normalize_persian
 
@@ -27,19 +28,19 @@ class CaseCreateForm(forms.Form):
         return False
 
     kind = forms.ChoiceField(
-        choices=[("", "— Select document kind —")] + list(DocKind.CHOICES),
-        label="Document kind", required=True,
-        widget=forms.Select(attrs={"data-combo": "1", "data-placeholder": "Search document kind…", "data-required": "1"}),
+        choices=[("", _("— Select document kind —"))] + list(DocKind.CHOICES),
+        label=_("Document kind"), required=True,
+        widget=forms.Select(attrs={"data-combo": "1", "data-placeholder": _("Search document kind…"), "data-required": "1"}),
     )
     offer_type = forms.ChoiceField(
-        choices=[("", "— Select offer type —")] + list(OfferType.CHOICES),
-        label="Offer type", required=True,
-        widget=forms.Select(attrs={"data-combo": "1", "data-placeholder": "Search offer type…", "data-required": "1"}),
+        choices=[("", _("— Select offer type —"))] + list(OfferType.CHOICES),
+        label=_("Offer type"), required=True,
+        widget=forms.Select(attrs={"data-combo": "1", "data-placeholder": _("Search offer type…"), "data-required": "1"}),
     )
     client = forms.ModelChoiceField(
-        queryset=Client.objects.all(), label="Client", required=True,
-        empty_label="— Select client —",
-        widget=forms.Select(attrs={"data-combo": "1", "data-placeholder": "Search client by name or code…", "data-required": "1"}),
+        queryset=Client.objects.all(), label=_("Client"), required=True,
+        empty_label=_("— Select client —"),
+        widget=forms.Select(attrs={"data-combo": "1", "data-placeholder": _("Search client by name or code…"), "data-required": "1"}),
     )
     # REQUIRED AT CREATE TIME ONLY — a deliberate asymmetry with the two
     # edit-save paths in cases/views.py (the contacts-only edit and the
@@ -77,42 +78,42 @@ class CaseCreateForm(forms.Form):
     # value is one of its listed choices, so "" being technically present in
     # ``choices`` (for the widget's sake) never lets it pass.
     marketing_label = forms.ChoiceField(
-        choices=[("", "— Select marketing role —")] + list(MarketingLabel.CHOICES),
-        label="Marketing role", required=True,
-        widget=forms.Select(attrs={"data-combo": "1", "data-placeholder": "Search role…", "data-required": "1"}),
+        choices=[("", _("— Select marketing role —"))] + list(MarketingLabel.CHOICES),
+        label=_("Marketing role"), required=True,
+        widget=forms.Select(attrs={"data-combo": "1", "data-placeholder": _("Search role…"), "data-required": "1"}),
     )
     order_no = forms.CharField(
         max_length=80, required=True,
-        label="Order No. / Project Name",
+        label=_("Order No. / Project Name"),
         widget=forms.TextInput(attrs={
             "data-required": "1", "autocomplete": "off", "autocapitalize": "off",
             "spellcheck": "false",
         }),
     )
     client_commercial_expert = forms.CharField(
-        max_length=120, required=False, label="Client commercial contact",
+        max_length=120, required=False, label=_("Client commercial contact"),
         widget=forms.TextInput(attrs={
             "autocomplete": "off", "autocapitalize": "off", "spellcheck": "false",
         }))
     client_commercial_phone = forms.CharField(
-        max_length=40, required=False, label="Client commercial phone (optional)",
+        max_length=40, required=False, label=_("Client commercial phone (optional)"),
         widget=forms.TextInput(attrs={
             "autocomplete": "off", "autocapitalize": "off", "spellcheck": "false",
         }))
     client_technical_expert = forms.CharField(
-        max_length=120, required=False, label="Client technical contact",
+        max_length=120, required=False, label=_("Client technical contact"),
         widget=forms.TextInput(attrs={
             "autocomplete": "off", "autocapitalize": "off", "spellcheck": "false",
         }))
     client_technical_phone = forms.CharField(
-        max_length=40, required=False, label="Client technical phone (optional)",
+        max_length=40, required=False, label=_("Client technical phone (optional)"),
         widget=forms.TextInput(attrs={
             "autocomplete": "off", "autocapitalize": "off", "spellcheck": "false",
         }))
     price_type = forms.ChoiceField(
-        choices=[("", "— Select price type —")] + list(PriceType.CHOICES),
-        label="Price type", required=True,
-        widget=forms.Select(attrs={"data-combo": "1", "data-placeholder": "Search price type…", "data-required": "1"}),
+        choices=[("", _("— Select price type —"))] + list(PriceType.CHOICES),
+        label=_("Price type"), required=True,
+        widget=forms.Select(attrs={"data-combo": "1", "data-placeholder": _("Search price type…"), "data-required": "1"}),
     )
     deadline = forms.CharField(
         # A commercial case is worked against its deadline — it is what the
@@ -121,16 +122,16 @@ class CaseCreateForm(forms.Form):
         # own validator looks for (see the note on ``use_required_attribute``
         # above for why the native attribute is not emitted), so this field is
         # marked exactly like client / order no. / kind.
-        required=True, label="Deadline (Jalali)",
+        required=True, label=_("Deadline (Jalali)"),
         widget=forms.TextInput(attrs={
             "data-jalali-datetime": "1", "autocomplete": "off", "data-required": "1",
         }),
     )
     pasted_table = forms.CharField(
         required=False, widget=forms.HiddenInput,
-        help_text="JSON rows captured from the paste grid.",
+        help_text=_("JSON rows captured from the paste grid."),
     )
-    excel_file = forms.FileField(required=False, label="Or upload Excel (Item, Description, Size, Unit)")
+    excel_file = forms.FileField(required=False, label=_("Or upload Excel (Item, Description, Size, Unit)"))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -154,7 +155,12 @@ class CaseCreateForm(forms.Form):
         if not raw:
             return None
         try:
-            date_part, _, time_part = raw.partition(" ")
+            # Named `_sep` rather than the usual throwaway `_` — this module now
+            # imports `_` as `gettext_lazy` at the top, and the ValidationError
+            # messages below need to call it; a local `_` here would shadow that
+            # import for the rest of this function and make `_(...)` call the
+            # single-space separator string instead of translating anything.
+            date_part, _sep, time_part = raw.partition(" ")
             # Accept dot, slash or dash as the date separator (1405.03.27,
             # 1405/03/27 or 1405-03-27 all work).
             norm = date_part.replace("/", "-").replace(".", "-")
@@ -174,11 +180,11 @@ class CaseCreateForm(forms.Form):
                 raise ValueError("no such Jalali date")
             naive = _dt.datetime(gy, gm, gd, hh, mm)
         except (ValueError, TypeError, OverflowError):
-            raise forms.ValidationError("Enter the deadline as a Jalali date, e.g. 1405-03-27 14:30.")
+            raise forms.ValidationError(_("Enter the deadline as a Jalali date, e.g. 1405-03-27 14:30."))
         tz = timezone.get_current_timezone()
         aware = timezone.make_aware(naive, tz) if timezone.is_naive(naive) else naive
         if aware < timezone.now():
-            raise forms.ValidationError("The deadline cannot be earlier than the current date and time.")
+            raise forms.ValidationError(_("The deadline cannot be earlier than the current date and time."))
         return aware
 
     def clean(self):

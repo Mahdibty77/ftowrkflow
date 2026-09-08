@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 {% comment %}
   WRITE A REPORT — STEP 2 OF 2: what it says, then confirm.
 
@@ -26,17 +26,17 @@
   this viewer's own visible cases — a hidden field is a value the browser sends,
   never a permission.
 {% endcomment %}
-{% block title %}Add report · {{ client.name }} · Foolad Tabar Workflow{% endblock %}
-{% block topbar %}Add report{% endblock %}
+{% block title %}{% trans "Add report" %} · {{ client.name }} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% trans "Add report" %}{% endblock %}
 {% block content %}
 
 <div class="page-head">
   <div>
-    <h1>Add a report</h1>
-    <div class="sub">on <span dir="auto">{{ client.name }}</span> <span class="mono">({{ client.code }})</span></div>
+    <h1>{% trans "Add a report" %}</h1>
+    <div class="sub">{% blocktrans with name=client.name code=client.code %}on <span dir="auto">{{ name }}</span> <span class="mono">({{ code }})</span>{% endblocktrans %}</div>
   </div>
   <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-sm">
-    <i class="fa-solid fa-arrow-left"></i> Back to company
+    <i class="fa-solid fa-arrow-left"></i> {% trans "Back to company" %}
   </a>
 </div>
 
@@ -57,13 +57,13 @@
   {# file the report against, and change their mind before confirming.         #}
   <div class="help" style="margin-bottom:.8rem;">
     <i class="fa-solid fa-circle-info"></i>
-    Step 2 of 2 —
+    {% trans "Step 2 of 2 —" %}
     {% if case_row %}
-      this report will be filed against case <span class="mono">{{ case_row.doc_no }}</span>.
+      {% blocktrans with doc=case_row.doc_no %}this report will be filed against case <span class="mono">{{ doc }}</span>.{% endblocktrans %}
     {% else %}
-      this report is not attached to any case.
+      {% trans "this report is not attached to any case." %}
     {% endif %}
-    <a href="{% url 'marketing:report_add' client.pk %}">Change</a>
+    <a href="{% url 'marketing:report_add' client.pk %}">{% trans "Change" %}</a>
   </div>
 
   <div class="field">
@@ -85,8 +85,8 @@
       {# at the field directly below — the same wording, and the same route,    #}
       {# contact_form.html has always given for a missing ContactRole.          #}
       <div class="help">
-        {% if can_manage_options %}No report options exist yet — add the first one in the field below.
-        {% else %}No report options exist yet. A Marketing Supervisor or the platform admin can add them; until then, write the report below.{% endif %}
+        {% if can_manage_options %}{% trans "No report options exist yet — add the first one in the field below." %}
+        {% else %}{% trans "No report options exist yet. A Marketing Supervisor or the platform admin can add them; until then, write the report below." %}{% endif %}
       </div>
     {% endif %}
   </div>
@@ -100,7 +100,7 @@
     <label for="{{ form.new_option.id_for_label }}"><i class="fa-solid fa-plus"></i> {{ form.new_option.label }}</label>
     {{ form.new_option }}
     {% if form.new_option.errors %}<ul class="errorlist">{% for e in form.new_option.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
-    <div class="help">Adds the option to the shared list for everyone in Marketing, and ticks it on this report. Leave it blank if the options above are enough.</div>
+    <div class="help">{% trans "Adds the option to the shared list for everyone in Marketing, and ticks it on this report. Leave it blank if the options above are enough." %}</div>
   </div>
   {% endif %}
 
@@ -108,12 +108,12 @@
     <label for="{{ form.text.id_for_label }}"><i class="fa-solid fa-file-lines"></i> {{ form.text.label }}</label>
     {{ form.text }}
     {% if form.text.errors %}<ul class="errorlist">{% for e in form.text.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
-    <div class="help">Tick at least one option above, write the report here, or do both.</div>
+    <div class="help">{% trans "Tick at least one option above, write the report here, or do both." %}</div>
   </div>
 
   <div class="btn-row">
-    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Confirm report</button>
-    <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-ghost">Cancel</a>
+    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> {% trans "Confirm report" %}</button>
+    <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-ghost">{% trans "Cancel" %}</a>
   </div>
 </form>
 {% endblock %}

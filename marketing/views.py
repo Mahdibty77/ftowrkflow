@@ -107,6 +107,7 @@ from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import urlencode
+from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
 from cases.constants import CaseStatus
@@ -2010,7 +2011,7 @@ def _my_tasks_person_or_redirect(request):
 
     person = person_for_user(request.user)
     if person is None:
-        messages.error(request, "No personnel record is linked to this login.")
+        messages.error(request, _("No personnel record is linked to this login."))
     return person
 
 
@@ -2257,9 +2258,15 @@ def _task_day_groups(rows) -> list:
     today_key, tomorrow_key = today.isoformat(), tomorrow.isoformat()
     counts = Counter(row.day_key for row in rows)
     groups = [
-        {"key": today_key, "label": "Today", "date": None,
+        # "label" is display text only — the day pill's own CLICK/FILTER
+        # behaviour matches on "key" (a plain ISO date string) and
+        # never on this word, so translating it here cannot affect which
+        # rows a pill reveals; see this function's own docstring and
+        # _my_tasks_reminders.html's own day-pill markup, which prints
+        # ``g.label`` verbatim.
+        {"key": today_key, "label": _("Today"), "date": None,
          "count": counts.get(today_key, 0), "is_today": True},
-        {"key": tomorrow_key, "label": "Tomorrow", "date": None,
+        {"key": tomorrow_key, "label": _("Tomorrow"), "date": None,
          "count": counts.get(tomorrow_key, 0), "is_today": False},
     ]
     for key in sorted(k for k in counts if k > tomorrow_key):

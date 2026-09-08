@@ -1,0 +1,3048 @@
+# Persian (فارسی) translation catalog for the Foolad Tabar Workflow platform
+# CHROME (sidebar, tabs, buttons, field labels, status/state labels, page
+# titles) — never for CONTENT (a company's own name, a person's own comment,
+# report or reminder text, or anything else someone typed), which is never
+# run through this catalog regardless of the strings below.
+#
+# This file is normally generated and kept up to date with
+#     python manage.py makemessages -l fa
+# (add the new `{% trans %}` / `{% blocktrans %}` strings first, then run it)
+# and compiled with
+#     python manage.py compilemessages
+# Both of those shell out to the real GNU gettext tools (xgettext / msguniq /
+# msgfmt respectively) via Python's `django.core.management.utils.popen_wrapper`
+# — Django does not reimplement either. On the machine this catalog was first
+# built on, only the gettext *runtime* (gettext.exe, used by Python's own
+# stdlib `gettext` module to READ a compiled .mo at request time — which is
+# all this app needs to actually serve translations) was on PATH; the
+# developer toolchain (msgfmt/msguniq/xgettext, used only to BUILD/rebuild a
+# catalog) was not installed, so neither management command could run there.
+# This one entry (the Settings page's "Language" card heading — this round's
+# single smoke-test string, see accounts/templates/accounts/settings.html)
+# was therefore added and compiled to django.mo by hand instead, as the
+# stopgap the task explicitly allows for. The Dockerfile now installs the
+# `gettext` apt package (see its own comment) specifically so the real
+# commands above work wherever this image is built, for every string later
+# stages add — this hand-editing step is not meant to be how the catalog is
+# maintained going forward.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ftworkflow\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-09-08 00:00+0330\n"
+"PO-Revision-Date: 2026-09-08 00:00+0330\n"
+"Last-Translator: \n"
+"Language-Team: Persian\n"
+"Language: fa\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. Settings page — the "Language" card heading. This is the one smoke-test
+#. string this round wraps end to end; see the template's own comment for why
+#. nothing else in the platform chrome is translated yet.
+#: accounts/templates/accounts/settings.html:64
+msgid "Language"
+msgstr "زبان"
+
+# ---------------------------------------------------------------------------
+# SIDEBAR + SHARED CHROME (this round) — every nav-group heading and nav-item
+# label in core/templates/base.html and people/templates/people/_nav.html,
+# the top bar's profile menu, the reminder-due notification banner's own
+# words, and the sign-out confirmation dialog. See base.html's own comments
+# at each of these for why a given entry is drawn where it is; the entries
+# below are only about the WORDS, not the logic that decides when they show.
+#
+# Repeated occurrences are entirely expected here: the same sidebar destination
+# (e.g. Dashboard, Inbox, Archive, Clients & FX) is drawn from several
+# different branches of the same if/elif ladder depending on whether the
+# viewer is the platform admin, the General Manager, holds the destination
+# as an active/inactive accordion role, or holds it as their one plain
+# Profile-level seat — one heading in the template's own comments already
+# explains each branch, and one translation below covers all of them.
+# ---------------------------------------------------------------------------
+
+#. Sidebar group heading shown above the single "set a new password" notice
+#. for an account that must change its password before reaching anything
+#. else, and again above "No roles assigned yet" for a login with no seat.
+#: core/templates/base.html:194 core/templates/base.html:456
+msgid "Account"
+msgstr "حساب کاربری"
+
+#: core/templates/base.html:197
+msgid "Set a new password to continue"
+msgstr "برای ادامه، رمز عبور جدید تنظیم کنید"
+
+#. Sidebar group heading for the platform admin's own section (Console,
+#. Seats, People, Tool Data, Dashboard, Case Archive, Backups).
+#: core/templates/base.html:200
+msgid "Administration"
+msgstr "مدیریت سیستم"
+
+#: core/templates/base.html:201
+msgid "Console"
+msgstr "کنسول مدیریت"
+
+#. "Seats" = organisational positions (accounts.User rows an admin/GM
+#. assigns people into), not physical seating — see accounts/templates/
+#. accounts/user_list.html for the page this opens.
+#: core/templates/base.html:202 core/templates/base.html:218
+msgid "Seats"
+msgstr "سمت‌ها"
+
+#: core/templates/base.html:204
+msgid "Tool Data"
+msgstr "داده‌های ابزار"
+
+#: core/templates/base.html:205 core/templates/base.html:216
+#: core/templates/base.html:322 core/templates/base.html:360
+#: core/templates/base.html:429
+msgid "Dashboard"
+msgstr "داشبورد"
+
+#: core/templates/base.html:206 core/templates/base.html:217
+msgid "Case Archive"
+msgstr "بایگانی پرونده‌ها"
+
+#: core/templates/base.html:207
+msgid "Backups"
+msgstr "پشتیبان‌گیری"
+
+#. Sidebar group heading above the unit-specific master-data shortcut
+#. (Clients & FX / Pricing Management / Coding Reference) — drawn for the
+#. platform admin and again for a Commercial/Supply/Technical manager.
+#: core/templates/base.html:208 core/templates/base.html:442
+#: core/templates/base.html:445 core/templates/base.html:449
+msgid "Master Data"
+msgstr "داده‌های پایه"
+
+#. "&" is the real ampersand character, not the &amp; HTML entity — Django's
+#. own autoescaping turns it into &amp; on render, exactly as the literal
+#. HTML it replaces did. See the template's own {% trans %} call.
+#: core/templates/base.html:210 core/templates/base.html:341
+#: core/templates/base.html:379 core/templates/base.html:451
+msgid "Clients & FX"
+msgstr "مشتریان و نرخ ارز"
+
+#. Tooltip on the small warning badge beside "Clients & FX" when the FX
+#. rates master table has gone stale — see core.context_processors for
+#. nav_fx_stale.
+#: core/templates/base.html:211 core/templates/base.html:342
+#: core/templates/base.html:452
+msgid "FX rates need updating"
+msgstr "نرخ ارز نیاز به به‌روزرسانی دارد"
+
+#. Sidebar group heading for the General Manager's own section.
+#: core/templates/base.html:215
+msgid "General Management"
+msgstr "مدیریت عمومی"
+
+#. "Requests" — the overtime/staff-request inbox (GM) and, separately, a
+#. person's own submitted requests (Personal group). Same English word,
+#. same Persian word: both are the person's/GM's queue of pending requests.
+#: core/templates/base.html:220 core/templates/base.html:477
+msgid "Requests"
+msgstr "درخواست‌ها"
+
+#. The admin's and GM's own read-only door into the Marketing chart — see
+#. base.html's own long comment on marketing.access.access_for for why this
+#. is view-only and carries the "(read-only)" suffix.
+#: core/templates/base.html:233
+msgid "Marketing (read-only)"
+msgstr "بازاریابی (فقط مشاهده)"
+
+#: core/templates/base.html:243
+msgid "Company Directory (read-only)"
+msgstr "فهرست شرکت‌ها (فقط مشاهده)"
+
+#. "Workspace" = marketing:home, the relationship chart — a Marketing seat's
+#. main screen. Drawn from the accordion (active and inactive role) and the
+#. no-accordion single-seat branch; one word covers all three.
+#: core/templates/base.html:287 core/templates/base.html:301
+#: core/templates/base.html:408
+msgid "Workspace"
+msgstr "فضای کاری"
+
+#: core/templates/base.html:297 core/templates/base.html:304
+#: core/templates/base.html:420
+#: marketing/templates/marketing/directory.html:36
+#: marketing/templates/marketing/directory.html:37
+#: marketing/templates/marketing/directory.html:45
+msgid "Company Directory"
+msgstr "فهرست شرکت‌ها"
+
+#: core/templates/base.html:309 core/templates/base.html:347
+#: core/templates/base.html:423
+msgid "Inbox"
+msgstr "کارتابل"
+
+#: core/templates/base.html:314 core/templates/base.html:352
+#: core/templates/base.html:425
+msgid "New Case"
+msgstr "پرونده جدید"
+
+#: core/templates/base.html:318 core/templates/base.html:356
+#: core/templates/base.html:427
+msgid "Archive"
+msgstr "آرشیو"
+
+#. An expert's own personal report screen — distinct from the manager/
+#. supervisor "Dashboard" entry above, even though both open the same
+#. reports:dashboard view (it renders differently per role).
+#: core/templates/base.html:326 core/templates/base.html:364
+#: core/templates/base.html:439
+msgid "My Report"
+msgstr "گزارش من"
+
+#: core/templates/base.html:331 core/templates/base.html:369
+#: core/templates/base.html:443
+msgid "Pricing Management"
+msgstr "مدیریت قیمت‌گذاری"
+
+#: core/templates/base.html:336 core/templates/base.html:374
+#: core/templates/base.html:446
+msgid "Coding Reference"
+msgstr "مرجع کدینگ"
+
+#. Sidebar group heading above "My Tasks" and the person's own "Requests" —
+#. shown for every signed-in person with a linked Person record, seat or no
+#. seat at all. See base.html's own comment on nav_show_person_requests.
+#: core/templates/base.html:464
+msgid "Personal"
+msgstr "شخصی"
+
+#: core/templates/base.html:474
+#: marketing/templates/marketing/directory.html:54
+#: marketing/templates/marketing/my_tasks.html:53
+#: marketing/templates/marketing/my_tasks.html:54
+#: marketing/templates/marketing/my_tasks.html:81
+#: marketing/templates/marketing/reminder_form.html:55
+#: marketing/templates/marketing/task_report_add.html:28
+msgid "My Tasks"
+msgstr "کارهای من"
+
+#: core/templates/base.html:459
+msgid "No roles assigned yet"
+msgstr "هنوز نقشی تعیین نشده است"
+
+#. Admin sidebar — people/templates/people/_nav.html.
+#: people/templates/people/_nav.html:8
+msgid "People"
+msgstr "پرسنل"
+
+#: people/templates/people/_nav.html:11
+msgid "Request types"
+msgstr "انواع درخواست"
+
+# ---------------------------------------------------------------------------
+# TOP BAR — the profile menu (who/avatar button and its dropdown) and the
+# sign-out confirmation dialog it opens.
+# ---------------------------------------------------------------------------
+
+#: core/templates/base.html:520
+msgid "Username"
+msgstr "نام کاربری"
+
+#: core/templates/base.html:521
+msgid "Internal code"
+msgstr "کد پرسنلی"
+
+#: core/templates/base.html:524
+msgid "My profile"
+msgstr "پروفایل من"
+
+#. "Colour" / "Mode" head the two rows of appearance controls (accent colour
+#. swatches, light/dark buttons) in the profile dropdown. British spelling
+#. kept in the English source string on purpose — matching what was already
+#. on screen — Persian has only the one word regardless.
+#: core/templates/base.html:528
+msgid "Colour"
+msgstr "رنگ"
+
+#: core/templates/base.html:530
+msgid "Blue"
+msgstr "آبی"
+
+#: core/templates/base.html:530
+msgid "Blue theme"
+msgstr "پوسته آبی"
+
+#: core/templates/base.html:531
+msgid "Rose"
+msgstr "صورتی"
+
+#: core/templates/base.html:531
+msgid "Rose theme"
+msgstr "پوسته صورتی"
+
+#: core/templates/base.html:532
+msgid "Teal"
+msgstr "سبزآبی"
+
+#: core/templates/base.html:532
+msgid "Teal theme"
+msgstr "پوسته سبزآبی"
+
+#: core/templates/base.html:536
+msgid "Mode"
+msgstr "حالت نمایش"
+
+#: core/templates/base.html:538
+msgid "Light"
+msgstr "روشن"
+
+#: core/templates/base.html:539
+msgid "Dark"
+msgstr "تیره"
+
+#: core/templates/base.html:547
+msgid "Sign out"
+msgstr "خروج"
+
+#: core/templates/base.html:550
+msgid "Settings"
+msgstr "تنظیمات"
+
+#. The dialog that opens when "Sign out" is clicked — see base.html's own
+#. inline script comment for why this confirmation exists (a shift-end
+#. sign-out should not be one accidental click).
+#: core/templates/base.html:737
+msgid "End your shift session?"
+msgstr "شیفت کاری خود را پایان می‌دهید؟"
+
+#: core/templates/base.html:738
+msgid "Time away will not count as work hours until you sign in again."
+msgstr "تا زمان ورود دوباره، مدت غیبت جزو ساعات کاری محاسبه نخواهد شد."
+
+#: core/templates/base.html:740
+#: marketing/templates/marketing/contact_form.html:163
+#: marketing/templates/marketing/reminder_form.html:105
+#: marketing/templates/marketing/report_case.html:79
+#: marketing/templates/marketing/report_form.html:116
+#: marketing/templates/marketing/task_form.html:205
+#: marketing/templates/marketing/task_report_add.html:111
+#: marketing/templates/marketing/task_report_form.html:106
+msgid "Cancel"
+msgstr "انصراف"
+
+#: core/templates/base.html:741
+msgid "Confirm Sign out"
+msgstr "تأیید خروج"
+
+# ---------------------------------------------------------------------------
+# REMINDER-DUE NOTIFICATION BANNER — its own words only. The due date/time,
+# the company name, the case document number and the reminder's own note
+# text are all real data (see marketing/reminders.py::_payload) and are
+# never run through this catalog — only "Reminder due" and the "+N more
+# due" count around them are this banner's own fixed wording.
+# ---------------------------------------------------------------------------
+
+#: core/templates/base.html:657
+msgid "Reminder due"
+msgstr "یادآوری سررسید شده"
+
+#. %(count)s is the number of OTHER due reminders beyond the one already
+#. shown above it — never translate/reformat the number itself, only the
+#. words around it. Generated by {% blocktrans with count=... %} from
+#. "+{{ count }} more due".
+#: core/templates/base.html:674
+msgid "+%(count)s more due"
+msgstr "%(count)s مورد دیگر نیز سررسید شده است"
+
+# ---------------------------------------------------------------------------
+# MARKETING APP (this round) — every one of the app's own templates: the
+# relationship chart (home.html/_role_chart.html), the company directory list
+# and detail page, My Tasks (both its Reminders and Reports tabs), and every
+# contact/report/reminder form. Plus rolechart.py's own chart-card English
+# abbreviations (SLOTS' third element, PROJECT_ABBR/US_ABBR — see that module's
+# own comment for why the Persian role name beside each one is NOT translated
+# here), and the one messages.error() string in marketing/views.py.
+#
+# WHAT IS DELIBERATELY NOT HERE, EVEN THOUGH IT IS VISIBLE PERSIAN TEXT ON
+# THESE SAME SCREENS: services.FIELD_LABELS' composite "<Persian> — <ENGLISH>"
+# role strings (cases.constants.MarketingLabel), shown as company_detail.html's
+# Cases-tab role column and directory.html's role filter/chips, and the
+# my_tasks.html page-head's own "(کارهای من)"/"(کارهای همه)" parenthetical —
+# the owner's own named example of a pre-existing Persian-into-English-chrome
+# leak. Both are pre-existing content this round found already in Persian, and
+# fixing (or not) that leak is a separate, later "Cleanup" stage's job — see
+# each template's own comment at the exact spot.
+# ---------------------------------------------------------------------------
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:97
+#: marketing/templates/marketing/_my_tasks_reports.html:62
+#: marketing/templates/marketing/company_detail.html:437
+#: marketing/templates/marketing/company_detail.html:571
+#: marketing/templates/marketing/directory.html:66
+msgid "Filters"
+msgstr "فیلترها"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:98
+#: marketing/templates/marketing/_my_tasks_reports.html:63
+#: marketing/templates/marketing/company_detail.html:438
+#: marketing/templates/marketing/company_detail.html:572
+#: marketing/templates/marketing/directory.html:87
+#: marketing/templates/marketing/directory.html:91
+msgid "Reset all filters"
+msgstr "بازنشانی همه فیلترها"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:99
+#: marketing/templates/marketing/_my_tasks_reports.html:64
+#: marketing/templates/marketing/company_detail.html:439
+#: marketing/templates/marketing/company_detail.html:573
+#: marketing/templates/marketing/directory.html:88
+#: marketing/templates/marketing/directory.html:92
+msgid "Clear filters"
+msgstr "پاک کردن فیلترها"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:104
+#: marketing/templates/marketing/_my_tasks_reports.html:69
+#: marketing/templates/marketing/company_detail.html:288
+#: marketing/templates/marketing/company_detail.html:459
+#: marketing/templates/marketing/company_detail.html:593
+msgid "Search"
+msgstr "جستجو"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:115
+#: marketing/templates/marketing/_my_tasks_reminders.html:290
+#: marketing/templates/marketing/company_detail.html:599
+#: marketing/templates/marketing/company_detail.html:631
+#: cases/templates/cases/case_detail.html:683 cases/templates/cases/case_detail.html:703 cases/templates/cases/_side_section.html:534 cases/templates/cases/_side_section.html:554 people/templates/people/request_detail.html:65
+msgid "Note"
+msgstr "یادداشت"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:116
+#: marketing/templates/marketing/company_detail.html:600
+msgid "Search note text…"
+msgstr "جستجو در متن یادداشت…"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:119
+#: marketing/templates/marketing/_my_tasks_reminders.html:126
+#: marketing/templates/marketing/_my_tasks_reminders.html:289
+#: marketing/templates/marketing/_my_tasks_reports.html:85
+#: marketing/templates/marketing/_my_tasks_reports.html:92
+#: marketing/templates/marketing/_my_tasks_reports.html:161
+#: marketing/templates/marketing/company_detail.html:444
+#: marketing/templates/marketing/company_detail.html:445
+#: marketing/templates/marketing/company_detail.html:503
+#: marketing/templates/marketing/company_detail.html:578
+#: marketing/templates/marketing/company_detail.html:579
+#: marketing/templates/marketing/company_detail.html:632
+#: marketing/templates/marketing/home.html:136
+#: marketing/templates/marketing/task_form.html:177
+msgid "Case"
+msgstr "پرونده"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:125
+#: marketing/templates/marketing/_my_tasks_reports.html:91
+#: marketing/templates/marketing/report_case.html:53
+#: marketing/templates/marketing/task_report_add.html:69
+msgid "Search a case…"
+msgstr "جستجوی پرونده…"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:134
+#: marketing/templates/marketing/_my_tasks_reminders.html:136
+#: marketing/templates/marketing/_my_tasks_reminders.html:288
+#: marketing/templates/marketing/_my_tasks_reports.html:100
+#: marketing/templates/marketing/_my_tasks_reports.html:102
+#: marketing/templates/marketing/_my_tasks_reports.html:160
+#: marketing/templates/marketing/company_detail.html:125
+#: marketing/templates/marketing/directory.html:99
+#: marketing/templates/marketing/directory.html:101
+#: marketing/templates/marketing/directory.html:133
+#: marketing/templates/marketing/home.html:69
+#: marketing/templates/marketing/task_form.html:156
+msgid "Company"
+msgstr "شرکت"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:135
+#: marketing/templates/marketing/_my_tasks_reports.html:101
+#: marketing/templates/marketing/home.html:72
+#: marketing/templates/marketing/task_report_add.html:58
+msgid "Search a company…"
+msgstr "جستجوی شرکت…"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:144
+#: marketing/templates/marketing/_my_tasks_reports.html:110
+#: marketing/templates/marketing/company_detail.html:449
+#: marketing/templates/marketing/company_detail.html:583
+#: cases/templates/cases/archive.html:184 cases/templates/cases/case_detail.html:566 cases/templates/cases/case_detail.html:687 cases/templates/cases/_side_section.html:427 cases/templates/cases/_side_section.html:538
+msgid "From date (Jalali)"
+msgstr "از تاریخ (شمسی)"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:150
+#: marketing/templates/marketing/_my_tasks_reminders.html:156
+#: marketing/templates/marketing/_my_tasks_reminders.html:287
+#: marketing/templates/marketing/_my_tasks_reminders.html:366
+#: marketing/templates/marketing/_my_tasks_reports.html:258
+#: marketing/templates/marketing/company_detail.html:585
+#: marketing/templates/marketing/company_detail.html:590
+#: marketing/templates/marketing/company_detail.html:630
+#: marketing/templates/marketing/company_detail.html:658
+#: marketing/templates/marketing/task_form.html:99
+#: marketing/templates/marketing/task_report_form.html:51
+#: cases/templates/cases/case_detail.html:689 cases/templates/cases/case_detail.html:694 cases/templates/cases/case_detail.html:702 cases/templates/cases/case_detail.html:717 cases/templates/cases/_side_section.html:540 cases/templates/cases/_side_section.html:545 cases/templates/cases/_side_section.html:553 cases/templates/cases/_side_section.html:568
+msgid "Due"
+msgstr "سررسید"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:150
+#: marketing/templates/marketing/_my_tasks_reports.html:112
+#: marketing/templates/marketing/company_detail.html:451
+#: marketing/templates/marketing/company_detail.html:585
+#: cases/templates/cases/archive.html:191 cases/templates/cases/case_detail.html:572 cases/templates/cases/case_detail.html:689 cases/templates/cases/_side_section.html:433 cases/templates/cases/_side_section.html:540
+msgid "From date"
+msgstr "از تاریخ"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:154
+#: marketing/templates/marketing/_my_tasks_reports.html:115
+#: marketing/templates/marketing/company_detail.html:454
+#: marketing/templates/marketing/company_detail.html:588
+#: cases/templates/cases/archive.html:193 cases/templates/cases/case_detail.html:575 cases/templates/cases/case_detail.html:692 cases/templates/cases/_side_section.html:436 cases/templates/cases/_side_section.html:543
+msgid "To date (Jalali)"
+msgstr "تا تاریخ (شمسی)"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:156
+#: marketing/templates/marketing/_my_tasks_reports.html:117
+#: marketing/templates/marketing/company_detail.html:456
+#: marketing/templates/marketing/company_detail.html:590
+#: cases/templates/cases/archive.html:194 cases/templates/cases/case_detail.html:577 cases/templates/cases/case_detail.html:694 cases/templates/cases/_side_section.html:438 cases/templates/cases/_side_section.html:545
+msgid "To date"
+msgstr "تا تاریخ"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:161
+#: marketing/templates/marketing/_my_tasks_reminders.html:166
+#: marketing/templates/marketing/_my_tasks_reminders.html:285
+#: marketing/templates/marketing/_my_tasks_reports.html:121
+#: marketing/templates/marketing/_my_tasks_reports.html:123
+#: marketing/templates/marketing/_my_tasks_reports.html:159
+#: people/templates/people/person_shift_month.html:25 people/templates/people/person_seats.html:205 people/templates/people/request_detail.html:29
+msgid "Person"
+msgstr "شخص"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:165
+#: marketing/templates/marketing/_my_tasks_reports.html:122
+msgid "Search a person…"
+msgstr "جستجوی شخص…"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:181
+msgid "Show only reminders that are already overdue and still open"
+msgstr "فقط یادآوری‌هایی را نشان بده که سررسید آن‌ها گذشته و هنوز باز هستند"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:187
+msgid "Missed only"
+msgstr "فقط ازدست‌رفته‌ها"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:188
+msgid "Reminders already due, still open — the same set the top-of-page banner counts."
+msgstr "یادآوری‌های سررسیدشده و هنوز باز — همان مجموعه‌ای که بنر بالای صفحه می‌شمارد."
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:199
+msgid "Filter by day"
+msgstr "فیلتر بر اساس روز"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:202 people/forms.py:380
+msgid "All"
+msgstr "همه"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:224
+msgid "Filter by hour"
+msgstr "فیلتر بر اساس ساعت"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:226
+msgid "All hours"
+msgstr "همه ساعت‌ها"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:241
+msgid "At least one reminder is due in this hour"
+msgstr "حداقل یک یادآوری در این ساعت سررسید دارد"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:247
+msgid "No work-shift window is configured for you — Today's reminders are shown as one list instead."
+msgstr "بازه شیفت کاری برای شما تنظیم نشده است — به‌جای آن، یادآوری‌های امروز به‌صورت یک فهرست نمایش داده می‌شوند."
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:264
+#: marketing/templates/marketing/company_detail.html:253
+#: marketing/templates/marketing/company_detail.html:607
+#: marketing/templates/marketing/my_tasks.html:112
+msgid "Reminders"
+msgstr "یادآوری‌ها"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:271
+msgid "Soonest first. Every reminder anyone has set, on any company, any case, or nothing at all."
+msgstr "نزدیک‌ترین‌ها ابتدا. هر یادآوری‌ای که هرکسی تنظیم کرده، روی هر شرکت، هر پرونده یا بدون هیچ‌کدام."
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:273
+msgid "Soonest first. Nobody else can see these — your own private notes to yourself, on any company, any case, or nothing at all."
+msgstr "نزدیک‌ترین‌ها ابتدا. هیچ‌کس دیگری این‌ها را نمی‌بیند — یادداشت‌های خصوصی خودتان، روی هر شرکت، هر پرونده یا بدون هیچ‌کدام."
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:286
+#: cases/templates/cases/archive.html:191 cases/templates/cases/archive.html:194 cases/templates/cases/archive.html:230 cases/templates/cases/case_detail.html:118 people/models.py:600
+msgid "Created"
+msgstr "ایجادشده"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:291
+#: marketing/templates/marketing/company_detail.html:633
+#: cases/templates/cases/case_detail.html:704 cases/templates/cases/_side_section.html:555
+msgid "State"
+msgstr "وضعیت"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:350
+#: marketing/templates/marketing/_my_tasks_reports.html:193
+#: marketing/templates/marketing/company_detail.html:523
+#: marketing/templates/marketing/company_detail.html:651
+msgid "On a case"
+msgstr "روی یک پرونده"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:364
+#: marketing/templates/marketing/company_detail.html:656
+#: cases/templates/cases/case_detail.html:715 cases/templates/cases/_side_section.html:566 marketing/models.py:949
+msgid "Dealt with"
+msgstr "رسیدگی‌شده"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:368
+#: marketing/templates/marketing/company_detail.html:660
+#: cases/templates/cases/case_detail.html:719 cases/templates/cases/_side_section.html:570
+msgid "Waiting"
+msgstr "در انتظار"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:403
+#: marketing/templates/marketing/company_detail.html:704
+#: marketing/templates/marketing/task_report_form.html:23
+#: marketing/templates/marketing/task_report_form.html:24
+#: marketing/templates/marketing/task_report_form.html:29
+#: marketing/templates/marketing/task_report_form.html:105
+msgid "Submit report"
+msgstr "ثبت گزارش"
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:412
+msgid "Nobody has set any reminders yet."
+msgstr "هنوز هیچ‌کس یادآوری‌ای تنظیم نکرده است."
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:414
+msgid "You have not set any tasks yet — use \"Add Task\" above to set the first one."
+msgstr "هنوز هیچ کاری تنظیم نکرده‌اید — برای تنظیم اولین مورد از «افزودن کار» در بالا استفاده کنید."
+
+#: marketing/templates/marketing/_my_tasks_reports.html:81
+#: marketing/templates/marketing/_my_tasks_reports.html:163
+#: marketing/templates/marketing/company_detail.html:470
+#: marketing/templates/marketing/company_detail.html:505 marketing/forms.py:347
+msgid "Report"
+msgstr "گزارش"
+
+#: marketing/templates/marketing/_my_tasks_reports.html:82
+#: marketing/templates/marketing/company_detail.html:471
+msgid "Search report text…"
+msgstr "جستجو در متن گزارش…"
+
+#: marketing/templates/marketing/_my_tasks_reports.html:112
+#: marketing/templates/marketing/_my_tasks_reports.html:117
+#: marketing/templates/marketing/_my_tasks_reports.html:158
+#: marketing/templates/marketing/company_detail.html:451
+#: marketing/templates/marketing/company_detail.html:456
+#: marketing/templates/marketing/company_detail.html:501
+#: cases/templates/cases/case_detail.html:572 cases/templates/cases/case_detail.html:577 cases/templates/cases/case_detail.html:585 cases/templates/cases/_side_section.html:433 cases/templates/cases/_side_section.html:438 cases/templates/cases/_side_section.html:446
+msgid "Date"
+msgstr "تاریخ"
+
+#: marketing/templates/marketing/_my_tasks_reports.html:136
+#: marketing/templates/marketing/company_detail.html:134
+#: marketing/templates/marketing/company_detail.html:252
+#: marketing/templates/marketing/company_detail.html:478
+#: marketing/templates/marketing/my_tasks.html:113
+msgid "Reports"
+msgstr "گزارش‌ها"
+
+#: marketing/templates/marketing/_my_tasks_reports.html:142
+#: marketing/templates/marketing/company_detail.html:486
+#: marketing/templates/marketing/report_case.html:27
+#: marketing/templates/marketing/report_case.html:28
+#: marketing/templates/marketing/report_form.html:29
+#: marketing/templates/marketing/report_form.html:30
+#: marketing/templates/marketing/task_report_add.html:28
+#: marketing/templates/marketing/task_report_add.html:29
+msgid "Add report"
+msgstr "افزودن گزارش"
+
+#: marketing/templates/marketing/_my_tasks_reports.html:148
+msgid "Newest first. Every report anyone has written, on any company, any case, or nothing at all."
+msgstr "جدیدترین‌ها ابتدا. هر گزارشی که هرکسی نوشته، روی هر شرکت، هر پرونده یا بدون هیچ‌کدام."
+
+#: marketing/templates/marketing/_my_tasks_reports.html:150
+msgid "Newest first. Nobody else can see these — your own reports, on any company, any case, or nothing at all."
+msgstr "جدیدترین‌ها ابتدا. هیچ‌کس دیگری این‌ها را نمی‌بیند — گزارش‌های خودتان، روی هر شرکت، هر پرونده یا بدون هیچ‌کدام."
+
+#: marketing/templates/marketing/_my_tasks_reports.html:162
+#: marketing/forms.py:590
+msgid "Reminder note"
+msgstr "یادداشت یادآوری"
+
+#: marketing/templates/marketing/_my_tasks_reports.html:253
+#: marketing/templates/marketing/task_form.html:94
+msgid "Set"
+msgstr "تنظیم"
+
+#: marketing/templates/marketing/_my_tasks_reports.html:263
+#: marketing/templates/marketing/task_form.html:104
+msgid "Reported"
+msgstr "گزارش‌شده"
+
+#: marketing/templates/marketing/_my_tasks_reports.html:274
+msgid "Nobody has written any reports yet."
+msgstr "هنوز هیچ‌کس گزارشی ننوشته است."
+
+#: marketing/templates/marketing/_my_tasks_reports.html:276
+msgid "You have not written any reports yet — use \"Add report\" above to write the first one."
+msgstr "هنوز گزارشی ننوشته‌اید — برای نوشتن اولین مورد از «افزودن گزارش» در بالا استفاده کنید."
+
+#: marketing/templates/marketing/_role_chart.html:56
+msgid "Project role chart — every field is its own entity directory; click one to open it."
+msgstr "نمودار نقش‌های پروژه — هر فیلد فهرست شرکت‌های خودش را دارد؛ برای بازکردن روی یکی کلیک کنید."
+
+#: marketing/templates/marketing/_role_chart.html:123
+#: marketing/templates/marketing/_role_chart.html:143
+#: marketing/templates/marketing/_role_chart.html:147
+#: people/models.py:537
+msgid "Close"
+msgstr "بستن"
+
+#: marketing/templates/marketing/_role_chart.html:127
+msgid "Search…"
+msgstr "جستجو…"
+
+#: marketing/templates/marketing/_role_chart.html:146
+msgid "Confirm this card"
+msgstr "تأیید این کارت"
+
+#: marketing/templates/marketing/company_detail.html:95
+msgid "Company directory"
+msgstr "فهرست شرکت‌ها"
+
+#: marketing/templates/marketing/company_detail.html:95
+#: marketing/templates/marketing/denied.html:11
+#: marketing/templates/marketing/denied.html:12
+#: marketing/templates/marketing/denied.html:17
+#: marketing/templates/marketing/home.html:14
+#: marketing/templates/marketing/home.html:15
+#: marketing/templates/marketing/home.html:23
+msgid "Marketing"
+msgstr "بازاریابی"
+
+#: marketing/templates/marketing/company_detail.html:99
+msgid "Directory"
+msgstr "فهرست"
+
+#: marketing/templates/marketing/company_detail.html:102
+#: marketing/templates/marketing/directory.html:57
+msgid "Relationship chart"
+msgstr "نمودار روابط"
+
+#: marketing/templates/marketing/company_detail.html:128
+#: marketing/templates/marketing/company_detail.html:289
+#: marketing/templates/marketing/company_detail.html:296
+msgid "Name"
+msgstr "نام"
+
+#: marketing/templates/marketing/company_detail.html:130
+#: marketing/templates/marketing/directory.html:134
+msgid "Code"
+msgstr "کد"
+
+#: marketing/templates/marketing/company_detail.html:132
+#: marketing/templates/marketing/company_detail.html:250
+#: marketing/templates/marketing/company_detail.html:261
+msgid "Contacts"
+msgstr "مخاطبین"
+
+#: marketing/templates/marketing/company_detail.html:139
+msgid "Contributors"
+msgstr "مشارکت‌کنندگان"
+
+#: marketing/templates/marketing/company_detail.html:146
+msgid "Your open reminders"
+msgstr "یادآوری‌های باز شما"
+
+#: marketing/templates/marketing/company_detail.html:157
+msgid "Roles"
+msgstr "نقش‌ها"
+
+#: marketing/templates/marketing/company_detail.html:167
+#: marketing/templates/marketing/directory.html:158
+msgid "From this company's cases"
+msgstr "از پرونده‌های این شرکت"
+
+#: marketing/templates/marketing/company_detail.html:167
+#: marketing/templates/marketing/directory.html:158
+msgid "Manually tagged"
+msgstr "برچسب دستی"
+
+#: marketing/templates/marketing/company_detail.html:179
+msgid "This company carries no roles yet."
+msgstr "این شرکت هنوز هیچ نقشی ندارد."
+
+#: marketing/templates/marketing/company_detail.html:197
+#: marketing/templates/marketing/company_detail.html:251
+#: marketing/templates/marketing/company_detail.html:357
+msgid "Cases"
+msgstr "پرونده‌ها"
+
+#: marketing/templates/marketing/company_detail.html:200
+msgid "Total cases"
+msgstr "مجموع پرونده‌ها"
+
+#: marketing/templates/marketing/company_detail.html:202
+#: people/templates/people/_request_recent.html:120 people/templates/people/request_detail.html:14 people/templates/people/request_detail.html:34 people/models.py:821
+msgid "Approved"
+msgstr "تأییدشده"
+
+#: marketing/templates/marketing/company_detail.html:220
+#: cases/constants.py:248 cases/constants.py:397
+msgid "Cancelled"
+msgstr "کنسل‌شده"
+
+#: marketing/templates/marketing/company_detail.html:229
+#: people/models.py:605
+msgid "Closed"
+msgstr "بسته‌شده"
+
+#: marketing/templates/marketing/company_detail.html:236
+msgid "No result"
+msgstr "بدون نتیجه"
+
+#: marketing/templates/marketing/company_detail.html:254
+msgid "Timeline"
+msgstr "جدول زمانی"
+
+#: marketing/templates/marketing/company_detail.html:266
+#: marketing/templates/marketing/contact_form.html:39
+#: marketing/templates/marketing/contact_form.html:40
+#: marketing/templates/marketing/contact_form.html:162
+msgid "Add contact"
+msgstr "افزودن مخاطب"
+
+#: marketing/templates/marketing/company_detail.html:278
+msgid "You see every contact recorded on this company."
+msgstr "همه مخاطبین ثبت‌شده این شرکت را می‌بینید."
+
+#: marketing/templates/marketing/company_detail.html:278
+msgid "You see the contacts you added yourself."
+msgstr "فقط مخاطبینی را می‌بینید که خودتان اضافه کرده‌اید."
+
+#: marketing/templates/marketing/company_detail.html:290
+msgid "Search by name or phone…"
+msgstr "جستجو بر اساس نام یا تلفن…"
+
+#: marketing/templates/marketing/company_detail.html:297 marketing/forms.py:121
+msgid "Contact role"
+msgstr "سمت مخاطب"
+
+#: marketing/templates/marketing/company_detail.html:298
+msgid "Phone"
+msgstr "تلفن"
+
+#: marketing/templates/marketing/company_detail.html:299 marketing/forms.py:145
+msgid "Email"
+msgstr "ایمیل"
+
+#: marketing/templates/marketing/company_detail.html:300
+msgid "Added"
+msgstr "افزوده‌شده"
+
+#: marketing/templates/marketing/company_detail.html:336
+msgid "Remove this contact from the company?"
+msgstr "این مخاطب از شرکت حذف شود؟"
+
+#: marketing/templates/marketing/company_detail.html:338
+msgid "Remove this contact"
+msgstr "حذف این مخاطب"
+
+#: marketing/templates/marketing/company_detail.html:346
+msgid "No contacts recorded for this company yet."
+msgstr "هنوز مخاطبی برای این شرکت ثبت نشده است."
+
+#: marketing/templates/marketing/company_detail.html:377
+msgid "Grand total (all PI)"
+msgstr "جمع کل (همه پیش‌فاکتورها)"
+
+#: marketing/templates/marketing/company_detail.html:397
+msgid "Document No."
+msgstr "شماره سند"
+
+#: marketing/templates/marketing/company_detail.html:398
+msgid "Role on the case"
+msgstr "نقش در پرونده"
+
+#: marketing/templates/marketing/company_detail.html:399
+msgid "Outcome"
+msgstr "نتیجه"
+
+#: marketing/templates/marketing/company_detail.html:414
+msgid "No cases you may see are recorded for this company."
+msgstr "هیچ پرونده‌ای که مجاز به دیدن آن باشید برای این شرکت ثبت نشده است."
+
+#: marketing/templates/marketing/company_detail.html:446
+#: marketing/templates/marketing/company_detail.html:580
+msgid "Document no…"
+msgstr "شماره سند…"
+
+#: marketing/templates/marketing/company_detail.html:495
+msgid "You see every report written on this company."
+msgstr "همه گزارش‌های نوشته‌شده روی این شرکت را می‌بینید."
+
+#: marketing/templates/marketing/company_detail.html:495
+msgid "You see the reports you wrote yourself."
+msgstr "فقط گزارش‌هایی را می‌بینید که خودتان نوشته‌اید."
+
+#: marketing/templates/marketing/company_detail.html:502
+msgid "Author"
+msgstr "نویسنده"
+
+#: marketing/templates/marketing/company_detail.html:504
+msgid "What it's about"
+msgstr "موضوع"
+
+#: marketing/templates/marketing/company_detail.html:525
+msgid "On the company"
+msgstr "روی خود شرکت"
+
+#: marketing/templates/marketing/company_detail.html:547
+msgid "No reports have been written on this company yet."
+msgstr "هنوز گزارشی روی این شرکت نوشته نشده است."
+
+#: marketing/templates/marketing/company_detail.html:549
+msgid "You have not written any reports on this company yet."
+msgstr "شما هنوز گزارشی روی این شرکت ننوشته‌اید."
+
+#: marketing/templates/marketing/company_detail.html:616
+msgid "Set new reminder"
+msgstr "تنظیم یادآوری جدید"
+
+#: marketing/templates/marketing/company_detail.html:624
+msgid "You see every reminder set on this company, by anyone in Marketing."
+msgstr "همه یادآوری‌های تنظیم‌شده روی این شرکت، توسط هر فردی در بازاریابی، را می‌بینید."
+
+#: marketing/templates/marketing/company_detail.html:624
+msgid "You see your own reminders on this company."
+msgstr "فقط یادآوری‌های خودتان را روی این شرکت می‌بینید."
+
+#: marketing/templates/marketing/company_detail.html:634
+msgid "Set by"
+msgstr "تنظیم‌شده توسط"
+
+#: marketing/templates/marketing/company_detail.html:715
+msgid "No reminders have been set on this company yet."
+msgstr "هنوز یادآوری‌ای روی این شرکت تنظیم نشده است."
+
+#: marketing/templates/marketing/company_detail.html:717
+msgid "You have not set any reminders on this company yet."
+msgstr "شما هنوز یادآوری‌ای روی این شرکت تنظیم نکرده‌اید."
+
+#: marketing/templates/marketing/company_detail.html:731
+msgid "Company timeline"
+msgstr "جدول زمانی شرکت"
+
+#: marketing/templates/marketing/company_detail.html:784
+#: marketing/templates/marketing/company_detail.html:787
+msgid "as"
+msgstr "به‌عنوان"
+
+#: marketing/templates/marketing/company_detail.html:796
+msgid "Wrote a report on this company"
+msgstr "گزارشی روی این شرکت نوشت"
+
+#: marketing/templates/marketing/company_detail.html:811
+msgid "Changed this case's role"
+msgstr "نقش این پرونده را تغییر داد"
+
+#: marketing/templates/marketing/company_detail.html:831
+msgid "Nothing has happened to this company yet."
+msgstr "هنوز هیچ اتفاقی برای این شرکت ثبت نشده است."
+
+#: marketing/templates/marketing/company_detail.html:320
+msgid "ext. %(ext)s"
+msgstr "داخلی %(ext)s"
+
+#: marketing/templates/marketing/company_detail.html:366
+msgid "%(n)s approved"
+msgid_plural "%(n)s approved"
+msgstr[0] "%(n)s تأییدشده"
+msgstr[1] "%(n)s تأییدشده"
+
+#: marketing/templates/marketing/company_detail.html:367
+msgid "%(n)s cancelled"
+msgid_plural "%(n)s cancelled"
+msgstr[0] "%(n)s کنسل‌شده"
+msgstr[1] "%(n)s کنسل‌شده"
+
+#: marketing/templates/marketing/company_detail.html:368
+msgid "%(n)s closed"
+msgid_plural "%(n)s closed"
+msgstr[0] "%(n)s بسته‌شده"
+msgstr[1] "%(n)s بسته‌شده"
+
+#: marketing/templates/marketing/company_detail.html:369
+msgid "%(n)s no result"
+msgid_plural "%(n)s no result"
+msgstr[0] "%(n)s بدون نتیجه"
+msgstr[1] "%(n)s بدون نتیجه"
+
+#: marketing/templates/marketing/company_detail.html:379
+msgid "over the %(n)s case listed below"
+msgid_plural "over the %(n)s cases listed below"
+msgstr[0] "روی %(n)s پرونده فهرست‌شده در زیر"
+msgstr[1] "روی %(n)s پرونده فهرست‌شده در زیر"
+
+#: marketing/templates/marketing/company_detail.html:390
+msgid "%(n)s more case on this company is outside what your seat may see."
+msgid_plural "%(n)s more cases on this company are outside what your seat may see."
+msgstr[0] "%(n)s پرونده دیگر روی این شرکت خارج از دسترسی سمت شماست."
+msgstr[1] "%(n)s پرونده دیگر روی این شرکت خارج از دسترسی سمت شماست."
+
+#: marketing/templates/marketing/company_detail.html:545
+msgid "No reports have been written on this company yet — use \"Add report\" to write the first one."
+msgstr "هنوز گزارشی روی این شرکت نوشته نشده است — برای نوشتن اولین مورد از «افزودن گزارش» استفاده کنید."
+
+#: marketing/templates/marketing/company_detail.html:713
+msgid "No reminders set on this company yet — use \"Set new reminder\" to add one."
+msgstr "هنوز یادآوری‌ای روی این شرکت تنظیم نشده است — برای افزودن یک مورد از «تنظیم یادآوری جدید» استفاده کنید."
+
+#: marketing/templates/marketing/company_detail.html:764
+msgid "Registered <span dir=\"auto\">%(subject)s</span> in the company directory"
+msgstr "شرکت <span dir=\"auto\">%(subject)s</span> را در فهرست شرکت‌ها ثبت کرد"
+
+#: marketing/templates/marketing/company_detail.html:766
+msgid "Tagged this company as <strong dir=\"auto\">%(subject)s</strong>"
+msgstr "این شرکت را به‌عنوان <strong dir=\"auto\">%(subject)s</strong> برچسب زد"
+
+#: marketing/templates/marketing/company_detail.html:768
+msgid "Removed the <strong dir=\"auto\">%(subject)s</strong> tag from this company"
+msgstr "برچسب <strong dir=\"auto\">%(subject)s</strong> را از این شرکت حذف کرد"
+
+#: marketing/templates/marketing/company_detail.html:783
+msgid "Connected this company to <strong dir=\"auto\">%(subject)s</strong>"
+msgstr "این شرکت را به <strong dir=\"auto\">%(subject)s</strong> متصل کرد"
+
+#: marketing/templates/marketing/company_detail.html:786
+msgid "Removed the connection to <strong dir=\"auto\">%(subject)s</strong>"
+msgstr "اتصال به <strong dir=\"auto\">%(subject)s</strong> را حذف کرد"
+
+#: marketing/templates/marketing/company_detail.html:789
+msgid "Added <strong dir=\"auto\">%(subject)s</strong> as a contact at this company"
+msgstr "مخاطب <strong dir=\"auto\">%(subject)s</strong> را به این شرکت افزود"
+
+#: marketing/templates/marketing/company_detail.html:791
+msgid "Removed the contact <strong dir=\"auto\">%(subject)s</strong>"
+msgstr "مخاطب <strong dir=\"auto\">%(subject)s</strong> را حذف کرد"
+
+#: marketing/templates/marketing/company_detail.html:796
+msgid "about case <span class=\"mono\">%(doc)s</span>"
+msgstr "درباره پرونده <span class=\"mono\">%(doc)s</span>"
+
+#: marketing/templates/marketing/company_detail.html:811
+msgid "(<span class=\"mono\">%(doc)s</span>)"
+msgstr "(<span class=\"mono\">%(doc)s</span>)"
+
+#: marketing/templates/marketing/contact_form.html:45
+msgid "Add a contact"
+msgstr "افزودن مخاطب"
+
+#: marketing/templates/marketing/contact_form.html:49
+#: marketing/templates/marketing/reminder_form.html:58
+#: marketing/templates/marketing/report_case.html:37
+#: marketing/templates/marketing/report_form.html:39
+msgid "Back to company"
+msgstr "بازگشت به شرکت"
+
+#: marketing/templates/marketing/contact_form.html:86
+msgid "No contact roles exist yet — add the first one in the field below."
+msgstr "هنوز هیچ سمتی برای مخاطبین وجود ندارد — اولین مورد را در فیلد زیر اضافه کنید."
+
+#: marketing/templates/marketing/contact_form.html:87
+msgid "No contact roles exist yet. A Marketing Supervisor has to add the first one before a contact can be filed under a job title."
+msgstr "هنوز هیچ سمتی برای مخاطبین وجود ندارد. یک سرپرست بازاریابی باید ابتدا اولین مورد را اضافه کند تا بتوان مخاطبی را زیر یک عنوان شغلی ثبت کرد."
+
+#: marketing/templates/marketing/contact_form.html:100
+msgid "Adds the title to the shared list for everyone in Marketing. Leave it blank if you picked a role above."
+msgstr "این عنوان را به فهرست مشترک همه افراد بازاریابی اضافه می‌کند. اگر از بالا یک سمت انتخاب کرده‌اید، این را خالی بگذارید."
+
+#: marketing/templates/marketing/contact_form.html:118
+msgid "Contact details"
+msgstr "اطلاعات تماس"
+
+#: marketing/templates/marketing/contact_form.html:124
+msgid "Dialling prefix"
+msgstr "پیش‌شماره"
+
+#: marketing/templates/marketing/contact_form.html:126
+msgid "e.g. 021"
+msgstr "مثلاً 021"
+
+#: marketing/templates/marketing/contact_form.html:129
+msgid "Phone number"
+msgstr "شماره تلفن"
+
+#: marketing/templates/marketing/contact_form.html:134
+msgid "Internal extension"
+msgstr "داخلی"
+
+#: marketing/templates/marketing/contact_form.html:136
+msgid "e.g. 214"
+msgstr "مثلاً 214"
+
+#: marketing/templates/marketing/contact_form.html:143
+msgid "Remove this number"
+msgstr "حذف این شماره"
+
+#: marketing/templates/marketing/contact_form.html:150
+msgid "Add phone"
+msgstr "افزودن تلفن"
+
+#: marketing/templates/marketing/contact_form.html:158
+msgid "A phone number or an email is required — either one on its own is enough."
+msgstr "شماره تلفن یا ایمیل الزامی است — هرکدام به‌تنهایی کافی است."
+
+#: marketing/templates/marketing/contact_form.html:46
+msgid "at <span dir=\"auto\">%(name)s</span> <span class=\"mono\">(%(code)s)</span>"
+msgstr "در <span dir=\"auto\">%(name)s</span> <span class=\"mono\">(%(code)s)</span>"
+
+#: marketing/templates/marketing/denied.html:23
+msgid "Not your unit"
+msgstr "واحد شما نیست"
+
+#: marketing/templates/marketing/denied.html:25
+msgid "This section belongs to the Marketing unit. Your seat is not in it, so there is nothing here for you to open."
+msgstr "این بخش متعلق به واحد بازاریابی است. سمت شما در آن نیست، بنابراین چیزی برای بازکردن اینجا وجود ندارد."
+
+#: marketing/templates/marketing/directory.html:46
+msgid "Every company on the relationship chart, with the roles it carries."
+msgstr "همه شرکت‌های نمودار روابط، به‌همراه نقش‌هایی که دارند."
+
+#: marketing/templates/marketing/directory.html:59
+msgid "of"
+msgstr "از"
+
+#: marketing/templates/marketing/directory.html:74
+msgid "Apply filters"
+msgstr "اعمال فیلترها"
+
+#: marketing/templates/marketing/directory.html:100
+msgid "Search company…"
+msgstr "جستجوی شرکت…"
+
+#: marketing/templates/marketing/directory.html:110
+msgid "Role / label"
+msgstr "نقش / برچسب"
+
+#: marketing/templates/marketing/directory.html:116
+msgid "Search role…"
+msgstr "جستجوی نقش…"
+
+#: marketing/templates/marketing/directory.html:117
+#: marketing/templates/marketing/directory.html:135
+msgid "Roles / labels"
+msgstr "نقش‌ها / برچسب‌ها"
+
+#: marketing/templates/marketing/directory.html:169
+msgid "No companies match these filters."
+msgstr "هیچ شرکتی با این فیلترها مطابقت ندارد."
+
+#: marketing/templates/marketing/home.html:54
+msgid "Quick Inquiry"
+msgstr "استعلام سریع"
+
+#: marketing/templates/marketing/home.html:78
+msgid "Role"
+msgstr "نقش"
+
+#: marketing/templates/marketing/home.html:81
+msgid "Pick a company first…"
+msgstr "ابتدا یک شرکت انتخاب کنید…"
+
+#: marketing/templates/marketing/home.html:84
+msgid "+ Add a new role"
+msgstr "+ افزودن نقش جدید"
+
+#: marketing/templates/marketing/home.html:102
+msgid "Choose a role to add…"
+msgstr "نقشی برای افزودن انتخاب کنید…"
+
+#: marketing/templates/marketing/home.html:105
+msgid "Add"
+msgstr "افزودن"
+
+#: marketing/templates/marketing/home.html:110
+msgid "Run inquiry"
+msgstr "اجرای استعلام"
+
+#: marketing/templates/marketing/home.html:133
+msgid "Case Mode"
+msgstr "حالت پرونده"
+
+#: marketing/templates/marketing/home.html:139
+msgid "Search doc no. or company…"
+msgstr "جستجوی شماره سند یا شرکت…"
+
+#: marketing/templates/marketing/home.html:149
+msgid "Relationship Map"
+msgstr "نقشه روابط"
+
+#: marketing/templates/marketing/home.html:178
+#: people/templates/people/_person_rows.html:68 people/templates/people/person_seats.html:50 people/templates/people/person_seats.html:230 people/constants.py:32
+msgid "Active"
+msgstr "فعال"
+
+#: marketing/templates/marketing/home.html:189
+msgid "Deactivate"
+msgstr "غیرفعال کردن"
+
+#: marketing/templates/marketing/my_tasks.html:53
+#: marketing/templates/marketing/my_tasks.html:54
+#: marketing/templates/marketing/my_tasks.html:78
+msgid "All Reports & Reminders"
+msgstr "همه گزارش‌ها و یادآوری‌ها"
+
+#: marketing/templates/marketing/my_tasks.html:79
+msgid "Every reminder and report anyone has set or written, on any company or case, or on nothing at all — filterable by person."
+msgstr "هر یادآوری و گزارشی که هرکسی تنظیم یا نوشته، روی هر شرکت یا پرونده، یا بدون هیچ‌کدام — قابل فیلتر بر اساس شخص."
+
+#: marketing/templates/marketing/my_tasks.html:82
+msgid "Every reminder and report you have set or written for yourself, on any company or case — or on nothing at all."
+msgstr "هر یادآوری و گزارشی که خودتان برای خودتان تنظیم یا نوشته‌اید، روی هر شرکت یا پرونده — یا بدون هیچ‌کدام."
+
+#: marketing/templates/marketing/my_tasks.html:99
+msgid "Work calendar"
+msgstr "تقویم کاری"
+
+#: marketing/templates/marketing/my_tasks.html:103
+#: marketing/templates/marketing/task_form.html:47
+#: marketing/templates/marketing/task_form.html:48
+msgid "Add Task"
+msgstr "افزودن کار"
+
+#: marketing/templates/marketing/reminder_form.html:40
+#: marketing/templates/marketing/reminder_form.html:41
+#: marketing/templates/marketing/reminder_form.html:49
+#: cases/templates/cases/case_detail.html:633 cases/templates/cases/case_detail.html:729 cases/templates/cases/_side_section.html:486 cases/templates/cases/_side_section.html:580
+msgid "Set a reminder"
+msgstr "تنظیم یادآوری"
+
+#: marketing/templates/marketing/reminder_form.html:75
+msgid "Like your reports, a Marketing Supervisor (and the platform admin) can see this reminder on your unit's reminders list — nobody outside Marketing does, only you can close it out (by submitting the report it calls for), and it is still not recorded on the company's own timeline."
+msgstr "مانند گزارش‌های شما، سرپرست بازاریابی (و مدیر سیستم) می‌تواند این یادآوری را در فهرست یادآوری‌های واحد شما ببیند — هیچ‌کس خارج از بازاریابی این را نمی‌بیند، فقط خودتان می‌توانید آن را ببندید (با ثبت گزارشی که نیاز دارد)، و همچنان در جدول زمانی خود شرکت ثبت نمی‌شود."
+
+#: marketing/templates/marketing/reminder_form.html:82
+msgid "When this time passes, a notification appears at the top of your screen and stays there until you act on it."
+msgstr "وقتی این زمان بگذرد، اعلانی در بالای صفحه شما ظاهر می‌شود و تا زمانی که به آن رسیدگی کنید باقی می‌ماند."
+
+#: marketing/templates/marketing/reminder_form.html:93
+msgid "There are no cases on this company that your seat may see. The reminder will be about the company itself."
+msgstr "هیچ پرونده‌ای روی این شرکت وجود ندارد که سمت شما مجاز به دیدن آن باشد. یادآوری درباره خود شرکت خواهد بود."
+
+#: marketing/templates/marketing/reminder_form.html:104
+#: marketing/templates/marketing/task_form.html:204
+msgid "Set reminder"
+msgstr "تنظیم یادآوری"
+
+#: marketing/templates/marketing/reminder_form.html:50
+#: marketing/templates/marketing/report_case.html:34
+#: marketing/templates/marketing/report_form.html:36
+msgid "on <span dir=\"auto\">%(name)s</span> <span class=\"mono\">(%(code)s)</span>"
+msgstr "روی <span dir=\"auto\">%(name)s</span> <span class=\"mono\">(%(code)s)</span>"
+
+#: marketing/templates/marketing/report_case.html:33
+#: marketing/templates/marketing/report_form.html:35
+#: marketing/templates/marketing/task_report_add.html:37
+msgid "Add a report"
+msgstr "افزودن گزارش"
+
+#: marketing/templates/marketing/report_case.html:47
+msgid "Step 1 of 2 — if this report is about one specific case, attach it here. It is optional; Skip goes straight to writing the report."
+msgstr "مرحله ۱ از ۲ — اگر این گزارش درباره یک پرونده مشخص است، آن را اینجا پیوست کنید. این اختیاری است؛ رد شدن مستقیماً به نوشتن گزارش می‌رود."
+
+#: marketing/templates/marketing/report_case.html:51
+msgid "Case this report is about"
+msgstr "پرونده‌ای که این گزارش درباره آن است"
+
+#: marketing/templates/marketing/report_case.html:54
+#: marketing/templates/marketing/task_report_add.html:70
+msgid "— No case —"
+msgstr "— بدون پرونده —"
+
+#: marketing/templates/marketing/report_case.html:64
+msgid "There are no cases on this company that your seat may see. Skip to write the report on the company itself."
+msgstr "هیچ پرونده‌ای روی این شرکت وجود ندارد که سمت شما مجاز به دیدن آن باشد. برای نوشتن گزارش روی خود شرکت، رد شوید."
+
+#: marketing/templates/marketing/report_case.html:73
+msgid "Continue"
+msgstr "ادامه"
+
+#: marketing/templates/marketing/report_case.html:77
+msgid "Skip — no case"
+msgstr "رد شدن — بدون پرونده"
+
+#: marketing/templates/marketing/report_form.html:60
+msgid "Step 2 of 2 —"
+msgstr "مرحله ۲ از ۲ —"
+
+#: marketing/templates/marketing/report_form.html:64
+msgid "this report is not attached to any case."
+msgstr "این گزارش به هیچ پرونده‌ای پیوست نیست."
+
+#: marketing/templates/marketing/report_form.html:66
+msgid "Change"
+msgstr "تغییر"
+
+#: marketing/templates/marketing/report_form.html:88
+#: marketing/templates/marketing/task_report_add.html:87
+#: marketing/templates/marketing/task_report_form.html:82
+msgid "No report options exist yet — add the first one in the field below."
+msgstr "هنوز هیچ گزینه گزارشی وجود ندارد — اولین مورد را در فیلد زیر اضافه کنید."
+
+#: marketing/templates/marketing/report_form.html:89
+#: marketing/templates/marketing/task_report_add.html:88
+#: marketing/templates/marketing/task_report_form.html:83
+msgid "No report options exist yet. A Marketing Supervisor or the platform admin can add them; until then, write the report below."
+msgstr "هنوز هیچ گزینه گزارشی وجود ندارد. یک سرپرست بازاریابی یا مدیر سیستم می‌تواند آن‌ها را اضافه کند؛ تا آن زمان، گزارش را در زیر بنویسید."
+
+#: marketing/templates/marketing/report_form.html:103
+#: marketing/templates/marketing/task_report_add.html:98
+#: marketing/templates/marketing/task_report_form.html:93
+msgid "Adds the option to the shared list for everyone in Marketing, and ticks it on this report. Leave it blank if the options above are enough."
+msgstr "این گزینه را به فهرست مشترک همه افراد بازاریابی اضافه می‌کند و آن را روی این گزارش علامت می‌زند. اگر گزینه‌های بالا کافی است، این را خالی بگذارید."
+
+#: marketing/templates/marketing/report_form.html:111
+#: marketing/templates/marketing/task_report_add.html:106
+#: marketing/templates/marketing/task_report_form.html:101
+msgid "Tick at least one option above, write the report here, or do both."
+msgstr "حداقل یک گزینه از بالا را علامت بزنید، گزارش را اینجا بنویسید، یا هر دو را انجام دهید."
+
+#: marketing/templates/marketing/report_form.html:115
+msgid "Confirm report"
+msgstr "تأیید گزارش"
+
+#: marketing/templates/marketing/report_form.html:62
+msgid "this report will be filed against case <span class=\"mono\">%(doc)s</span>."
+msgstr "این گزارش روی پرونده <span class=\"mono\">%(doc)s</span> ثبت خواهد شد."
+
+#: marketing/templates/marketing/task_form.html:47
+msgid "Next reminder"
+msgstr "یادآوری بعدی"
+
+#: marketing/templates/marketing/task_form.html:48
+#: marketing/templates/marketing/task_form.html:56
+msgid "Set your next reminder"
+msgstr "یادآوری بعدی خود را تنظیم کنید"
+
+#: marketing/templates/marketing/task_form.html:56
+msgid "Add a task"
+msgstr "افزودن کار"
+
+#: marketing/templates/marketing/task_form.html:59
+msgid "The report is already saved and the old reminder is gone — this is only the next one, and it is entirely optional."
+msgstr "گزارش قبلاً ذخیره شده و یادآوری قبلی حذف شده است — این فقط مورد بعدی است و کاملاً اختیاری است."
+
+#: marketing/templates/marketing/task_form.html:61
+msgid "A private note to yourself. Nobody else can see it."
+msgstr "یادداشتی خصوصی برای خودتان. هیچ‌کس دیگری آن را نمی‌بیند."
+
+#: marketing/templates/marketing/task_form.html:66
+msgid "Skip — back to My Tasks"
+msgstr "رد شدن — بازگشت به کارهای من"
+
+#: marketing/templates/marketing/task_form.html:66
+#: marketing/templates/marketing/task_report_add.html:41
+#: marketing/templates/marketing/task_report_form.html:33
+msgid "Back to My Tasks"
+msgstr "بازگشت به کارهای من"
+
+#: marketing/templates/marketing/task_form.html:89
+msgid "Report saved"
+msgstr "گزارش ذخیره شد"
+
+#: marketing/templates/marketing/task_form.html:91
+msgid "This reminder is closed — the old row is gone, and this is what got recorded."
+msgstr "این یادآوری بسته شده است — ردیف قبلی حذف شده و این چیزی است که ثبت شد."
+
+#: marketing/templates/marketing/task_form.html:110
+msgid "The reminder's own note"
+msgstr "یادداشت خودِ یادآوری"
+
+#: marketing/templates/marketing/task_form.html:115
+msgid "The report"
+msgstr "گزارش"
+
+#: marketing/templates/marketing/task_form.html:143
+msgid "When this time passes, a notification appears at the top of your screen and stays until you close it out."
+msgstr "وقتی این زمان بگذرد، اعلانی در بالای صفحه شما ظاهر می‌شود و تا زمانی که آن را ببندید باقی می‌ماند."
+
+#: marketing/templates/marketing/task_form.html:160
+msgid "No company"
+msgstr "بدون شرکت"
+
+#: marketing/templates/marketing/task_form.html:183
+msgid "No case"
+msgstr "بدون پرونده"
+
+#: marketing/templates/marketing/task_form.html:186
+msgid "Locked to the reminder you just closed — not changeable on this step."
+msgstr "قفل‌شده به یادآوری‌ای که تازه بستید — در این مرحله قابل تغییر نیست."
+
+#: marketing/templates/marketing/task_form.html:192
+msgid "There are no cases your own access lets you see. The reminder can still name a company, or nothing at all."
+msgstr "هیچ پرونده‌ای وجود ندارد که دسترسی شما اجازه دیدن آن را بدهد. یادآوری همچنان می‌تواند یک شرکت را نام ببرد، یا هیچ‌کدام."
+
+#: marketing/templates/marketing/task_form.html:204
+msgid "Add task"
+msgstr "افزودن کار"
+
+#: marketing/templates/marketing/task_form.html:205
+msgid "Skip"
+msgstr "رد شدن"
+
+#: marketing/templates/marketing/task_form.html:144
+msgid "Pick a time inside your own work shift (%(window)s)."
+msgstr "زمانی درون شیفت کاری خودتان انتخاب کنید (%(window)s)."
+
+#: marketing/templates/marketing/task_form.html:163
+msgid "Locked to the reminder you just closed — a next reminder always stays on the same company. Use \"Add Task\" from My Tasks for anything else."
+msgstr "قفل‌شده به یادآوری‌ای که تازه بستید — یادآوری بعدی همیشه روی همان شرکت باقی می‌ماند. برای هر چیز دیگری از «افزودن کار» در کارهای من استفاده کنید."
+
+#: marketing/templates/marketing/task_report_add.html:38
+msgid "A standalone report — no reminder involved. Company and case are both optional."
+msgstr "یک گزارش مستقل — بدون هیچ یادآوری‌ای. شرکت و پرونده هر دو اختیاری‌اند."
+
+#: marketing/templates/marketing/task_report_add.html:56 marketing/forms.py:727
+msgid "Company (optional)"
+msgstr "شرکت (اختیاری)"
+
+#: marketing/templates/marketing/task_report_add.html:59
+msgid "— No company —"
+msgstr "— بدون شرکت —"
+
+#: marketing/templates/marketing/task_report_add.html:67 marketing/forms.py:733
+msgid "Case (optional)"
+msgstr "پرونده (اختیاری)"
+
+#: marketing/templates/marketing/task_report_add.html:76
+msgid "There are no cases your own access lets you see. The report can still name a company, or nothing at all."
+msgstr "هیچ پرونده‌ای وجود ندارد که دسترسی شما اجازه دیدن آن را بدهد. گزارش همچنان می‌تواند یک شرکت را نام ببرد، یا هیچ‌کدام."
+
+#: marketing/templates/marketing/task_report_add.html:78
+msgid "Picking a case with no company above attaches that case's own company automatically."
+msgstr "انتخاب یک پرونده بدون شرکت در بالا، شرکت خودِ آن پرونده را به‌طور خودکار پیوست می‌کند."
+
+#: marketing/templates/marketing/task_report_add.html:110
+msgid "Save report"
+msgstr "ذخیره گزارش"
+
+#: marketing/templates/marketing/task_report_form.html:30
+msgid "Closing out one reminder — writing this saves the report and removes the reminder."
+msgstr "بستن یک یادآوری — نوشتن این، گزارش را ذخیره کرده و یادآوری را حذف می‌کند."
+
+#: marketing/templates/marketing/task_report_form.html:48
+msgid "What you are closing"
+msgstr "آنچه می‌بندید"
+
+#: marketing/forms.py:108
+msgid "First name"
+msgstr "نام"
+
+#: marketing/forms.py:112
+msgid "Last name"
+msgstr "نام خانوادگی"
+
+#: marketing/forms.py:121
+msgid "— Select a contact role —"
+msgstr "— انتخاب سمت مخاطب —"
+
+#: marketing/forms.py:123
+msgid "Search contact role…"
+msgstr "جستجوی سمت مخاطب…"
+
+#: marketing/forms.py:127
+msgid "— Select —"
+msgstr "— انتخاب —"
+
+#: marketing/forms.py:128
+msgid "Gender"
+msgstr "جنسیت"
+
+#: marketing/forms.py:156
+msgid "…or add a new role"
+msgstr "…یا نقش جدیدی اضافه کنید"
+
+#: marketing/forms.py:159
+msgid "e.g. Head of QC"
+msgstr "مثلاً رئیس تضمین کیفیت"
+
+#: marketing/forms.py:269
+msgid "Either pick a contact role from the list or add a new one — not both."
+msgstr "یا از فهرست یک سمت انتخاب کنید یا یکی جدید اضافه کنید — نه هر دو."
+
+#: marketing/forms.py:272
+msgid "A contact role is required."
+msgstr "سمت مخاطب الزامی است."
+
+#: marketing/forms.py:288
+msgid "Enter at least one way to contact this person — a phone number or an email address."
+msgstr "حداقل یک راه ارتباطی با این شخص وارد کنید — شماره تلفن یا آدرس ایمیل."
+
+#: marketing/forms.py:343
+msgid "What is this report about?"
+msgstr "این گزارش درباره چیست؟"
+
+#: marketing/forms.py:350
+msgid "Write the report in your own words…"
+msgstr "گزارش را با کلمات خودتان بنویسید…"
+
+#: marketing/forms.py:367
+msgid "…or add a new option"
+msgstr "…یا گزینه جدیدی اضافه کنید"
+
+#: marketing/forms.py:370
+msgid "e.g. On-site visit"
+msgstr "مثلاً بازدید حضوری"
+
+#: marketing/forms.py:449
+msgid "A report has to say something — tick at least one option, write the report yourself, or do both."
+msgstr "گزارش باید چیزی بگوید — حداقل یک گزینه را علامت بزنید، خودتان گزارش را بنویسید، یا هر دو را انجام دهید."
+
+#: marketing/forms.py:466
+msgid "Remind me at (Jalali date and time)"
+msgstr "در این زمان یادآوری کن (تاریخ و ساعت شمسی)"
+
+#. Placeholder on the shared due_at box (ReminderForm and TaskForm both use
+#. _due_at_field) — set explicitly because static/js/jalali_picker.js falls
+#. back to a hard-coded English "Pick a date" when the underlying input
+#. carries no placeholder attribute at all, which is what this field left it
+#. as before this round; see _due_at_field's own comment. Digits kept as
+#. plain ASCII, matching "e.g. 021"/"e.g. 214" above and the identical
+#. example in the validation-error message below.
+#: marketing/forms.py:501
+msgid "e.g. 1405-03-27 14:30"
+msgstr "مثلاً 1405-03-27 14:30"
+
+#: marketing/forms.py:548
+msgid "Enter the date and time as a Jalali value, e.g. 1405-03-27 14:30."
+msgstr "تاریخ و ساعت را به‌صورت شمسی وارد کنید، مثلاً 1405-03-27 14:30."
+
+#: marketing/forms.py:593 marketing/forms.py:739 marketing/forms.py:742
+msgid "What should you do when this comes up?"
+msgstr "وقتی این موضوع پیش آمد، چه‌کار باید بکنید؟"
+
+#: marketing/forms.py:598
+msgid "About one specific case (optional)"
+msgstr "درباره یک پرونده مشخص (اختیاری)"
+
+#: marketing/forms.py:600 marketing/forms.py:735
+msgid "Search a case..."
+msgstr "جستجوی پرونده..."
+
+#: marketing/forms.py:609 marketing/forms.py:757
+msgid "- No case -"
+msgstr "- بدون پرونده -"
+
+#: marketing/forms.py:729
+msgid "Search a company..."
+msgstr "جستجوی شرکت..."
+
+#: marketing/forms.py:745
+msgid "Due at (Jalali date and time)"
+msgstr "سررسید در (تاریخ و ساعت شمسی)"
+
+#: marketing/forms.py:753
+msgid "- No company -"
+msgstr "- بدون شرکت -"
+
+#: marketing/forms.py:820
+msgid "Pick a time inside your own work shift%s."
+msgstr "زمانی درون شیفت کاری خودتان انتخاب کنید%s."
+
+#: marketing/rolechart.py:134
+msgid "SPONSOR / INVESTOR"
+msgstr "اسپانسر / سرمایه‌گذار"
+
+#: marketing/rolechart.py:135
+msgid "OWNER / CLIENT"
+msgstr "کارفرما / مشتری"
+
+#: marketing/rolechart.py:136
+msgid "PROJECT PHASE"
+msgstr "فاز پروژه"
+
+#: marketing/rolechart.py:137
+msgid "PMT — PROJECT MGMT TEAM"
+msgstr "PMT — تیم مدیریت پروژه"
+
+#: marketing/rolechart.py:138
+msgid "MC / PMC — MGMT CONTRACTOR"
+msgstr "MC / PMC — پیمانکار مدیریت"
+
+#: marketing/rolechart.py:139
+msgid "LICENSOR"
+msgstr "لایسنسور"
+
+#: marketing/rolechart.py:140
+msgid "DESIGN CONSULTANT — FEED / DED"
+msgstr "مشاور طراحی — FEED / DED"
+
+#: marketing/rolechart.py:141
+msgid "SUPERVISION"
+msgstr "نظارت"
+
+#: marketing/rolechart.py:142
+msgid "C — CONSTRUCTION ONLY"
+msgstr "C — فقط اجرا"
+
+#: marketing/rolechart.py:143
+msgid "P — PROCUREMENT ONLY"
+msgstr "P — فقط خرید"
+
+#: marketing/rolechart.py:144
+msgid "PC — PROCUREMENT + CONSTRUCTION"
+msgstr "PC — خرید و اجرا"
+
+#: marketing/rolechart.py:145
+msgid "EPC — ENG. PROC. CONSTRUCTION"
+msgstr "EPC — طراحی، خرید و اجرا"
+
+#: marketing/rolechart.py:146
+msgid "SUBCONTRACTOR — P"
+msgstr "پیمانکار جزء — P"
+
+#: marketing/rolechart.py:147
+msgid "SUBCONTRACTOR — PC"
+msgstr "پیمانکار جزء — PC"
+
+#: marketing/rolechart.py:148
+msgid "SUBCONTRACTOR — EPC"
+msgstr "پیمانکار جزء — EPC"
+
+#: marketing/rolechart.py:149
+msgid "TPI — THIRD PARTY INSP."
+msgstr "TPI — بازرسی شخص ثالث"
+
+#: marketing/rolechart.py:150
+msgid "LABORATORY"
+msgstr "آزمایشگاه"
+
+#: marketing/rolechart.py:151
+msgid "SUB-SUPPLIER"
+msgstr "زیرتأمین‌کننده"
+
+#: marketing/rolechart.py:152
+msgid "COMPETITOR"
+msgstr "رقیب"
+
+#: marketing/rolechart.py:170
+msgid "PROJECT"
+msgstr "پروژه"
+
+#: marketing/rolechart.py:172
+msgid "VENDOR / SUPPLIER"
+msgstr "فروشنده / تأمین‌کننده"
+
+#: marketing/rolechart.py:372
+msgid "entity"
+msgstr "مورد"
+
+#: marketing/rolechart.py:372
+msgid "entities"
+msgstr "مورد"
+
+#: marketing/views.py:2014
+msgid "No personnel record is linked to this login."
+msgstr "هیچ سابقه پرسنلی به این ورود متصل نیست."
+
+#: marketing/views.py:2267
+msgid "Today"
+msgstr "امروز"
+
+#: marketing/views.py:2269
+msgid "Tomorrow"
+msgstr "فردا"
+
+# ---------------------------------------------------------------------------
+# STATUSES / ACTIONS STAGE — the owner explicitly asked for the workflow's own
+# status/action vocabulary to be translatable too ("even the statuses and
+# everything"), which lives Python-side as CHOICES tuples, not template
+# literals: cases/constants.py (CaseStatus, EventAction, DocKind, OfferType,
+# FormKind, PriceType, Side), marketing/models.py (ReminderState,
+# ClientEventAction), people/models.py (SeatTenure.KIND_CHOICES/
+# REASON_CHOICES, SeatEventLog.EVENT_CHOICES, StaffRequest.STATUS_CHOICES —
+# people/constants.py's own PersonStatus was already done by an earlier pass).
+# Plus the generic, truly shared template vocabulary these same status/action
+# pills sit beside on cases/ and people/ pages: "Status" column headers/
+# labels, the archive/case-detail filter cards' date-range labels (reusing the
+# exact "From date (Jalali)"/"To date (Jalali)" msgids the marketing stage
+# already established), and the "Write a report"/"Set a reminder" case-detail
+# action buttons (the latter reusing marketing's own msgid).
+#
+# NOT translated on purpose: cases/constants.py's MarketingLabel (already
+# hand-written Persian, not an English source string to translate — see its
+# own docstring) and CaseStatus.ARCHIVE_GROUP/ARCHIVE_TAB_ORDER (deliberately
+# plain-English internal filter/grouping KEYS the archive's own JS matches
+# against, not display text — see that class's own comment). Also left alone:
+# accounts/constants.py's Unit/Role/SupplyKind/Gender — organisational
+# vocabulary, not the case/request STATUS vocabulary the owner named, and the
+# exported PDF/print document templates under cases/templates/cases/export/,
+# which are frozen business documents rather than UI chrome.
+# ---------------------------------------------------------------------------
+
+#: cases/templates/cases/archive.html:89 cases/templates/cases/archive.html:226
+#: cases/templates/cases/case_detail.html:56
+#: cases/templates/cases/inbox.html:53
+#: people/templates/people/_person_rows.html:36
+#: people/templates/people/_request_recent.html:69
+#: people/templates/people/_request_recent.html:76
+#: people/templates/people/_request_recent.html:99
+#: people/templates/people/gm_overtime_inbox.html:37
+#: people/templates/people/person_seats.html:47
+#: people/templates/people/person_seats.html:206
+#: people/templates/people/request_detail.html:32 people/forms.py:379
+msgid "Status"
+msgstr "وضعیت"
+
+#: cases/templates/cases/case_detail.html:513
+#: cases/templates/cases/case_detail.html:610
+#: cases/templates/cases/_side_section.html:375
+#: cases/templates/cases/_side_section.html:471
+msgid "Write a report"
+msgstr "نوشتن گزارش"
+
+#: people/templates/people/_person_rows.html:70
+#: people/templates/people/person_seats.html:52 people/constants.py:33
+msgid "Departed"
+msgstr "جداشده"
+
+#: people/templates/people/_request_recent.html:121
+#: people/templates/people/request_detail.html:15
+#: people/templates/people/request_detail.html:35 people/models.py:822
+msgid "Rejected"
+msgstr "ردشده"
+
+#: people/templates/people/_request_recent.html:122
+#: people/templates/people/gm_overtime_inbox.html:51
+#: people/templates/people/request_detail.html:16
+#: people/templates/people/request_detail.html:36 people/models.py:820
+msgid "Submitted"
+msgstr "ثبت‌شده"
+
+#: people/templates/people/person_seats.html:226
+#: people/templates/people/person_seats.html:231 people/models.py:606
+msgid "Vacant"
+msgstr "خالی"
+
+#: cases/constants.py:35
+msgid "Indent"
+msgstr "ایندنت"
+
+#: cases/constants.py:36
+msgid "Tender"
+msgstr "مناقصه"
+
+#: cases/constants.py:37
+msgid "Budget"
+msgstr "بودجه"
+
+#: cases/constants.py:48
+msgid "TO (Technical Offer)"
+msgstr "TO (پیشنهاد فنی)"
+
+#: cases/constants.py:49
+msgid "TO & PI (Technical Offer + Proforma)"
+msgstr "TO و PI (پیشنهاد فنی + پیش‌فاکتور)"
+
+#: cases/constants.py:59
+msgid "Inquiry"
+msgstr "استعلام"
+
+#: cases/constants.py:60
+msgid "Technical Offer (TO)"
+msgstr "پیشنهاد فنی (TO)"
+
+#: cases/constants.py:61
+msgid "Proforma Invoice (PI)"
+msgstr "پیش‌فاکتور (PI)"
+
+#: cases/constants.py:74 cases/constants.py:87
+msgid "Internal"
+msgstr "داخلی"
+
+#: cases/constants.py:75 cases/constants.py:88
+msgid "External"
+msgstr "خارجی"
+
+#: cases/constants.py:76
+msgid "Internal & External"
+msgstr "داخلی و خارجی"
+
+#: cases/constants.py:227 people/models.py:819
+msgid "Draft"
+msgstr "پیش‌نویس"
+
+#: cases/constants.py:228
+msgid "With Technical"
+msgstr "نزد فنی"
+
+#: cases/constants.py:229 cases/constants.py:377
+msgid "Returned to Commercial"
+msgstr "بازگشت به بازرگانی"
+
+#: cases/constants.py:230
+msgid "With Supply"
+msgstr "نزد تأمین"
+
+#: cases/constants.py:231 cases/constants.py:381
+msgid "Returned to Technical"
+msgstr "بازگشت به فنی"
+
+#: cases/constants.py:232
+msgid "With Commercial (final)"
+msgstr "نزد بازرگانی (نهایی)"
+
+#: cases/constants.py:233
+msgid "Cannot supply — awaiting Supply manager"
+msgstr "عدم امکان تأمین — در انتظار مدیر تأمین"
+
+#: cases/constants.py:234
+msgid "Cannot supply — awaiting Commercial manager"
+msgstr "عدم امکان تأمین — در انتظار مدیر بازرگانی"
+
+#: cases/constants.py:241 cases/constants.py:242
+msgid "Cannot supply"
+msgstr "عدم امکان تأمین"
+
+#: cases/constants.py:243
+msgid "Cancel — pending approval"
+msgstr "لغو — در انتظار تأیید"
+
+#: cases/constants.py:244
+msgid "Closed / Sent to client"
+msgstr "بسته / ارسال‌شده به مشتری"
+
+#: cases/constants.py:245 cases/constants.py:393
+msgid "Final Approved"
+msgstr "تأیید نهایی"
+
+#: cases/constants.py:246 cases/constants.py:399
+msgid "Final Closed"
+msgstr "بسته نهایی"
+
+#: cases/constants.py:247 cases/constants.py:398
+msgid "Burned"
+msgstr "سوخته"
+
+#: cases/constants.py:375
+msgid "Case created"
+msgstr "ایجاد پرونده"
+
+#: cases/constants.py:376
+msgid "Submitted to Technical"
+msgstr "ارسال به فنی"
+
+#: cases/constants.py:378
+msgid "Assigned to expert"
+msgstr "تخصیص به کارشناس"
+
+#: cases/constants.py:379 people/models.py:604
+msgid "Delegated"
+msgstr "تفویض‌شده"
+
+#: cases/constants.py:380
+msgid "Submitted to Supply"
+msgstr "ارسال به تأمین"
+
+#: cases/constants.py:382
+msgid "Submitted to Commercial"
+msgstr "ارسال به بازرگانی"
+
+#: cases/constants.py:383
+msgid "TO form built"
+msgstr "فرم TO ساخته شد"
+
+#: cases/constants.py:384
+msgid "PI form built"
+msgstr "فرم PI ساخته شد"
+
+#: cases/constants.py:385
+msgid "New form version"
+msgstr "نسخه جدید فرم"
+
+#: cases/constants.py:386
+msgid "Edited"
+msgstr "ویرایش‌شده"
+
+#: cases/constants.py:387
+msgid "Comment added"
+msgstr "نظر افزوده شد"
+
+#: cases/constants.py:388
+msgid "Closed — sent to client"
+msgstr "بسته — ارسال‌شده به مشتری"
+
+#: cases/constants.py:389
+msgid "Marked cannot supply"
+msgstr "علامت‌گذاری به‌عنوان عدم امکان تأمین"
+
+#: cases/constants.py:390
+msgid "Cannot-supply approved"
+msgstr "تأیید عدم امکان تأمین"
+
+#: cases/constants.py:391
+msgid "Cannot-supply rejected"
+msgstr "رد عدم امکان تأمین"
+
+#: cases/constants.py:392
+msgid "Returned to Supply"
+msgstr "بازگشت به تأمین"
+
+#: cases/constants.py:394
+msgid "Cancellation requested"
+msgstr "درخواست لغو"
+
+#: cases/constants.py:395
+msgid "Cancellation approved"
+msgstr "تأیید لغو"
+
+#: cases/constants.py:396
+msgid "Cancellation rejected"
+msgstr "رد لغو"
+
+#: people/models.py:524
+msgid "Owner"
+msgstr "مالک"
+
+#: people/models.py:525
+msgid "Substitute"
+msgstr "جانشین"
+
+#: people/models.py:534
+msgid "Assign"
+msgstr "تخصیص"
+
+#: people/models.py:535
+msgid "Translate"
+msgstr "انتقال"
+
+#: people/models.py:536
+msgid "Return"
+msgstr "بازگشت"
+
+#: people/models.py:538
+msgid "Release"
+msgstr "آزادسازی"
+
+#: people/models.py:601
+msgid "Assigned"
+msgstr "تخصیص‌شده"
+
+#: people/models.py:602
+msgid "Translated"
+msgstr "انتقال‌شده"
+
+#: people/models.py:603
+msgid "Returned"
+msgstr "بازگردانده‌شده"
+
+#: marketing/models.py:564
+msgid "Company registered"
+msgstr "ثبت شرکت"
+
+#: marketing/models.py:565
+msgid "Label added"
+msgstr "برچسب افزوده شد"
+
+#: marketing/models.py:566
+msgid "Label removed"
+msgstr "برچسب حذف شد"
+
+#: marketing/models.py:567
+msgid "Connection added"
+msgstr "ارتباط افزوده شد"
+
+#: marketing/models.py:568
+msgid "Connection removed"
+msgstr "ارتباط حذف شد"
+
+#: marketing/models.py:569
+msgid "Contact added"
+msgstr "مخاطب افزوده شد"
+
+#: marketing/models.py:570
+msgid "Contact removed"
+msgstr "مخاطب حذف شد"
+
+#: marketing/models.py:571
+msgid "Report added"
+msgstr "گزارش افزوده شد"
+
+#: marketing/models.py:572
+msgid "Case role changed"
+msgstr "نقش پرونده تغییر کرد"
+
+#: marketing/models.py:948
+msgid "Open"
+msgstr "باز"
+
+# ---------------------------------------------------------------------------
+# CASES + PEOPLE TEMPLATES — full coverage pass (this round). Priority order
+# per the owner's own instruction: case_detail.html + _side_section.html first
+# (every tab, card header, button, field label, and the Reports/Reminders/
+# Timeline machinery this same round's own status/enum stage only partly
+# touched), then case_create.html (cases/forms.py's own CaseCreateForm labels
+# and help text), archive.html + _archive_rows.html (column headers, the
+# filter card, the status tabs), inbox.html (the dashboard most people land on
+# first), then people/templates/people/person_list.html + _person_rows.html +
+# person_shift.html + person_shift_month.html (people/forms.py's own
+# PersonSearchForm, people/shift_hours.py's own off_reason strings), and
+# finally accounts/templates/accounts/settings.html (accounts/forms.py's own
+# SelfPasswordForm / AdminPlatformForm / AdminUnitStampsForm).
+#
+# "Off" the day-status word (person_shift_month.html: a day that is not a
+# working day) is deliberately its OWN English source string, "Day off", not
+# the bare "Off" the Unit-conversion / Manager-view TOGGLES elsewhere use for
+# their own off state (_side_section.html, archive.html) — same English word,
+# different meaning, and this hand-maintained catalog has no msgctxt support
+# (see below), so a second source string is what keeps the two from colliding
+# into one Persian word.
+#
+# EVERY {% blocktrans %}-DERIVED ENTRY BELOW IS KEYED ON THE REAL RUNTIME
+# LOOKUP STRING, NOT THE TEMPLATE SOURCE TEXT: Django's own BlockTranslateNode
+# .render() (django/templatetags/i18n.py) converts every {{ var }} inside a
+# live blocktrans block into a %(var)s placeholder, and doubles any literal
+# '%' to '%%', BEFORE ever calling gettext() — a catalog entry keyed on the
+# literal "...{{ hours }}..." template text can never match that real lookup
+# key ("...%(hours)s...") and gettext silently falls through to English. Caught
+# live on the Settings page's own "Shift length" line during this round's own
+# Persian verification pass, which is what sent every OTHER blocktrans entry
+# below back for the same fix — each one regenerated by walking the touched
+# templates' own COMPILED node tree (BlockTranslateNode.render_token_list(),
+# the exact function Django calls at request time) rather than re-reading the
+# template source by eye a second time.
+#
+# NOT translated on purpose, and left for a future round — see this round's
+# own verification report for the full list: the Jalali date PICKER's own
+# generated calendar text (static/js/jalali_picker.js — a separate, hand-rolled
+# JS widget with its own English month names/"Today"/"Done", not wired into
+# Django's i18n at all, and not the shared |jalali template filter's own output,
+# which only ever prints numerals); the Jalali month-name generator itself
+# (people/shift_hours.py::month_name_en, core/templatetags/ft_extras.py's own
+# _JMONTHS, and the picker's identical table — three separate hand-maintained
+# copies of the same English transliteration, e.g. "Farvardin", used across far
+# more pages than this round's own five; changing what they PRINT is a shared,
+# cross-cutting calendar change, not a template-chrome one); the accounts login
+# page (accounts/templates/accounts/login.html) — confirmed BY READING
+# accounts/middleware.py::LanguageMiddleware, deliberately: a signed-out request
+# has no Profile to read a saved language from and this app deliberately never
+# falls back to a cookie/session/Accept-Header (see that class's own docstring),
+# so the login page can only ever render in settings.LANGUAGE_CODE regardless of
+# what any template on it says — wrapping its strings would be inert; and every
+# people/ screen this round's own priority list did not name (person_seats.html,
+# request_detail.html, gm_overtime_inbox.html, _request_recent.html and others),
+# which keep only the Status-adjacent strings the earlier status/enum-vocabulary
+# round already gave them.
+# ---------------------------------------------------------------------------
+
+msgid " and add at least one item to the table."
+msgstr " و دست‌کم یک قلم به جدول اضافه کنید."
+
+msgid ". Add at least one item to the table."
+msgstr "دست‌کم یک قلم به جدول اضافه کنید."
+
+msgid "A burn was requested. Manager approval required."
+msgstr "درخواست سوزاندن ثبت شده است. نیاز به تأیید مدیر."
+
+msgid "A cancellation was requested. Manager approval required."
+msgstr "درخواست لغو ثبت شده است. نیاز به تأیید مدیر."
+
+msgid "Accounts nobody holds"
+msgstr "حساب‌هایی که کسی در اختیار ندارد"
+
+msgid "Actions"
+msgstr "اقدامات"
+
+msgid "Active people who hold no account yet"
+msgstr "افراد فعالی که هنوز حسابی ندارند"
+
+msgid "Add a comment"
+msgstr "افزودن نظر"
+
+msgid "Add row"
+msgstr "افزودن ردیف"
+
+msgid "All statuses"
+msgstr "همه وضعیت‌ها"
+
+msgid "Appearance"
+msgstr "ظاهر"
+
+msgid "Approval / rejection note…"
+msgstr "یادداشت تأیید / رد…"
+
+msgid "Approve & send"
+msgstr "تأیید و ارسال"
+
+msgid "Approve burn"
+msgstr "تأیید سوزاندن"
+
+msgid "Approve cancellation"
+msgstr "تأیید لغو"
+
+msgid "Are you sure you want to change the currency unit?"
+msgstr "آیا از تغییر واحد ارز مطمئن هستید؟"
+
+msgid "Assign to expert"
+msgstr "تخصیص به کارشناس"
+
+msgid "Assign to expert (both sides)"
+msgstr "تخصیص به کارشناس (هر دو سو)"
+
+msgid "Assigned to %(name)s. Once a case is assigned to a Technical expert, only that expert can build or revise its Technical Offer."
+msgstr "به %(name)s تخصیص یافته است. پس از تخصیص پرونده به کارشناس فنی، فقط همان کارشناس می‌تواند پیشنهاد فنی آن را بسازد یا ویرایش کند."
+
+msgid "Assigned to %(name)s. Once a side is assigned to a Supply expert, only that expert can build or revise its Proforma."
+msgstr "به %(name)s تخصیص یافته است. پس از تخصیص یک سو به کارشناس تأمین، فقط همان کارشناس می‌تواند پیش‌فاکتور آن را بسازد یا ویرایش کند."
+
+msgid "Assignment note"
+msgstr "یادداشت تخصیص"
+
+msgid "Attach No."
+msgstr "شماره پیوست"
+
+msgid "Audit timeline"
+msgstr "جدول زمانی ممیزی"
+
+msgid "Back to details"
+msgstr "بازگشت به جزئیات"
+
+msgid "Back to work shift"
+msgstr "بازگشت به شیفت کاری"
+
+msgid "Build PI"
+msgstr "ساخت PI"
+
+msgid "Build TO"
+msgstr "ساخت TO"
+
+msgid "Calm blue"
+msgstr "آبی آرام"
+
+msgid "Calm teal"
+msgstr "سبزآبی آرام"
+
+msgid "Case information"
+msgstr "اطلاعات پرونده"
+
+msgid "Case lifecycle"
+msgstr "چرخه عمر پرونده"
+
+msgid "Cases currently with the Technical unit — unopened first, then nearest deadline."
+msgstr "پرونده‌های در حال حاضر نزد واحد فنی — نخست بازنشده‌ها، سپس نزدیک‌ترین مهلت."
+
+msgid "Change currency unit"
+msgstr "تغییر واحد ارز"
+
+msgid "Change password"
+msgstr "تغییر رمز عبور"
+
+msgid "Choose the colour theme and light or dark mode for the interface. Your choice is saved on this device."
+msgstr "رنگ‌مایه و حالت روشن یا تیره رابط کاربری را انتخاب کنید. انتخاب شما روی همین دستگاه ذخیره می‌شود."
+
+msgid "Choose the language used for the menus, tabs, buttons and labels across the platform. This is saved on your account, so it follows you to any device you sign in from — not just this one."
+msgstr "زبان استفاده‌شده برای منوها، تب‌ها، دکمه‌ها و برچسب‌های سراسر سامانه را انتخاب کنید. این تنظیم روی حساب شما ذخیره می‌شود، بنابراین در هر دستگاهی که وارد شوید همراه شما خواهد بود — نه فقط همین یکی."
+
+msgid "Clear"
+msgstr "پاک کردن"
+
+msgid "Click a month to open its daily cards."
+msgstr "برای باز کردن کارت‌های روزانه، روی یک ماه کلیک کنید."
+
+msgid "Click rows to select. Filters work as usual. Confirm to return to overtime."
+msgstr "برای انتخاب، روی ردیف‌ها کلیک کنید. فیلترها مانند همیشه کار می‌کنند. برای بازگشت به اضافه‌کاری تأیید کنید."
+
+msgid "Client"
+msgstr "مشتری"
+
+msgid "Client commercial contact"
+msgstr "رابط بازرگانی مشتری"
+
+msgid "Client commercial phone"
+msgstr "تلفن بازرگانی مشتری"
+
+msgid "Client commercial phone (optional)"
+msgstr "تلفن بازرگانی مشتری (اختیاری)"
+
+msgid "Client information"
+msgstr "اطلاعات مشتری"
+
+msgid "Client technical contact"
+msgstr "رابط فنی مشتری"
+
+msgid "Client technical phone"
+msgstr "تلفن فنی مشتری"
+
+msgid "Client technical phone (optional)"
+msgstr "تلفن فنی مشتری (اختیاری)"
+
+msgid "Close — sent to client"
+msgstr "بستن — ارسال به مشتری"
+
+msgid "Combined timeline"
+msgstr "جدول زمانی ترکیبی"
+
+msgid "Comment"
+msgstr "نظر"
+
+msgid "Commercial"
+msgstr "بازرگانی"
+
+msgid "Commercial Expert"
+msgstr "کارشناس بازرگانی"
+
+msgid "Commercial expert"
+msgstr "کارشناس بازرگانی"
+
+msgid "Commercial margin can be applied on the priced PI before export."
+msgstr "حاشیه سود بازرگانی را می‌توان پیش از خروجی گرفتن، روی PI قیمت‌گذاری‌شده اعمال کرد."
+
+msgid "Commercial stamp"
+msgstr "مهر بازرگانی"
+
+msgid "Confirm"
+msgstr "تأیید"
+
+msgid "Confirm new password"
+msgstr "تأیید رمز عبور جدید"
+
+msgid "Confirm save"
+msgstr "تأیید ذخیره"
+
+msgid "Conversion Timeline"
+msgstr "جدول زمانی تبدیل"
+
+msgid "Convert to Internal & External (two-stage)"
+msgstr "تبدیل به داخلی و خارجی (دو مرحله‌ای)"
+
+msgid "Copied"
+msgstr "کپی شد"
+
+msgid "Copy"
+msgstr "کپی"
+
+msgid "Copy attach number"
+msgstr "کپی شماره پیوست"
+
+msgid "Could not load more rows."
+msgstr "بارگذاری ردیف‌های بیشتر ممکن نشد."
+
+msgid "Could not post the comment. Please try again."
+msgstr "ارسال نظر ممکن نشد. لطفاً دوباره تلاش کنید."
+
+msgid "Create case"
+msgstr "ایجاد پرونده"
+
+msgid "Current"
+msgstr "جاری"
+
+msgid "Current password"
+msgstr "رمز عبور فعلی"
+
+msgid "Customise platform-wide options used across the app."
+msgstr "گزینه‌های سراسری استفاده‌شده در سامانه را سفارشی کنید."
+
+msgid "Daily attendance cards"
+msgstr "کارت‌های حضور روزانه"
+
+msgid "Daily hours"
+msgstr "ساعات روزانه"
+
+msgid "Day off"
+msgstr "تعطیل"
+
+msgid "Deadline"
+msgstr "مهلت"
+
+msgid "Deadline (Jalali)"
+msgstr "مهلت (جلالی)"
+
+msgid "Description"
+msgstr "شرح"
+
+msgid "Detail code"
+msgstr "کد پرسنلی"
+
+msgid "Detail code, name or username…"
+msgstr "کد پرسنلی، نام یا نام کاربری…"
+
+msgid "Details"
+msgstr "جزئیات"
+
+msgid "Displayed for every user after “Hi, <name>” on successful sign-in."
+msgstr "پس از ورود موفق، برای هر کاربر بعد از «سلام، <نام>» نمایش داده می‌شود."
+
+msgid "Document kind"
+msgstr "نوع سند"
+
+msgid "Done"
+msgstr "انجام‌شده"
+
+msgid "Draft is kept until the case is created."
+msgstr "پیش‌نویس تا زمان ایجاد پرونده نگه داشته می‌شود."
+
+msgid "Edit current"
+msgstr "ویرایش نسخه فعلی"
+
+msgid "Edit information"
+msgstr "ویرایش اطلاعات"
+
+msgid "End"
+msgstr "پایان"
+
+msgid "End hour"
+msgstr "ساعت پایان"
+
+msgid "End minute"
+msgstr "دقیقه پایان"
+
+msgid "Ended"
+msgstr "پایان‌یافته"
+
+msgid "Ended · before tracking"
+msgstr "پایان‌یافته · پیش از پیگیری"
+
+msgid "Enter the deadline as a Jalali date, e.g. 1405-03-27 14:30."
+msgstr "مهلت را به‌صورت تاریخ جلالی وارد کنید، مثلاً ۱۴۰۵-۰۳-۲۷ ۱۴:۳۰."
+
+msgid "Every Proforma unit conversion on this case — administrators only."
+msgstr "هر تبدیل واحد پیش‌فاکتور روی این پرونده — فقط برای مدیران سامانه."
+
+msgid "Every document export on this case — administrators only."
+msgstr "هر خروجی سند روی این پرونده — فقط برای مدیران سامانه."
+
+msgid "Excel"
+msgstr "اکسل"
+
+msgid "Export Timeline"
+msgstr "جدول زمانی خروجی"
+
+msgid "Filter by status"
+msgstr "فیلتر بر اساس وضعیت"
+
+msgid "Filtering…"
+msgstr "در حال فیلتر کردن…"
+
+msgid "Floating minutes"
+msgstr "دقیقه شناور"
+
+msgid "Floating seconds"
+msgstr "ثانیه شناور"
+
+msgid "Floating time"
+msgstr "زمان شناور"
+
+msgid "From"
+msgstr "از"
+
+msgid "Frozen"
+msgstr "منجمد"
+
+msgid "Grand Total"
+msgstr "جمع کل"
+
+msgid "Grand total"
+msgstr "جمع کل"
+
+msgid "Grand total (all PI):"
+msgstr "جمع کل (همه PI):"
+
+msgid "Grouped Excel"
+msgstr "اکسل گروه‌بندی‌شده"
+
+msgid "Holder unit"
+msgstr "واحد نگهدارنده"
+
+msgid "Holds a seat"
+msgstr "پست دارد"
+
+msgid "Holiday"
+msgstr "تعطیل رسمی"
+
+msgid "Holiday · Weekend"
+msgstr "تعطیل رسمی · آخر هفته"
+
+msgid "Hours / day"
+msgstr "ساعت / روز"
+
+msgid "Hours beyond plan"
+msgstr "ساعات فراتر از برنامه"
+
+msgid "In"
+msgstr "ورود"
+
+msgid "Inquiry items"
+msgstr "اقلام استعلام"
+
+msgid "Inquiry items are invalid."
+msgstr "اقلام استعلام نامعتبر است."
+
+msgid "Inquiry versions"
+msgstr "نسخه‌های استعلام"
+
+msgid "Internal, External, or both — splits the case into sub-streams."
+msgstr "داخلی، خارجی یا هر دو — پرونده را به زیرمسیرها تقسیم می‌کند."
+
+msgid "Item No."
+msgstr "شماره قلم"
+
+msgid "JSON rows captured from the paste grid."
+msgstr "ردیف‌های JSON گرفته‌شده از جدول جای‌گذاری‌شده."
+
+msgid "Live status of every case — unopened first, then nearest deadline."
+msgstr "وضعیت زنده همه پرونده‌ها — نخست بازنشده‌ها، سپس نزدیک‌ترین مهلت."
+
+msgid "Loading more…"
+msgstr "در حال بارگذاری بیشتر…"
+
+msgid "Log in as"
+msgstr "ورود به‌جای"
+
+msgid "Manager view"
+msgstr "نمای مدیر"
+
+msgid "Managers"
+msgstr "مدیران"
+
+msgid "Mark cannot supply"
+msgstr "علامت‌گذاری عدم امکان تأمین"
+
+msgid "Marketing role"
+msgstr "نقش بازاریابی"
+
+msgid "Month"
+msgstr "ماه"
+
+msgid "Monthly hours"
+msgstr "ساعات ماهانه"
+
+msgid "Name & username"
+msgstr "نام و نام کاربری"
+
+msgid "New inquiry form"
+msgstr "فرم استعلام جدید"
+
+msgid "New password"
+msgstr "رمز عبور جدید"
+
+msgid "New person"
+msgstr "شخص جدید"
+
+msgid "New version"
+msgstr "نسخه جدید"
+
+msgid "New version for Proforma currency conversion"
+msgstr "نسخه جدید برای تبدیل ارز پیش‌فاکتور"
+
+msgid "New version labelled Update price"
+msgstr "نسخه جدید با برچسب به‌روزرسانی قیمت"
+
+msgid "Next"
+msgstr "بعدی"
+
+msgid "No activity for this section yet."
+msgstr "هنوز فعالیتی برای این بخش ثبت نشده است."
+
+msgid "No activity yet."
+msgstr "هنوز فعالیتی ثبت نشده است."
+
+msgid "No cases in the archive yet."
+msgstr "هنوز پرونده‌ای در بایگانی نیست."
+
+msgid "No currency conversions yet."
+msgstr "هنوز تبدیل ارزی ثبت نشده است."
+
+msgid "No days for this month."
+msgstr "برای این ماه روزی وجود ندارد."
+
+msgid "No exports yet."
+msgstr "هنوز خروجی‌ای ثبت نشده است."
+
+msgid "No inquiry items."
+msgstr "هنوز قلمی برای استعلام وجود ندارد."
+
+msgid "No person matches this search."
+msgstr "هیچ شخصی با این جستجو مطابقت ندارد."
+
+msgid "No proforma yet."
+msgstr "هنوز پیش‌فاکتوری وجود ندارد."
+
+msgid "No reminders on this case are visible to you."
+msgstr "هیچ یادآوری‌ای روی این پرونده برای شما قابل مشاهده نیست."
+
+msgid "No report options exist yet — write the report in the box below instead."
+msgstr "هنوز گزینه‌ای برای گزارش وجود ندارد — به‌جای آن، گزارش را در کادر زیر بنویسید."
+
+msgid "No reports have been written on this case yet."
+msgstr "هنوز گزارشی برای این پرونده نوشته نشده است."
+
+msgid "No seat"
+msgstr "بدون پست"
+
+msgid "No stamp yet."
+msgstr "هنوز مهری وجود ندارد."
+
+msgid "No technical offer yet."
+msgstr "هنوز پیشنهاد فنی‌ای وجود ندارد."
+
+msgid "Not started"
+msgstr "شروع‌نشده"
+
+msgid "Off"
+msgstr "خاموش"
+
+msgid "Off days"
+msgstr "روزهای مرخصی"
+
+msgid "Offer Type"
+msgstr "نوع پیشنهاد"
+
+msgid "Offer details"
+msgstr "جزئیات پیشنهاد"
+
+msgid "Offer type"
+msgstr "نوع پیشنهاد"
+
+msgid "On"
+msgstr "روشن"
+
+msgid "Only the Supply manager can work a side that has no expert assigned yet."
+msgstr "فقط مدیر تأمین می‌تواند روی سویی کار کند که هنوز کارشناسی به آن تخصیص نیافته است."
+
+msgid "Only the Technical manager can work a case that has no expert assigned yet."
+msgstr "فقط مدیر فنی می‌تواند روی پرونده‌ای کار کند که هنوز کارشناسی به آن تخصیص نیافته است."
+
+msgid "Open a commercial case and enter the inquiry items."
+msgstr "یک پرونده بازرگانی باز کنید و اقلام استعلام را وارد کنید."
+
+msgid "Open editor"
+msgstr "باز کردن ویرایشگر"
+
+msgid "Optional."
+msgstr "اختیاری."
+
+msgid "Or upload Excel (Item, Description, Size, Unit)"
+msgstr "یا اکسل را بارگذاری کنید (قلم، شرح، سایز، واحد)"
+
+msgid "Order No."
+msgstr "شماره سفارش"
+
+msgid "Order No. / Project Name"
+msgstr "شماره سفارش / نام پروژه"
+
+msgid "Out"
+msgstr "خروج"
+
+msgid "Overtime request"
+msgstr "درخواست اضافه‌کاری"
+
+msgid "PDF"
+msgstr "PDF"
+
+msgid "PNG or SVG — reserved for Supply exports."
+msgstr "PNG یا SVG — برای خروجی‌های تأمین رزرو شده است."
+
+msgid "PNG or SVG — stamped on Proforma (PI) exports."
+msgstr "PNG یا SVG — روی خروجی‌های پیش‌فاکتور (PI) زده می‌شود."
+
+msgid "PNG or SVG — stamped on Technical Offer (TO) exports."
+msgstr "PNG یا SVG — روی خروجی‌های پیشنهاد فنی (TO) زده می‌شود."
+
+msgid "Pagination"
+msgstr "صفحه‌بندی"
+
+msgid "Per side"
+msgstr "به تفکیک سو"
+
+msgid "Plan"
+msgstr "برنامه"
+
+msgid "Platform settings"
+msgstr "تنظیمات سامانه"
+
+msgid "Please fill the highlighted required field(s)"
+msgstr "لطفاً فیلد(های) الزامی مشخص‌شده را پر کنید"
+
+msgid "Post comment"
+msgstr "ثبت نظر"
+
+msgid "Prev"
+msgstr "قبلی"
+
+msgid "Price type"
+msgstr "نوع قیمت"
+
+msgid "Pricing queue — unopened first, then nearest deadline."
+msgstr "صف قیمت‌گذاری — نخست بازنشده‌ها، سپس نزدیک‌ترین مهلت."
+
+msgid "Print view"
+msgstr "نمای چاپ"
+
+msgid "Proforma"
+msgstr "پیش‌فاکتور"
+
+msgid "Proforma versions"
+msgstr "نسخه‌های پیش‌فاکتور"
+
+msgid "Qty"
+msgstr "تعداد"
+
+msgid "Rate"
+msgstr "نرخ"
+
+msgid "Reactivate"
+msgstr "فعال‌سازی دوباره"
+
+msgid "Reconnect minutes"
+msgstr "دقیقه اتصال مجدد"
+
+msgid "Reconnect seconds"
+msgstr "ثانیه اتصال مجدد"
+
+msgid "Reconnect time"
+msgstr "زمان اتصال مجدد"
+
+msgid "Reject"
+msgstr "رد"
+
+msgid "Request approval"
+msgstr "درخواست تأیید"
+
+msgid "Request cancel"
+msgstr "درخواست لغو"
+
+msgid "Request manager to send"
+msgstr "درخواست ارسال از مدیر"
+
+msgid "Required"
+msgstr "الزامی"
+
+msgid "Required. It cannot be earlier than now."
+msgstr "الزامی است. نمی‌تواند زودتر از اکنون باشد."
+
+msgid "Reset"
+msgstr "بازنشانی"
+
+msgid "Reset password"
+msgstr "بازنشانی رمز عبور"
+
+msgid "Retry"
+msgstr "تلاش دوباره"
+
+msgid "Return to Commercial"
+msgstr "بازگشت به بازرگانی"
+
+msgid "Return to Supply"
+msgstr "بازگشت به تأمین"
+
+msgid "Return to Technical"
+msgstr "بازگشت به فنی"
+
+msgid "Rial"
+msgstr "ریال"
+
+msgid "Save daily hours for everyone"
+msgstr "ذخیره ساعات روزانه برای همه"
+
+msgid "Save platform settings"
+msgstr "ذخیره تنظیمات سامانه"
+
+msgid "Save shift"
+msgstr "ذخیره شیفت"
+
+msgid "Search client by name or code…"
+msgstr "جستجوی مشتری با نام یا کد…"
+
+msgid "Search client…"
+msgstr "جستجوی مشتری…"
+
+msgid "Search document kind…"
+msgstr "جستجوی نوع سند…"
+
+msgid "Search expert…"
+msgstr "جستجوی کارشناس…"
+
+msgid "Search offer type…"
+msgstr "جستجوی نوع پیشنهاد…"
+
+msgid "Search order no…"
+msgstr "جستجوی شماره سفارش…"
+
+msgid "Search price type…"
+msgstr "جستجوی نوع قیمت…"
+
+msgid "Search reminder text…"
+msgstr "جستجوی متن یادآوری…"
+
+msgid "Search technical expert…"
+msgstr "جستجوی کارشناس فنی…"
+
+msgid "Select cases"
+msgstr "انتخاب پرونده‌ها"
+
+msgid "Shift"
+msgstr "شیفت"
+
+msgid "Showing cases for"
+msgstr "نمایش پرونده‌های"
+
+msgid "Sign in as this person"
+msgstr "ورود به‌جای این شخص"
+
+msgid "Sign-in welcome message"
+msgstr "پیام خوش‌آمدگویی ورود"
+
+msgid "Size"
+msgstr "سایز"
+
+msgid "Soft rose"
+msgstr "صورتی ملایم"
+
+msgid "Soon"
+msgstr "به‌زودی"
+
+msgid "Start"
+msgstr "شروع"
+
+msgid "Start hour"
+msgstr "ساعت شروع"
+
+msgid "Start minute"
+msgstr "دقیقه شروع"
+
+msgid "Submit to Supply"
+msgstr "ارسال به تأمین"
+
+msgid "Submit to Technical"
+msgstr "ارسال به فنی"
+
+msgid "Subtotal"
+msgstr "جمع جزء"
+
+msgid "Supply"
+msgstr "تأمین"
+
+msgid "Supply stamp"
+msgstr "مهر تأمین"
+
+msgid "Tasks"
+msgstr "وظایف"
+
+msgid "Technical"
+msgstr "فنی"
+
+msgid "Technical Offer"
+msgstr "پیشنهاد فنی"
+
+msgid "Technical Offer versions"
+msgstr "نسخه‌های پیشنهاد فنی"
+
+msgid "Technical expert"
+msgstr "کارشناس فنی"
+
+msgid "Technical stamp"
+msgstr "مهر فنی"
+
+msgid "Temporary password"
+msgstr "رمز عبور موقت"
+
+msgid "The case could not be created:"
+msgstr "پرونده ایجاد نشد:"
+
+msgid "The deadline cannot be earlier than the current date and time."
+msgstr "مهلت نمی‌تواند زودتر از تاریخ و ساعت کنونی باشد."
+
+msgid "The new passwords do not match."
+msgstr "رمزهای عبور جدید یکسان نیستند."
+
+msgid "This password is shown once. The person must set their own password at first sign-in."
+msgstr "این رمز عبور فقط یک‌بار نمایش داده می‌شود. شخص باید در نخستین ورود، رمز عبور خود را تنظیم کند."
+
+msgid "To"
+msgstr "به"
+
+msgid "Total Service"
+msgstr "جمع خدمات"
+
+msgid "Tracking from"
+msgstr "پیگیری از"
+
+msgid "Two Stage"
+msgstr "دو مرحله‌ای"
+
+msgid "Unit"
+msgstr "واحد"
+
+msgid "Unit conversion"
+msgstr "تبدیل واحد"
+
+msgid "Unit convert"
+msgstr "تبدیل واحد"
+
+msgid "Unit stamps"
+msgstr "مهرهای واحد"
+
+msgid "Unopened."
+msgstr "بازنشده."
+
+msgid "Upcoming"
+msgstr "پیش‌رو"
+
+msgid "Update price"
+msgstr "به‌روزرسانی قیمت"
+
+msgid "Update the password you use to sign in to the platform."
+msgstr "رمز عبوری را که برای ورود به سامانه استفاده می‌کنید، به‌روزرسانی کنید."
+
+msgid "Update unit stamps"
+msgstr "به‌روزرسانی مهرهای واحد"
+
+msgid "Updated"
+msgstr "به‌روزرسانی‌شده"
+
+msgid "Upgrade to TO & PI (two-stage)"
+msgstr "ارتقا به TO و PI (دو مرحله‌ای)"
+
+msgid "Upload & fill grid"
+msgstr "بارگذاری و پر کردن جدول"
+
+msgid "Used on Proforma totals: VAT = Subtotal × this percent / 100. Shown as “VAT (N%)” on PDF/Excel preview totals."
+msgstr "در جمع‌های پیش‌فاکتور استفاده می‌شود: مالیات بر ارزش افزوده = جمع جزء × این درصد / ۱۰۰. در جمع‌های پیش‌نمایش PDF/اکسل به‌صورت «VAT (N%)» نمایش داده می‌شود."
+
+msgid "VAT percent (%)"
+msgstr "درصد مالیات بر ارزش افزوده (٪)"
+
+msgid "View"
+msgstr "مشاهده"
+
+msgid "View in marketing chart"
+msgstr "مشاهده در نمودار بازاریابی"
+
+msgid "Weekend"
+msgstr "آخر هفته"
+
+msgid "Which business role the client plays on this case."
+msgstr "نقش تجاری مشتری در این پرونده."
+
+msgid "Work days"
+msgstr "روزهای کاری"
+
+msgid "Work shift"
+msgstr "شیفت کاری"
+
+msgid "Write a note for the audit trail…"
+msgstr "یادداشتی برای جدول ممیزی بنویسید…"
+
+msgid "You"
+msgstr "شما"
+
+msgid "You see every reminder set on this case."
+msgstr "شما همه یادآوری‌های تنظیم‌شده روی این پرونده را می‌بینید."
+
+msgid "You see your own reminders on this case — a reminder is a private note to its own owner."
+msgstr "شما فقط یادآوری‌های خودتان روی این پرونده را می‌بینید — یادآوری یادداشتی خصوصی برای صاحب آن است."
+
+msgid "You uploaded an Excel file — click “Upload & fill grid” to load its rows before creating the case."
+msgstr "شما یک فایل اکسل بارگذاری کرده‌اید — پیش از ایجاد پرونده، برای بارگذاری ردیف‌های آن روی «بارگذاری و پر کردن جدول» کلیک کنید."
+
+msgid "Your cases — unopened first, then nearest deadline."
+msgstr "پرونده‌های شما — نخست بازنشده‌ها، سپس نزدیک‌ترین مهلت."
+
+msgid "Your current password is incorrect."
+msgstr "رمز عبور فعلی شما نادرست است."
+
+msgid "Your inbox is empty."
+msgstr "صندوق ورودی شما خالی است."
+
+msgid "all sub-streams"
+msgstr "همه زیرمسیرها"
+
+msgid "clear filter"
+msgstr "پاک کردن فیلتر"
+
+msgid "items"
+msgstr "قلم"
+
+msgid "so far"
+msgstr "تاکنون"
+
+msgid "total"
+msgstr "مجموع"
+
+msgid "· just now"
+msgstr "· همین الان"
+
+msgid "— Select client —"
+msgstr "— انتخاب مشتری —"
+
+msgid "— Select document kind —"
+msgstr "— انتخاب نوع سند —"
+
+msgid "— Select marketing role —"
+msgstr "— انتخاب نقش بازاریابی —"
+
+msgid "— Select offer type —"
+msgstr "— انتخاب نوع پیشنهاد —"
+
+msgid "— Select price type —"
+msgstr "— انتخاب نوع قیمت —"
+
+msgid "…or upload Excel (first 4 columns: Description, Size, Qty, Unit)"
+msgstr "…یا اکسل را بارگذاری کنید (۴ ستون نخست: شرح، سایز، تعداد، واحد)"
+
+msgid "%(active_count)s active"
+msgstr "%(active_count)s فعال"
+
+msgid "%(free_seat_count)s free seats"
+msgstr "%(free_seat_count)s پست خالی"
+
+msgid "%(name)s's open reminders due in %(month)s %(year)s"
+msgstr "یادآوری‌های باز %(name)s که در %(month)s %(year)s سررسید دارند"
+
+msgid "%(name)s's open reminders due in %(year)s"
+msgstr "یادآوری‌های باز %(name)s که در %(year)s سررسید دارند"
+
+msgid "%(name)s's open reminders due on Day %(day)s"
+msgstr "یادآوری‌های باز %(name)s که در روز %(day)s سررسید دارند"
+
+msgid "%(seatless_count)s without a seat"
+msgstr "%(seatless_count)s بدون پست"
+
+msgid "%(side)s expert"
+msgstr "کارشناس %(side)s"
+
+msgid "%(total)s shown"
+msgstr "%(total)s نمایش داده‌شده"
+
+msgid "<strong>Can't submit to Commercial</strong> — some items still miss a required field (FTCO code, price, brand or time). Complete them, or mark the row not-suppliable, first."
+msgstr "<strong>ارسال به بازرگانی ممکن نیست</strong> — برخی اقلام هنوز یک فیلد الزامی (کد FTCO، قیمت، برند یا زمان) را ندارند. ابتدا آن‌ها را تکمیل کنید یا ردیف را عدم امکان تأمین علامت بزنید."
+
+msgid "<strong>Can't submit to Commercial</strong> — some items still miss a required field (price, brand or time). Complete them, or mark the row not-suppliable, first."
+msgstr "<strong>ارسال به بازرگانی ممکن نیست</strong> — برخی اقلام هنوز یک فیلد الزامی (قیمت، برند یا زمان) را ندارند. ابتدا آن‌ها را تکمیل کنید یا ردیف را عدم امکان تأمین علامت بزنید."
+
+msgid "<strong>Cannot submit to Supply</strong> — one or more rows still have an empty <em>BRAND</em>.\n        Fill BRAND on every active row in the TO tool before forwarding."
+msgstr "<strong>ارسال به تأمین ممکن نیست</strong> — یک یا چند ردیف هنوز فیلد <em>BRAND</em> خالی دارند.\n        پیش از ارسال، BRAND همه ردیف‌های فعال را در ابزار TO تکمیل کنید."
+
+msgid "<strong>Cannot submit to Supply</strong> — the Technical Offer has rows flagged as <em>Technical Problem</em>.\n        Resolve all flags in the TO tool before forwarding."
+msgstr "<strong>ارسال به تأمین ممکن نیست</strong> — پیشنهاد فنی ردیف‌هایی با پرچم <em>مشکل فنی</em> دارد.\n        پیش از ارسال، همه پرچم‌ها را در ابزار TO برطرف کنید."
+
+msgid "An expert has requested to send this case (%(proposed)s). Manager approval required."
+msgstr "یک کارشناس درخواست ارسال این پرونده را داده است (%(proposed)s). نیاز به تأیید مدیر."
+
+msgid "Assign %(side)s to expert"
+msgstr "تخصیص %(side)s به کارشناس"
+
+msgid "Case %(doc_no)s"
+msgstr "پرونده %(doc_no)s"
+
+msgid "Choose “TO & PI” when the case needs pricing by Supply."
+msgstr "وقتی پرونده نیاز به قیمت‌گذاری توسط تأمین دارد، «TO و PI» را انتخاب کنید."
+
+msgid "Confirm selection (<span id=\"archiveSelectCount\">0</span>)"
+msgstr "تأیید انتخاب (<span id=\"archiveSelectCount\">0</span>)"
+
+msgid "Confirm shift change to\n      <strong class=\"mono\">%(start)s</strong>–<strong class=\"mono\">%(end)s</strong>\n      · Floating time <strong class=\"mono\">%(float_t)s</strong>\n      · Reconnect time <strong class=\"mono\">%(grace)s</strong>\n      (%(hours)s h/day)? This recalculates only the current month."
+msgstr "تغییر شیفت به\n      <strong class=\"mono\">%(start)s</strong>–<strong class=\"mono\">%(end)s</strong>\n      · زمان شناور <strong class=\"mono\">%(float_t)s</strong>\n      · زمان اتصال مجدد <strong class=\"mono\">%(grace)s</strong>\n      (%(hours)s ساعت/روز) تأیید شود؟ این کار فقط ماه جاری را دوباره محاسبه می‌کند."
+
+msgid "Day %(day)s"
+msgstr "روز %(day)s"
+
+msgid "Default work shift for <strong>every person</strong>. Saving updates all people records\n    (Asia/Tehran). Floating time and reconnect time use the same rules as work-shift tracking."
+msgstr "شیفت کاری پیش‌فرض برای <strong>همه افراد</strong>. ذخیره کردن، همه رکوردهای افراد را\n    به‌روز می‌کند (آسیا/تهران). زمان شناور و زمان اتصال مجدد از همان قواعد پیگیری شیفت کاری پیروی می‌کنند."
+
+msgid "Edited %(kind)s form"
+msgstr "فرم %(kind)s ویرایش شد"
+
+msgid "Everyone on the organisation's books. A person is recorded here whether or\n      not they use the platform; the accounts they hold are assigned separately."
+msgstr "همه افرادی که سازمان آن‌ها را ثبت کرده است. یک نفر خواه از سامانه استفاده کند خواه نه، اینجا ثبت می‌شود؛\n      حساب‌هایی که در اختیار دارند جداگانه تخصیص می‌یابند."
+
+msgid "FX rates are outdated (more than 24 hours) or incomplete.\n    <a href=\"%(fx_rates_url_val)s\"><strong>Update exchange rates</strong></a>\n    so Proforma currency conversion can run."
+msgstr "نرخ‌های ارز قدیمی (بیش از ۲۴ ساعت) یا ناقص است.\n    <a href=\"%(fx_rates_url_val)s\"><strong>به‌روزرسانی نرخ‌های ارز</strong></a>\n    تا تبدیل ارز پیش‌فاکتور اجرا شود."
+
+msgid "Generate a new one-time password for %(name)s?"
+msgstr "برای %(name)s رمز عبور یک‌بارمصرف جدیدی ساخته شود؟"
+
+msgid "If Update price is on and the table is unchanged, the new version is labelled “Update price”. If you also edit / add / delete rows, the version chip stays plain but Update price still appears in the timeline and Technical notes."
+msgstr "اگر به‌روزرسانی قیمت روشن باشد و جدول بدون تغییر بماند، نسخه جدید با برچسب «به‌روزرسانی قیمت» مشخص می‌شود. اگر ردیف‌ها را نیز ویرایش/افزودن/حذف کنید، برچسب نسخه ساده می‌ماند اما به‌روزرسانی قیمت همچنان در جدول زمانی و یادداشت‌های فنی نمایش داده می‌شود."
+
+msgid "If you turn Unit conversion on and leave the table unchanged (and do not upgrade TO&PI / Update price), a new version is created only for currency conversion — Cancel / Send to client only."
+msgstr "اگر تبدیل واحد را روشن کنید و جدول را بدون تغییر بگذارید (و ارتقا به TO و PI / به‌روزرسانی قیمت را انجام ندهید)، نسخه جدید فقط برای تبدیل ارز ساخته می‌شود — تنها لغو / ارسال به مشتری."
+
+msgid "Login is allowed only between these times (Asia/Tehran). Weekends are\n    Thursday and Friday; official Jalali holidays are also excluded from planned hours.\n    Hours are counted only from the tracking start date above — earlier days are not planned.\n    <strong>Floating time</strong> lets a late arrival within the grace window still count from Start.\n    Changing the shift only updates the <strong>current</strong> month."
+msgstr "ورود فقط در بازه این ساعات مجاز است (آسیا/تهران). تعطیلات آخر هفته\n    پنجشنبه و جمعه است؛ تعطیلات رسمی جلالی نیز از ساعات برنامه‌ریزی‌شده کسر می‌شوند.\n    ساعات فقط از تاریخ شروع پیگیری بالا شمارش می‌شود — روزهای پیش از آن برنامه‌ریزی نشده‌اند.\n    <strong>زمان شناور</strong> اجازه می‌دهد ورود دیرهنگام در بازه مجاز، همچنان از زمان شروع محاسبه شود.\n    تغییر شیفت فقط ماه <strong>جاری</strong> را به‌روز می‌کند."
+
+msgid "Mark «%(name)s» as departed?\n                  If no leaving date is set, today’s date is recorded. Their seats\n                  stay linked and no history is deleted."
+msgstr "«%(name)s» به‌عنوان جداشده علامت بزنید؟\n                  اگر تاریخ خروج تعیین نشود، تاریخ امروز ثبت می‌شود. پست‌های او\n                  همچنان مرتبط باقی می‌مانند و هیچ تاریخچه‌ای حذف نمی‌شود."
+
+msgid "New %(kind)s form"
+msgstr "فرم %(kind)s جدید"
+
+msgid "No people recorded yet. Add the first one to get started —\n              existing accounts keep working untouched until you assign them."
+msgstr "هنوز شخصی ثبت نشده است. برای شروع، نخستین شخص را اضافه کنید —\n              حساب‌های موجود تا زمانی که آن‌ها را تخصیص ندهید، بدون تغییر کار می‌کنند."
+
+msgid "No reminders set on this case yet — use “Set a reminder” to add one."
+msgstr "هنوز یادآوری‌ای برای این پرونده تنظیم نشده است — برای افزودن یکی، از «تنظیم یادآوری» استفاده کنید."
+
+msgid "No reports have been written on this case yet — use “Write a report” to add the first one."
+msgstr "هنوز گزارشی برای این پرونده نوشته نشده است — برای افزودن اولین گزارش، از «نوشتن گزارش» استفاده کنید."
+
+msgid "Note from %(unit)s"
+msgstr "یادداشت از %(unit)s"
+
+msgid "One seal per unit. <b>Commercial</b> is stamped on Proforma (PI) exports;\n    <b>Technical</b> on Technical Offer (TO) exports. PNG or SVG."
+msgstr "یک مهر برای هر واحد. <b>بازرگانی</b> روی خروجی‌های پیش‌فاکتور (PI) زده می‌شود؛\n    <b>فنی</b> روی خروجی‌های پیشنهاد فنی (TO). PNG یا SVG."
+
+msgid "Page %(num)s of %(total)s"
+msgstr "صفحه %(num)s از %(total)s"
+
+msgid "Paste rows straight from Excel (Description, Size, Qty, Unit) anywhere in the grid,\n      or add rows by hand. Alternatively upload an Excel file below.\n      Description ≥ 7 characters · Size ≤ 20 · Qty numbers only · Unit letters ( . / - _ %% allowed)."
+msgstr "ردیف‌ها را مستقیماً از اکسل (شرح، سایز، تعداد، واحد) در هر جای جدول جای‌گذاری کنید،\n      یا ردیف‌ها را دستی اضافه کنید. همچنین می‌توانید فایل اکسل را در زیر بارگذاری کنید.\n      شرح ≥ ۷ نویسه · سایز ≤ ۲۰ · تعداد فقط عدد · واحد حروف (نویسه‌های . / - _ %% مجاز است)."
+
+msgid "Reactivate «%(name)s»?\n                  The leaving date will be cleared."
+msgstr "«%(name)s» دوباره فعال شود؟\n                  تاریخ خروج پاک خواهد شد."
+
+msgid "Search %(side)s expert…"
+msgstr "جستجوی کارشناس %(side)s…"
+
+msgid "Shift length: <strong>%(hours)s</strong> hours / working day"
+msgstr "طول شیفت: <strong>%(hours)s</strong> ساعت / روز کاری"
+
+msgid "Shift length: <strong>%(hours_per_day)s</strong> hours / working day\n      · Arrive by Start + Floating time to still count from Start"
+msgstr "طول شیفت: <strong>%(hours_per_day)s</strong> ساعت / روز کاری\n      · برای محاسبه از زمان شروع، پیش از شروع + زمان شناور حاضر شوید"
+
+msgid "Show all %(filtered_count)s matching cases"
+msgstr "نمایش همه %(filtered_count)s پرونده منطبق"
+
+msgid "TO & PI case — the offer type can’t change. You’ll edit the items next; a new version is saved only if you change the table or turn on Unit conversion / Update price."
+msgstr "پرونده TO و PI — نوع پیشنهاد قابل تغییر نیست. در ادامه اقلام را ویرایش می‌کنید؛ نسخه جدید فقط زمانی ذخیره می‌شود که جدول را تغییر دهید یا تبدیل واحد / به‌روزرسانی قیمت را روشن کنید."
+
+msgid "This permanently splits the case into independent <strong>Internal</strong> and <strong>External</strong> streams. The side that already exists stays exactly as it is — same status, same holder, same expert, same history — and the case does not come back to you. Only the other side is created: you set its items and its deadline in the editor, and confirming there creates its first version as a <strong>Draft</strong> in your hands. This can't be undone."
+msgstr "این کار پرونده را برای همیشه به دو مسیر مستقل <strong>داخلی</strong> و <strong>خارجی</strong> تقسیم می‌کند. سویی که هم‌اکنون وجود دارد دقیقاً به همان شکل باقی می‌ماند — همان وضعیت، همان نگهدارنده، همان کارشناس، همان تاریخچه — و پرونده دیگر به شما بازنمی‌گردد. فقط سوی دیگر ساخته می‌شود: اقلام و مهلت آن را در ویرایشگر تعیین می‌کنید و تأیید در آنجا نخستین نسخه آن را به‌صورت <strong>پیش‌نویس</strong> در اختیار شما قرار می‌دهد. این کار قابل بازگشت نیست."
+
+msgid "VAT (%(pct)s%%)"
+msgstr "مالیات بر ارزش افزوده (%(pct)s%%)"
+
+msgid "Version %(ver)s"
+msgstr "نسخه %(ver)s"
+
+msgid "Year %(year)s"
+msgstr "سال %(year)s"
+
+msgid "Your own open reminders due in %(month)s %(year)s — open My Tasks filtered to this month"
+msgstr "یادآوری‌های باز خودتان که در %(month)s %(year)s سررسید دارند — باز کردن وظایف من با فیلتر این ماه"
+
+msgid "Your own open reminders due in %(year)s — open My Tasks filtered to this year"
+msgstr "یادآوری‌های باز خودتان که در %(year)s سررسید دارند — باز کردن وظایف من با فیلتر این سال"
+
+msgid "Your own open reminders due on Day %(day)s — open My Tasks filtered to this day"
+msgstr "یادآوری‌های باز خودتان که در روز %(day)s سررسید دارند — باز کردن وظایف من با فیلتر این روز"

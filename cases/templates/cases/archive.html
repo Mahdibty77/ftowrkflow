@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% load ft_extras static %}
+{% load ft_extras static i18n %}
 {% block title %}Archive · Foolad Tabar Workflow{% endblock %}
-{% block topbar %}Case Archive{% endblock %}
+{% block topbar %}{% trans "Case Archive" %}{% endblock %}
 {% block content %}
 {# `unit` and `is_admin` below come from the view (cases/views.py), which #}
 {# deliberately widens BOTH for a General Manager as well as the platform admin: #}
@@ -12,24 +12,24 @@
 {% if drill_person %}
 <div class="flash flash-info" style="margin-bottom:1rem;">
   <i class="fa-solid fa-user"></i>
-  <span>Showing cases for <strong dir="auto">{{ drill_person.get_full_name|default:drill_person.username }}</strong>{% if drill_person.profile.internal_code %} <span class="mono">({{ drill_person.profile.internal_code }})</span>{% endif %}{% if show_money and drill_grand_total_display %} · Grand total (all PI): <strong class="mono">{{ drill_grand_total_display }}</strong>{% endif %} —
-  <a href="{% url 'cases:archive' %}">clear filter</a></span>
+  <span>{% trans "Showing cases for" %} <strong dir="auto">{{ drill_person.get_full_name|default:drill_person.username }}</strong>{% if drill_person.profile.internal_code %} <span class="mono">({{ drill_person.profile.internal_code }})</span>{% endif %}{% if show_money and drill_grand_total_display %} · {% trans "Grand total (all PI):" %} <strong class="mono">{{ drill_grand_total_display }}</strong>{% endif %} —
+  <a href="{% url 'cases:archive' %}">{% trans "clear filter" %}</a></span>
 </div>
 {% endif %}
 <div class="page-head" style="align-items:center;">
   <div>
-    <h1>{% if select_mode %}Select cases{% else %}Case Archive{% endif %}</h1>
+    <h1>{% if select_mode %}{% trans "Select cases" %}{% else %}{% trans "Case Archive" %}{% endif %}</h1>
     {% if select_mode %}
-    <div class="sub">Click rows to select. Filters work as usual. Confirm to return to overtime.</div>
+    <div class="sub">{% trans "Click rows to select. Filters work as usual. Confirm to return to overtime." %}</div>
     {% endif %}
   </div>
   <div class="row-flex" style="align-items:center;gap:1rem;flex-wrap:wrap;">
     {% if select_mode %}
     <button type="button" class="btn btn-primary" id="archiveSelectConfirm"
             data-return="{{ select_return }}" disabled>
-      <i class="fa-solid fa-check"></i> Confirm selection (<span id="archiveSelectCount">0</span>)
+      <i class="fa-solid fa-check"></i> {% blocktrans %}Confirm selection (<span id="archiveSelectCount">0</span>){% endblocktrans %}
     </button>
-    <a href="{{ select_return|default:'/' }}" class="btn btn-sm btn-ghost">Cancel</a>
+    <a href="{{ select_return|default:'/' }}" class="btn btn-sm btn-ghost">{% trans "Cancel" %}</a>
     {% endif %}
     {# Widened from is_admin: a person who also holds a Marketing seat gets  #}
     {# this too — see cases/views.py::_can_open_marketing_chart. The chart   #}
@@ -39,11 +39,11 @@
       <i class="fa-solid fa-diagram-project"></i> Marketing chart
     </a>
     {% endif %}
-    <span class="count"><span data-filter-count="archiveTable">{{ filtered_count }}</span> of {{ total_count }}</span>
+    <span class="count"><span data-filter-count="archiveTable">{{ filtered_count }}</span> {% trans "of" %} {{ total_count }}</span>
   </div>
 </div>
 
-<nav class="archive-status-tabs" id="archiveStatusTabs" role="tablist" aria-label="Filter by status">
+<nav class="archive-status-tabs" id="archiveStatusTabs" role="tablist" aria-label="{% trans 'Filter by status' %}">
   {% for tab in status_tabs %}
   <button type="button"
           class="archive-status-tab"
@@ -63,8 +63,8 @@
           role="tab"
           data-status="ALL"
           aria-selected="false"
-          title="All statuses">
-    <span class="ast-label"><span class="ast-w">All</span></span>
+          title="{% trans 'All statuses' %}">
+    <span class="ast-label"><span class="ast-w">{% trans "All" %}</span></span>
     <span class="ast-count">{{ all_tab_count }}</span>
   </button>
 </nav>
@@ -76,11 +76,17 @@
 <form method="get" id="archiveFilterForm" action="{% url 'cases:archive' %}">
   {% for key, value in carry_params %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}
   {# Hidden Status control driven by the tabs (kept out of the filter card). #}
+  {# data-filter-colname is wrapped in the same {% trans %} tag as the       #}
+  {# "Status" <th> below it — static/js/ui.js maps a column by matching this #}
+  {# attribute's rendered text against the header cell's own rendered text,  #}
+  {# so leaving one of the two as the bare English literal would silently    #}
+  {# stop the status tabs from filtering anything once the header renders    #}
+  {# in Persian. #}
   <select id="archiveStatusFilter"
           name="fstatus"
           hidden
           data-filter-for="archiveTable"
-          data-filter-colname="Status"
+          data-filter-colname="{% trans "Status" %}"
           data-filter-mode="contains"
           data-archive-status-filter="1"
           aria-hidden="true"
@@ -100,9 +106,9 @@
           <span class="nv-switch-slider"></span>
         </span>
         <span class="nv-toggle-text">
-          <span class="nv-toggle-label">Manager view</span>
+          <span class="nv-toggle-label">{% trans "Manager view" %}</span>
           <span class="nv-toggle-state {% if mine_only %}is-on{% endif %}" id="archiveMineState">
-            {% if mine_only %}On{% else %}Off{% endif %}
+            {% if mine_only %}{% trans "On" %}{% else %}{% trans "Off" %}{% endif %}
           </span>
         </span>
       </label>
@@ -123,63 +129,77 @@
         {# exactly those readers and is not in the DOM at all for anyone else.  #}
         <noscript>
           <button type="submit" class="btn btn-sm btn-primary">
-            <i class="fa-solid fa-filter"></i> Apply filters
+            <i class="fa-solid fa-filter"></i> {% trans "Apply filters" %}
           </button>
         </noscript>
-        <button type="button" class="btn btn-sm" data-filter-clear="archiveTable" title="Reset all filters">
-          <i class="fa-solid fa-eraser"></i> Clear filters
+        <button type="button" class="btn btn-sm" data-filter-clear="archiveTable" title="{% trans 'Reset all filters' %}">
+          <i class="fa-solid fa-eraser"></i> {% trans "Clear filters" %}
         </button>
       </span>
     </div>
         <div class="grid archive-filter-grid">
-      <div class="field"><label><i class="fa-solid fa-hashtag"></i> Document No.</label>
-        <input type="text" name="fdoc" value="{{ f_active.doc }}" data-filter-for="archiveTable" data-filter-colname="Document No." placeholder="e.g. 503, 1256">
+      {# Every data-filter-colname below is wrapped in the SAME {% trans %} tag #}
+      {# as the <th> it targets, further down this file — static/js/ui.js's     #}
+      {# nameToCol maps a filter control to a column by matching this           #}
+      {# attribute's rendered text against the header cell's own rendered text  #}
+      {# at runtime, so translating one side and not the other would silently   #}
+      {# stop that one filter from matching any column once the header renders  #}
+      {# in Persian (see the "Status"/"Created" pair above, done by the earlier #}
+      {# status/enum-vocabulary round, for the same rule already established).  #}
+      <div class="field"><label><i class="fa-solid fa-hashtag"></i> {% trans "Document No." %}</label>
+        <input type="text" name="fdoc" value="{{ f_active.doc }}" data-filter-for="archiveTable" data-filter-colname="{% trans "Document No." %}" placeholder="e.g. 503, 1256">
       </div>
-      <div class="field"><label><i class="fa-solid fa-file-lines"></i> Order No.</label>
-        <select name="forder" data-combo data-placeholder="Search order no…" data-filter-for="archiveTable" data-filter-colname="Order No." data-filter-mode="contains">
+      <div class="field"><label><i class="fa-solid fa-file-lines"></i> {% trans "Order No." %}</label>
+        <select name="forder" data-combo data-placeholder="{% trans 'Search order no…' %}" data-filter-for="archiveTable" data-filter-colname="{% trans "Order No." %}" data-filter-mode="contains">
           <option value=""></option>
           {% for v in f_orders %}<option value="{{ v }}"{% if f_active.order == v %} selected{% endif %}>{{ v }}</option>{% endfor %}
         </select>
       </div>
       {% if unit != 'SUPPLY' %}
-      <div class="field"><label><i class="fa-solid fa-building"></i> Client</label>
-        <select name="fclient" data-combo data-placeholder="Search client…" data-filter-for="archiveTable" data-filter-colname="Client" data-filter-mode="contains">
+      <div class="field"><label><i class="fa-solid fa-building"></i> {% trans "Client" %}</label>
+        <select name="fclient" data-combo data-placeholder="{% trans 'Search client…' %}" data-filter-for="archiveTable" data-filter-colname="{% trans "Client" %}" data-filter-mode="contains">
           <option value=""></option>
           {% for v in f_clients %}<option value="{{ v }}"{% if f_active.client == v %} selected{% endif %}>{{ v }}</option>{% endfor %}
         </select>
       </div>
       {% endif %}
       {% if is_admin or unit == 'TECHNICAL' or unit == 'SUPPLY' %}
-      <div class="field"><label><i class="fa-solid fa-id-badge"></i> Commercial expert</label>
-        <select name="fexpert" data-combo data-placeholder="Search expert…" data-filter-for="archiveTable" data-filter-colname="Commercial expert" data-filter-mode="contains">
+      <div class="field"><label><i class="fa-solid fa-id-badge"></i> {% trans "Commercial expert" %}</label>
+        <select name="fexpert" data-combo data-placeholder="{% trans 'Search expert…' %}" data-filter-for="archiveTable" data-filter-colname="{% trans "Commercial expert" %}" data-filter-mode="contains">
           <option value=""></option>
           {% for v in f_experts %}<option value="{{ v }}"{% if f_active.expert == v %} selected{% endif %}>{{ v }}</option>{% endfor %}
         </select>
       </div>
       {% endif %}
-      <div class="field"><label><i class="fa-solid fa-layer-group"></i> Price type</label>
-        <select name="fprice" data-combo data-placeholder="Search price type…" data-filter-for="archiveTable" data-filter-colname="Price type" data-filter-mode="equals">
+      <div class="field"><label><i class="fa-solid fa-layer-group"></i> {% trans "Price type" %}</label>
+        <select name="fprice" data-combo data-placeholder="{% trans 'Search price type…' %}" data-filter-for="archiveTable" data-filter-colname="{% trans "Price type" %}" data-filter-mode="equals">
           <option value=""></option>
           {% for v in f_prices %}<option value="{{ v }}"{% if f_active.price == v %} selected{% endif %}>{{ v }}</option>{% endfor %}
         </select>
       </div>
-      <div class="field"><label><i class="fa-solid fa-file-invoice-dollar"></i> Offer Type</label>
-        <select name="foffer" data-combo data-placeholder="Search offer type…" data-filter-for="archiveTable" data-filter-colname="Offer Type" data-filter-mode="equals">
+      <div class="field"><label><i class="fa-solid fa-file-invoice-dollar"></i> {% trans "Offer Type" %}</label>
+        <select name="foffer" data-combo data-placeholder="{% trans 'Search offer type…' %}" data-filter-for="archiveTable" data-filter-colname="{% trans "Offer Type" %}" data-filter-mode="equals">
           <option value=""></option>
           {% for v in f_offers %}<option value="{{ v }}"{% if f_active.offer == v %} selected{% endif %}>{{ v }}</option>{% endfor %}
         </select>
       </div>
-      <div class="field"><label><i class="fa-solid fa-file-lines"></i> Document kind</label>
-        <select name="fkind" data-combo data-placeholder="Search document kind…" data-filter-for="archiveTable" data-filter-colname="Document kind" data-filter-mode="equals">
+      <div class="field"><label><i class="fa-solid fa-file-lines"></i> {% trans "Document kind" %}</label>
+        <select name="fkind" data-combo data-placeholder="{% trans 'Search document kind…' %}" data-filter-for="archiveTable" data-filter-colname="{% trans "Document kind" %}" data-filter-mode="equals">
           <option value=""></option>
           {% for v in f_kinds %}<option value="{{ v }}"{% if f_active.kind == v %} selected{% endif %}>{{ v }}</option>{% endfor %}
         </select>
       </div>
-      <div class="field"><label><i class="fa-solid fa-calendar-day"></i> From date (Jalali)</label>
-        <input type="text" name="ffrom" value="{{ f_active.from }}" data-jalali-datetime data-filter-for="archiveTable" data-filter-colname="Created" data-filter-mode="gte" placeholder="From date">
+      <div class="field"><label><i class="fa-solid fa-calendar-day"></i> {% trans "From date (Jalali)" %}</label>
+        {# data-filter-colname MUST render to the exact same text as the <th> #}
+        {# it targets (see static/js/ui.js's nameToCol, which maps the header #}
+        {# row's own rendered textContent -> column index at runtime) — so it #}
+        {# is wrapped in the identical {% trans %} tag as the "Created" column #}
+        {# header below, not left as the English literal, or the Persian     #}
+        {# viewer's date filter would silently match no column at all. #}
+        <input type="text" name="ffrom" value="{{ f_active.from }}" data-jalali-datetime data-filter-for="archiveTable" data-filter-colname="{% trans "Created" %}" data-filter-mode="gte" placeholder="{% trans "From date" %}">
       </div>
-      <div class="field"><label><i class="fa-solid fa-calendar-day"></i> To date (Jalali)</label>
-        <input type="text" name="fto" value="{{ f_active.to }}" data-jalali-datetime data-filter-for="archiveTable" data-filter-colname="Created" data-filter-mode="lte" placeholder="To date">
+      <div class="field"><label><i class="fa-solid fa-calendar-day"></i> {% trans "To date (Jalali)" %}</label>
+        <input type="text" name="fto" value="{{ f_active.to }}" data-jalali-datetime data-filter-for="archiveTable" data-filter-colname="{% trans "Created" %}" data-filter-mode="lte" placeholder="{% trans "To date" %}">
       </div>
     </div>
   </div>
@@ -206,16 +226,16 @@
          data-next-offset="{{ next_offset }}">
     <thead>
       <tr>
-        <th>Document No.</th>
-        <th>Order No.</th>
-        {% if unit != 'SUPPLY' %}<th>Client</th>{% endif %}
-        {% if is_admin or unit == 'TECHNICAL' or unit == 'SUPPLY' %}<th>Commercial expert</th>{% endif %}
-        <th>Price type</th>
-        <th>Status</th>
-        <th>Offer Type</th>
-        <th>Document kind</th>
-        {% if show_money %}<th>Grand total</th>{% endif %}
-        <th>Created</th>
+        <th>{% trans "Document No." %}</th>
+        <th>{% trans "Order No." %}</th>
+        {% if unit != 'SUPPLY' %}<th>{% trans "Client" %}</th>{% endif %}
+        {% if is_admin or unit == 'TECHNICAL' or unit == 'SUPPLY' %}<th>{% trans "Commercial expert" %}</th>{% endif %}
+        <th>{% trans "Price type" %}</th>
+        <th>{% trans "Status" %}</th>
+        <th>{% trans "Offer Type" %}</th>
+        <th>{% trans "Document kind" %}</th>
+        {% if show_money %}<th>{% trans "Grand total" %}</th>{% endif %}
+        <th>{% trans "Created" %}</th>
       </tr>
     </thead>
     <tbody id="archiveRows">
@@ -228,11 +248,11 @@
     <tbody id="archiveFoot"{% if not has_more %} hidden{% endif %}>
       <tr class="archive-foot-row">
         <td colspan="12">
-          <a class="archive-more-link" href="{{ all_url }}">Show all {{ filtered_count }} matching cases</a>
-          <span class="archive-more-busy" hidden><i class="fa-solid fa-circle-notch fa-spin"></i> Loading more…</span>
+          <a class="archive-more-link" href="{{ all_url }}">{% blocktrans %}Show all {{ filtered_count }} matching cases{% endblocktrans %}</a>
+          <span class="archive-more-busy" hidden><i class="fa-solid fa-circle-notch fa-spin"></i> {% trans "Loading more…" %}</span>
           <span class="archive-more-error" hidden>
-            Could not load more rows.
-            <button type="button" class="btn btn-sm" id="archiveRetry">Retry</button>
+            {% trans "Could not load more rows." %}
+            <button type="button" class="btn btn-sm" id="archiveRetry">{% trans "Retry" %}</button>
           </span>
         </td>
       </tr>

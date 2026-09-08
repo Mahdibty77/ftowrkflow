@@ -6,7 +6,24 @@ These mirror the business vocabulary:
 - FormKind  -> the three forms a case carries: Inquiry, TO, PI
 - CaseStatus-> where the case currently sits in the workflow
 - EventAction -> every recorded action in the case timeline
+
+STATUS/ACTION LABELS ARE ``gettext_lazy``-WRAPPED, NOT PLAIN ``gettext``. Every
+``CHOICES`` list below is built once, at import time — long before any request
+(and therefore any viewer's chosen language) exists. A plain ``gettext(...)``
+call would resolve against whatever language happened to be active at THAT
+moment (the process's default) and freeze that text into the tuple forever;
+every later request, regardless of the viewer's own language, would see the
+same frozen string. ``gettext_lazy`` instead returns a lazy proxy that defers
+the actual catalog lookup until the string is finally rendered to text (a
+template's ``{{ }}``, an f-string, ``str()``) — which happens per request,
+after ``accounts.middleware.LanguageMiddleware`` has activated that viewer's
+own language. That per-request re-resolution is exactly what lets one shared
+``choices=`` list (and the ``LABELS``/``get_..._display()`` lookups built on
+it) show the correct language to every viewer at once, rather than whichever
+language happened to be active when the server process started.
 """
+
+from django.utils.translation import gettext_lazy as _
 
 
 class DocKind:
@@ -15,9 +32,9 @@ class DocKind:
     BUDGET = "BUDGET"
 
     CHOICES = [
-        (INDENT, "Indent"),
-        (TENDER, "Tender"),
-        (BUDGET, "Budget"),
+        (INDENT, _("Indent")),
+        (TENDER, _("Tender")),
+        (BUDGET, _("Budget")),
     ]
     # Two-letter token used inside the document number.
     TOKEN = {INDENT: "IN", TENDER: "TE", BUDGET: "BU"}
@@ -28,8 +45,8 @@ class OfferType:
     TO_PI = "TO_PI"      # Technical Offer + Proforma Invoice (pricing required)
 
     CHOICES = [
-        (TO, "TO (Technical Offer)"),
-        (TO_PI, "TO & PI (Technical Offer + Proforma)"),
+        (TO, _("TO (Technical Offer)")),
+        (TO_PI, _("TO & PI (Technical Offer + Proforma)")),
     ]
 
 
@@ -39,9 +56,9 @@ class FormKind:
     PI = "PI"
 
     CHOICES = [
-        (INQUIRY, "Inquiry"),
-        (TO, "Technical Offer (TO)"),
-        (PI, "Proforma Invoice (PI)"),
+        (INQUIRY, _("Inquiry")),
+        (TO, _("Technical Offer (TO)")),
+        (PI, _("Proforma Invoice (PI)")),
     ]
     # Token inserted into export file names (FT-TO-... / FT-PI-...).
     EXPORT_TOKEN = {INQUIRY: "INQ", TO: "TO", PI: "PI"}
@@ -54,9 +71,9 @@ class PriceType:
     BOTH = "BOTH"
 
     CHOICES = [
-        (INTERNAL, "Internal"),
-        (EXTERNAL, "External"),
-        (BOTH, "Internal & External"),
+        (INTERNAL, _("Internal")),
+        (EXTERNAL, _("External")),
+        (BOTH, _("Internal & External")),
     ]
     LABELS = dict(CHOICES)
 
@@ -67,8 +84,8 @@ class Side:
     EXTERNAL = "EXTERNAL"
 
     CHOICES = [
-        (INTERNAL, "Internal"),
-        (EXTERNAL, "External"),
+        (INTERNAL, _("Internal")),
+        (EXTERNAL, _("External")),
     ]
     LABELS = dict(CHOICES)
 
@@ -207,22 +224,28 @@ class CaseStatus:
     CANCELLED = "CANCELLED"               # cancelled with reason (manager approved)
 
     CHOICES = [
-        (DRAFT, "Draft"),
-        (WITH_TECHNICAL, "With Technical"),
-        (RETURNED_TO_COMMERCIAL, "Returned to Commercial"),
-        (WITH_SUPPLY, "With Supply"),
-        (RETURNED_TO_TECHNICAL, "Returned to Technical"),
-        (WITH_COMMERCIAL, "With Commercial (final)"),
-        (UNSUPPLIABLE_PENDING_SUPPLY, "Cannot supply — awaiting Supply manager"),
-        (UNSUPPLIABLE_PENDING_COMMERCIAL, "Cannot supply — awaiting Commercial manager"),
-        (UNSUPPLIABLE, "Cannot supply"),
-        (UNSUPPLIABLE_CLOSED, "Cannot supply"),
-        (PENDING_CANCEL, "Cancel — pending approval"),
-        (CLOSED, "Closed / Sent to client"),
-        (FINAL_APPROVED, "Final Approved"),
-        (FINAL_CLOSED, "Final Closed"),
-        (BURNED, "Burned"),
-        (CANCELLED, "Cancelled"),
+        (DRAFT, _("Draft")),
+        (WITH_TECHNICAL, _("With Technical")),
+        (RETURNED_TO_COMMERCIAL, _("Returned to Commercial")),
+        (WITH_SUPPLY, _("With Supply")),
+        (RETURNED_TO_TECHNICAL, _("Returned to Technical")),
+        (WITH_COMMERCIAL, _("With Commercial (final)")),
+        (UNSUPPLIABLE_PENDING_SUPPLY, _("Cannot supply — awaiting Supply manager")),
+        (UNSUPPLIABLE_PENDING_COMMERCIAL, _("Cannot supply — awaiting Commercial manager")),
+        # These two codes deliberately share one English source string ("Cannot
+        # supply") — see _collapse() in cases/services.py, which relies on that
+        # shared wording to merge them into a single pill. Calling gettext_lazy
+        # twice here still produces two proxy objects, but both resolve the
+        # same msgid, so they carry the identical Persian text too and the pill
+        # collapse keeps working exactly as before, in either language.
+        (UNSUPPLIABLE, _("Cannot supply")),
+        (UNSUPPLIABLE_CLOSED, _("Cannot supply")),
+        (PENDING_CANCEL, _("Cancel — pending approval")),
+        (CLOSED, _("Closed / Sent to client")),
+        (FINAL_APPROVED, _("Final Approved")),
+        (FINAL_CLOSED, _("Final Closed")),
+        (BURNED, _("Burned")),
+        (CANCELLED, _("Cancelled")),
     ]
     LABELS = dict(CHOICES)
 
@@ -258,6 +281,21 @@ class CaseStatus:
 
     # Collapsed archive groups: several raw statuses share one filter/tab label
     # (e.g. WITH_TECHNICAL + RETURNED_TO_TECHNICAL → "With Technical").
+    #
+    # DELIBERATELY LEFT AS PLAIN, UNTRANSLATED ENGLISH STRINGS — unlike CHOICES
+    # above. These values are not display text; they are internal grouping
+    # KEYS: cases/services.py::StatusView builds ``status_fval`` (the archive
+    # row's hidden filter value) straight from this dict, and the archive's tab
+    # strip / tab counts / the ``data-status`` attribute the tab-filter JS
+    # matches against are all built from ARCHIVE_TAB_ORDER below — the very
+    # same English strings. Wrapping either in gettext_lazy would make BOTH
+    # sides of that match re-resolve per viewer language, which sounds fine
+    # until you remember they are compared as plain dict keys/strings in
+    # Python code that runs once per request, not re-rendered per keystroke —
+    # a subtler bug than a wrong label, and not worth the risk for a filter
+    # value nobody ever sees on screen. The PILL text a viewer actually reads
+    # (CaseStatus.LABELS, via CaseStatus.CHOICES above) is translated; this
+    # bookkeeping layer underneath it stays in English on purpose.
     ARCHIVE_GROUP = {
         DRAFT: "Draft",
         WITH_COMMERCIAL: "With Commercial",
@@ -334,30 +372,30 @@ class EventAction:
     FINAL_CLOSE = "FINAL_CLOSE"   # commercial shut a final-approved case (terminal)
 
     CHOICES = [
-        (CREATE, "Case created"),
-        (SUBMIT_TO_TECHNICAL, "Submitted to Technical"),
-        (RETURN_TO_COMMERCIAL, "Returned to Commercial"),
-        (ASSIGN, "Assigned to expert"),
-        (DELEGATE, "Delegated"),
-        (SEND_TO_SUPPLY, "Submitted to Supply"),
-        (RETURN_TO_TECHNICAL, "Returned to Technical"),
-        (SEND_TO_COMMERCIAL, "Submitted to Commercial"),
-        (BUILD_TO, "TO form built"),
-        (BUILD_PI, "PI form built"),
-        (NEW_VERSION, "New form version"),
-        (EDIT, "Edited"),
-        (COMMENT, "Comment added"),
-        (CLOSE, "Closed — sent to client"),
-        (CANNOT_SUPPLY, "Marked cannot supply"),
-        (APPROVE_UNSUPPLIABLE, "Cannot-supply approved"),
-        (REJECT_UNSUPPLIABLE, "Cannot-supply rejected"),
-        (RETURN_TO_SUPPLY, "Returned to Supply"),
-        (FINALIZE, "Final Approved"),
-        (REQUEST_CANCEL, "Cancellation requested"),
-        (APPROVE_CANCEL, "Cancellation approved"),
-        (REJECT_CANCEL, "Cancellation rejected"),
-        (CANCEL, "Cancelled"),
-        (BURN, "Burned"),
-        (FINAL_CLOSE, "Final Closed"),
+        (CREATE, _("Case created")),
+        (SUBMIT_TO_TECHNICAL, _("Submitted to Technical")),
+        (RETURN_TO_COMMERCIAL, _("Returned to Commercial")),
+        (ASSIGN, _("Assigned to expert")),
+        (DELEGATE, _("Delegated")),
+        (SEND_TO_SUPPLY, _("Submitted to Supply")),
+        (RETURN_TO_TECHNICAL, _("Returned to Technical")),
+        (SEND_TO_COMMERCIAL, _("Submitted to Commercial")),
+        (BUILD_TO, _("TO form built")),
+        (BUILD_PI, _("PI form built")),
+        (NEW_VERSION, _("New form version")),
+        (EDIT, _("Edited")),
+        (COMMENT, _("Comment added")),
+        (CLOSE, _("Closed — sent to client")),
+        (CANNOT_SUPPLY, _("Marked cannot supply")),
+        (APPROVE_UNSUPPLIABLE, _("Cannot-supply approved")),
+        (REJECT_UNSUPPLIABLE, _("Cannot-supply rejected")),
+        (RETURN_TO_SUPPLY, _("Returned to Supply")),
+        (FINALIZE, _("Final Approved")),
+        (REQUEST_CANCEL, _("Cancellation requested")),
+        (APPROVE_CANCEL, _("Cancellation approved")),
+        (REJECT_CANCEL, _("Cancellation rejected")),
+        (CANCEL, _("Cancelled")),
+        (BURN, _("Burned")),
+        (FINAL_CLOSE, _("Final Closed")),
     ]
     LABELS = dict(CHOICES)

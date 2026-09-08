@@ -1,38 +1,39 @@
 {% extends "base.html" %}
-{% load ft_extras %}
+{% load ft_extras i18n %}
 {% block title %}Inbox · Foolad Tabar Workflow{% endblock %}
-{% block topbar %}Inbox{% endblock %}
+{% block topbar %}{% trans "Inbox" %}{% endblock %}
 {% block content %}
 <div class="page-head">
   <div>
-    <h1>Inbox</h1>
+    <h1>{% trans "Inbox" %}</h1>
     <div class="sub">
-      {% if scope == 'commercial' %}Live status of every case — unopened first, then nearest deadline.
-      {% elif scope == 'technical' %}Cases currently with the Technical unit — unopened first, then nearest deadline.
-      {% elif scope == 'supply' %}Pricing queue — unopened first, then nearest deadline.
-      {% else %}Your cases — unopened first, then nearest deadline.{% endif %}
+      {% if scope == 'commercial' %}{% trans "Live status of every case — unopened first, then nearest deadline." %}
+      {% elif scope == 'technical' %}{% trans "Cases currently with the Technical unit — unopened first, then nearest deadline." %}
+      {% elif scope == 'supply' %}{% trans "Pricing queue — unopened first, then nearest deadline." %}
+      {% else %}{% trans "Your cases — unopened first, then nearest deadline." %}{% endif %}
     </div>
   </div>
-  {% if can_create %}<a href="{% url 'cases:case_create' %}" class="btn btn-primary">New Case</a>{% endif %}
+  {% if can_create %}<a href="{% url 'cases:case_create' %}" class="btn btn-primary">{% trans "New Case" %}</a>{% endif %}
 </div>
 
 {% if fx_stale %}
+{% url 'cases:fx_rates' as fx_rates_url_val %}
 <div class="flash flash-warning" style="margin-bottom:1rem;">
   <i class="fa-solid fa-triangle-exclamation"></i>
-  <span>FX rates are outdated (more than 24 hours) or incomplete.
-    <a href="{% url 'cases:fx_rates' %}"><strong>Update exchange rates</strong></a>
-    so Proforma currency conversion can run.</span>
+  <span>{% blocktrans %}FX rates are outdated (more than 24 hours) or incomplete.
+    <a href="{{ fx_rates_url_val }}"><strong>Update exchange rates</strong></a>
+    so Proforma currency conversion can run.{% endblocktrans %}</span>
 </div>
 {% endif %}
 
 <div class="card filter-card-fit" style="margin-bottom:1rem;">
   <div class="filter-fit-grid">
-    <div class="field"><label><i class="fa-solid fa-hashtag"></i> Document No.</label>
-      <input type="text" data-filter-for="inboxTable" data-filter-colname="Document No." placeholder="e.g. 503, 1256" autocomplete="off">
+    <div class="field"><label><i class="fa-solid fa-hashtag"></i> {% trans "Document No." %}</label>
+      <input type="text" data-filter-for="inboxTable" data-filter-colname="{% trans "Document No." %}" placeholder="e.g. 503, 1256" autocomplete="off">
     </div>
     {% if unit != 'SUPPLY' %}
-    <div class="field"><label><i class="fa-solid fa-building"></i> Client</label>
-      <input type="text" data-filter-for="inboxTable" data-filter-colname="Client" data-filter-mode="contains" placeholder="Search client…" autocomplete="off">
+    <div class="field"><label><i class="fa-solid fa-building"></i> {% trans "Client" %}</label>
+      <input type="text" data-filter-for="inboxTable" data-filter-colname="{% trans "Client" %}" data-filter-mode="contains" placeholder="{% trans 'Search client…' %}" autocomplete="off">
     </div>
     {% endif %}
   </div>
@@ -50,16 +51,16 @@
   <table class="data" id="inboxTable" data-filter-table>
     <thead>
       <tr>
-        <th>Document No.</th>{% if unit != 'SUPPLY' %}<th>Client</th>{% endif %}<th>Status</th>
-        <th>Deadline</th><th>Offer type</th><th>Updated</th>
+        <th>{% trans "Document No." %}</th>{% if unit != 'SUPPLY' %}<th>{% trans "Client" %}</th>{% endif %}<th>{% trans "Status" %}</th>
+        <th>{% trans "Deadline" %}</th><th>{% trans "Offer type" %}</th><th>{% trans "Updated" %}</th>
       </tr>
     </thead>
     <tbody>
       {% for c in cases %}
         <tr class="row-link{% if c.is_new_in_inbox %} row-unseen{% endif %}" onclick="window.location='{% url 'cases:case_detail' c.pk %}'">
-          <td>{% if c.is_new_in_inbox %}<span class="sr-only">Unopened. </span>{% endif %}
+          <td>{% if c.is_new_in_inbox %}<span class="sr-only">{% trans "Unopened." %} </span>{% endif %}
             <span class="docno-line">
-              <span class="docno"><span>{{ c.doc_no }}</span></span>{% if c.is_delegated %} <span class="pill pill-delegated">Delegated</span>{% endif %}
+              <span class="docno"><span>{{ c.doc_no }}</span></span>{% if c.is_delegated %} <span class="pill pill-delegated">{% trans "Delegated" %}</span>{% endif %}
             </span>
           </td>
           {# Client name is typed by a user, the code beside it is generated — #}
@@ -72,7 +73,7 @@
           <td class="muted">{{ c.updated_at|jalali:"Y.m.d H:i" }}</td>
         </tr>
       {% empty %}
-        <tr><td colspan="{% if unit == 'SUPPLY' %}5{% else %}6{% endif %}" class="empty">Your inbox is empty.</td></tr>
+        <tr><td colspan="{% if unit == 'SUPPLY' %}5{% else %}6{% endif %}" class="empty">{% trans "Your inbox is empty." %}</td></tr>
       {% endfor %}
     </tbody>
   </table>

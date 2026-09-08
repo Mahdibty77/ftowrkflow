@@ -1,4 +1,4 @@
-{% load ft_extras %}
+{% load ft_extras i18n %}
 {% comment %}
   MY TASKS — REMINDERS TAB. Included by my_tasks.html's own #panel-reminders;
   split into its own file for the identical reason company_detail.html's
@@ -94,14 +94,14 @@
 
 <div class="card" style="margin-bottom:1rem;">
   <div class="card-head">
-    <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-right:.4rem;"></i>Filters</h3>
-    <button type="button" class="btn btn-sm" data-filter-clear="myTasksTable" title="Reset all filters">
-      <i class="fa-solid fa-eraser"></i> Clear filters
+    <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Filters" %}</h3>
+    <button type="button" class="btn btn-sm" data-filter-clear="myTasksTable" title="{% trans "Reset all filters" %}">
+      <i class="fa-solid fa-eraser"></i> {% trans "Clear filters" %}
     </button>
   </div>
   <div class="grid grid-4">
     <div class="field">
-      <label><i class="fa-solid fa-magnifying-glass"></i> Search</label>
+      <label><i class="fa-solid fa-magnifying-glass"></i> {% trans "Search" %}</label>
       {# LIVE, FREE-TEXT, AGAINST THE NOTE ITSELF — the identical               #}
       {# `data-filter-colname`/`data-filter-mode="contains"` plain-<input>      #}
       {# mechanism cases/templates/cases/case_detail.html's own Reminders tab   #}
@@ -112,18 +112,18 @@
       {# every keystroke. Targets "Note" (the <td> a few sections down holding  #}
       {# r.note) — this table's own free-text column, distinct from the        #}
       {# reports table's "Report" column beside it in `_my_tasks_reports.html`. #}
-      <input type="text" data-filter-for="myTasksTable" data-filter-colname="Note"
-             data-filter-mode="contains" placeholder="Search note text…" autocomplete="off">
+      <input type="text" data-filter-for="myTasksTable" data-filter-colname="{% trans "Note" %}"
+             data-filter-mode="contains" placeholder="{% trans "Search note text…" %}" autocomplete="off">
     </div>
     <div class="field">
-      <label><i class="fa-solid fa-folder-open"></i> Case</label>
+      <label><i class="fa-solid fa-folder-open"></i> {% trans "Case" %}</label>
       {# EQUALS, not contains — options are exact document numbers, and a    #}
       {# document number could otherwise sit inside another one as a        #}
       {# substring. Never offers a case case_access_for/scope_case_rows     #}
       {# would refuse this viewer — see marketing/views.py::my_tasks's own  #}
       {# docstring and _my_tasks_case_access.                               #}
-      <select data-combo data-placeholder="Search a case…"
-              data-filter-for="myTasksTable" data-filter-colname="Case" data-filter-mode="equals">
+      <select data-combo data-placeholder="{% trans "Search a case…" %}"
+              data-filter-for="myTasksTable" data-filter-colname="{% trans "Case" %}" data-filter-mode="equals">
         <option value=""></option>
         {% for row in case_choices %}
         <option value="{{ row.doc_no }}">{{ row.doc_no }} · {{ row.client_name }} · {{ row.label_fa|default:row.label }}</option>
@@ -131,9 +131,9 @@
       </select>
     </div>
     <div class="field">
-      <label><i class="fa-solid fa-building"></i> Company</label>
-      <select data-combo data-placeholder="Search a company…"
-              data-filter-for="myTasksTable" data-filter-colname="Company" data-filter-mode="equals">
+      <label><i class="fa-solid fa-building"></i> {% trans "Company" %}</label>
+      <select data-combo data-placeholder="{% trans "Search a company…" %}"
+              data-filter-for="myTasksTable" data-filter-colname="{% trans "Company" %}" data-filter-mode="equals">
         <option value=""></option>
         {% for name in client_names %}
         <option value="{{ name }}" dir="auto">{{ name }}</option>
@@ -141,29 +141,29 @@
       </select>
     </div>
     <div class="field">
-      <label><i class="fa-solid fa-calendar-day"></i> From date (Jalali)</label>
+      <label><i class="fa-solid fa-calendar-day"></i> {% trans "From date (Jalali)" %}</label>
       {# value= PRE-FILLS FROM ?from= — see marketing/views.py::my_tasks's   #}
       {# own "?from=/?to=" docstring section: the shift page's own          #}
       {# open-reminder badges link here this way. Blank on every ordinary   #}
       {# visit, exactly as before this addition.                           #}
       <input type="text" data-jalali-datetime data-filter-for="myTasksTable"
-             data-filter-colname="Due" data-filter-mode="gte" placeholder="From date"
+             data-filter-colname="{% trans "Due" %}" data-filter-mode="gte" placeholder="{% trans "From date" %}"
              autocomplete="off" value="{{ due_from }}">
     </div>
     <div class="field">
-      <label><i class="fa-solid fa-calendar-day"></i> To date (Jalali)</label>
+      <label><i class="fa-solid fa-calendar-day"></i> {% trans "To date (Jalali)" %}</label>
       <input type="text" data-jalali-datetime data-filter-for="myTasksTable"
-             data-filter-colname="Due" data-filter-mode="lte" placeholder="To date"
+             data-filter-colname="{% trans "Due" %}" data-filter-mode="lte" placeholder="{% trans "To date" %}"
              autocomplete="off" value="{{ due_to }}">
     </div>
     {% if scope_all %}
     <div class="field">
-      <label><i class="fa-solid fa-user"></i> Person</label>
+      <label><i class="fa-solid fa-user"></i> {% trans "Person" %}</label>
       {# See this file's own head comment's "THE PERSON FILTER" section —   #}
       {# equals against person_key (a stable Person.detail_code), not the   #}
       {# printed name.                                                      #}
-      <select data-combo data-placeholder="Search a person…"
-              data-filter-for="myTasksTable" data-filter-colname="Person" data-filter-mode="equals">
+      <select data-combo data-placeholder="{% trans "Search a person…" %}"
+              data-filter-for="myTasksTable" data-filter-colname="{% trans "Person" %}" data-filter-mode="equals">
         <option value=""></option>
         {% for name, key in person_choices %}
         <option value="{{ key }}" dir="auto">{{ name }}</option>
@@ -178,14 +178,14 @@
   {# (.nv-toggle-row/.nv-switch), no new CSS; the switch itself sets no      #}
   {# filter on its own — my_tasks.js is what turns it into the hidden State #}
   {# control's value (see this file's own head comment).                    #}
-  <label class="nv-toggle-row" style="margin-top:.7rem;cursor:pointer;" title="Show only reminders that are already overdue and still open">
+  <label class="nv-toggle-row" style="margin-top:.7rem;cursor:pointer;" title="{% trans "Show only reminders that are already overdue and still open" %}">
     <span class="nv-switch">
       <input type="checkbox" id="taskMissedToggle">
       <span class="nv-switch-slider"></span>
     </span>
     <span class="nv-toggle-text">
-      <span class="nv-toggle-label">Missed only</span>
-      <span class="help" style="margin:0;">Reminders already due, still open — the same set the top-of-page banner counts.</span>
+      <span class="nv-toggle-label">{% trans "Missed only" %}</span>
+      <span class="help" style="margin:0;">{% trans "Reminders already due, still open — the same set the top-of-page banner counts." %}</span>
     </span>
   </label>
 </div>
@@ -196,10 +196,10 @@
 {# they actually carry one of THIS viewer's own reminders — see             #}
 {# marketing/views.py::_task_day_groups. "All" resets both the day and the   #}
 {# hour filter and is the page's own default (nothing narrowed on load).    #}
-<nav class="archive-status-tabs" id="taskDayTabs" aria-label="Filter by day">
+<nav class="archive-status-tabs" id="taskDayTabs" aria-label="{% trans "Filter by day" %}">
   <button type="button" class="archive-status-tab archive-status-tab-all is-active"
           data-day-key="" data-is-today="0" aria-selected="true">
-    <span class="ast-label"><span class="ast-w">All</span></span>
+    <span class="ast-label"><span class="ast-w">{% trans "All" %}</span></span>
     <span class="ast-count">{{ rows|length }}</span>
   </button>
   {% for g in day_groups %}
@@ -221,9 +221,9 @@
 {# ever actually disappear. An inline style needs no such companion rule —   #}
 {# nothing beats it — so my_tasks.js toggles this same property directly     #}
 {# (hourTabs.style.display) rather than the `hidden` property.               #}
-<nav class="archive-status-tabs" id="taskHourTabs" aria-label="Filter by hour" style="display:none;margin-top:-.4rem;">
+<nav class="archive-status-tabs" id="taskHourTabs" aria-label="{% trans "Filter by hour" %}" style="display:none;margin-top:-.4rem;">
   <button type="button" class="archive-status-tab archive-status-tab-all is-active" data-hour-key="" aria-selected="true">
-    <span class="ast-label"><span class="ast-w">All hours</span></span>
+    <span class="ast-label"><span class="ast-w">{% trans "All hours" %}</span></span>
   </button>
   {% for h in hour_blocks %}
   {% comment %}
@@ -238,13 +238,13 @@
   {% endcomment %}
   <button type="button" class="archive-status-tab{% if h.has_reminder %} has-reminder{% endif %}"
           data-hour-key="{{ h.key }}" aria-selected="false"
-          {% if h.has_reminder %}title="At least one reminder is due in this hour"{% endif %}>
+          {% if h.has_reminder %}title="{% trans "At least one reminder is due in this hour" %}"{% endif %}>
     <span class="ast-label"><span class="ast-w">{{ h.label }}</span></span>
     {% if h.has_reminder %}<span class="ast-hour-dot" aria-hidden="true"></span>{% endif %}
   </button>
   {% endfor %}
   {% if not hour_blocks %}
-  <span class="help" style="padding:.4rem .6rem;">No work-shift window is configured for you — Today's reminders are shown as one list instead.</span>
+  <span class="help" style="padding:.4rem .6rem;">{% trans "No work-shift window is configured for you — Today's reminders are shown as one list instead." %}</span>
   {% endif %}
 </nav>
 
@@ -261,17 +261,16 @@
 
 <div class="card">
   <div class="card-head">
-    <h3><i class="fa-solid fa-bell" style="color:var(--accent-strong);margin-right:.4rem;"></i>Reminders
+    <h3><i class="fa-solid fa-bell" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Reminders" %}
       <span class="count" data-filter-count="myTasksTable">{{ rows|length }}</span>
     </h3>
   </div>
 
   <div class="help" style="margin:-.35rem 0 .7rem;">
     {% if scope_all %}
-    Soonest first. Every reminder anyone has set, on any company, any case, or nothing at all.
+    {% trans "Soonest first. Every reminder anyone has set, on any company, any case, or nothing at all." %}
     {% else %}
-    Soonest first. Nobody else can see these — your own private notes to
-    yourself, on any company, any case, or nothing at all.
+    {% trans "Soonest first. Nobody else can see these — your own private notes to yourself, on any company, any case, or nothing at all." %}
     {% endif %}
   </div>
 
@@ -283,13 +282,21 @@
         {# section for the owner's own stated order — Person (scope_all     #}
         {# only), Created, Due, Company, Case, Note, State — and why Person #}
         {# never appears at all on the "own" table.                        #}
-        {% if scope_all %}<th>Person</th>{% endif %}
-        <th>Created</th>
-        <th>Due</th>
-        <th>Company</th>
-        <th>Case</th>
-        <th>Note</th>
-        <th>State</th>
+        {% if scope_all %}<th>{% trans "Person" %}</th>{% endif %}
+        <th>{% trans "Created" %}</th>
+        <th>{% trans "Due" %}</th>
+        <th>{% trans "Company" %}</th>
+        <th>{% trans "Case" %}</th>
+        <th>{% trans "Note" %}</th>
+        <th>{% trans "State" %}</th>
+        {# Day/Hour are hidden columns nobody ever sees — the filter        #}
+        {# machinery that reads them (my_tasks.js's day/hour pills, and the #}
+        {# hidden #taskDayFilter/#taskHourFilter above) matches on this     #}
+        {# exact English text regardless of interface language, so it is   #}
+        {# deliberately left untranslated here — see this file's own head  #}
+        {# comment's "THE COLUMN ORDER" note and marketing/views.py's       #}
+        {# day_key/hour_key, which are themselves plain machine keys, never #}
+        {# shown to a reader in any language.                               #}
         <th hidden>Day</th>
         <th hidden>Hour</th>
         <th></th>
@@ -340,18 +347,25 @@
               <i class="fa-solid fa-folder-open"></i><span class="mono">{{ r.case.doc_no }}</span>
             </a>
             {% else %}
-            <span class="chip c-draft"><i class="fa-solid fa-folder-open"></i>On a case</span>
+            <span class="chip c-draft"><i class="fa-solid fa-folder-open"></i>{% trans "On a case" %}</span>
             {% endif %}
           {% else %}<span class="muted">—</span>{% endif %}
         </td>
         <td dir="auto" style="white-space:pre-line;max-width:32ch;overflow-wrap:anywhere;">{{ r.note }}</td>
+        {# data-fval carries the RAW, untranslated state key (r.state_text —  #}
+        {# always "Due"/"Waiting"/"Dealt with" in English) because it is what #}
+        {# my_tasks.js's Missed-only toggle and #taskMissedFilter compare     #}
+        {# against (see this file's own head comment and marketing/static/   #}
+        {# marketing/js/my_tasks.js) — machine plumbing, never shown to a     #}
+        {# reader, so it stays in English regardless of interface language;  #}
+        {# only the VISIBLE chip text below is translated.                   #}
         <td data-fval="{{ r.state_text }}">
           {% if r.is_done %}
-          <span class="chip c-ok"><i class="fa-solid fa-check"></i>Dealt with</span>
+          <span class="chip c-ok"><i class="fa-solid fa-check"></i>{% trans "Dealt with" %}</span>
           {% elif r.is_due %}
-          <span class="chip c-rej"><i class="fa-solid fa-bell"></i>Due</span>
+          <span class="chip c-rej"><i class="fa-solid fa-bell"></i>{% trans "Due" %}</span>
           {% else %}
-          <span class="chip c-draft"><i class="fa-regular fa-clock"></i>Waiting</span>
+          <span class="chip c-draft"><i class="fa-regular fa-clock"></i>{% trans "Waiting" %}</span>
           {% endif %}
         </td>
         <td hidden>{{ r.day_key }}</td>
@@ -386,7 +400,7 @@
           {% endcomment %}
           {% if r.is_own and not r.is_done %}
           <a href="{% url 'marketing:my_tasks_report' r.pk %}" class="btn btn-sm btn-primary">
-            <i class="fa-solid fa-file-circle-check"></i> Submit report
+            <i class="fa-solid fa-file-circle-check"></i> {% trans "Submit report" %}
           </a>
           {% endif %}
         </td>
@@ -395,9 +409,9 @@
       <tr>
         <td colspan="{% if scope_all %}10{% else %}9{% endif %}" class="empty">
           {% if scope_all %}
-          Nobody has set any reminders yet.
+          {% trans "Nobody has set any reminders yet." %}
           {% else %}
-          You have not set any tasks yet — use “Add Task” above to set the first one.
+          {% blocktrans %}You have not set any tasks yet — use "Add Task" above to set the first one.{% endblocktrans %}
           {% endif %}
         </td>
       </tr>

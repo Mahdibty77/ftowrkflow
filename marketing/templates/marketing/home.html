@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 {% comment %}
   The Marketing workspace: the project role chart, and nothing else.
 
@@ -11,8 +11,8 @@
   page you are already on. The panel below is therefore unconditional, and
   the view no longer has a ``tab`` concept to pass down.
 {% endcomment %}
-{% block title %}Marketing · Foolad Tabar Workflow{% endblock %}
-{% block topbar %}Marketing{% endblock %}
+{% block title %}{% trans "Marketing" %} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% trans "Marketing" %}{% endblock %}
 {% block head_extra %}
 <link rel="stylesheet" href="{% static 'marketing/css/rolechart.css' %}">
 {% endblock %}
@@ -20,7 +20,7 @@
 
 <div class="page-head">
   <div>
-    <h1>Marketing</h1>
+    <h1>{% trans "Marketing" %}</h1>
     <div class="sub">{{ user.profile.title_line }}</div>
   </div>
 
@@ -51,7 +51,7 @@
       every other piece of that file already guards on its own.
     {% endcomment %}
     <div class="rc-quick-inquiry rc-quick-inquiry-wide" id="rcQuickInquiry">
-      <div class="rc-quick-title">Quick Inquiry</div>
+      <div class="rc-quick-title">{% trans "Quick Inquiry" %}</div>
 
       {% comment %}
         Company and Role sit side by side in one horizontal row (the owner's
@@ -66,22 +66,22 @@
       {% endcomment %}
       <div class="rc-quick-row">
         <div class="rc-quick-field">
-          <label class="rc-quick-label" for="rcQuickCompanyInput">Company</label>
+          <label class="rc-quick-label" for="rcQuickCompanyInput">{% trans "Company" %}</label>
           <div class="rc-quick-combo">
             <input type="text" id="rcQuickCompanyInput" class="rc-quick-select"
-                   placeholder="Search a company…" autocomplete="off" dir="auto">
+                   placeholder="{% trans "Search a company…" %}" autocomplete="off" dir="auto">
             <div class="rc-quick-dropdown" id="rcQuickCompanyList" hidden></div>
           </div>
         </div>
 
         <div class="rc-quick-field">
-          <label class="rc-quick-label" for="rcQuickRoleInput">Role</label>
+          <label class="rc-quick-label" for="rcQuickRoleInput">{% trans "Role" %}</label>
           <div class="rc-quick-combo">
             <input type="text" id="rcQuickRoleInput" class="rc-quick-select"
-                   placeholder="Pick a company first…" autocomplete="off" dir="auto" disabled>
+                   placeholder="{% trans "Pick a company first…" %}" autocomplete="off" dir="auto" disabled>
             <div class="rc-quick-dropdown" id="rcQuickRoleList" hidden></div>
           </div>
-          <button type="button" class="rc-quick-add-role-toggle" id="rcQuickAddRoleToggle" hidden>+ Add a new role</button>
+          <button type="button" class="rc-quick-add-role-toggle" id="rcQuickAddRoleToggle" hidden>{% trans "+ Add a new role" %}</button>
           {% comment %}
             "Add a new role" used to be a plain native <select> — the one
             role-picking affordance left on this whole page that did not
@@ -99,15 +99,15 @@
           <div class="rc-quick-new-role" id="rcQuickNewRoleWrap" hidden>
             <div class="rc-quick-combo rc-quick-new-role-combo">
               <input type="text" id="rcQuickNewRoleInput" class="rc-quick-select"
-                     placeholder="Choose a role to add…" autocomplete="off" dir="auto">
+                     placeholder="{% trans "Choose a role to add…" %}" autocomplete="off" dir="auto">
               <div class="rc-quick-dropdown" id="rcQuickNewRoleList" hidden></div>
             </div>
-            <button type="button" class="btn btn-sm" id="rcQuickNewRoleAdd" disabled>Add</button>
+            <button type="button" class="btn btn-sm" id="rcQuickNewRoleAdd" disabled>{% trans "Add" %}</button>
           </div>
         </div>
       </div>
 
-      <button type="button" class="btn btn-sm btn-primary rc-quick-confirm" id="rcQuickConfirm" disabled>Run inquiry</button>
+      <button type="button" class="btn btn-sm btn-primary rc-quick-confirm" id="rcQuickConfirm" disabled>{% trans "Run inquiry" %}</button>
     </div>
 
     {% comment %}
@@ -130,13 +130,13 @@
       be on screen together.
     {% endcomment %}
     <div class="rc-quick-inquiry" id="rcCaseModeWidget">
-      <div class="rc-quick-title">Case Mode</div>
+      <div class="rc-quick-title">{% trans "Case Mode" %}</div>
 
       <div class="rc-quick-field">
-        <label class="rc-quick-label" for="rcCaseModeInput">Case</label>
+        <label class="rc-quick-label" for="rcCaseModeInput">{% trans "Case" %}</label>
         <div class="rc-quick-combo">
           <input type="text" id="rcCaseModeInput" class="rc-quick-select"
-                 placeholder="Search doc no. or company…" autocomplete="off" dir="auto">
+                 placeholder="{% trans "Search doc no. or company…" %}" autocomplete="off" dir="auto">
           <div class="rc-quick-dropdown" id="rcCaseModeList" hidden></div>
         </div>
       </div>
@@ -146,7 +146,7 @@
 
 <div class="panel">
   <div class="panel-h">
-    <h3>Relationship Map</h3>
+    <h3>{% trans "Relationship Map" %}</h3>
   </div>
 
   {% comment %}
@@ -175,7 +175,7 @@
     before the script ever touches it.
   {% endcomment %}
   <div class="rc-mode-banner" id="rcModeBanner" hidden>
-    <span class="rc-mode-banner-label" id="rcModeBannerLabel">Active</span>
+    <span class="rc-mode-banner-label" id="rcModeBannerLabel">{% trans "Active" %}</span>
     <span class="rc-mode-banner-text" id="rcModeBannerText" dir="auto"></span>
     <span class="rc-mode-banner-role" id="rcModeBannerRole" dir="auto" hidden></span>
     <span class="rc-mode-banner-note" id="rcModeBannerNote" dir="auto" hidden></span>
@@ -186,7 +186,7 @@
     it being a comment at all and the whole block renders into the banner as
     visible text - which is exactly the bug this replaced.{% endcomment %}
     <span class="rc-mode-banner-spacer"></span>
-    <button type="button" class="btn btn-sm btn-ghost" id="rcModeBannerBtn">Deactivate</button>
+    <button type="button" class="btn btn-sm btn-ghost" id="rcModeBannerBtn">{% trans "Deactivate" %}</button>
   </div>
 
   {% include "marketing/_role_chart.html" %}

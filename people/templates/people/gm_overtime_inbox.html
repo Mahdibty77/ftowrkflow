@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static ft_extras %}
+{% load static ft_extras i18n %}
 {% block title %}Requests · Foolad Tabar Workflow{% endblock %}
 {% block topbar %}Requests{% endblock %}
 {% block head_extra %}
@@ -34,7 +34,7 @@
           <th>Code</th>
           <th>Requester</th>
           <th>Type</th>
-          <th>Status</th>
+          <th>{% trans "Status" %}</th>
           <th>Submitted</th>
           <th>Description</th>
         </tr>
@@ -48,7 +48,7 @@
           <td class="mono">{{ row.req.request_code|default:row.req.pk }}</td>
           <td dir="auto">{{ row.req.person.display_name }}</td>
           <td dir="auto">{{ row.req.request_type.title }}</td>
-          <td><span class="pill pill-submitted">Submitted</span></td>
+          <td><span class="pill pill-submitted">{% trans "Submitted" %}</span></td>
           <td class="muted mono">{{ row.req.submitted_at|default:row.req.created_at|jalali:"Y.m.d H:i" }}</td>
           <td class="muted" dir="auto">{{ row.req.comment|default:"—"|truncatechars:80 }}</td>
         </tr>

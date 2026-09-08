@@ -55,7 +55,7 @@ from django.db import transaction
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.utils import timezone
+from django.utils import timezone, translation
 from django.utils.decorators import method_decorator
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_POST
@@ -71,6 +71,7 @@ from .forms import (
     _validate_avatar_upload,
     generate_temp_password,
 )
+from .constants import Language
 from .models import ImpersonationLog, PlatformConfig, Profile
 
 logger = logging.getLogger(__name__)
@@ -1313,7 +1314,37 @@ def settings_page(request):
     settings_url = reverse("accounts:settings")
 
     if request.method == "POST":
-        if "change_password" in request.POST:
+        if "save_language" in request.POST:
+            # Unlike every other card on this page, the submit buttons here
+            # ARE the field: two buttons named "save_language" carry the two
+            # valid values ("en" / "fa") as their own value attribute (see the
+            # template), so there is no separate hidden "action" flag to test
+            # for — the POST key doubles as both. Anything else (a forged or
+            # stale value) is rejected instead of silently coerced, same as
+            # every ModelForm-backed branch below would refuse an invalid
+            # choice.
+            new_language = (request.POST.get("save_language") or "").strip()
+            valid_codes = {code for code, _label in Language.CHOICES}
+            if new_language in valid_codes:
+                profile.language = new_language
+                profile.save(update_fields=["language"])
+                # Re-activate translation for THIS request, not just the next
+                # one: settings.MIDDLEWARE's LanguageMiddleware will pick the
+                # new value up from the database on the redirect below
+                # regardless (a fresh request runs through it again), but
+                # doing it here too is the belt-and-suspenders version — it
+                # means nothing rendered for the rest of *this* request could
+                # ever lag one request behind the change just made, including
+                # the Settings page's own "Language" card heading the person
+                # lands back on immediately below, which is this round's one
+                # translated proof string (see accounts/templates/accounts/
+                # settings.html and locale/fa/LC_MESSAGES/django.po).
+                translation.activate(new_language)
+                messages.success(request, "Language updated.")
+            else:
+                messages.error(request, "Please choose a valid language.")
+            return redirect(settings_url)
+        elif "change_password" in request.POST:
             pw_form = SelfPasswordForm(request.POST, user=request.user)
             if pw_form.is_valid():
                 pw_form.save()

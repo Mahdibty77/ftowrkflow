@@ -1,4 +1,4 @@
-{% load ft_extras %}
+{% load ft_extras i18n %}
 {# THE archive row. The page renders the first window of these and the slice   #}
 {# endpoint (cases:archive_slice) renders every later one, both from this file #}
 {# with the same context keys, so a scrolled-in row is the same row as a       #}
@@ -18,7 +18,7 @@
           <td>
             {% if select_mode %}<span class="archive-select-bar" aria-hidden="true"></span>{% endif %}
             <span class="docno-line">
-              <span class="docno"><span>{{ c.doc_no }}</span></span>{% if c.is_delegated %} <span class="pill pill-delegated">Delegated</span>{% endif %}
+              <span class="docno"><span>{{ c.doc_no }}</span></span>{% if c.is_delegated %} <span class="pill pill-delegated">{% trans "Delegated" %}</span>{% endif %}
             </span>
           </td>
           {# Order No., client name and expert name are typed by people; they get #}
@@ -36,7 +36,7 @@
           {# different places — with a caption saying so, because otherwise a     #}
           {# reader takes the first pill for the status of the whole case. The    #}
           {# rows and the data-fval both come from services.archive_status_rows.  #}
-          <td data-fval="{{ c.status_fval }}">{% if c.status_sides_differ %}<div class="muted" style="font-size:.66rem;text-transform:uppercase;letter-spacing:.4px;margin-bottom:.2rem;">Per side</div>{% endif %}{% for s_label, s_status, s_color in c.status_rows %}<div{% if not forloop.last %} style="margin-bottom:.2rem;"{% endif %}><span class="status-tag" style="--sc:{{ s_color }}">{% if s_label %}{{ s_label }}: {% endif %}{{ s_status }}</span></div>{% endfor %}</td>
+          <td data-fval="{{ c.status_fval }}">{% if c.status_sides_differ %}<div class="muted" style="font-size:.66rem;text-transform:uppercase;letter-spacing:.4px;margin-bottom:.2rem;">{% trans "Per side" %}</div>{% endif %}{% for s_label, s_status, s_color in c.status_rows %}<div{% if not forloop.last %} style="margin-bottom:.2rem;"{% endif %}><span class="status-tag" style="--sc:{{ s_color }}">{% if s_label %}{{ s_label }}: {% endif %}{{ s_status }}</span></div>{% endfor %}</td>
           <td>{{ c.offer_stage_label }}</td>
           <td>{{ c.kind_label }}</td>
           {% if show_money %}<td class="mono">{{ c.grand_total_display|default:"—" }}</td>{% endif %}
@@ -45,6 +45,6 @@
 {% empty %}
 {# Only the first window may say "nothing here". A later slice that comes back #}
 {# empty means the reader has reached the end, not that the archive is empty.  #}
-{% if show_empty %}        <tr><td colspan="12" class="empty">No cases in the archive yet.</td></tr>
+{% if show_empty %}        <tr><td colspan="12" class="empty">{% trans "No cases in the archive yet." %}</td></tr>
 {% endif %}
 {% endfor %}

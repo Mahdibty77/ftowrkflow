@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load ft_extras static %}
+{% load ft_extras static i18n %}
 {% comment %}
   ADD A TASK — or, when is_next_step is true, the "set your next reminder"
   step that follows closing one out. ONE TEMPLATE FOR BOTH, because
@@ -44,8 +44,8 @@
   marketing/forms.py::TaskForm.clean_due_at is the real, server-side check;
   see that method's own docstring.
 {% endcomment %}
-{% block title %}{% if is_next_step %}Next reminder{% else %}Add Task{% endif %} · Foolad Tabar Workflow{% endblock %}
-{% block topbar %}{% if is_next_step %}Set your next reminder{% else %}Add Task{% endif %}{% endblock %}
+{% block title %}{% if is_next_step %}{% trans "Next reminder" %}{% else %}{% trans "Add Task" %}{% endif %} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% if is_next_step %}{% trans "Set your next reminder" %}{% else %}{% trans "Add Task" %}{% endif %}{% endblock %}
 {% block head_extra %}
 <link rel="stylesheet" href="{% static 'marketing/css/directory.css' %}">
 {% endblock %}
@@ -53,18 +53,17 @@
 
 <div class="page-head">
   <div>
-    <h1>{% if is_next_step %}Set your next reminder{% else %}Add a task{% endif %}</h1>
+    <h1>{% if is_next_step %}{% trans "Set your next reminder" %}{% else %}{% trans "Add a task" %}{% endif %}</h1>
     <div class="sub">
       {% if is_next_step %}
-      The report is already saved and the old reminder is gone — this is
-      only the next one, and it is entirely optional.
+      {% trans "The report is already saved and the old reminder is gone — this is only the next one, and it is entirely optional." %}
       {% else %}
-      A private note to yourself. Nobody else can see it.
+      {% trans "A private note to yourself. Nobody else can see it." %}
       {% endif %}
     </div>
   </div>
   <a href="{% url 'marketing:my_tasks' %}" class="btn btn-sm">
-    <i class="fa-solid fa-arrow-left"></i> {% if is_next_step %}Skip — back to My Tasks{% else %}Back to My Tasks{% endif %}
+    <i class="fa-solid fa-arrow-left"></i> {% if is_next_step %}{% trans "Skip — back to My Tasks" %}{% else %}{% trans "Back to My Tasks" %}{% endif %}
   </a>
 </div>
 
@@ -87,33 +86,33 @@
 {# screens at two different moments.                                        #}
 <div class="card" style="margin-bottom:1rem;">
   <div class="card-head">
-    <h3><i class="fa-solid fa-file-circle-check" style="color:var(--ok);margin-right:.4rem;"></i>Report saved</h3>
+    <h3><i class="fa-solid fa-file-circle-check" style="color:var(--ok);margin-right:.4rem;"></i>{% trans "Report saved" %}</h3>
   </div>
-  <div class="help" style="margin:-.2rem 0 .8rem;">This reminder is closed — the old row is gone, and this is what got recorded.</div>
+  <div class="help" style="margin:-.2rem 0 .8rem;">{% trans "This reminder is closed — the old row is gone, and this is what got recorded." %}</div>
   <div class="row-flex" style="gap:1.2rem;flex-wrap:wrap;margin-bottom:.8rem;">
     <div>
-      <div class="muted" style="font-size:.78rem;"><i class="fa-regular fa-clock"></i> Set</div>
+      <div class="muted" style="font-size:.78rem;"><i class="fa-regular fa-clock"></i> {% trans "Set" %}</div>
       <div class="mono">{{ closed_report.reminder_set_at|jalali:"Y.m.d H:i" }}</div>
     </div>
     <div class="muted" style="align-self:center;">→</div>
     <div>
-      <div class="muted" style="font-size:.78rem;"><i class="fa-solid fa-bell"></i> Due</div>
+      <div class="muted" style="font-size:.78rem;"><i class="fa-solid fa-bell"></i> {% trans "Due" %}</div>
       <div class="mono">{{ closed_report.reminder_due_at|jalali:"Y.m.d H:i" }}</div>
     </div>
     <div class="muted" style="align-self:center;">→</div>
     <div>
-      <div class="muted" style="font-size:.78rem;"><i class="fa-solid fa-file-circle-check"></i> Reported</div>
+      <div class="muted" style="font-size:.78rem;"><i class="fa-solid fa-file-circle-check"></i> {% trans "Reported" %}</div>
       <div class="mono">{{ closed_report.created_at|jalali:"Y.m.d H:i" }}</div>
     </div>
   </div>
   {% if closed_report.reminder_note %}
   <div class="field">
-    <label><i class="fa-solid fa-note-sticky"></i> The reminder's own note</label>
+    <label><i class="fa-solid fa-note-sticky"></i> {% trans "The reminder's own note" %}</label>
     <div class="dir-reminder-text" dir="auto" style="white-space:pre-line;">{{ closed_report.reminder_note }}</div>
   </div>
   {% endif %}
   <div class="field">
-    <label><i class="fa-solid fa-file-lines"></i> The report</label>
+    <label><i class="fa-solid fa-file-lines"></i> {% trans "The report" %}</label>
     {% if closed_report.options.all %}
     <div class="row-flex" style="gap:.35rem;flex-wrap:wrap;margin-bottom:.4rem;">
       {% for o in closed_report.options.all %}<span class="chip" dir="auto">{{ o.name }}</span>{% endfor %}
@@ -141,8 +140,8 @@
     {{ form.due_at }}
     {% if form.due_at.errors %}<ul class="errorlist">{% for e in form.due_at.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
     <div class="help">
-      When this time passes, a notification appears at the top of your screen and stays until you close it out.
-      {% if form.shift_window_text %}Pick a time inside your own work shift ({{ form.shift_window_text }}).{% endif %}
+      {% trans "When this time passes, a notification appears at the top of your screen and stays until you close it out." %}
+      {% if form.shift_window_text %}{% blocktrans with window=form.shift_window_text %}Pick a time inside your own work shift ({{ window }}).{% endblocktrans %}{% endif %}
     </div>
   </div>
 
@@ -154,14 +153,14 @@
     {# open or typed into as if it might change. The real enforcement is    #}
     {# server-side, in marketing/views.py::my_tasks_add — this is only the  #}
     {# honest reflection of that on screen.                                 #}
-    <label><i class="fa-solid fa-building"></i> Company</label>
+    <label><i class="fa-solid fa-building"></i> {% trans "Company" %}</label>
     <div>
       <span class="chip c-draft" aria-disabled="true">
         <i class="fa-solid fa-lock"></i>
-        {% if locked_client %}<span dir="auto">{{ locked_client.name }}</span>{% else %}<span class="muted">No company</span>{% endif %}
+        {% if locked_client %}<span dir="auto">{{ locked_client.name }}</span>{% else %}<span class="muted">{% trans "No company" %}</span>{% endif %}
       </span>
     </div>
-    <div class="help">Locked to the reminder you just closed — a next reminder always stays on the same company. Use “Add Task” from My Tasks for anything else.</div>
+    <div class="help">{% blocktrans %}Locked to the reminder you just closed — a next reminder always stays on the same company. Use "Add Task" from My Tasks for anything else.{% endblocktrans %}</div>
     {% else %}
     <label for="{{ form.client_id.id_for_label }}"><i class="fa-solid fa-building"></i> {{ form.client_id.label }}</label>
     {{ form.client_id }}
@@ -175,22 +174,22 @@
     {# (marketing/views.py::my_tasks_add — the same already-fetched         #}
     {# case_choices row the ordinary picker's own <option> would have come  #}
     {# from, found by pk, no new query).                                    #}
-    <label><i class="fa-solid fa-folder-open"></i> Case</label>
+    <label><i class="fa-solid fa-folder-open"></i> {% trans "Case" %}</label>
     <div>
       <span class="chip c-draft" aria-disabled="true">
         <i class="fa-solid fa-lock"></i>
         {% if locked_case_row %}
         <span class="mono">{{ locked_case_row.doc_no }}</span><span dir="auto"> · {{ locked_case_row.client_name }}</span>
-        {% else %}<span class="muted">No case</span>{% endif %}
+        {% else %}<span class="muted">{% trans "No case" %}</span>{% endif %}
       </span>
     </div>
-    <div class="help">Locked to the reminder you just closed — not changeable on this step.</div>
+    <div class="help">{% trans "Locked to the reminder you just closed — not changeable on this step." %}</div>
     {% else %}
     <label for="{{ form.case_id.id_for_label }}"><i class="fa-solid fa-folder-open"></i> {{ form.case_id.label }}</label>
     {{ form.case_id }}
     {% if form.case_id.errors %}<ul class="errorlist">{% for e in form.case_id.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
     {% if not form.cases_available %}
-    <div class="help">There are no cases your own access lets you see. The reminder can still name a company, or nothing at all.</div>
+    <div class="help">{% trans "There are no cases your own access lets you see. The reminder can still name a company, or nothing at all." %}</div>
     {% endif %}
     {% endif %}
   </div>
@@ -202,8 +201,8 @@
   </div>
 
   <div class="btn-row">
-    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-bell"></i> {% if is_next_step %}Set reminder{% else %}Add task{% endif %}</button>
-    <a href="{% url 'marketing:my_tasks' %}" class="btn btn-ghost">{% if is_next_step %}Skip{% else %}Cancel{% endif %}</a>
+    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-bell"></i> {% if is_next_step %}{% trans "Set reminder" %}{% else %}{% trans "Add task" %}{% endif %}</button>
+    <a href="{% url 'marketing:my_tasks' %}" class="btn btn-ghost">{% if is_next_step %}{% trans "Skip" %}{% else %}{% trans "Cancel" %}{% endif %}</a>
   </div>
 </form>
 {% endblock %}

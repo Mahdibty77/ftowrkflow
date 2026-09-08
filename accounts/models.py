@@ -23,7 +23,7 @@ from datetime import time
 from django.conf import settings
 from django.db import models
 
-from .constants import Gender, Role, Unit, SupplyKind
+from .constants import Gender, Language, Role, Unit, SupplyKind
 
 
 def signature_upload_path(instance, filename):
@@ -86,6 +86,31 @@ class Profile(models.Model):
     # a blank gender simply shows the last name with no honorific prefixed,
     # exactly as every export looked before this field existed.
     gender = models.CharField(max_length=10, choices=Gender.CHOICES, blank=True)
+
+    # The platform CHROME language this person has chosen in Settings —
+    # sidebar, tabs, buttons, field labels, status labels, page titles. Never
+    # the CONTENT (a company's own name, a person's own comment/report/
+    # reminder text, anything else someone typed), which is never translated
+    # regardless of this setting. Deliberately a field on this per-user record
+    # rather than a browser cookie or session key: it is a PER-PERSON
+    # preference that must follow that person to any device/browser they sign
+    # in from, exactly like every other Profile field, and not something a
+    # fresh browser or a colleague's machine should ever reset. See
+    # accounts.middleware.LanguageMiddleware for where this is read and
+    # activated on every request, and accounts.constants.Language for why the
+    # choice values are lowercase unlike this app's other choice fields.
+    #
+    # default="en" (rather than blank) so a freshly created account with
+    # nobody having touched this yet renders in English — the same interface
+    # language the platform has always shown, before this field existed.
+    # blank=True only so the admin change-list / bulk tools that already treat
+    # every Profile field as optional keep working; the Settings-page form is
+    # the only place a person actually changes this, and it always posts one
+    # of the two real choices.
+    language = models.CharField(
+        "Language", max_length=5, choices=Language.CHOICES, default=Language.ENGLISH,
+        blank=True,
+    )
 
     # Historical clear-text password copy. No longer written to (see the
     # 2026-07 security pass) — the column is kept only so nothing errors if a

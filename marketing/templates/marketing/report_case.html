@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 {% comment %}
   WRITE A REPORT — STEP 1 OF 2: which case, if any, is it about?
 
@@ -24,17 +24,17 @@
   fact. The case <select> carries data-combo and is upgraded by static/js/ui.js
   into the searchable picker every other select in this platform gets.
 {% endcomment %}
-{% block title %}Add report · {{ client.name }} · Foolad Tabar Workflow{% endblock %}
-{% block topbar %}Add report{% endblock %}
+{% block title %}{% trans "Add report" %} · {{ client.name }} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% trans "Add report" %}{% endblock %}
 {% block content %}
 
 <div class="page-head">
   <div>
-    <h1>Add a report</h1>
-    <div class="sub">on <span dir="auto">{{ client.name }}</span> <span class="mono">({{ client.code }})</span></div>
+    <h1>{% trans "Add a report" %}</h1>
+    <div class="sub">{% blocktrans with name=client.name code=client.code %}on <span dir="auto">{{ name }}</span> <span class="mono">({{ code }})</span>{% endblocktrans %}</div>
   </div>
   <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-sm">
-    <i class="fa-solid fa-arrow-left"></i> Back to company
+    <i class="fa-solid fa-arrow-left"></i> {% trans "Back to company" %}
   </a>
 </div>
 
@@ -44,15 +44,14 @@
 
   <div class="help" style="margin-bottom:.8rem;">
     <i class="fa-solid fa-circle-info"></i>
-    Step 1 of 2 — if this report is about one specific case, attach it here.
-    It is optional; Skip goes straight to writing the report.
+    {% trans "Step 1 of 2 — if this report is about one specific case, attach it here. It is optional; Skip goes straight to writing the report." %}
   </div>
 
   <div class="field">
-    <label for="reportCaseSelect"><i class="fa-solid fa-folder-open"></i> Case this report is about</label>
+    <label for="reportCaseSelect"><i class="fa-solid fa-folder-open"></i> {% trans "Case this report is about" %}</label>
     <select id="reportCaseSelect" name="case_id" data-combo="1"
-            data-placeholder="Search a case…">
-      <option value="">— No case —</option>
+            data-placeholder="{% trans "Search a case…" %}">
+      <option value="">{% trans "— No case —" %}</option>
       {% for row in case_choices %}
       <option value="{{ row.case_id }}">{{ row.doc_no }} · {{ row.label_fa|default:row.label }} · {{ row.status_fa }}</option>
       {% endfor %}
@@ -62,7 +61,7 @@
     {# (marketing/views.py::_visible_case_rows), so "none" here means "none you #}
     {# may see", not necessarily "none exist" — and the report itself is still  #}
     {# perfectly writable without one.                                          #}
-    <div class="help">There are no cases on this company that your seat may see. Skip to write the report on the company itself.</div>
+    <div class="help">{% trans "There are no cases on this company that your seat may see. Skip to write the report on the company itself." %}</div>
     {% endif %}
   </div>
 
@@ -71,13 +70,13 @@
   {# ignored, which is exactly the same state as picking "— No case —".         #}
   <div class="btn-row">
     <button type="submit" class="btn btn-primary">
-      <i class="fa-solid fa-arrow-right-long"></i> Continue
+      <i class="fa-solid fa-arrow-right-long"></i> {% trans "Continue" %}
     </button>
     <button type="submit" class="btn btn-ghost" name="skip" value="1"
             formnovalidate onclick="document.getElementById('reportCaseSelect').value='';">
-      Skip — no case
+      {% trans "Skip — no case" %}
     </button>
-    <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-ghost">Cancel</a>
+    <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-ghost">{% trans "Cancel" %}</a>
   </div>
 </form>
 {% endblock %}

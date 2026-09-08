@@ -74,6 +74,7 @@ from __future__ import annotations
 
 from django.conf import settings
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 from cases.constants import MarketingLabel
 from cases.models import Client
@@ -550,16 +551,25 @@ class ClientEventAction:
     REPORT_ADDED = "REPORT_ADDED"
     CASE_ROLE_CHANGED = "CASE_ROLE_CHANGED"
 
+    # Wrapped in gettext_lazy, not the eager gettext, for the same reason
+    # cases/constants.py's own CHOICES lists are: this list is built once, at
+    # import time, before any request (and therefore any viewer's language)
+    # exists. gettext_lazy defers the actual catalog lookup to render time —
+    # per request, after accounts.middleware.LanguageMiddleware has activated
+    # that viewer's own language — which is what lets this one shared list
+    # (and the LABELS lookup built on it, ClientEvent.action_label's source)
+    # show the correct language to every viewer instead of freezing whichever
+    # language happened to be active when the process started.
     CHOICES = [
-        (CLIENT_REGISTERED, "Company registered"),
-        (LABEL_ADDED, "Label added"),
-        (LABEL_REMOVED, "Label removed"),
-        (CONNECTION_ADDED, "Connection added"),
-        (CONNECTION_REMOVED, "Connection removed"),
-        (CONTACT_ADDED, "Contact added"),
-        (CONTACT_REMOVED, "Contact removed"),
-        (REPORT_ADDED, "Report added"),
-        (CASE_ROLE_CHANGED, "Case role changed"),
+        (CLIENT_REGISTERED, _("Company registered")),
+        (LABEL_ADDED, _("Label added")),
+        (LABEL_REMOVED, _("Label removed")),
+        (CONNECTION_ADDED, _("Connection added")),
+        (CONNECTION_REMOVED, _("Connection removed")),
+        (CONTACT_ADDED, _("Contact added")),
+        (CONTACT_REMOVED, _("Contact removed")),
+        (REPORT_ADDED, _("Report added")),
+        (CASE_ROLE_CHANGED, _("Case role changed")),
     ]
     LABELS = dict(CHOICES)
 
@@ -926,9 +936,17 @@ class ReminderState:
     OPEN = "OPEN"
     DONE = "DONE"
 
+    # gettext_lazy, not gettext — see ClientEventAction.CHOICES above for why.
+    # "Dealt with" here is the same English source string the case-detail and
+    # My Tasks reminder tables already pass through {% trans %} for their own
+    # third visible state (Waiting / Due / Dealt with is a template-level
+    # split of this same two-value field — see the class docstring above and
+    # marketing/reminders.py::due_notification); reusing the identical msgid
+    # means both places read as the exact same Persian word rather than two
+    # independently-chosen translations of "Dealt with" drifting apart.
     CHOICES = [
-        (OPEN, "Open"),
-        (DONE, "Dealt with"),
+        (OPEN, _("Open")),
+        (DONE, _("Dealt with")),
     ]
     LABELS = dict(CHOICES)
 

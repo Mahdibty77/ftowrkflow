@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 {% comment %}
   SET A REMINDER on this company — one screen, three fields.
 
@@ -37,8 +37,8 @@
   accounts for it (see marketing/reminders.py::close_with_report) — and it is
   still not written anywhere on the company's own shared timeline.
 {% endcomment %}
-{% block title %}Set a reminder · {{ client.name }} · Foolad Tabar Workflow{% endblock %}
-{% block topbar %}Set a reminder{% endblock %}
+{% block title %}{% trans "Set a reminder" %} · {{ client.name }} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% trans "Set a reminder" %}{% endblock %}
 {% block head_extra %}
 <link rel="stylesheet" href="{% static 'marketing/css/directory.css' %}">
 {% endblock %}
@@ -46,16 +46,16 @@
 
 <div class="page-head">
   <div>
-    <h1>Set a reminder</h1>
-    <div class="sub">on <span dir="auto">{{ client.name }}</span> <span class="mono">({{ client.code }})</span></div>
+    <h1>{% trans "Set a reminder" %}</h1>
+    <div class="sub">{% blocktrans with name=client.name code=client.code %}on <span dir="auto">{{ name }}</span> <span class="mono">({{ code }})</span>{% endblocktrans %}</div>
   </div>
   <div class="row-flex" style="align-items:center;gap:.5rem;flex-wrap:wrap;">
     {# "My reminders" became "My Tasks" — see marketing/views.py::my_tasks. #}
     <a href="{% url 'marketing:my_tasks' %}" class="btn btn-sm">
-      <i class="fa-solid fa-bell"></i> My Tasks
+      <i class="fa-solid fa-bell"></i> {% trans "My Tasks" %}
     </a>
     <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-sm">
-      <i class="fa-solid fa-arrow-left"></i> Back to company
+      <i class="fa-solid fa-arrow-left"></i> {% trans "Back to company" %}
     </a>
   </div>
 </div>
@@ -72,17 +72,14 @@
 
   <div class="help" style="margin-bottom:.8rem;">
     <i class="fa-solid fa-lock"></i>
-    Like your reports, a Marketing Supervisor (and the platform admin) can see
-    this reminder on your unit's reminders list — nobody outside Marketing
-    does, only you can close it out (by submitting the report it calls for),
-    and it is still not recorded on the company's own timeline.
+    {% trans "Like your reports, a Marketing Supervisor (and the platform admin) can see this reminder on your unit's reminders list — nobody outside Marketing does, only you can close it out (by submitting the report it calls for), and it is still not recorded on the company's own timeline." %}
   </div>
 
   <div class="field">
     <label for="{{ form.due_at.id_for_label }}"><i class="fa-regular fa-clock"></i> {{ form.due_at.label }}</label>
     {{ form.due_at }}
     {% if form.due_at.errors %}<ul class="errorlist">{% for e in form.due_at.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
-    <div class="help">When this time passes, a notification appears at the top of your screen and stays there until you act on it.</div>
+    <div class="help">{% trans "When this time passes, a notification appears at the top of your screen and stays there until you act on it." %}</div>
   </div>
 
   <div class="field">
@@ -93,7 +90,7 @@
     {# Said in words rather than left as an empty dropdown: the list is scoped, #}
     {# so "none" here means "none you may see", not necessarily "none exist" —  #}
     {# and the reminder is perfectly usable on the company itself.              #}
-    <div class="help">There are no cases on this company that your seat may see. The reminder will be about the company itself.</div>
+    <div class="help">{% trans "There are no cases on this company that your seat may see. The reminder will be about the company itself." %}</div>
     {% endif %}
   </div>
 
@@ -104,8 +101,8 @@
   </div>
 
   <div class="btn-row">
-    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-bell"></i> Set reminder</button>
-    <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-ghost">Cancel</a>
+    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-bell"></i> {% trans "Set reminder" %}</button>
+    <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-ghost">{% trans "Cancel" %}</a>
   </div>
 </form>
 {% endblock %}

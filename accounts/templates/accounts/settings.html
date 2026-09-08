@@ -1,50 +1,90 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 {% block title %}Settings · Foolad Tabar Workflow{% endblock %}
-{% block topbar %}Settings{% endblock %}
+{% block topbar %}{% trans "Settings" %}{% endblock %}
 {% block head_extra %}
   <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-16">
 {% endblock %}
 {% block content %}
 <div class="page-head">
   <div>
-    <h1><i class="fa-solid fa-gear"></i> Settings</h1>
+    <h1><i class="fa-solid fa-gear"></i> {% trans "Settings" %}</h1>
     <div class="sub">{{ profile.title_line }}</div>
   </div>
   <div class="btn-row">
-    <a href="{% url 'accounts:my_profile' %}" class="btn btn-sm"><i class="fa-solid fa-id-badge"></i> My profile</a>
+    <a href="{% url 'accounts:my_profile' %}" class="btn btn-sm"><i class="fa-solid fa-id-badge"></i> {% trans "My profile" %}</a>
   </div>
 </div>
 
 <div class="ft-settings-stack">
 
 <div class="card">
-  <div class="card-head"><h3><i class="fa-solid fa-wand-magic-sparkles"></i> Appearance</h3></div>
-  <p class="muted" style="margin:.1rem 0 1rem;">Choose the colour theme and light or dark mode for the interface. Your choice is saved on this device.</p>
+  <div class="card-head"><h3><i class="fa-solid fa-wand-magic-sparkles"></i> {% trans "Appearance" %}</h3></div>
+  <p class="muted" style="margin:.1rem 0 1rem;">{% trans "Choose the colour theme and light or dark mode for the interface. Your choice is saved on this device." %}</p>
   <div class="theme-picker">
     <button type="button" class="theme-card" data-skin="blue">
       <span class="tc-sw"><i style="background:#1e293b"></i><i style="background:#2563eb"></i><i style="background:#eff6ff"></i></span>
-      <b>Blue</b><small>Calm blue</small>
+      <b>{% trans "Blue" %}</b><small>{% trans "Calm blue" %}</small>
     </button>
     <button type="button" class="theme-card" data-skin="rose">
       <span class="tc-sw"><i style="background:#1e293b"></i><i style="background:#be185d"></i><i style="background:#fdf2f8"></i></span>
-      <b>Rose</b><small>Soft rose</small>
+      <b>{% trans "Rose" %}</b><small>{% trans "Soft rose" %}</small>
     </button>
     <button type="button" class="theme-card" data-skin="teal">
       <span class="tc-sw"><i style="background:#1e293b"></i><i style="background:#0f766e"></i><i style="background:#f0fdfa"></i></span>
-      <b>Teal</b><small>Calm teal</small>
+      <b>{% trans "Teal" %}</b><small>{% trans "Calm teal" %}</small>
     </button>
   </div>
   <div class="mode-picker">
-    <span class="muted" style="font-size:.8rem;">Mode</span>
-    <button type="button" class="btn btn-sm" data-mode="light"><i class="fa-solid fa-sun"></i> Light</button>
-    <button type="button" class="btn btn-sm" data-mode="dark"><i class="fa-solid fa-moon"></i> Dark</button>
+    <span class="muted" style="font-size:.8rem;">{% trans "Mode" %}</span>
+    <button type="button" class="btn btn-sm" data-mode="light"><i class="fa-solid fa-sun"></i> {% trans "Light" %}</button>
+    <button type="button" class="btn btn-sm" data-mode="dark"><i class="fa-solid fa-moon"></i> {% trans "Dark" %}</button>
   </div>
 </div>
 
+{# ---------------------------------------------------------------------- #}
+{# Language: the ONE card on this page (in this whole round — see the      #}
+{# accounts.middleware.LanguageMiddleware docstring and locale/fa's own    #}
+{# notes) whose save goes to the server rather than to this browser's own  #}
+{# localStorage, exactly because it is a PER-PERSON preference that must   #}
+{# follow the signed-in account to any device, not a per-device one like   #}
+{# the Appearance card just above. Two plain submit buttons — same shape   #}
+{# every named-action card on this page already uses (a hidden/named POST  #}
+{# key the view branches on in accounts/views.py::settings_page) — rather  #}
+{# than a new picker widget: each button IS both the field and its value,  #}
+{# submitted as name="save_language" value="en"/"fa".                      #}
+{#                                                                         #}
+{# "Language" is this round's one smoke-test string proving the whole i18n #}
+{# pipeline end to end (settings.LANGUAGES/LOCALE_PATHS, Profile.language, #}
+{# LanguageMiddleware's activate() call, and the compiled Persian catalog  #}
+{# in locale/fa/LC_MESSAGES) — deliberately the only {% trans %} in the    #}
+{# platform chrome so far. Later stages own translating the rest of it.    #}
+{# ---------------------------------------------------------------------- #}
+<div class="card">
+  <div class="card-head"><h3><i class="fa-solid fa-language"></i> {% trans "Language" %}</h3></div>
+  <p class="muted" style="margin:.1rem 0 1rem;">{% trans "Choose the language used for the menus, tabs, buttons and labels across the platform. This is saved on your account, so it follows you to any device you sign in from — not just this one." %}</p>
+  <form method="post" class="lang-form">
+    {% csrf_token %}
+    {# Deliberately its OWN class, not "mode-picker" — that class already has a #}
+    {# page-load script below (markCards()) that re-derives "sel" from a       #}
+    {# data-mode attribute and a click handler that writes localStorage. Both  #}
+    {# key off ".mode-picker .btn", so reusing that class here would have let  #}
+    {# that Appearance-only script adopt these two buttons too — wiping the    #}
+    {# "sel" state the server just rendered on load (no data-mode to match),   #}
+    {# and on click, overwriting the person's saved dark/light choice with the #}
+    {# string "undefined". ".lang-picker" is a plain visual twin (same rule    #}
+    {# below) with none of that script attached, so a real POST is the only    #}
+    {# thing a click here ever does. #}
+    <div class="lang-picker" style="margin-top:0;">
+      <button type="submit" name="save_language" value="en" class="btn btn-sm{% if profile.language != 'fa' %} sel{% endif %}">English</button>
+      <button type="submit" name="save_language" value="fa" class="btn btn-sm{% if profile.language == 'fa' %} sel{% endif %}">فارسی</button>
+    </div>
+  </form>
+</div>
+
 <div class="card pw-card">
-  <div class="card-head"><h3><i class="fa-solid fa-lock"></i> Change password</h3></div>
-  <p class="muted" style="margin:.1rem 0 1rem;">Update the password you use to sign in to the platform.</p>
+  <div class="card-head"><h3><i class="fa-solid fa-lock"></i> {% trans "Change password" %}</h3></div>
+  <p class="muted" style="margin:.1rem 0 1rem;">{% trans "Update the password you use to sign in to the platform." %}</p>
   <form method="post" class="pw-form" style="max-width:420px">
     {% csrf_token %}
     <input type="hidden" name="change_password" value="1">
@@ -56,54 +96,55 @@
       </div>
     {% endfor %}
     {% if pw_form.non_field_errors %}<ul class="errorlist">{% for e in pw_form.non_field_errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
-    <button type="submit" class="btn btn-primary">Change password</button>
+    <button type="submit" class="btn btn-primary">{% trans "Change password" %}</button>
   </form>
 </div>
 
 {% if is_admin %}
 <div class="card">
-  <div class="card-head"><h3><i class="fa-solid fa-medal"></i> Unit stamps</h3></div>
+  <div class="card-head"><h3><i class="fa-solid fa-medal"></i> {% trans "Unit stamps" %}</h3></div>
   <p class="muted" style="margin:.1rem 0 1rem;">
-    One seal per unit. <b>Commercial</b> is stamped on Proforma (PI) exports;
-    <b>Technical</b> on Technical Offer (TO) exports. PNG or SVG.
+    {% blocktrans %}One seal per unit. <b>Commercial</b> is stamped on Proforma (PI) exports;
+    <b>Technical</b> on Technical Offer (TO) exports. PNG or SVG.{% endblocktrans %}
   </p>
   <form method="post" enctype="multipart/form-data" id="stamps-form">
     {% csrf_token %}
     <input type="hidden" name="save_unit_stamps" value="1">
+    {% trans "No stamp yet." as no_stamp_text %}
     <div class="sig-preview-grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin-bottom:1rem;">
       <div>
-        <div class="muted" style="font-size:.78rem;margin-bottom:.35rem;">Commercial · PI</div>
+        <div class="muted" style="font-size:.78rem;margin-bottom:.35rem;">{% trans "Commercial" %} · PI</div>
         <div class="sig-frame">
           {% if stamp_urls.commercial %}
             <img id="stamp-commercial-img" src="{{ stamp_urls.commercial }}" alt="">
-            <div class="muted" id="stamp-commercial-empty" hidden>No stamp yet.</div>
+            <div class="muted" id="stamp-commercial-empty" hidden>{{ no_stamp_text }}</div>
           {% else %}
             <img id="stamp-commercial-img" alt="" hidden>
-            <div class="muted" id="stamp-commercial-empty">No stamp yet.</div>
+            <div class="muted" id="stamp-commercial-empty">{{ no_stamp_text }}</div>
           {% endif %}
         </div>
       </div>
       <div>
-        <div class="muted" style="font-size:.78rem;margin-bottom:.35rem;">Technical · TO</div>
+        <div class="muted" style="font-size:.78rem;margin-bottom:.35rem;">{% trans "Technical" %} · TO</div>
         <div class="sig-frame">
           {% if stamp_urls.technical %}
             <img id="stamp-technical-img" src="{{ stamp_urls.technical }}" alt="">
-            <div class="muted" id="stamp-technical-empty" hidden>No stamp yet.</div>
+            <div class="muted" id="stamp-technical-empty" hidden>{{ no_stamp_text }}</div>
           {% else %}
             <img id="stamp-technical-img" alt="" hidden>
-            <div class="muted" id="stamp-technical-empty">No stamp yet.</div>
+            <div class="muted" id="stamp-technical-empty">{{ no_stamp_text }}</div>
           {% endif %}
         </div>
       </div>
       <div>
-        <div class="muted" style="font-size:.78rem;margin-bottom:.35rem;">Supply</div>
+        <div class="muted" style="font-size:.78rem;margin-bottom:.35rem;">{% trans "Supply" %}</div>
         <div class="sig-frame">
           {% if stamp_urls.supply %}
             <img id="stamp-supply-img" src="{{ stamp_urls.supply }}" alt="">
-            <div class="muted" id="stamp-supply-empty" hidden>No stamp yet.</div>
+            <div class="muted" id="stamp-supply-empty" hidden>{{ no_stamp_text }}</div>
           {% else %}
             <img id="stamp-supply-img" alt="" hidden>
-            <div class="muted" id="stamp-supply-empty">No stamp yet.</div>
+            <div class="muted" id="stamp-supply-empty">{{ no_stamp_text }}</div>
           {% endif %}
         </div>
       </div>
@@ -116,13 +157,13 @@
         {% if field.errors %}<ul class="errorlist">{% for e in field.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
       </div>
     {% endfor %}
-    <button type="submit" class="btn btn-primary">Update unit stamps</button>
+    <button type="submit" class="btn btn-primary">{% trans "Update unit stamps" %}</button>
   </form>
 </div>
 
 <div class="card">
-  <div class="card-head"><h3><i class="fa-solid fa-sliders"></i> Platform settings</h3></div>
-  <p class="muted" style="margin:.1rem 0 1rem;">Customise platform-wide options used across the app.</p>
+  <div class="card-head"><h3><i class="fa-solid fa-sliders"></i> {% trans "Platform settings" %}</h3></div>
+  <p class="muted" style="margin:.1rem 0 1rem;">{% trans "Customise platform-wide options used across the app." %}</p>
   <form method="post" class="pw-form" style="max-width:520px">
     {% csrf_token %}
     <input type="hidden" name="save_platform" value="1">
@@ -138,32 +179,32 @@
         {% if field.errors %}<ul class="errorlist">{% for e in field.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
       </div>
     {% endfor %}
-    <button type="submit" class="btn btn-primary">Save platform settings</button>
+    <button type="submit" class="btn btn-primary">{% trans "Save platform settings" %}</button>
   </form>
 </div>
 
 {% if daily %}
 <div class="card ppl-shift-card">
-  <div class="card-head"><h3><i class="fa-solid fa-hourglass-half"></i> Daily hours</h3></div>
+  <div class="card-head"><h3><i class="fa-solid fa-hourglass-half"></i> {% trans "Daily hours" %}</h3></div>
   <p class="muted" style="font-size:.86rem;margin:0 0 1rem;line-height:1.5;">
-    Default work shift for <strong>every person</strong>. Saving updates all people records
-    (Asia/Tehran). Floating time and reconnect time use the same rules as work-shift tracking.
+    {% blocktrans %}Default work shift for <strong>every person</strong>. Saving updates all people records
+    (Asia/Tehran). Floating time and reconnect time use the same rules as work-shift tracking.{% endblocktrans %}
   </p>
   <form method="post" id="globalDailyHoursForm">
     {% csrf_token %}
     <input type="hidden" name="save_daily_hours" value="1">
     <div class="ppl-shift-times">
       <div class="field ppl-time-wrap">
-        <label for="id_work_start_h">Start</label>
+        <label for="id_work_start_h">{% trans "Start" %}</label>
         <div class="ppl-hm">
           <i class="fa-solid fa-hourglass-half ppl-hm-ic" aria-hidden="true"></i>
-          <select name="work_start_h" id="id_work_start_h" class="ppl-theme-select" required aria-label="Start hour">
+          <select name="work_start_h" id="id_work_start_h" class="ppl-theme-select" required aria-label="{% trans 'Start hour' %}">
             {% for h in hour_choices %}
               <option value="{{ h }}"{% if h == daily.start_h %} selected{% endif %}>{{ h }}</option>
             {% endfor %}
           </select>
           <span class="ppl-hm-sep">:</span>
-          <select name="work_start_m" id="id_work_start_m" class="ppl-theme-select" required aria-label="Start minute">
+          <select name="work_start_m" id="id_work_start_m" class="ppl-theme-select" required aria-label="{% trans 'Start minute' %}">
             {% for m in minute_choices %}
               <option value="{{ m }}"{% if m == daily.start_m %} selected{% endif %}>{{ m }}</option>
             {% endfor %}
@@ -171,16 +212,16 @@
         </div>
       </div>
       <div class="field ppl-time-wrap">
-        <label for="id_work_end_h">End</label>
+        <label for="id_work_end_h">{% trans "End" %}</label>
         <div class="ppl-hm">
           <i class="fa-solid fa-hourglass-half ppl-hm-ic" aria-hidden="true"></i>
-          <select name="work_end_h" id="id_work_end_h" class="ppl-theme-select" required aria-label="End hour">
+          <select name="work_end_h" id="id_work_end_h" class="ppl-theme-select" required aria-label="{% trans 'End hour' %}">
             {% for h in hour_choices %}
               <option value="{{ h }}"{% if h == daily.end_h %} selected{% endif %}>{{ h }}</option>
             {% endfor %}
           </select>
           <span class="ppl-hm-sep">:</span>
-          <select name="work_end_m" id="id_work_end_m" class="ppl-theme-select" required aria-label="End minute">
+          <select name="work_end_m" id="id_work_end_m" class="ppl-theme-select" required aria-label="{% trans 'End minute' %}">
             {% for m in minute_choices %}
               <option value="{{ m }}"{% if m == daily.end_m %} selected{% endif %}>{{ m }}</option>
             {% endfor %}
@@ -188,16 +229,16 @@
         </div>
       </div>
       <div class="field ppl-time-wrap">
-        <label for="id_float_m">Floating time</label>
+        <label for="id_float_m">{% trans "Floating time" %}</label>
         <div class="ppl-hm">
           <i class="fa-solid fa-clock ppl-hm-ic" aria-hidden="true"></i>
-          <select name="float_m" id="id_float_m" class="ppl-theme-select" required aria-label="Floating minutes">
+          <select name="float_m" id="id_float_m" class="ppl-theme-select" required aria-label="{% trans 'Floating minutes' %}">
             {% for m in float_minute_choices %}
               <option value="{{ m }}"{% if m == daily.float_m %} selected{% endif %}>{{ m }}</option>
             {% endfor %}
           </select>
           <span class="ppl-hm-sep">:</span>
-          <select name="float_s" id="id_float_s" class="ppl-theme-select" required aria-label="Floating seconds">
+          <select name="float_s" id="id_float_s" class="ppl-theme-select" required aria-label="{% trans 'Floating seconds' %}">
             {% for m in minute_choices %}
               <option value="{{ m }}"{% if m == daily.float_s %} selected{% endif %}>{{ m }}</option>
             {% endfor %}
@@ -205,16 +246,16 @@
         </div>
       </div>
       <div class="field ppl-time-wrap">
-        <label for="id_grace_m">Reconnect time</label>
+        <label for="id_grace_m">{% trans "Reconnect time" %}</label>
         <div class="ppl-hm">
           <i class="fa-solid fa-rotate-right ppl-hm-ic" aria-hidden="true"></i>
-          <select name="grace_m" id="id_grace_m" class="ppl-theme-select" required aria-label="Reconnect minutes">
+          <select name="grace_m" id="id_grace_m" class="ppl-theme-select" required aria-label="{% trans 'Reconnect minutes' %}">
             {% for m in float_minute_choices %}
               <option value="{{ m }}"{% if m == daily.grace_m %} selected{% endif %}>{{ m }}</option>
             {% endfor %}
           </select>
           <span class="ppl-hm-sep">:</span>
-          <select name="grace_s" id="id_grace_s" class="ppl-theme-select" required aria-label="Reconnect seconds">
+          <select name="grace_s" id="id_grace_s" class="ppl-theme-select" required aria-label="{% trans 'Reconnect seconds' %}">
             {% for m in minute_choices %}
               <option value="{{ m }}"{% if m == daily.grace_s %} selected{% endif %}>{{ m }}</option>
             {% endfor %}
@@ -223,10 +264,10 @@
       </div>
     </div>
     <p class="muted" style="font-size:.8rem;margin:.65rem 0 0;">
-      Shift length: <strong>{{ daily.hours_per_day }}</strong> hours / working day
+      {% blocktrans with hours=daily.hours_per_day %}Shift length: <strong>{{ hours }}</strong> hours / working day{% endblocktrans %}
     </p>
     <div class="btn-row" style="margin-top:1.1rem;">
-      <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save daily hours for everyone</button>
+      <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> {% trans "Save daily hours for everyone" %}</button>
     </div>
   </form>
 </div>
@@ -259,6 +300,11 @@
   .tc-sw i{width:24px;height:24px;border-radius:6px;border:1px solid var(--line)}
   .mode-picker{display:flex;align-items:center;gap:.55rem;margin-top:1.1rem}
   .mode-picker .btn.sel{background:var(--accent);border-color:var(--accent);color:#fff}
+  /* Same look as .mode-picker's buttons above (a plain visual twin), but with
+     no script attached — see the template comment by the Language form for
+     why this could not just reuse .mode-picker itself. */
+  .lang-picker{display:flex;align-items:center;gap:.55rem}
+  .lang-picker .btn.sel{background:var(--accent);border-color:var(--accent);color:#fff}
   @media (max-width:900px){
     .sig-preview-grid{grid-template-columns:1fr !important;}
   }

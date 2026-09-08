@@ -1,3 +1,4 @@
+{% load i18n %}
 {% comment %}
   The project role chart — every field is its own clickable card now, so this
   partial is one inline SVG plus one reusable modal, and NO indicator of its
@@ -52,7 +53,7 @@
     <svg id="rcSvg" viewBox="0 0 {{ chart.view_w }} {{ chart.view_h }}"
          data-view-w="{{ chart.view_w }}" data-view-h="{{ chart.view_h }}"
          role="img" aria-labelledby="rcSvgTitle">
-      <title id="rcSvgTitle">Project role chart — every field is its own entity directory; click one to open it.</title>
+      <title id="rcSvgTitle">{% trans "Project role chart — every field is its own entity directory; click one to open it." %}</title>
 
       {% comment %}
         Every edge carries, alongside the finished ``d`` it has always drawn,
@@ -119,20 +120,40 @@
     <div class="rc-modal" role="dialog" aria-modal="true" aria-labelledby="rcModalTitle">
       <div class="rc-modal-head">
         <h3 class="rc-modal-title" id="rcModalTitle" dir="auto"></h3>
-        <button type="button" class="rc-modal-x" id="rcModalClose" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+        <button type="button" class="rc-modal-x" id="rcModalClose" aria-label="{% trans "Close" %}"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
       </div>
       <div class="rc-modal-search" id="rcModalSearchWrap">
         <input type="text" id="rcModalSearch" class="rc-modal-search-input"
-               placeholder="Search…" autocomplete="off" dir="auto">
+               placeholder="{% trans "Search…" %}" autocomplete="off" dir="auto">
       </div>
       <div class="rc-modal-list" id="rcModalList"></div>
+      {% comment %}
+        "Inquiry · استعلام" is left bilingual on purpose, in every interface
+        language — not wrapped in {% templatetag openblock %} trans
+        {% templatetag closeblock %} — the same deliberate chart-only
+        convention as the Persian role name on every card above (see this
+        file's own KEEP THIS FILE UTF-8 note and marketing/rolechart.py's own
+        comment on role_fa): "استعلام" is the actual Persian business term for
+        this action, shown alongside its English name rather than in place of
+        it. Fixing that (or not) for a pure-English interface is the later
+        Cleanup stage's call, not this one's.
+
+        THAT LATER CLEANUP STAGE IS THIS ONE, and the call, made on purpose
+        rather than left open: KEEP IT. This is the exact same
+        always-bilingual business-term convention as role_fa on every card
+        above (see marketing/rolechart.py's own, longer note beside SLOTS,
+        added by this same stage) — not the pure-chrome-with-no-English-base
+        leak (the owner's own "My Tasks (کارهای من)" example) this stage's
+        whole-repo sweep was built to find and fix. Left as-is in both
+        interface languages.
+      {% endcomment %}
       <div class="rc-modal-actions" id="rcModalActionsDefault">
         <button type="button" class="btn btn-sm" id="rcModalInquiry">Inquiry · استعلام</button>
-        <button type="button" class="btn btn-sm btn-ghost" id="rcModalCloseBtn">Close</button>
+        <button type="button" class="btn btn-sm btn-ghost" id="rcModalCloseBtn">{% trans "Close" %}</button>
       </div>
       <div class="rc-modal-actions" id="rcModalActionsPicking" hidden>
-        <button type="button" class="btn btn-sm btn-primary" id="rcModalConfirmCard">Confirm this card</button>
-        <button type="button" class="btn btn-sm btn-ghost" id="rcModalCloseCard">Close</button>
+        <button type="button" class="btn btn-sm btn-primary" id="rcModalConfirmCard">{% trans "Confirm this card" %}</button>
+        <button type="button" class="btn btn-sm btn-ghost" id="rcModalCloseCard">{% trans "Close" %}</button>
       </div>
     </div>
   </div>

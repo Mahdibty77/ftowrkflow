@@ -120,6 +120,22 @@ INSTALLED_APPS = [
 # WhiteNoise (which serves static files efficiently in production and must sit
 # high enough to answer before anything else looks at the request).
 #
+# Immediately after AuthenticationMiddleware sits LanguageMiddleware. It reads
+# request.user.profile.language and activates that translation for the request
+# - exactly the "small per-request middleware reading request.user.profile
+# cheaply" shape people.middleware.WorkShiftMiddleware already established in
+# this codebase, not a new convention. It has to be this late because it needs
+# request.user resolved first, and it has to run before literally everything
+# else below (the three gates included) so that whatever they render - a
+# message, a redirect target's page - already comes out in the right language.
+# It is deliberately NOT Django's own django.middleware.locale.LocaleMiddleware:
+# that one decides the active language from a session key / cookie / browser
+# Accept-Language header, which is exactly the per-device, cookie-based shape
+# the owner asked this to NOT be. The per-person source of truth here is the
+# Profile row, which already follows a person across devices and sessions, so
+# reading it directly is both simpler and the actual requirement, not a cookie
+# this middleware would then have to keep in sync with it.
+#
 # The last three are this project's gates. Each one inspects the request and may
 # redirect it somewhere else instead of letting it through, so their relative
 # order decides who wins when more than one of them is unhappy at the same time.
@@ -152,6 +168,11 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # Activates the signed-in person's own saved interface language (English
+    # or Persian) for this request. See the long comment above this list for
+    # why this is a small custom middleware rather than Django's own
+    # LocaleMiddleware, and accounts/middleware.py for the implementation.
+    "accounts.middleware.LanguageMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # Ends a session when the user's daily work shift is over.
@@ -241,9 +262,35 @@ LOGOUT_REDIRECT_URL = "accounts:login"
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 # ---------------------------------------------------------------------------
-# Internationalization - the UI is English; timezone is local Iran time.
+# Internationalization - the UI is English by default; timezone is local Iran
+# time. A signed-in person may switch the platform CHROME (sidebar, tabs,
+# buttons, field labels, status labels, page titles - never a company's own
+# name, a person's own comment/report/reminder text, or anything else someone
+# typed) to Persian from Settings - see accounts.middleware.LanguageMiddleware
+# for how that per-person choice is picked up on every request, and
+# accounts.models.Profile.language for where it is stored.
 # ---------------------------------------------------------------------------
+# LANGUAGE_CODE stays the platform DEFAULT for anyone with no preference yet
+# (an anonymous visitor, or an account whose Profile.language is blank/unset) -
+# it is not itself the per-person setting and this feature does not change it.
 LANGUAGE_CODE = "en-us"
+
+# The only two interface languages this platform offers. Codes are lowercase
+# ("en"/"fa") because that is what Django's own translation machinery
+# (django.utils.translation.activate, the gettext catalog lookup, and the
+# LC_MESSAGES directory names below) expects - unlike the uppercase codes this
+# project uses for its own Unit/Role/etc. choices in accounts.constants.
+LANGUAGES = [
+    ("en", "English"),
+    ("fa", "فارسی"),
+]
+
+# Where the compiled Persian catalog (locale/fa/LC_MESSAGES/django.mo, built
+# from django.po by `manage.py compilemessages` - see that directory's own
+# notes if the toolchain isn't installed) lives. A single top-level directory
+# is enough: this project has no per-app catalogs to merge.
+LOCALE_PATHS = [BASE_DIR / "locale"]
+
 TIME_ZONE = os.environ.get("DJANGO_TIME_ZONE", "Asia/Tehran")
 USE_I18N = True
 USE_TZ = True

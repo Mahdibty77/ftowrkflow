@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load ft_extras static %}
+{% load ft_extras static i18n %}
 {% comment %}
   ONE COMPANY — its roles, the people to call there, its cases, the reports
   and reminders Marketing wrote/set on it, and its history.
@@ -92,14 +92,14 @@
       <span dir="auto">{{ client.name }}</span>
       <span class="mono muted" style="font-size:.9rem;">({{ client.code }})</span>
     </h1>
-    <div class="sub">Company directory · Marketing</div>
+    <div class="sub">{% trans "Company directory" %} · {% trans "Marketing" %}</div>
   </div>
   <div class="row-flex" style="align-items:center;gap:.5rem;flex-wrap:wrap;">
     <a href="{% url 'marketing:directory' %}" class="btn btn-sm">
-      <i class="fa-solid fa-arrow-left"></i> Directory
+      <i class="fa-solid fa-arrow-left"></i> {% trans "Directory" %}
     </a>
     <a href="{% url 'marketing:home' %}" class="btn btn-sm">
-      <i class="fa-solid fa-diagram-project"></i> Relationship chart
+      <i class="fa-solid fa-diagram-project"></i> {% trans "Relationship chart" %}
     </a>
   </div>
 </div>
@@ -122,28 +122,28 @@
   {# --------------------------------------------------------------- company #}
   <div class="card">
     <div class="card-head">
-      <h3><i class="fa-solid fa-building" style="color:var(--accent-strong);margin-right:.4rem;"></i>Company</h3>
+      <h3><i class="fa-solid fa-building" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Company" %}</h3>
     </div>
     <dl class="kv-ic compact">
-      <dt><i class="fa-solid fa-building"></i>Name</dt>
+      <dt><i class="fa-solid fa-building"></i>{% trans "Name" %}</dt>
       <dd><span dir="auto">{{ client.name }}</span></dd>
-      <dt><i class="fa-solid fa-hashtag"></i>Code</dt>
+      <dt><i class="fa-solid fa-hashtag"></i>{% trans "Code" %}</dt>
       <dd><span class="mono">{{ client.code }}</span></dd>
-      <dt><i class="fa-solid fa-users"></i>Contacts</dt>
+      <dt><i class="fa-solid fa-users"></i>{% trans "Contacts" %}</dt>
       <dd>{{ contacts|length }}</dd>
-      <dt><i class="fa-solid fa-file-lines"></i>Reports</dt>
+      <dt><i class="fa-solid fa-file-lines"></i>{% trans "Reports" %}</dt>
       <dd>{{ reports|length }}</dd>
       {# DISTINCT PEOPLE who have ever added a role or a connection to this   #}
       {# company — unscoped, a company-wide fact, not a per-viewer visibility #}
       {# question. See marketing/services.py::contributor_count.             #}
-      <dt><i class="fa-solid fa-user-group"></i>Contributors</dt>
+      <dt><i class="fa-solid fa-user-group"></i>{% trans "Contributors" %}</dt>
       <dd>{{ contributor_count }}</dd>
       {# THIS VIEWER'S OWN open reminders on this company — a per-viewer      #}
       {# number, deliberately, and it stays that way regardless of whether    #}
       {# the Reminders tab below is showing this viewer only their own rows   #}
       {# or (a Supervisor/GM/admin) everyone's. See                          #}
       {# marketing/reminders.py::count_open_for_client.                      #}
-      <dt><i class="fa-solid fa-bell"></i>Your open reminders</dt>
+      <dt><i class="fa-solid fa-bell"></i>{% trans "Your open reminders" %}</dt>
       <dd>{{ own_open_reminder_count }}</dd>
     </dl>
   </div>
@@ -154,7 +154,7 @@
   {# chips into a two-column list of rows, one role per line.                #}
   <div class="card dir-roles-card">
     <div class="card-head">
-      <h3><i class="fa-solid fa-tags" style="color:var(--accent-strong);margin-right:.4rem;"></i>Roles
+      <h3><i class="fa-solid fa-tags" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Roles" %}
         <span class="count">{{ labels|length }}</span>
       </h3>
     </div>
@@ -164,7 +164,7 @@
       {# The icon carries the source, same as the old chip look: a           #}
       {# case-derived role gets the folder icon, a manually tagged one gets  #}
       {# the plain tag icon — the legend under the list spells both out.     #}
-      <li title="{% if lab.source == 'case' %}From this company's cases{% else %}Manually tagged{% endif %}">
+      <li title="{% if lab.source == 'case' %}{% trans "From this company's cases" %}{% else %}{% trans "Manually tagged" %}{% endif %}">
         <i class="fa-solid {% if lab.source == 'case' %}fa-folder-open{% else %}fa-tag{% endif %}"></i>
         <span dir="auto">{{ lab.label_fa }}</span>
       </li>
@@ -176,7 +176,7 @@
     {# `<li>` above, untouched), it is simply no longer spelled out in a      #}
     {# permanent block under the list.                                       #}
     {% else %}
-    <div class="empty">This company carries no roles yet.</div>
+    <div class="empty">{% trans "This company carries no roles yet." %}</div>
     {% endif %}
   </div>
 
@@ -194,12 +194,12 @@
   {# describe the same cases.                                                #}
   <div class="card">
     <div class="card-head">
-      <h3><i class="fa-solid fa-folder-open" style="color:var(--accent-strong);margin-right:.4rem;"></i>Cases</h3>
+      <h3><i class="fa-solid fa-folder-open" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Cases" %}</h3>
     </div>
     <dl class="kv-ic compact">
-      <dt><i class="fa-solid fa-layer-group"></i>Total cases</dt>
+      <dt><i class="fa-solid fa-layer-group"></i>{% trans "Total cases" %}</dt>
       <dd>{{ counts.total }}</dd>
-      <dt><i class="fa-solid fa-circle-check"></i>Approved</dt>
+      <dt><i class="fa-solid fa-circle-check"></i>{% trans "Approved" %}</dt>
       <dd>
         {{ counts.approved }}
         {# The old single "Grand total (all PI)" line is gone — the owner    #}
@@ -217,7 +217,7 @@
       {# Burned + Cancelled, summed into this one line — the owner's own      #}
       {# words: "کنسل شده ها که شامل پرونده های سوخته شده و کنسل شده میشه جمع #}
       {# انها". See marketing/views.py::_CASE_CARD_CANCELLED.                #}
-      <dt><i class="fa-solid fa-ban"></i>Cancelled</dt>
+      <dt><i class="fa-solid fa-ban"></i>{% trans "Cancelled" %}</dt>
       <dd>
         {{ counts.cancelled }}
         {% if show_money and pi_totals.cancelled %}
@@ -226,14 +226,14 @@
       </dd>
       {# NEW this round — final-closed cases, split out of Approved for this #}
       {# card specifically. Did not exist on this page before.               #}
-      <dt><i class="fa-solid fa-flag-checkered"></i>Closed</dt>
+      <dt><i class="fa-solid fa-flag-checkered"></i>{% trans "Closed" %}</dt>
       <dd>
         {{ counts.closed }}
         {% if show_money and pi_totals.closed %}
         <span class="mono muted" style="margin-left:.5rem;">{{ pi_totals.closed }}</span>
         {% endif %}
       </dd>
-      <dt><i class="fa-solid fa-hourglass-half"></i>No result</dt>
+      <dt><i class="fa-solid fa-hourglass-half"></i>{% trans "No result" %}</dt>
       <dd>
         {{ counts.pending }}
         {% if show_money and pi_totals.pending %}
@@ -247,23 +247,23 @@
 {# Reminders sits immediately BEFORE Timeline — the owner's own words,       #}
 {# "قبل از تب تایم لاین".                                                    #}
 <div class="tabs side-tabs" id="companyTabs">
-  <div class="tab active" data-tab="contacts"><i class="fa-solid fa-users"></i> Contacts</div>
-  <div class="tab" data-tab="cases"><i class="fa-solid fa-folder-open"></i> Cases</div>
-  <div class="tab" data-tab="reports"><i class="fa-solid fa-file-lines"></i> Reports</div>
-  <div class="tab" data-tab="reminders"><i class="fa-solid fa-bell"></i> Reminders</div>
-  <div class="tab" data-tab="timeline"><i class="fa-solid fa-clock-rotate-left"></i> Timeline</div>
+  <div class="tab active" data-tab="contacts"><i class="fa-solid fa-users"></i> {% trans "Contacts" %}</div>
+  <div class="tab" data-tab="cases"><i class="fa-solid fa-folder-open"></i> {% trans "Cases" %}</div>
+  <div class="tab" data-tab="reports"><i class="fa-solid fa-file-lines"></i> {% trans "Reports" %}</div>
+  <div class="tab" data-tab="reminders"><i class="fa-solid fa-bell"></i> {% trans "Reminders" %}</div>
+  <div class="tab" data-tab="timeline"><i class="fa-solid fa-clock-rotate-left"></i> {% trans "Timeline" %}</div>
 </div>
 
 {# ---------------------------------------------------------------- contacts #}
 <div class="tab-panel active" id="panel-contacts">
   <div class="card">
     <div class="card-head">
-      <h3><i class="fa-solid fa-users" style="color:var(--accent-strong);margin-right:.4rem;"></i>Contacts
+      <h3><i class="fa-solid fa-users" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Contacts" %}
         <span class="count" data-filter-count="contactsTable">{{ contacts|length }}</span>
       </h3>
       {% if can_edit %}
       <a href="{% url 'marketing:contact_add' client.pk %}" class="btn btn-sm btn-primary">
-        <i class="fa-solid fa-user-plus"></i> Add contact
+        <i class="fa-solid fa-user-plus"></i> {% trans "Add contact" %}
       </a>
       {% endif %}
     </div>
@@ -275,7 +275,7 @@
     {# marketing/views.py::company_detail for why those two are not the same    #}
     {# question.                                                                #}
     <div class="help" style="margin:-.35rem 0 .7rem;">
-      {% if sees_all_contacts %}You see every contact recorded on this company.{% else %}You see the contacts you added yourself.{% endif %}
+      {% if sees_all_contacts %}{% trans "You see every contact recorded on this company." %}{% else %}{% trans "You see the contacts you added yourself." %}{% endif %}
     </div>
 
     {# A SINGLE SEARCH BOX, by name OR phone — new this round. Client-side,    #}
@@ -285,19 +285,19 @@
     {# without a second control. See marketing/models.py::ContactPhone for     #}
     {# why a contact can carry more than one number now.                       #}
     <div class="field" style="max-width:320px;margin-bottom:.7rem;">
-      <label><i class="fa-solid fa-magnifying-glass"></i> Search</label>
-      <input type="text" data-filter-for="contactsTable" data-filter-colname="Name"
-             data-filter-mode="contains" placeholder="Search by name or phone…" autocomplete="off">
+      <label><i class="fa-solid fa-magnifying-glass"></i> {% trans "Search" %}</label>
+      <input type="text" data-filter-for="contactsTable" data-filter-colname="{% trans "Name" %}"
+             data-filter-mode="contains" placeholder="{% trans "Search by name or phone…" %}" autocomplete="off">
     </div>
 
     <table class="data" id="contactsTable" data-filter-table>
       <thead>
         <tr>
-          <th>Name</th>
-          <th>Contact role</th>
-          <th>Phone</th>
-          <th>Email</th>
-          <th>Added</th>
+          <th>{% trans "Name" %}</th>
+          <th>{% trans "Contact role" %}</th>
+          <th>{% trans "Phone" %}</th>
+          <th>{% trans "Email" %}</th>
+          <th>{% trans "Added" %}</th>
           <th></th>
         </tr>
       </thead>
@@ -317,7 +317,7 @@
             {% if c.phones %}
               {% for p in c.phones %}
                 <div{% if not forloop.first %} style="margin-top:.2rem;"{% endif %}>
-                  {% if p.phone_prefix %}<span class="muted">{{ p.phone_prefix }}</span> {% endif %}{{ p.phone|phone_fmt }}{% if p.phone_ext %} <span class="muted">ext. {{ p.phone_ext }}</span>{% endif %}
+                  {% if p.phone_prefix %}<span class="muted">{{ p.phone_prefix }}</span> {% endif %}{{ p.phone|phone_fmt }}{% if p.phone_ext %} <span class="muted">{% blocktrans with ext=p.phone_ext %}ext. {{ ext }}{% endblocktrans %}</span>{% endif %}
                 </div>
               {% endfor %}
             {% else %}—{% endif %}
@@ -333,9 +333,9 @@
           <td style="width:1%;white-space:nowrap;">
             {% if c.can_remove %}
             <form method="post" action="{% url 'marketing:contact_remove' client.pk c.id %}"
-                  onsubmit="return confirm('Remove this contact from the company?');">
+                  onsubmit="return confirm('{% trans "Remove this contact from the company?" %}');">
               {% csrf_token %}
-              <button type="submit" class="btn btn-sm btn-ghost" title="Remove this contact">
+              <button type="submit" class="btn btn-sm btn-ghost" title="{% trans "Remove this contact" %}">
                 <i class="fa-solid fa-trash"></i>
               </button>
             </form>
@@ -343,7 +343,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="6" class="empty">No contacts recorded for this company yet.</td></tr>
+        <tr><td colspan="6" class="empty">{% trans "No contacts recorded for this company yet." %}</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -354,14 +354,19 @@
 <div class="tab-panel" id="panel-cases">
   <div class="card">
     <div class="card-head">
-      <h3><i class="fa-solid fa-folder-open" style="color:var(--accent-strong);margin-right:.4rem;"></i>Cases
+      <h3><i class="fa-solid fa-folder-open" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Cases" %}
         <span class="count">{{ counts.total }}</span>
       </h3>
+      {# Persian nouns do not inflect for number the way "approved"/"case"    #}
+      {# etc. do in English, so every {% blocktrans count %} pair below       #}
+      {# carries the IDENTICAL Persian wording on both branches — the plural  #}
+      {# branch is only there because ``count`` requires one, not because     #}
+      {# Persian needs a different sentence for it.                          #}
       <span class="row-flex" style="gap:.4rem;flex-wrap:wrap;">
-        <span class="chip c-ok"><i class="fa-solid fa-circle-check"></i>{{ counts.approved }} approved</span>
-        <span class="chip c-rej"><i class="fa-solid fa-ban"></i>{{ counts.cancelled }} cancelled</span>
-        <span class="chip"><i class="fa-solid fa-flag-checkered"></i>{{ counts.closed }} closed</span>
-        <span class="chip c-draft"><i class="fa-solid fa-hourglass-half"></i>{{ counts.pending }} no result</span>
+        <span class="chip c-ok"><i class="fa-solid fa-circle-check"></i>{% blocktrans count n=counts.approved %}{{ n }} approved{% plural %}{{ n }} approved{% endblocktrans %}</span>
+        <span class="chip c-rej"><i class="fa-solid fa-ban"></i>{% blocktrans count n=counts.cancelled %}{{ n }} cancelled{% plural %}{{ n }} cancelled{% endblocktrans %}</span>
+        <span class="chip"><i class="fa-solid fa-flag-checkered"></i>{% blocktrans count n=counts.closed %}{{ n }} closed{% plural %}{{ n }} closed{% endblocktrans %}</span>
+        <span class="chip c-draft"><i class="fa-solid fa-hourglass-half"></i>{% blocktrans count n=counts.pending %}{{ n }} no result{% plural %}{{ n }} no result{% endblocktrans %}</span>
       </span>
     </div>
 
@@ -369,9 +374,9 @@
     {# OWN — unchanged by this round. See marketing/views.py::_pi_money_total. #}
     {% if show_money and pi_total_display %}
     <div class="dir-money">
-      <span class="dir-money-l"><i class="fa-solid fa-coins"></i> Grand total (all PI)</span>
+      <span class="dir-money-l"><i class="fa-solid fa-coins"></i> {% trans "Grand total (all PI)" %}</span>
       <strong class="mono dir-money-v">{{ pi_total_display }}</strong>
-      <span class="dir-money-note">over the {{ counts.total }} case{{ counts.total|pluralize }} listed below</span>
+      <span class="dir-money-note">{% blocktrans count n=counts.total %}over the {{ n }} case listed below{% plural %}over the {{ n }} cases listed below{% endblocktrans %}</span>
     </div>
     {% endif %}
 
@@ -382,16 +387,16 @@
     {# one of them was wrong.                                                   #}
     <div class="flash flash-info">
       <i class="fa-solid fa-circle-info"></i>
-      <span>{{ hidden_case_count }} more case{{ hidden_case_count|pluralize }} on this company {{ hidden_case_count|pluralize:"is,are" }} outside what your seat may see.</span>
+      <span>{% blocktrans count n=hidden_case_count %}{{ n }} more case on this company is outside what your seat may see.{% plural %}{{ n }} more cases on this company are outside what your seat may see.{% endblocktrans %}</span>
     </div>
     {% endif %}
 
     <table class="data">
       <thead>
         <tr>
-          <th>Document No.</th>
-          <th>Role on the case</th>
-          <th>Outcome</th>
+          <th>{% trans "Document No." %}</th>
+          <th>{% trans "Role on the case" %}</th>
+          <th>{% trans "Outcome" %}</th>
         </tr>
       </thead>
       <tbody>
@@ -406,7 +411,7 @@
           <td>{{ row.status_fa }}</td>
         </tr>
         {% empty %}
-        <tr><td colspan="3" class="empty">No cases you may see are recorded for this company.</td></tr>
+        <tr><td colspan="3" class="empty">{% trans "No cases you may see are recorded for this company." %}</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -429,29 +434,29 @@
 <div class="tab-panel" id="panel-reports">
   <div class="card" style="margin-bottom:1rem;">
     <div class="card-head">
-      <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-right:.4rem;"></i>Filters</h3>
-      <button type="button" class="btn btn-sm" data-filter-clear="reportsTable" title="Reset all filters">
-        <i class="fa-solid fa-eraser"></i> Clear filters
+      <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Filters" %}</h3>
+      <button type="button" class="btn btn-sm" data-filter-clear="reportsTable" title="{% trans "Reset all filters" %}">
+        <i class="fa-solid fa-eraser"></i> {% trans "Clear filters" %}
       </button>
     </div>
     <div class="grid grid-3">
       <div class="field">
-        <label><i class="fa-solid fa-folder-open"></i> Case</label>
-        <input type="text" data-filter-for="reportsTable" data-filter-colname="Case"
-               placeholder="Document no…" autocomplete="off">
+        <label><i class="fa-solid fa-folder-open"></i> {% trans "Case" %}</label>
+        <input type="text" data-filter-for="reportsTable" data-filter-colname="{% trans "Case" %}"
+               placeholder="{% trans "Document no…" %}" autocomplete="off">
       </div>
       <div class="field">
-        <label><i class="fa-solid fa-calendar-day"></i> From date (Jalali)</label>
+        <label><i class="fa-solid fa-calendar-day"></i> {% trans "From date (Jalali)" %}</label>
         <input type="text" data-jalali-datetime data-filter-for="reportsTable"
-               data-filter-colname="Date" data-filter-mode="gte" placeholder="From date" autocomplete="off">
+               data-filter-colname="{% trans "Date" %}" data-filter-mode="gte" placeholder="{% trans "From date" %}" autocomplete="off">
       </div>
       <div class="field">
-        <label><i class="fa-solid fa-calendar-day"></i> To date (Jalali)</label>
+        <label><i class="fa-solid fa-calendar-day"></i> {% trans "To date (Jalali)" %}</label>
         <input type="text" data-jalali-datetime data-filter-for="reportsTable"
-               data-filter-colname="Date" data-filter-mode="lte" placeholder="To date" autocomplete="off">
+               data-filter-colname="{% trans "Date" %}" data-filter-mode="lte" placeholder="{% trans "To date" %}" autocomplete="off">
       </div>
       <div class="field">
-        <label><i class="fa-solid fa-magnifying-glass"></i> Search</label>
+        <label><i class="fa-solid fa-magnifying-glass"></i> {% trans "Search" %}</label>
         {# LIVE, FREE-TEXT, AGAINST THE REPORT'S OWN TEXT — a FOURTH field in    #}
         {# this same `.grid.grid-3` (CSS grid simply wraps it onto an implicit   #}
         {# second row, the identical reasoning `_my_tasks_reminders.html`'s own  #}
@@ -462,15 +467,15 @@
         {# own `data-filter-table` pass already defaults an omitted              #}
         {# `data-filter-mode` to "contains" and re-filters on every keystroke.    #}
         {# Targets "Report" (the <td> below holding r.text).                     #}
-        <input type="text" data-filter-for="reportsTable" data-filter-colname="Report"
-               data-filter-mode="contains" placeholder="Search report text…" autocomplete="off">
+        <input type="text" data-filter-for="reportsTable" data-filter-colname="{% trans "Report" %}"
+               data-filter-mode="contains" placeholder="{% trans "Search report text…" %}" autocomplete="off">
       </div>
     </div>
   </div>
 
   <div class="card">
     <div class="card-head">
-      <h3><i class="fa-solid fa-file-lines" style="color:var(--accent-strong);margin-right:.4rem;"></i>Reports
+      <h3><i class="fa-solid fa-file-lines" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Reports" %}
         <span class="count" data-filter-count="reportsTable">{{ reports|length }}</span>
       </h3>
       {# THE SAME GATE AS "Add contact" ABOVE — can_edit — because it is the    #}
@@ -478,7 +483,7 @@
       {# on, exactly as contact_add does.                                        #}
       {% if can_edit %}
       <a href="{% url 'marketing:report_add' client.pk %}" class="btn btn-sm btn-primary">
-        <i class="fa-solid fa-file-pen"></i> Add report
+        <i class="fa-solid fa-file-pen"></i> {% trans "Add report" %}
       </a>
       {% endif %}
     </div>
@@ -487,17 +492,17 @@
     {# SCOPE, not can_edit — see marketing/views.py::company_detail on          #}
     {# sees_all_reports.                                                        #}
     <div class="help" style="margin:-.35rem 0 .7rem;">
-      {% if sees_all_reports %}You see every report written on this company.{% else %}You see the reports you wrote yourself.{% endif %}
+      {% if sees_all_reports %}{% trans "You see every report written on this company." %}{% else %}{% trans "You see the reports you wrote yourself." %}{% endif %}
     </div>
 
     <table class="data" id="reportsTable" data-filter-table>
       <thead>
         <tr>
-          <th>Date</th>
-          <th>Author</th>
-          <th>Case</th>
-          <th>What it's about</th>
-          <th>Report</th>
+          <th>{% trans "Date" %}</th>
+          <th>{% trans "Author" %}</th>
+          <th>{% trans "Case" %}</th>
+          <th>{% trans "What it's about" %}</th>
+          <th>{% trans "Report" %}</th>
         </tr>
       </thead>
       <tbody>
@@ -515,9 +520,9 @@
             {# ATTACHED TO A CASE THIS VIEWER MAY NOT SEE — see                  #}
             {# services._report_row. The report itself is this viewer's to      #}
             {# read; only the case is unnamed.                                  #}
-            <span class="chip c-draft"><i class="fa-solid fa-folder-open"></i>On a case</span>
+            <span class="chip c-draft"><i class="fa-solid fa-folder-open"></i>{% trans "On a case" %}</span>
             {% else %}
-            <span class="chip c-draft"><i class="fa-solid fa-building"></i>On the company</span>
+            <span class="chip c-draft"><i class="fa-solid fa-building"></i>{% trans "On the company" %}</span>
             {% endif %}
           </td>
           <td>
@@ -537,11 +542,11 @@
         <tr>
           <td colspan="5" class="empty">
             {% if can_edit %}
-              No reports have been written on this company yet — use “Add report” to write the first one.
+              {% blocktrans %}No reports have been written on this company yet — use "Add report" to write the first one.{% endblocktrans %}
             {% elif sees_all_reports %}
-              No reports have been written on this company yet.
+              {% trans "No reports have been written on this company yet." %}
             {% else %}
-              You have not written any reports on this company yet.
+              {% trans "You have not written any reports on this company yet." %}
             {% endif %}
           </td>
         </tr>
@@ -563,43 +568,43 @@
 <div class="tab-panel" id="panel-reminders">
   <div class="card" style="margin-bottom:1rem;">
     <div class="card-head">
-      <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-right:.4rem;"></i>Filters</h3>
-      <button type="button" class="btn btn-sm" data-filter-clear="remindersTable" title="Reset all filters">
-        <i class="fa-solid fa-eraser"></i> Clear filters
+      <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Filters" %}</h3>
+      <button type="button" class="btn btn-sm" data-filter-clear="remindersTable" title="{% trans "Reset all filters" %}">
+        <i class="fa-solid fa-eraser"></i> {% trans "Clear filters" %}
       </button>
     </div>
     <div class="grid grid-3">
       <div class="field">
-        <label><i class="fa-solid fa-folder-open"></i> Case</label>
-        <input type="text" data-filter-for="remindersTable" data-filter-colname="Case"
-               placeholder="Document no…" autocomplete="off">
+        <label><i class="fa-solid fa-folder-open"></i> {% trans "Case" %}</label>
+        <input type="text" data-filter-for="remindersTable" data-filter-colname="{% trans "Case" %}"
+               placeholder="{% trans "Document no…" %}" autocomplete="off">
       </div>
       <div class="field">
-        <label><i class="fa-solid fa-calendar-day"></i> From date (Jalali)</label>
+        <label><i class="fa-solid fa-calendar-day"></i> {% trans "From date (Jalali)" %}</label>
         <input type="text" data-jalali-datetime data-filter-for="remindersTable"
-               data-filter-colname="Due" data-filter-mode="gte" placeholder="From date" autocomplete="off">
+               data-filter-colname="{% trans "Due" %}" data-filter-mode="gte" placeholder="{% trans "From date" %}" autocomplete="off">
       </div>
       <div class="field">
-        <label><i class="fa-solid fa-calendar-day"></i> To date (Jalali)</label>
+        <label><i class="fa-solid fa-calendar-day"></i> {% trans "To date (Jalali)" %}</label>
         <input type="text" data-jalali-datetime data-filter-for="remindersTable"
-               data-filter-colname="Due" data-filter-mode="lte" placeholder="To date" autocomplete="off">
+               data-filter-colname="{% trans "Due" %}" data-filter-mode="lte" placeholder="{% trans "To date" %}" autocomplete="off">
       </div>
       <div class="field">
-        <label><i class="fa-solid fa-magnifying-glass"></i> Search</label>
+        <label><i class="fa-solid fa-magnifying-glass"></i> {% trans "Search" %}</label>
         {# LIVE, FREE-TEXT, AGAINST THE NOTE ITSELF — a FOURTH field in this      #}
         {# same `.grid.grid-3`, wrapping the identical way the Reports filter    #}
         {# card's own fourth field does just above; same reused mechanism as     #}
         {# cases/templates/cases/case_detail.html's own Reminders tab. Targets    #}
         {# "Note" (the <td> below holding r.note).                                #}
-        <input type="text" data-filter-for="remindersTable" data-filter-colname="Note"
-               data-filter-mode="contains" placeholder="Search note text…" autocomplete="off">
+        <input type="text" data-filter-for="remindersTable" data-filter-colname="{% trans "Note" %}"
+               data-filter-mode="contains" placeholder="{% trans "Search note text…" %}" autocomplete="off">
       </div>
     </div>
   </div>
 
   <div class="card">
     <div class="card-head">
-      <h3><i class="fa-solid fa-bell" style="color:var(--accent-strong);margin-right:.4rem;"></i>Reminders
+      <h3><i class="fa-solid fa-bell" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Reminders" %}
         <span class="count" data-filter-count="remindersTable">{{ reminders|length }}</span>
       </h3>
       {# THE SAME GATE "Add contact"/"Add report" CARRY — can_edit — the same   #}
@@ -608,7 +613,7 @@
       {# exactly like this app's other primary creation actions.                #}
       {% if can_edit %}
       <a href="{% url 'marketing:reminder_add' client.pk %}" class="btn btn-sm btn-primary">
-        <i class="fa-solid fa-bell"></i> Set new reminder
+        <i class="fa-solid fa-bell"></i> {% trans "Set new reminder" %}
       </a>
       {% endif %}
     </div>
@@ -616,17 +621,17 @@
     {# Reports'/contacts' own sentence, on the SAME scope this round gave       #}
     {# Reminders — see marketing/views.py::company_detail on sees_all_reminders.#}
     <div class="help" style="margin:-.35rem 0 .7rem;">
-      {% if sees_all_reminders %}You see every reminder set on this company, by anyone in Marketing.{% else %}You see your own reminders on this company.{% endif %}
+      {% if sees_all_reminders %}{% trans "You see every reminder set on this company, by anyone in Marketing." %}{% else %}{% trans "You see your own reminders on this company." %}{% endif %}
     </div>
 
     <table class="data" id="remindersTable" data-filter-table>
       <thead>
         <tr>
-          <th>Due</th>
-          <th>Note</th>
-          <th>Case</th>
-          <th>State</th>
-          {% if sees_all_reminders %}<th>Set by</th>{% endif %}
+          <th>{% trans "Due" %}</th>
+          <th>{% trans "Note" %}</th>
+          <th>{% trans "Case" %}</th>
+          <th>{% trans "State" %}</th>
+          {% if sees_all_reminders %}<th>{% trans "Set by" %}</th>{% endif %}
           <th></th>
         </tr>
       </thead>
@@ -643,16 +648,16 @@
               see marketing/views.py::_reminder_rows.
             {% endcomment %}
             {% if r.case %}
-            <span class="chip"><i class="fa-solid fa-folder-open"></i>{% if r.show_case_no %}{{ r.case.doc_no }}{% else %}On a case{% endif %}</span>
+            <span class="chip"><i class="fa-solid fa-folder-open"></i>{% if r.show_case_no %}{{ r.case.doc_no }}{% else %}{% trans "On a case" %}{% endif %}</span>
             {% else %}<span class="muted">—</span>{% endif %}
           </td>
           <td>
             {% if r.is_done %}
-            <span class="chip c-ok"><i class="fa-solid fa-check"></i>Dealt with</span>
+            <span class="chip c-ok"><i class="fa-solid fa-check"></i>{% trans "Dealt with" %}</span>
             {% elif r.is_due %}
-            <span class="chip c-rej"><i class="fa-solid fa-bell"></i>Due</span>
+            <span class="chip c-rej"><i class="fa-solid fa-bell"></i>{% trans "Due" %}</span>
             {% else %}
-            <span class="chip c-draft"><i class="fa-regular fa-clock"></i>Waiting</span>
+            <span class="chip c-draft"><i class="fa-regular fa-clock"></i>{% trans "Waiting" %}</span>
             {% endif %}
           </td>
           {# WHO SET IT — only drawn at all when this viewer is seeing more     #}
@@ -696,7 +701,7 @@
           <td style="white-space:nowrap;">
             {% if r.is_own and not r.is_done %}
             <a href="{% url 'marketing:my_tasks_report' r.pk %}" class="btn btn-sm btn-primary">
-              <i class="fa-solid fa-file-circle-check"></i> Submit report
+              <i class="fa-solid fa-file-circle-check"></i> {% trans "Submit report" %}
             </a>
             {% endif %}
           </td>
@@ -705,11 +710,11 @@
         <tr>
           <td colspan="{% if sees_all_reminders %}6{% else %}5{% endif %}" class="empty">
             {% if can_edit %}
-              No reminders set on this company yet — use “Set new reminder” to add one.
+              {% blocktrans %}No reminders set on this company yet — use "Set new reminder" to add one.{% endblocktrans %}
             {% elif sees_all_reminders %}
-              No reminders have been set on this company yet.
+              {% trans "No reminders have been set on this company yet." %}
             {% else %}
-              You have not set any reminders on this company yet.
+              {% trans "You have not set any reminders on this company yet." %}
             {% endif %}
           </td>
         </tr>
@@ -723,7 +728,7 @@
 <div class="tab-panel" id="panel-timeline">
   <div class="card">
     <div class="card-head">
-      <h3><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-strong);margin-right:.4rem;"></i>Company timeline</h3>
+      <h3><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Company timeline" %}</h3>
     </div>
     {# The case audit timeline's own markup: <ul class="timeline"> with a       #}
     {# .tl-action sentence, a .tl-meta actor+stamp line and an optional         #}
@@ -756,11 +761,11 @@
         <div class="tl-action">
           <i class="fa-solid {{ ev.icon }} dir-tl-icon"></i>
           {% if ev.action == 'CLIENT_REGISTERED' %}
-            Registered <span dir="auto">{{ ev.subject }}</span> in the company directory
+            {% blocktrans with subject=ev.subject %}Registered <span dir="auto">{{ subject }}</span> in the company directory{% endblocktrans %}
           {% elif ev.action == 'LABEL_ADDED' %}
-            Tagged this company as <strong dir="auto">{{ ev.subject }}</strong>
+            {% blocktrans with subject=ev.subject %}Tagged this company as <strong dir="auto">{{ subject }}</strong>{% endblocktrans %}
           {% elif ev.action == 'LABEL_REMOVED' %}
-            Removed the <strong dir="auto">{{ ev.subject }}</strong> tag from this company
+            {% blocktrans with subject=ev.subject %}Removed the <strong dir="auto">{{ subject }}</strong> tag from this company{% endblocktrans %}
           {% elif ev.action == 'CONNECTION_ADDED' %}
             {# "as <ROLE>" as its own chip, never buried in the .tl-comment     #}
             {# note below — the owner's own wording. ev.subject_role is FROZEN  #}
@@ -771,20 +776,24 @@
             {# sentence still reads correctly without the chip. The chip is the #}
             {# c-draft chip the roles card at the top of this page uses, so a   #}
             {# role reads the same wherever it appears here.                    #}
-            Connected this company to <strong dir="auto">{{ ev.subject }}</strong>{% if ev.subject_role %}
-            as <span class="chip c-draft" dir="auto"><i class="fa-solid fa-tag"></i>{{ ev.subject_role }}</span>{% endif %}
+            {# ev.subject_role is itself frozen display text (services.FIELD_   #}
+            {# LABELS' composite "<Persian> — <ENGLISH>" string), never         #}
+            {# translated here — see this file's own top-of-file note on why    #}
+            {# that composite text is content, not chrome, in this round.       #}
+            {% blocktrans with subject=ev.subject %}Connected this company to <strong dir="auto">{{ subject }}</strong>{% endblocktrans %}{% if ev.subject_role %}
+            {% trans "as" %} <span class="chip c-draft" dir="auto"><i class="fa-solid fa-tag"></i>{{ ev.subject_role }}</span>{% endif %}
           {% elif ev.action == 'CONNECTION_REMOVED' %}
-            Removed the connection to <strong dir="auto">{{ ev.subject }}</strong>{% if ev.subject_role %}
-            as <span class="chip c-draft" dir="auto"><i class="fa-solid fa-tag"></i>{{ ev.subject_role }}</span>{% endif %}
+            {% blocktrans with subject=ev.subject %}Removed the connection to <strong dir="auto">{{ subject }}</strong>{% endblocktrans %}{% if ev.subject_role %}
+            {% trans "as" %} <span class="chip c-draft" dir="auto"><i class="fa-solid fa-tag"></i>{{ ev.subject_role }}</span>{% endif %}
           {% elif ev.action == 'CONTACT_ADDED' %}
-            Added <strong dir="auto">{{ ev.subject }}</strong> as a contact at this company
+            {% blocktrans with subject=ev.subject %}Added <strong dir="auto">{{ subject }}</strong> as a contact at this company{% endblocktrans %}
           {% elif ev.action == 'CONTACT_REMOVED' %}
-            Removed the contact <strong dir="auto">{{ ev.subject }}</strong>
+            {% blocktrans with subject=ev.subject %}Removed the contact <strong dir="auto">{{ subject }}</strong>{% endblocktrans %}
           {% elif ev.action == 'REPORT_ADDED' %}
             {# ev.subject is the attached case's document number, frozen when   #}
             {# the report was written, or empty when the writer skipped the     #}
             {# case step — which is a supported choice, not an omission.        #}
-            Wrote a report on this company{% if ev.subject %} about case <span class="mono">{{ ev.subject }}</span>{% endif %}
+            {% trans "Wrote a report on this company" %}{% if ev.subject %} {% blocktrans with doc=ev.subject %}about case <span class="mono">{{ doc }}</span>{% endblocktrans %}{% endif %}
           {% elif ev.action == 'CASE_ROLE_CHANGED' %}
             {# ev.subject_role is the FROZEN "OLD → NEW" text, already fully  #}
             {# formatted at write time (marketing/services.py::               #}
@@ -799,7 +808,7 @@
             {# generically for every action kind, so a viewer without access  #}
             {# to this case sees the sentence with no number at all rather    #}
             {# than this branch needing a second check of its own.            #}
-            Changed this case's role{% if ev.subject %} (<span class="mono">{{ ev.subject }}</span>){% endif %}:
+            {% trans "Changed this case's role" %}{% if ev.subject %} {% blocktrans with doc=ev.subject %}(<span class="mono">{{ doc }}</span>){% endblocktrans %}{% endif %}:
             <span class="chip c-draft" dir="auto"><i class="fa-solid fa-right-left"></i>{{ ev.subject_role }}</span>
           {% else %}
             {# A row written before an action was renamed still has to render — #}
@@ -819,7 +828,7 @@
         {% if ev.comment %}<div class="tl-comment" dir="auto">{{ ev.comment }}</div>{% endif %}
       </li>
       {% empty %}
-      <li class="muted">Nothing has happened to this company yet.</li>
+      <li class="muted">{% trans "Nothing has happened to this company yet." %}</li>
       {% endfor %}
     </ul>
   </div>

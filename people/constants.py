@@ -5,6 +5,8 @@ Kept in their own module (rather than inline in models) so the rest of the app
 import from, matching how the existing apps are laid out.
 """
 
+from django.utils.translation import gettext_lazy as _
+
 
 class PersonStatus:
     """Whether someone is currently with the organisation.
@@ -18,9 +20,17 @@ class PersonStatus:
     ACTIVE = "ACTIVE"
     DEPARTED = "DEPARTED"
 
+    # gettext_lazy, not gettext: this list is built once at import time, long
+    # before any request (and therefore any viewer's chosen language) exists.
+    # A plain gettext() call would freeze whichever language happened to be
+    # active at that moment for every viewer thereafter; gettext_lazy defers
+    # the catalog lookup to render time, per request, which is what lets one
+    # shared choices= list show the correct language to each viewer. Same
+    # reasoning as cases/constants.py's own CHOICES lists, which explain it
+    # at greater length.
     CHOICES = [
-        (ACTIVE, "Active"),
-        (DEPARTED, "Departed"),
+        (ACTIVE, _("Active")),
+        (DEPARTED, _("Departed")),
     ]
     LABELS = dict(CHOICES)
 

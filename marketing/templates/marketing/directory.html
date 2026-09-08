@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 {% comment %}
   THE COMPANY DIRECTORY LIST — every company Marketing knows, one row each.
 
@@ -33,8 +33,8 @@
   views.py::_label_text_to_key for why the role filter posts the role's display
   text rather than its key.
 {% endcomment %}
-{% block title %}Company Directory · Foolad Tabar Workflow{% endblock %}
-{% block topbar %}Company Directory{% endblock %}
+{% block title %}{% trans "Company Directory" %} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% trans "Company Directory" %}{% endblock %}
 {% block head_extra %}
 <link rel="stylesheet" href="{% static 'marketing/css/directory.css' %}">
 {% endblock %}
@@ -42,8 +42,8 @@
 
 <div class="page-head" style="align-items:center;">
   <div>
-    <h1>Company Directory</h1>
-    <div class="sub">Every company on the relationship chart, with the roles it carries.</div>
+    <h1>{% trans "Company Directory" %}</h1>
+    <div class="sub">{% trans "Every company on the relationship chart, with the roles it carries." %}</div>
   </div>
   <div class="row-flex" style="align-items:center;gap:1rem;flex-wrap:wrap;">
     {# "My reminders" became "My Tasks" — a platform-wide personal hub, not a #}
@@ -51,19 +51,19 @@
     {# Linked straight at it rather than through the retired reminder_list   #}
     {# URL (which now just redirects here) — one hop fewer for every click.  #}
     <a href="{% url 'marketing:my_tasks' %}" class="btn btn-sm">
-      <i class="fa-solid fa-bell"></i> My Tasks
+      <i class="fa-solid fa-bell"></i> {% trans "My Tasks" %}
     </a>
     <a href="{% url 'marketing:home' %}" class="btn btn-sm">
-      <i class="fa-solid fa-diagram-project"></i> Relationship chart
+      <i class="fa-solid fa-diagram-project"></i> {% trans "Relationship chart" %}
     </a>
-    <span class="count"><span data-filter-count="companyTable">{{ filtered_count }}</span> of {{ total_count }}</span>
+    <span class="count"><span data-filter-count="companyTable">{{ filtered_count }}</span> {% trans "of" %} {{ total_count }}</span>
   </div>
 </div>
 
 <form method="get" id="companyFilterForm" action="{% url 'marketing:directory' %}">
   <div class="card">
     <div class="card-head">
-      <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-right:.4rem;"></i>Filters</h3>
+      <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Filters" %}</h3>
       <span class="row-flex" style="gap:.5rem;align-items:center;">
         {# With JavaScript on, ui.js filters instantly and there is nothing to  #}
         {# submit. With it off this form IS the filter and there has to be a    #}
@@ -71,7 +71,7 @@
         {# same reasoning (and the same markup) the archive uses for its own.   #}
         <noscript>
           <button type="submit" class="btn btn-sm btn-primary">
-            <i class="fa-solid fa-filter"></i> Apply filters
+            <i class="fa-solid fa-filter"></i> {% trans "Apply filters" %}
           </button>
         </noscript>
         {# Clearing is two different actions depending on how the list got      #}
@@ -84,21 +84,21 @@
         {# element: ui.js calls preventDefault on whatever carries that         #}
         {# attribute, so a link with it would never navigate.)                  #}
         {% if f_active.name or f_active.label %}
-        <a href="{% url 'marketing:directory' %}" class="btn btn-sm" title="Reset all filters">
-          <i class="fa-solid fa-eraser"></i> Clear filters
+        <a href="{% url 'marketing:directory' %}" class="btn btn-sm" title="{% trans "Reset all filters" %}">
+          <i class="fa-solid fa-eraser"></i> {% trans "Clear filters" %}
         </a>
         {% else %}
-        <button type="button" class="btn btn-sm" data-filter-clear="companyTable" title="Reset all filters">
-          <i class="fa-solid fa-eraser"></i> Clear filters
+        <button type="button" class="btn btn-sm" data-filter-clear="companyTable" title="{% trans "Reset all filters" %}">
+          <i class="fa-solid fa-eraser"></i> {% trans "Clear filters" %}
         </button>
         {% endif %}
       </span>
     </div>
     <div class="grid grid-2">
       <div class="field">
-        <label><i class="fa-solid fa-building"></i> Company</label>
-        <select name="fname" data-combo data-placeholder="Search company…"
-                data-filter-for="companyTable" data-filter-colname="Company"
+        <label><i class="fa-solid fa-building"></i> {% trans "Company" %}</label>
+        <select name="fname" data-combo data-placeholder="{% trans "Search company…" %}"
+                data-filter-for="companyTable" data-filter-colname="{% trans "Company" %}"
                 data-filter-mode="contains">
           <option value=""></option>
           {% for name in f_names %}
@@ -107,14 +107,14 @@
         </select>
       </div>
       <div class="field">
-        <label><i class="fa-solid fa-tags"></i> Role / label</label>
+        <label><i class="fa-solid fa-tags"></i> {% trans "Role / label" %}</label>
         {# The option VALUE is the role's display text, not its key — see       #}
         {# marketing/views.py::_label_text_to_key. That is what lets the        #}
         {# browser-side pass (which compares this value against the rendered    #}
         {# chips) and the server-side one (which resolves it back to a key for  #}
         {# services.search_companies) agree on the same rows.                   #}
-        <select name="flabel" data-combo data-placeholder="Search role…"
-                data-filter-for="companyTable" data-filter-colname="Roles / labels"
+        <select name="flabel" data-combo data-placeholder="{% trans "Search role…" %}"
+                data-filter-for="companyTable" data-filter-colname="{% trans "Roles / labels" %}"
                 data-filter-mode="contains">
           <option value=""></option>
           {% for label_fa in f_labels %}
@@ -130,9 +130,9 @@
   <table class="data" id="companyTable" data-filter-table>
     <thead>
       <tr>
-        <th>Company</th>
-        <th>Code</th>
-        <th>Roles / labels</th>
+        <th>{% trans "Company" %}</th>
+        <th>{% trans "Code" %}</th>
+        <th>{% trans "Roles / labels" %}</th>
       </tr>
     </thead>
     <tbody>
@@ -155,7 +155,7 @@
             {# which is also what the filter above posts.                       #}
             {% for lab in row.labels %}
             <span class="chip{% if lab.source != 'case' %} c-draft{% endif %}"
-                  title="{% if lab.source == 'case' %}From this company's cases{% else %}Manually tagged{% endif %}">
+                  title="{% if lab.source == 'case' %}{% trans "From this company's cases" %}{% else %}{% trans "Manually tagged" %}{% endif %}">
               <i class="fa-solid {% if lab.source == 'case' %}fa-folder-open{% else %}fa-tag{% endif %}"></i>{{ lab.label_fa }}
             </span>
             {% endfor %}
@@ -166,7 +166,7 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="3" class="empty">No companies match these filters.</td></tr>
+      <tr><td colspan="3" class="empty">{% trans "No companies match these filters." %}</td></tr>
       {% endfor %}
     </tbody>
   </table>

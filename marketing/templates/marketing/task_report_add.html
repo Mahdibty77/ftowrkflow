@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 {% comment %}
   ADD REPORT — the standalone creation form on My Tasks' own Reports tab.
   See marketing/views.py::my_tasks_report_add's own docstring for the full
@@ -25,8 +25,8 @@
   dropping them — the same courtesy report_create's own `kept_id` gives its
   case picker on a rejected step 2.
 {% endcomment %}
-{% block title %}Add report · My Tasks · Foolad Tabar Workflow{% endblock %}
-{% block topbar %}Add report{% endblock %}
+{% block title %}{% trans "Add report" %} · {% trans "My Tasks" %} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% trans "Add report" %}{% endblock %}
 {% block head_extra %}
 <link rel="stylesheet" href="{% static 'marketing/css/directory.css' %}">
 {% endblock %}
@@ -34,11 +34,11 @@
 
 <div class="page-head">
   <div>
-    <h1>Add a report</h1>
-    <div class="sub">A standalone report — no reminder involved. Company and case are both optional.</div>
+    <h1>{% trans "Add a report" %}</h1>
+    <div class="sub">{% trans "A standalone report — no reminder involved. Company and case are both optional." %}</div>
   </div>
   <a href="{% url 'marketing:my_tasks' %}?tab=reports" class="btn btn-sm">
-    <i class="fa-solid fa-arrow-left"></i> Back to My Tasks
+    <i class="fa-solid fa-arrow-left"></i> {% trans "Back to My Tasks" %}
   </a>
 </div>
 
@@ -53,10 +53,10 @@
   {% endif %}
 
   <div class="field">
-    <label for="taskReportClientSelect"><i class="fa-solid fa-building"></i> Company (optional)</label>
+    <label for="taskReportClientSelect"><i class="fa-solid fa-building"></i> {% trans "Company (optional)" %}</label>
     <select id="taskReportClientSelect" name="client_id" data-combo="1"
-            data-placeholder="Search a company…">
-      <option value="">— No company —</option>
+            data-placeholder="{% trans "Search a company…" %}">
+      <option value="">{% trans "— No company —" %}</option>
       {% for c in client_choices %}
       <option value="{{ c.pk }}" dir="auto" {% if selected_client_id == c.pk %}selected{% endif %}>{{ c.name }}</option>
       {% endfor %}
@@ -64,18 +64,18 @@
   </div>
 
   <div class="field">
-    <label for="taskReportCaseSelect"><i class="fa-solid fa-folder-open"></i> Case (optional)</label>
+    <label for="taskReportCaseSelect"><i class="fa-solid fa-folder-open"></i> {% trans "Case (optional)" %}</label>
     <select id="taskReportCaseSelect" name="case_id" data-combo="1"
-            data-placeholder="Search a case…">
-      <option value="">— No case —</option>
+            data-placeholder="{% trans "Search a case…" %}">
+      <option value="">{% trans "— No case —" %}</option>
       {% for row in case_choices %}
       <option value="{{ row.case_id }}" {% if selected_case_id == row.case_id %}selected{% endif %}>{{ row.doc_no }} · {{ row.client_name }} · {{ row.label_fa|default:row.label }}</option>
       {% endfor %}
     </select>
     {% if not case_choices %}
-    <div class="help">There are no cases your own access lets you see. The report can still name a company, or nothing at all.</div>
+    <div class="help">{% trans "There are no cases your own access lets you see. The report can still name a company, or nothing at all." %}</div>
     {% endif %}
-    <div class="help">Picking a case with no company above attaches that case's own company automatically.</div>
+    <div class="help">{% trans "Picking a case with no company above attaches that case's own company automatically." %}</div>
   </div>
 
   <div class="field">
@@ -84,8 +84,8 @@
     {% if form.options.errors %}<ul class="errorlist">{% for e in form.options.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
     {% if not form.options_available %}
       <div class="help">
-        {% if can_manage_options %}No report options exist yet — add the first one in the field below.
-        {% else %}No report options exist yet. A Marketing Supervisor or the platform admin can add them; until then, write the report below.{% endif %}
+        {% if can_manage_options %}{% trans "No report options exist yet — add the first one in the field below." %}
+        {% else %}{% trans "No report options exist yet. A Marketing Supervisor or the platform admin can add them; until then, write the report below." %}{% endif %}
       </div>
     {% endif %}
   </div>
@@ -95,7 +95,7 @@
     <label for="{{ form.new_option.id_for_label }}"><i class="fa-solid fa-plus"></i> {{ form.new_option.label }}</label>
     {{ form.new_option }}
     {% if form.new_option.errors %}<ul class="errorlist">{% for e in form.new_option.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
-    <div class="help">Adds the option to the shared list for everyone in Marketing, and ticks it on this report. Leave it blank if the options above are enough.</div>
+    <div class="help">{% trans "Adds the option to the shared list for everyone in Marketing, and ticks it on this report. Leave it blank if the options above are enough." %}</div>
   </div>
   {% endif %}
 
@@ -103,12 +103,12 @@
     <label for="{{ form.text.id_for_label }}"><i class="fa-solid fa-file-lines"></i> {{ form.text.label }}</label>
     {{ form.text }}
     {% if form.text.errors %}<ul class="errorlist">{% for e in form.text.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
-    <div class="help">Tick at least one option above, write the report here, or do both.</div>
+    <div class="help">{% trans "Tick at least one option above, write the report here, or do both." %}</div>
   </div>
 
   <div class="btn-row">
-    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Save report</button>
-    <a href="{% url 'marketing:my_tasks' %}?tab=reports" class="btn btn-ghost">Cancel</a>
+    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> {% trans "Save report" %}</button>
+    <a href="{% url 'marketing:my_tasks' %}?tab=reports" class="btn btn-ghost">{% trans "Cancel" %}</a>
   </div>
 </form>
 {% endblock %}

@@ -1,3 +1,4 @@
+{% load i18n %}
 {% comment %}
 The results half of the people list: the counts, the table and the pager.
 
@@ -11,16 +12,16 @@ Expects: page_obj, total, active_count, seatless_count, free_seat_count,
 base_query, filtered.
 {% endcomment %}
 <div class="row-flex ppl-stats">
-  <span class="count">{{ total }} shown</span>
-  <span class="count">{{ active_count }} active</span>
+  <span class="count">{% blocktrans %}{{ total }} shown{% endblocktrans %}</span>
+  <span class="count">{% blocktrans %}{{ active_count }} active{% endblocktrans %}</span>
   {% if seatless_count %}
-    <span class="pill pill-amber" title="Active people who hold no account yet">
-      {{ seatless_count }} without a seat
+    <span class="pill pill-amber" title="{% trans 'Active people who hold no account yet' %}">
+      {% blocktrans %}{{ seatless_count }} without a seat{% endblocktrans %}
     </span>
   {% endif %}
   {% if free_seat_count %}
-    <span class="pill pill-grey" title="Accounts nobody holds">
-      {{ free_seat_count }} free seats
+    <span class="pill pill-grey" title="{% trans 'Accounts nobody holds' %}">
+      {% blocktrans %}{{ free_seat_count }} free seats{% endblocktrans %}
     </span>
   {% endif %}
 </div>
@@ -29,10 +30,10 @@ base_query, filtered.
   <table class="data ppl-table">
     <thead>
       <tr>
-        <th class="ppl-col-code">Detail code</th>
-        <th class="ppl-col-latin">Name &amp; username</th>
-        <th>Roles</th>
-        <th class="ppl-col-status">Status</th>
+        <th class="ppl-col-code">{% trans "Detail code" %}</th>
+        <th class="ppl-col-latin">{% trans "Name & username" %}</th>
+        <th>{% trans "Roles" %}</th>
+        <th class="ppl-col-status">{% trans "Status" %}</th>
         <th class="ppl-col-act"></th>
       </tr>
     </thead>
@@ -64,34 +65,35 @@ base_query, filtered.
           </td>
           <td>
             {% if person.is_active %}
-              <span class="pill pill-green">Active</span>
+              <span class="pill pill-green">{% trans "Active" %}</span>
             {% else %}
-              <span class="pill pill-grey">Departed</span>
+              <span class="pill pill-grey">{% trans "Departed" %}</span>
             {% endif %}
           </td>
           <td class="ppl-actions">
-            <a href="{% url 'people:person_detail' person.pk %}" class="btn btn-sm" title="Details">
-              <i class="fa-solid fa-id-badge"></i> Details
+            <a href="{% url 'people:person_detail' person.pk %}" class="btn btn-sm" title="{% trans 'Details' %}">
+              <i class="fa-solid fa-id-badge"></i> {% trans "Details" %}
             </a>
             <a href="{% url 'people:person_seats' person.pk %}" class="btn btn-sm">
-              <i class="fa-solid fa-sitemap"></i> Seats
+              <i class="fa-solid fa-sitemap"></i> {% trans "Seats" %}
               {% if person.role_count %}<span class="ppl-badge">{{ person.role_count }}</span>{% endif %}
             </a>
             {% with login_user=person.login_user %}
             {% if login_user and person.is_active and login_user.is_active %}
             <form method="post" action="{% url 'accounts:impersonate_start' login_user.pk %}" style="display:inline">
               {% csrf_token %}
-              <button type="submit" class="btn btn-sm" title="Sign in as this person">
-                <i class="fa-solid fa-user-shield"></i> Log in as
+              <button type="submit" class="btn btn-sm" title="{% trans 'Sign in as this person' %}">
+                <i class="fa-solid fa-user-shield"></i> {% trans "Log in as" %}
               </button>
             </form>
             {% endif %}
             {% if login_user %}
+            {% blocktrans asvar reset_pw_confirm_text with name=person.display_name %}Generate a new one-time password for {{ name }}?{% endblocktrans %}
             <form method="post" action="{% url 'people:person_reset_password' person.pk %}" style="display:inline"
-                  onsubmit="return confirm('Generate a new one-time password for {{ person.display_name|escapejs }}?');">
+                  onsubmit="return confirm('{{ reset_pw_confirm_text|escapejs }}');">
               {% csrf_token %}
-              <button type="submit" class="btn btn-sm" title="Reset password">
-                <i class="fa-solid fa-lock"></i> Reset password
+              <button type="submit" class="btn btn-sm" title="{% trans 'Reset password' %}">
+                <i class="fa-solid fa-lock"></i> {% trans "Reset password" %}
               </button>
             </form>
             {% endif %}
@@ -100,13 +102,13 @@ base_query, filtered.
               <button type="button" class="btn btn-sm btn-danger"
                       data-confirm-toggle="ppl-cf-{{ person.pk }}"
                       aria-expanded="false" aria-controls="ppl-cf-{{ person.pk }}">
-                <i class="fa-solid fa-ban"></i> Deactivate
+                <i class="fa-solid fa-ban"></i> {% trans "Deactivate" %}
               </button>
             {% else %}
               <button type="button" class="btn btn-sm"
                       data-confirm-toggle="ppl-cf-{{ person.pk }}"
                       aria-expanded="false" aria-controls="ppl-cf-{{ person.pk }}">
-                <i class="fa-solid fa-rotate-left"></i> Reactivate
+                <i class="fa-solid fa-rotate-left"></i> {% trans "Reactivate" %}
               </button>
             {% endif %}
           </td>
@@ -117,12 +119,12 @@ base_query, filtered.
               <span class="ppl-confirm-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
               <span class="ppl-confirm-q">
                 {% if person.is_active %}
-                  Mark «{{ person.display_name }}» as departed?
+                  {% blocktrans with name=person.display_name %}Mark «{{ name }}» as departed?
                   If no leaving date is set, today’s date is recorded. Their seats
-                  stay linked and no history is deleted.
+                  stay linked and no history is deleted.{% endblocktrans %}
                 {% else %}
-                  Reactivate «{{ person.display_name }}»?
-                  The leaving date will be cleared.
+                  {% blocktrans with name=person.display_name %}Reactivate «{{ name }}»?
+                  The leaving date will be cleared.{% endblocktrans %}
                 {% endif %}
               </span>
               <span class="ppl-confirm-act">
@@ -131,11 +133,11 @@ base_query, filtered.
                   <input type="hidden" name="back" value="{{ base_query }}">
                   <button type="submit"
                           class="btn btn-sm {% if person.is_active %}btn-danger{% else %}btn-primary{% endif %}">
-                    <i class="fa-solid fa-check"></i> Confirm
+                    <i class="fa-solid fa-check"></i> {% trans "Confirm" %}
                   </button>
                 </form>
                 <button type="button" class="btn btn-sm btn-ghost" data-confirm-cancel>
-                  <i class="fa-solid fa-xmark"></i> Cancel
+                  <i class="fa-solid fa-xmark"></i> {% trans "Cancel" %}
                 </button>
               </span>
             </div>
@@ -145,10 +147,10 @@ base_query, filtered.
         <tr>
           <td colspan="5" class="empty">
             {% if filtered %}
-              No person matches this search.
+              {% trans "No person matches this search." %}
             {% else %}
-              No people recorded yet. Add the first one to get started —
-              existing accounts keep working untouched until you assign them.
+              {% blocktrans %}No people recorded yet. Add the first one to get started —
+              existing accounts keep working untouched until you assign them.{% endblocktrans %}
             {% endif %}
           </td>
         </tr>
@@ -158,21 +160,21 @@ base_query, filtered.
 </div>
 
 {% if page_obj.paginator.num_pages > 1 %}
-  <nav class="pager" aria-label="Pagination">
+  <nav class="pager" aria-label="{% trans 'Pagination' %}">
     {% if page_obj.has_previous %}
       <a class="pager-btn" href="?{% if base_query %}{{ base_query }}&amp;{% endif %}page={{ page_obj.previous_page_number }}">
-        <i class="fa-solid fa-arrow-left"></i> Prev
+        <i class="fa-solid fa-arrow-left"></i> {% trans "Prev" %}
       </a>
     {% else %}
-      <span class="pager-btn is-disabled"><i class="fa-solid fa-arrow-left"></i> Prev</span>
+      <span class="pager-btn is-disabled"><i class="fa-solid fa-arrow-left"></i> {% trans "Prev" %}</span>
     {% endif %}
-    <span class="pager-info">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    <span class="pager-info">{% blocktrans with num=page_obj.number total=page_obj.paginator.num_pages %}Page {{ num }} of {{ total }}{% endblocktrans %}</span>
     {% if page_obj.has_next %}
       <a class="pager-btn" href="?{% if base_query %}{{ base_query }}&amp;{% endif %}page={{ page_obj.next_page_number }}">
-        Next <i class="fa-solid fa-arrow-right-long"></i>
+        {% trans "Next" %} <i class="fa-solid fa-arrow-right-long"></i>
       </a>
     {% else %}
-      <span class="pager-btn is-disabled">Next <i class="fa-solid fa-arrow-right-long"></i></span>
+      <span class="pager-btn is-disabled">{% trans "Next" %} <i class="fa-solid fa-arrow-right-long"></i></span>
     {% endif %}
   </nav>
 {% endif %}

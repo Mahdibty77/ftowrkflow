@@ -80,3 +80,30 @@ class Gender:
     LABELS = dict(CHOICES)
 
     HONORIFIC = {MALE: "Mr.", FEMALE: "Ms."}
+
+
+class Language:
+    """The two interface languages a person can pick in Settings, for the
+    platform CHROME only — sidebar, tabs, buttons, field labels, status
+    labels, page titles. Never the CONTENT: a company's own name, a person's
+    own comment/report/reminder text, or anything else someone typed keeps
+    whatever language it was written in regardless of this setting.
+
+    Unlike every other choice class in this module, the codes here are
+    lowercase ("en" / "fa"), not uppercase — because these are not this
+    project's own vocabulary, they are handed straight to Django's own i18n
+    machinery (django.utils.translation.activate, the gettext catalog
+    lookup, and the settings.LANGUAGES / LOCALE_PATHS wiring in
+    ftworkflow/settings.py), which only recognises lowercase language codes.
+    See accounts.models.Profile.language for the per-person, server-side
+    record of this choice, and accounts.middleware.LanguageMiddleware for
+    where it is activated on every request.
+    """
+    ENGLISH = "en"
+    PERSIAN = "fa"
+
+    CHOICES = [
+        (ENGLISH, "English"),
+        (PERSIAN, "فارسی"),
+    ]
+    LABELS = dict(CHOICES)

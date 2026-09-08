@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 {% comment %}
   ADD ONE CONTACT AT A COMPANY.
 
@@ -36,17 +36,17 @@
   plain inputs, and every phone value the server ever accepts is validated (or
   rejected) in that same clean(), never in the browser.
 {% endcomment %}
-{% block title %}Add contact · {{ client.name }} · Foolad Tabar Workflow{% endblock %}
-{% block topbar %}Add contact{% endblock %}
+{% block title %}{% trans "Add contact" %} · {{ client.name }} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% trans "Add contact" %}{% endblock %}
 {% block content %}
 
 <div class="page-head">
   <div>
-    <h1>Add a contact</h1>
-    <div class="sub">at <span dir="auto">{{ client.name }}</span> <span class="mono">({{ client.code }})</span></div>
+    <h1>{% trans "Add a contact" %}</h1>
+    <div class="sub">{% blocktrans with name=client.name code=client.code %}at <span dir="auto">{{ name }}</span> <span class="mono">({{ code }})</span>{% endblocktrans %}</div>
   </div>
   <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-sm">
-    <i class="fa-solid fa-arrow-left"></i> Back to company
+    <i class="fa-solid fa-arrow-left"></i> {% trans "Back to company" %}
   </a>
 </div>
 
@@ -83,8 +83,8 @@
       {# whoever cannot is told who can, rather than being left staring at an    #}
       {# empty required dropdown with no explanation.                            #}
       <div class="help">
-        {% if can_manage_roles %}No contact roles exist yet — add the first one in the field below.
-        {% else %}No contact roles exist yet. A Marketing Supervisor has to add the first one before a contact can be filed under a job title.{% endif %}
+        {% if can_manage_roles %}{% trans "No contact roles exist yet — add the first one in the field below." %}
+        {% else %}{% trans "No contact roles exist yet. A Marketing Supervisor has to add the first one before a contact can be filed under a job title." %}{% endif %}
       </div>
     {% endif %}
   </div>
@@ -97,7 +97,7 @@
     <label for="{{ form.new_role.id_for_label }}"><i class="fa-solid fa-plus"></i> {{ form.new_role.label }}</label>
     {{ form.new_role }}
     {% if form.new_role.errors %}<ul class="errorlist">{% for e in form.new_role.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
-    <div class="help">Adds the title to the shared list for everyone in Marketing. Leave it blank if you picked a role above.</div>
+    <div class="help">{% trans "Adds the title to the shared list for everyone in Marketing. Leave it blank if you picked a role above." %}</div>
   </div>
   {% endif %}
 
@@ -115,39 +115,39 @@
   {# layout, because they are still three parts of one dialled number, not   #}
   {# three independent facts.                                                #}
   <div class="subcard" style="margin-bottom:.9rem;">
-    <div class="sc-head"><i class="fa-solid fa-phone"></i> Contact details</div>
+    <div class="sc-head"><i class="fa-solid fa-phone"></i> {% trans "Contact details" %}</div>
 
     <div id="phone-rows">
       {% for row in form.phone_rows %}
       <div class="phone-row" data-phone-row style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:.7rem;">
         <div class="field" style="flex:1 1 140px;min-width:110px;margin-bottom:0;">
-          <label>Dialling prefix</label>
+          <label>{% trans "Dialling prefix" %}</label>
           <input type="text" name="phone_prefix" value="{{ row.prefix }}"
-                 autocomplete="off" inputmode="tel" placeholder="e.g. 021">
+                 autocomplete="off" inputmode="tel" placeholder="{% trans "e.g. 021" %}">
         </div>
         <div class="field" style="flex:2 1 200px;min-width:150px;margin-bottom:0;">
-          <label>Phone number</label>
+          <label>{% trans "Phone number" %}</label>
           <input type="text" name="phone" value="{{ row.number }}"
                  autocomplete="off" inputmode="tel">
         </div>
         <div class="field" style="flex:1 1 140px;min-width:110px;margin-bottom:0;">
-          <label>Internal extension</label>
+          <label>{% trans "Internal extension" %}</label>
           <input type="text" name="phone_ext" value="{{ row.ext }}"
-                 autocomplete="off" inputmode="tel" placeholder="e.g. 214">
+                 autocomplete="off" inputmode="tel" placeholder="{% trans "e.g. 214" %}">
         </div>
         {# Removes just this one row — see static/js/contact_phones.js.       #}
         {# Nothing stops removing every row: a contact reachable only by      #}
         {# email is a complete, legitimate answer, and clean() below checks   #}
         {# for that combination, not for "at least one row must remain".      #}
         <button type="button" class="btn btn-sm btn-ghost" data-remove-phone-row
-                title="Remove this number" style="flex:0 0 auto;">
+                title="{% trans "Remove this number" %}" style="flex:0 0 auto;">
           <i class="fa-solid fa-trash"></i>
         </button>
       </div>
       {% endfor %}
     </div>
     <button type="button" class="btn btn-sm" id="add-phone-row">
-      <i class="fa-solid fa-plus"></i> Add phone
+      <i class="fa-solid fa-plus"></i> {% trans "Add phone" %}
     </button>
 
     <div class="field" style="margin-top:.9rem;margin-bottom:0;">
@@ -155,12 +155,12 @@
       {{ form.email }}
       {% if form.email.errors %}<ul class="errorlist">{% for e in form.email.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
     </div>
-    <div class="help">A phone number or an email is required — either one on its own is enough.</div>
+    <div class="help">{% trans "A phone number or an email is required — either one on its own is enough." %}</div>
   </div>
 
   <div class="btn-row">
-    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Add contact</button>
-    <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-ghost">Cancel</a>
+    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> {% trans "Add contact" %}</button>
+    <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-ghost">{% trans "Cancel" %}</a>
   </div>
 </form>
 {% endblock %}

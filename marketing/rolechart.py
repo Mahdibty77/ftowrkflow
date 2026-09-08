@@ -53,6 +53,8 @@ coordinates and path data and makes no arithmetic decision of its own.
 """
 from __future__ import annotations
 
+from django.utils.translation import gettext_lazy as _
+
 # --------------------------------------------------------------------------- #
 # Grid
 # --------------------------------------------------------------------------- #
@@ -107,26 +109,67 @@ Y_ABBR = 45        # the English abbreviation's baseline
 # the owner called it — "خیلی رنگارنگ" (too colourful). A field's state is
 # now shown by its border/text treatment alone (see rolechart.css), not by
 # which of eight hues it happens to belong to.
+#
+# THE ENGLISH ABBREVIATION (the third element of each tuple below) IS WRAPPED
+# IN ``gettext_lazy``; THE PERSIAN ROLE NAME (the second element) IS NOT, and
+# that split is deliberate, not an oversight. The Persian name is drawn on
+# every card UNCONDITIONALLY, in every interface language — including the
+# platform's default English chrome — which is a pre-existing quirk of this
+# chart the i18n rollout inherited rather than introduced; FIXING that (so an
+# English-language viewer sees no Persian on this page at all) is explicitly
+# a later "Cleanup" stage's job, done once across the whole app rather than
+# piecemeal here. This round's own job is narrower: the English abbreviation
+# is genuinely this chart's own fixed vocabulary (fourteen of these nineteen
+# keys are literally ``cases.constants.MarketingLabel.CHOICES``, the other
+# five ``MANUAL_ONLY_CHOICES`` — see that class's docstring), so it is what
+# gets translated for the Persian toggle to have an effect on this page.
+# ``gettext_lazy`` (not the eager ``gettext``) is required here because SLOTS
+# is built once, at import time, long before any request (and therefore any
+# active language) exists — a lazy string re-resolves against whichever
+# language is active at the moment it is finally rendered to text (inside
+# ``_node``'s ``%s`` formatting, per request), exactly the way
+# ``accounts/constants.py::Language.CHOICES`` and every other Django choices=
+# list already relies on ``gettext_lazy`` for the same reason.
+#
+# THE LATER "CLEANUP" STAGE THIS COMMENT REFERS TO IS THIS ONE — its own
+# whole-repo sweep for Persian text leaking into chrome looked at this file
+# on purpose, not by missing it, and the call is: LEAVE THE PERSIAN ROLE NAME
+# IN. It is not the same failure the sweep was built to catch (a chrome
+# string — a page heading, a button, a tooltip — that never got an English
+# base string at all, the way "My Tasks" once sat beside a redundant Persian
+# "(کارهای من)" on my_tasks.html). These nineteen names are this chart's own
+# fixed business vocabulary for organisational roles on an EPC-style project
+# (سرمایه‌گذار, کارفرمای اصلی, پیمانکار اجرا, ...) — the same kind of
+# deliberately-always-shown Persian term as ``marketing.models.ContactGender``
+# ("آقای — MALE") and the "Inquiry · استعلام" modal button in
+# ``_role_chart.html`` (see that file's own comment beside it), not a
+# duplicated translation of the English abbreviation sitting next to it.
+# Collapsing it away for an English-language viewer would also be a real
+# layout change (``_node``'s ``y_role``/``y_abbr`` both stay populated, on
+# purpose) touching every card of a chart with its own SVG geometry and JS
+# interaction layer — exactly the kind of business-logic/behaviour change
+# this cleanup pass was told not to make chasing a text-leak fix. So: kept,
+# on purpose, confirmed here rather than left open.
 SLOTS = (
-    ("sponsor",     "سرمایه‌گذار",                 "SPONSOR / INVESTOR"),
-    ("owner",       "کارفرمای اصلی",               "OWNER / CLIENT"),
-    ("phase",       "فاز پروژه",                   "PROJECT PHASE"),
-    ("pmt",         "مجری طرح",                    "PMT — PROJECT MGMT TEAM"),
-    ("mc",          "مدیریت طرح",                  "MC / PMC — MGMT CONTRACTOR"),
-    ("licensor",    "لایسنسور",                    "LICENSOR"),
-    ("design",      "مشاور طراح",                  "DESIGN CONSULTANT — FEED / DED"),
-    ("supervision", "مشاور نظارت",                 "SUPERVISION"),
-    ("c",           "پیمانکار اجرا",               "C — CONSTRUCTION ONLY"),
-    ("p",           "پیمانکار خرید",               "P — PROCUREMENT ONLY"),
-    ("pc",          "پیمانکار خرید و اجرا",        "PC — PROCUREMENT + CONSTRUCTION"),
-    ("epc",         "پیمانکار طرح، خرید و اجرا",   "EPC — ENG. PROC. CONSTRUCTION"),
-    ("sub",         "پیمانکار جزء P",              "SUBCONTRACTOR — P"),
-    ("sub_pc",      "پیمانکار جزء PC",             "SUBCONTRACTOR — PC"),
-    ("sub_epc",     "پیمانکار جزء EPC",            "SUBCONTRACTOR — EPC"),
-    ("tpi",         "بازرس ثالث",                  "TPI — THIRD PARTY INSP."),
-    ("laboratory",  "آزمایشگاه",                   "LABORATORY"),
-    ("supplier",    "تأمین‌کننده",                 "SUB-SUPPLIER"),
-    ("rival",       "رقیب احتمالی",                "COMPETITOR"),
+    ("sponsor",     "سرمایه‌گذار",                 _("SPONSOR / INVESTOR")),
+    ("owner",       "کارفرمای اصلی",               _("OWNER / CLIENT")),
+    ("phase",       "فاز پروژه",                   _("PROJECT PHASE")),
+    ("pmt",         "مجری طرح",                    _("PMT — PROJECT MGMT TEAM")),
+    ("mc",          "مدیریت طرح",                  _("MC / PMC — MGMT CONTRACTOR")),
+    ("licensor",    "لایسنسور",                    _("LICENSOR")),
+    ("design",      "مشاور طراح",                  _("DESIGN CONSULTANT — FEED / DED")),
+    ("supervision", "مشاور نظارت",                 _("SUPERVISION")),
+    ("c",           "پیمانکار اجرا",               _("C — CONSTRUCTION ONLY")),
+    ("p",           "پیمانکار خرید",               _("P — PROCUREMENT ONLY")),
+    ("pc",          "پیمانکار خرید و اجرا",        _("PC — PROCUREMENT + CONSTRUCTION")),
+    ("epc",         "پیمانکار طرح، خرید و اجرا",   _("EPC — ENG. PROC. CONSTRUCTION")),
+    ("sub",         "پیمانکار جزء P",              _("SUBCONTRACTOR — P")),
+    ("sub_pc",      "پیمانکار جزء PC",             _("SUBCONTRACTOR — PC")),
+    ("sub_epc",     "پیمانکار جزء EPC",            _("SUBCONTRACTOR — EPC")),
+    ("tpi",         "بازرس ثالث",                  _("TPI — THIRD PARTY INSP.")),
+    ("laboratory",  "آزمایشگاه",                   _("LABORATORY")),
+    ("supplier",    "تأمین‌کننده",                 _("SUB-SUPPLIER")),
+    ("rival",       "رقیب احتمالی",                _("COMPETITOR")),
 )
 SLOT_COUNT = len(SLOTS)
 _SLOT_BY_KEY = {s[0]: s for s in SLOTS}
@@ -139,10 +182,14 @@ _SLOT_BY_KEY = {s[0]: s for s in SLOTS}
 # instead of a label at all. The Persian/English text below is therefore the
 # same text ``cases.constants.MarketingLabel.MANUAL_ONLY_CHOICES`` shows for
 # the "project" key, and the two must stay identical.
+#
+# Same PROJECT_ROLE/US_ROLE (Persian, untouched) vs PROJECT_ABBR/US_ABBR
+# (English, gettext_lazy-wrapped) split as SLOTS above, and for the identical
+# reason — see that tuple's own comment.
 PROJECT_ROLE = "نام پروژه"
-PROJECT_ABBR = "PROJECT"
+PROJECT_ABBR = _("PROJECT")
 US_ROLE = "فولاد تبار"
-US_ABBR = "VENDOR / SUPPLIER"
+US_ABBR = _("VENDOR / SUPPLIER")
 
 # Every field on the chart, in reading order — the one list marketing/views.py
 # and marketing/services.py both walk (via ALL_FIELDS/LABEL_KEYS below) so the
@@ -337,8 +384,12 @@ def _node(key, role_fa, abbr, cx, y, count, row_index):
         "y_role": y + Y_ROLE,
         "y_abbr": y + Y_ABBR,
         "cls": "rc-node " + ("has-entries" if has_entries else "is-empty"),
+        # "entity"/"entities" is the one bit of running English prose this
+        # module produces (everything else on a node is a fixed label) — a
+        # native SVG <title> tooltip, wrapped for the same Persian-toggle
+        # reason as the abbreviation above.
         "title": "%s — %s — %d %s" % (
-            role_fa, abbr, count, "entity" if count == 1 else "entities",
+            role_fa, abbr, count, _("entity") if count == 1 else _("entities"),
         ),
         "badge": _badge(count, x, y, NODE_W),
     }

@@ -26,6 +26,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme, urlencode
+from django.utils.translation import gettext as _
 
 from accounts.constants import Role, Unit
 from core.persian_text import normalize_persian
@@ -1561,26 +1562,33 @@ def case_detail(request, pk):
                            else case.supply_external_assignee
                            if sc == Side.EXTERNAL else None)
                 if _pi_who is not None:
-                    pi_locked_reason = (
-                        f"Assigned to {_pi_who.get_full_name() or _pi_who.username}. "
-                        "Once a side is assigned to a Supply expert, only that "
-                        "expert can build or revise its Proforma.")
+                    # %(name)s is a real person's name — data, never run through
+                    # the translation catalog — interpolated into the ALREADY
+                    # translated sentence around it via gettext's own %-style
+                    # placeholder, exactly the pattern base.html's own
+                    # "+%(count)s more due" banner string already established.
+                    pi_locked_reason = _(
+                        "Assigned to %(name)s. Once a side is assigned to a "
+                        "Supply expert, only that expert can build or revise "
+                        "its Proforma."
+                    ) % {"name": _pi_who.get_full_name() or _pi_who.username}
                 else:
-                    pi_locked_reason = (
+                    pi_locked_reason = _(
                         "Only the Supply manager can work a side that has no "
                         "expert assigned yet.")
             to_locked_reason = ""
             if is_tech and side_at_tech and not owns:
                 _to_who = case.technical_assignee
                 if _to_who is not None:
-                    to_locked_reason = (
-                        f"Assigned to {_to_who.get_full_name() or _to_who.username}. "
-                        "Once a case is assigned to a Technical expert, only that "
-                        "expert can build or revise its Technical Offer.")
+                    to_locked_reason = _(
+                        "Assigned to %(name)s. Once a case is assigned to a "
+                        "Technical expert, only that expert can build or "
+                        "revise its Technical Offer."
+                    ) % {"name": _to_who.get_full_name() or _to_who.username}
                 else:
-                    to_locked_reason = (
-                        "Only the Technical manager can work a case that has no "
-                        "expert assigned yet.")
+                    to_locked_reason = _(
+                        "Only the Technical manager can work a case that has "
+                        "no expert assigned yet.")
             # Per-side PI-remark block: this side's current PI carrying any
             # filled remark cannot be forwarded to commercial. Return-to-technical
             # stays available so supply can hand it back.
