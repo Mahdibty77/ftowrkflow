@@ -4,7 +4,7 @@
 {% block topbar %}{{ month_name }} {{ jalali_year }} · {{ person.display_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-22">
+  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-26">
 {% endblock %}
 
 {% block content %}
@@ -68,35 +68,51 @@
         </div>
         <div class="ppl-day-card-tags">
           {% comment %}
-            OPEN-REMINDER BADGE — THIS PERSON'S OWN open reminders due on
-            THIS single Jalali day (people/views.py::person_shift_month, the
-            per-day lookup into ``_reminder_day_counts_for_person``'s own
-            ``Counter``). Same link-or-count-only rule as the year/month
-            cards one level up: only ever a link when the viewer IS this
-            person (``d.reminder_url``), so an admin reading someone else's
-            day never lands on their OWN My Tasks by mistake. Sits inline
-            with the other tags here rather than overlaid — a day card
-            carries no card-wide ``<a>`` for it to clash with.
+            THIS DAY'S OWN STATUS PILL COMES FIRST, ON ITS OWN ROW —
+            ``.ppl-day-card-tags`` is a column (see people.css), so whatever
+            renders first here occupies the top row and everything after it
+            stacks below. The owner's explicit instruction was that the
+            open-reminder badge below must sit BELOW this pill, never beside
+            or (as the old absolutely-positioned badge could) on top of it —
+            confirmed on a genuinely-``today`` card (where the pill reads
+            "Today") and on every other status, so the layout holds for both.
           {% endcomment %}
-          {% if d.reminder_url %}
-          <a href="{{ d.reminder_url }}" class="chip ppl-reminder-badge"
-             title="Your own open reminders due on Day {{ d.jalali_day }} — open My Tasks filtered to this day">
-            <i class="fa-solid fa-bell"></i> {{ d.reminder_count }}
-          </a>
-          {% else %}
-          <span class="chip ppl-reminder-badge"
-                title="{{ person.display_name }}'s open reminders due on Day {{ d.jalali_day }}">
-            <i class="fa-solid fa-bell"></i> {{ d.reminder_count }}
-          </span>
-          {% endif %}
-          {% if d.ot_request_url %}
-          <a href="{{ d.ot_request_url }}" class="ppl-ot-tag" title="{{ d.ot_request_code|default:'Overtime request' }}">OT</a>
-          {% endif %}
           {% if d.status == 'today' %}<span class="pill pill-green">Today</span>
           {% elif d.status == 'ended' %}<span class="pill pill-grey">Ended</span>
           {% elif d.status == 'soon' %}<span class="pill pill-grey">Soon</span>
           {% elif d.status == 'off' %}<span class="pill pill-red">Off</span>
           {% elif d.status == 'complete' %}<span class="pill pill-green"><i class="fa-solid fa-check"></i> Done</span>
+          {% endif %}
+          {% if d.ot_request_url or d.reminder_count %}
+          <div class="ppl-day-card-tags-extra">
+            {% if d.ot_request_url %}
+            <a href="{{ d.ot_request_url }}" class="ppl-ot-tag" title="{{ d.ot_request_code|default:'Overtime request' }}">OT</a>
+            {% endif %}
+            {% comment %}
+              OPEN-REMINDER BADGE — THIS PERSON'S OWN open reminders due on
+              THIS single Jalali day (people/views.py::person_shift_month,
+              the per-day lookup into ``_reminder_day_counts_for_person``'s
+              own ``Counter``). HIDDEN ENTIRELY when the count is zero — the
+              owner's own instruction, same as the year/month cards one
+              level up. Same link-or-count-only rule as those cards too:
+              only ever a link when the viewer IS this person
+              (``d.reminder_url``), so an admin reading someone else's day
+              never lands on their OWN My Tasks by mistake.
+            {% endcomment %}
+            {% if d.reminder_count %}
+              {% if d.reminder_url %}
+              <a href="{{ d.reminder_url }}" class="chip ppl-reminder-badge"
+                 title="Your own open reminders due on Day {{ d.jalali_day }} — open My Tasks filtered to this day">
+                <i class="fa-solid fa-bell"></i> {{ d.reminder_count }}
+              </a>
+              {% else %}
+              <span class="chip ppl-reminder-badge"
+                    title="{{ person.display_name }}'s open reminders due on Day {{ d.jalali_day }}">
+                <i class="fa-solid fa-bell"></i> {{ d.reminder_count }}
+              </span>
+              {% endif %}
+            {% endif %}
+          </div>
           {% endif %}
         </div>
       </div>

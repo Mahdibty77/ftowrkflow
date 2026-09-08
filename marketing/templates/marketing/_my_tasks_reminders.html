@@ -63,6 +63,33 @@
   `scope="own"` row (every row is this exact viewer regardless, so a Person
   filter would filter nothing), and the column/field below simply do not
   render.
+
+  THE "Created" COLUMN — WHEN the reminder was SET, never confused with
+  "Due" (WHEN it falls due) beside it — is the owner's own addition to this
+  table, ``r.created_at`` (``auto_now_add=True`` on ``Reminder`` itself —
+  see ``marketing/views.py::_task_rows``'s own docstring for why no new
+  server-side computation was needed for it, the model field was simply not
+  being read into this template before). Shown "به آن شخص و ادمین" (to that
+  person, and to admin) in the owner's own words — i.e. in BOTH this table's
+  variants, never gated behind `scope_all` the way Person is. THE COLUMN
+  ORDER BELOW IS THE OWNER'S OWN STATED SEQUENCE for the admin-wide table —
+  Person, Created, Due, Company, Case, Note, State — with Due and Person
+  having swapped places from the table's ORIGINAL order (Due first, no
+  Person at all) once Person was added in an earlier round; the "own" table
+  never carries a Person column at all (every row is this exact viewer, so
+  naming "the person who set it" first would be redundant — see the Person
+  section above), so THAT table simply gains Created in front of Due,
+  keeping its own pre-existing order for every column after it. THE FILTER
+  CARD ABOVE MATCHES BY `data-filter-colname`, NOT BY POSITION — reordering
+  the <th>/<td> pairs below changes nothing about which filter narrows which
+  column, since static/js/ui.js's own `data-filter-table` pass locates a
+  column by walking the header row for the <th> whose text equals the
+  filter's own `data-filter-colname` ONCE, at setup, rather than by a fixed
+  index — but "Due"'s own filter fields two sections up still say
+  `data-filter-colname="Due"`, which after this reorder is a DIFFERENT
+  <th>'s position than before; a colname is the contract, not the position,
+  so nothing there needed to change, but the reasoning matters enough to
+  spell out rather than trust silently.
 {% endcomment %}
 
 <div class="card" style="margin-bottom:1rem;">
@@ -73,6 +100,21 @@
     </button>
   </div>
   <div class="grid grid-4">
+    <div class="field">
+      <label><i class="fa-solid fa-magnifying-glass"></i> Search</label>
+      {# LIVE, FREE-TEXT, AGAINST THE NOTE ITSELF — the identical               #}
+      {# `data-filter-colname`/`data-filter-mode="contains"` plain-<input>      #}
+      {# mechanism cases/templates/cases/case_detail.html's own Reminders tab   #}
+      {# already carries (see that file's own "FILTER CARD" comment) and       #}
+      {# company_detail.html's Reminders tab gains alongside this one — no new  #}
+      {# JavaScript, static/js/ui.js's own `data-filter-table` pass already     #}
+      {# defaults an omitted `data-filter-mode` to "contains" and re-filters on #}
+      {# every keystroke. Targets "Note" (the <td> a few sections down holding  #}
+      {# r.note) — this table's own free-text column, distinct from the        #}
+      {# reports table's "Report" column beside it in `_my_tasks_reports.html`. #}
+      <input type="text" data-filter-for="myTasksTable" data-filter-colname="Note"
+             data-filter-mode="contains" placeholder="Search note text…" autocomplete="off">
+    </div>
     <div class="field">
       <label><i class="fa-solid fa-folder-open"></i> Case</label>
       {# EQUALS, not contains — options are exact document numbers, and a    #}
@@ -184,8 +226,21 @@
     <span class="ast-label"><span class="ast-w">All hours</span></span>
   </button>
   {% for h in hour_blocks %}
-  <button type="button" class="archive-status-tab" data-hour-key="{{ h.key }}" aria-selected="false">
+  {% comment %}
+    ``has_reminder`` (marketing/views.py::_task_hours_with_reminders) is
+    TRUE only when at least one of TODAY's own rows falls in this exact
+    local hour — the owner's ask was to see which hours have something due
+    WITHOUT opening each one, so the mark below (a filled dot plus a bolder,
+    accent-tinted label) is scoped to `#taskHourTabs` in app.css rather than
+    to `.archive-status-tab` generally, since the case archive and the
+    people "recent requests" strip reuse that same base button for an
+    unrelated meaning (a status colour) and must never pick this up too.
+  {% endcomment %}
+  <button type="button" class="archive-status-tab{% if h.has_reminder %} has-reminder{% endif %}"
+          data-hour-key="{{ h.key }}" aria-selected="false"
+          {% if h.has_reminder %}title="At least one reminder is due in this hour"{% endif %}>
     <span class="ast-label"><span class="ast-w">{{ h.label }}</span></span>
+    {% if h.has_reminder %}<span class="ast-hour-dot" aria-hidden="true"></span>{% endif %}
   </button>
   {% endfor %}
   {% if not hour_blocks %}
@@ -224,8 +279,13 @@
   <table class="data" id="myTasksTable" data-filter-table>
     <thead>
       <tr>
-        <th>Due</th>
+        {# See this file's own head comment's "THE 'Created' COLUMN"        #}
+        {# section for the owner's own stated order — Person (scope_all     #}
+        {# only), Created, Due, Company, Case, Note, State — and why Person #}
+        {# never appears at all on the "own" table.                        #}
         {% if scope_all %}<th>Person</th>{% endif %}
+        <th>Created</th>
+        <th>Due</th>
         <th>Company</th>
         <th>Case</th>
         <th>Note</th>
@@ -238,10 +298,15 @@
     <tbody>
       {% for r in rows %}
       <tr>
-        <td class="mono{% if r.is_due and not r.is_done %} c-rej{% endif %}">{{ r.due_at|jalali:"Y.m.d H:i" }}</td>
         {% if scope_all %}
         <td data-fval="{{ r.person_key }}" dir="auto">{{ r.person_name }}</td>
         {% endif %}
+        {# WHEN the reminder was SET — see this file's own head comment's   #}
+        {# "THE 'Created' COLUMN" section. r.created_at is the plain        #}
+        {# Reminder.created_at field (auto_now_add=True); never confused    #}
+        {# with r.due_at beside it, which is WHEN it falls due.             #}
+        <td class="mono">{{ r.created_at|jalali:"Y.m.d H:i" }}</td>
+        <td class="mono{% if r.is_due and not r.is_done %} c-rej{% endif %}">{{ r.due_at|jalali:"Y.m.d H:i" }}</td>
         <td>
           {% comment %}
             A BARE REMINDER — no company and no case at all (see
@@ -328,7 +393,7 @@
       </tr>
       {% empty %}
       <tr>
-        <td colspan="{% if scope_all %}9{% else %}8{% endif %}" class="empty">
+        <td colspan="{% if scope_all %}10{% else %}9{% endif %}" class="empty">
           {% if scope_all %}
           Nobody has set any reminders yet.
           {% else %}

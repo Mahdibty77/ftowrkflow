@@ -10,7 +10,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Foolad Tabar Workflow{% endblock %}</title>
   {% include "includes/favicon.html" %}
-  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=my-tasks-1">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=my-tasks-2">
   <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-17">
   <link rel="stylesheet" href="{% static 'css/icons-offline.css' %}?v=shift-icons-4">
   <script>
@@ -205,20 +205,6 @@
           <a href="{% url 'reports:dashboard' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-chart-line"></i></span>Dashboard</a>
           <a href="{% url 'cases:archive' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-box-archive"></i></span>Case Archive</a>
           <a href="{% url 'accounts:backup_console' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-floppy-disk"></i></span>Backups</a>
-          {% comment %}
-            The same two Marketing doors the General Manager gets below, for
-            the same reason and under the same grant: marketing.access
-            .access_for treats the platform admin exactly like the GM —
-            can_view, scope "all", can_edit False — so both pages authorise an
-            admin and both render read-only. Without these two lines they were
-            reachable only by typing the URL, which contradicted
-            marketing/views.py's own docstring promising the admin the same
-            view-only access as the GM. The admin's one extra power here is
-            NOT can_edit: it is Access.can_manage_config (the contact-role
-            list), exercised through Django admin, not through this sidebar.
-          {% endcomment %}
-          <a href="{% url 'marketing:home' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-diagram-project"></i></span>Marketing (read-only)</a>
-          <a href="{% url 'marketing:directory' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-building"></i></span>Company Directory (read-only)</a>
           <div class="sb-group">Master Data</div>
           <a href="{% url 'cases:master_data_hub' %}" class="sb-item">
             <span class="ic"><i class="fa-solid fa-building"></i></span>Clients &amp; FX

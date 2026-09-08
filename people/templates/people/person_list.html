@@ -17,6 +17,21 @@
     </div>
   </div>
   <div class="btn-row">
+    {% comment %}
+      Formerly its own permanent sidebar entry ("All Reports & Reminders" in
+      people/_nav.html, removed alongside this button being added) — the
+      owner's own call: an admin already lands on this People page for
+      almost everything else admin-shaped, so the admin-wide My Tasks view
+      (every person's reports and reminders, one more filter than the
+      ordinary personal "My Tasks" page — see marketing:my_tasks_all /
+      marketing/views.py::my_tasks and ::_my_tasks_is_admin) belongs as an
+      action reachable FROM here rather than a standing line in the sidebar
+      that was always going to the same destination. Nothing about the
+      destination or its access gate changed, only where the door is.
+    {% endcomment %}
+    <a href="{% url 'marketing:my_tasks_all' %}" class="btn">
+      <i class="fa-solid fa-list-check"></i> Tasks
+    </a>
     <a href="{% url 'people:person_create' %}" class="btn btn-primary">
       <i class="fa-solid fa-user-plus"></i> New person
     </a>

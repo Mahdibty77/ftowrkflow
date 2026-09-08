@@ -301,6 +301,22 @@
     return tr.cells.length === 1 && tr.cells[0].hasAttribute("colspan");
   }
 
+  // A row that carries no filterable data of its own and must simply track
+  // whichever real data row immediately precedes it — e.g. My Tasks' own
+  // Reports tab, where a report that closed out a reminder gets a second,
+  // decorative <tr> underneath it (a single <td colspan> strip showing that
+  // reminder's Set/Due/Reported dates; see _my_tasks_reports.html). That
+  // strip has the EXACT SAME single-cell-plus-colspan shape isPlaceholderRow
+  // looks for, so without this it fell into that check and was silently
+  // skipped by apply() below — never hidden, never shown, just left exactly
+  // as it started (visible), even after its own data row above it was
+  // filtered out. Opt in with data-follows-row so no EXISTING table (this is
+  // a shared, global script) changes behaviour by accident; only a row that
+  // deliberately asks to inherit its predecessor's visibility does.
+  function isFollowerRow(tr) {
+    return tr.hasAttribute("data-follows-row");
+  }
+
   // <table data-filter-table> with inputs/selects carrying data-filter-col="N".
   document.querySelectorAll("[data-filter-table]").forEach(function (table) {
     var tbody = table.tBodies[0];
@@ -326,7 +342,17 @@
         terms.push({ col: colOf(c), mode: c.getAttribute("data-filter-mode") || "contains", raw: raw,
                      parts: raw.split(",").map(function (s) { return s.trim(); }).filter(Boolean) });
       });
+      // Tracks the last REAL data row's own shown/hidden verdict, purely so
+      // a follower row (see isFollowerRow above) right after it can copy the
+      // same verdict — checked BEFORE isPlaceholderRow below, since a
+      // follower row and the table's own genuine empty-state row share the
+      // identical single-cell-plus-colspan shape and must not be confused.
+      var lastRowShown = true;
       Array.prototype.forEach.call(tbody.rows, function (tr) {
+        if (isFollowerRow(tr)) {
+          tr.style.display = lastRowShown ? "" : "none";
+          return;
+        }
         if (isPlaceholderRow(tr)) return;
         var show = terms.every(function (t) {
           var cell = tr.cells[t.col];
@@ -339,6 +365,7 @@
           return t.parts.some(function (p) { return text.indexOf(p) !== -1; });
         });
         tr.style.display = show ? "" : "none";
+        lastRowShown = show;
       });
       var counter = document.querySelector('[data-filter-count="' + table.id + '"]');
       if (counter) counter.textContent = Array.prototype.filter.call(tbody.rows, function (r) {

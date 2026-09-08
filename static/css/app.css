@@ -435,7 +435,26 @@ html[data-theme="dark"] .shift-ot-link:hover{
    instead of via an inline style="" (the old markup's own), since a
    redesign with several new child selectors is exactly the situation an
    inline style stops scaling for. */
-.reminder-notice{align-items:stretch;flex-wrap:wrap;text-decoration:none;color:inherit;gap:.7rem}
+.reminder-notice{align-items:stretch;flex-wrap:wrap;text-decoration:none;color:inherit;gap:.7rem;background:color-mix(in srgb,var(--warn) 16%,var(--warnbg));border-color:var(--warn);border-width:1.5px;box-shadow:0 1px 4px color-mix(in srgb,var(--warn) 30%,transparent)}
+/* The base a{text-decoration:none} + a:hover{text-decoration:underline} pair
+   near the top of this file is exactly the "link" contract every plain <a>
+   in the app should follow, but a:hover's specificity (type selector +
+   pseudo-class) is one class higher than a single .reminder-notice class,
+   so hovering this banner re-underlined its text even though the anchor
+   above sets none for the resting state. This banner is a bell/status strip
+   dressed up to look like a link, not prose meant to read as clickable text,
+   so it should never underline — matching :hover here with the same
+   specificity shape (class + pseudo-class) is enough to win over a:hover. */
+.reminder-notice:hover{text-decoration:none}
+/* Same colour family as every other .flash-warning (var(--warn)/--warnbg/
+   --warnline, which each theme + skin already redefines above) — only the
+   MIX is pushed stronger here: a deeper tint pulled from --warn itself
+   instead of the flat --warnbg, a thicker border in the solid --warn colour
+   rather than the softer --warnline, and a small warm drop-shadow. The goal
+   the owner asked for is this one banner reading more urgent than an
+   ordinary warning flash while still visibly belonging to the same warning
+   vocabulary — so nothing here invents a new colour, it only turns up the
+   proportion of the existing warning colour already used everywhere else. */
 .reminder-notice-icon{align-self:flex-start;margin-top:.15rem;font-size:1rem}
 .reminder-notice-body{flex:1 1 16rem;min-width:0;display:flex;flex-direction:column;gap:.2rem}
 .reminder-notice-head{display:flex;align-items:baseline;gap:.5rem;flex-wrap:wrap}
@@ -456,6 +475,17 @@ html[data-theme="dark"] .shift-ot-link:hover{
 /* height track to push itself to the bottom of; margin-left:auto pushes it  */
 /* to the right within the wrapped row instead of sitting flush after body.  */
 .reminder-notice-others{align-self:flex-end;margin-left:auto;white-space:nowrap}
+/* The pill itself is a plain <span> nested inside the one big .reminder-notice
+   <a> — the whole banner already navigates to My Tasks on click via that
+   outer anchor, so this rule only owes the pill its OWN hover feedback (a
+   background change scoped to just this element) rather than any new click
+   behaviour. A normal descendant :hover selector works fine here even
+   though the ancestor is also hovered at the same time; the browser applies
+   both :hover states simultaneously, it just happens that hovering the pill
+   necessarily also hovers its ancestor. Tinted from --warn like the rest of
+   this banner's stronger palette above, not the plain --cloud .count uses
+   elsewhere, so the pill reads as part of this banner's warning family. */
+.reminder-notice-others:hover{background:color-mix(in srgb,var(--warn) 30%,var(--warnbg));border-color:var(--warn)}
 
 /* ---------------- Cards / panels ---------------- */
 .card,.panel{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.1rem 1.25rem;margin-bottom:1rem}
@@ -1566,6 +1596,28 @@ table.data td.client-no { font-weight: 650; opacity: .75; }
   color:var(--accent-strong, var(--accent));
 }
 .archive-status-tab-all.is-active .ast-label{ color:var(--accent-strong, var(--accent)); }
+
+/* My Tasks' own hour-block row (#taskHourTabs — see
+   marketing/templates/marketing/_my_tasks_reminders.html) reuses this same
+   .archive-status-tab button per shift-hour, but until now every hour
+   rendered identically whether or not one of TODAY's own reminders actually
+   fell inside it. Scoped to the #taskHourTabs id, never to
+   .archive-status-tab on its own, because the case archive's status strip
+   and people/_request_recent.html's own tab row share that exact base class
+   for an unrelated meaning (a status colour) and must not pick up a mark
+   meant only for "does this hour's bucket contain anything". `color` +
+   `font-weight` are the only properties touched here — deliberately nothing
+   that overrides `background`/`border-color`, which `.is-active` already
+   owns, so a selected hour that also has a reminder still reads as selected
+   first and flagged second, never the reverse. */
+#taskHourTabs .archive-status-tab.has-reminder{
+  color:var(--accent-strong);
+  font-weight:750;
+}
+#taskHourTabs .ast-hour-dot{
+  display:block; width:.4rem; height:.4rem; margin-top:.1rem;
+  border-radius:50%; background:var(--accent-strong);
+}
 .archive-filter-toolbar{
   display:flex; align-items:center; justify-content:space-between;
   gap:.75rem; flex-wrap:wrap; margin-bottom:.65rem;

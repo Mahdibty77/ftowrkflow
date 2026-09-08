@@ -450,6 +450,21 @@
         <input type="text" data-jalali-datetime data-filter-for="reportsTable"
                data-filter-colname="Date" data-filter-mode="lte" placeholder="To date" autocomplete="off">
       </div>
+      <div class="field">
+        <label><i class="fa-solid fa-magnifying-glass"></i> Search</label>
+        {# LIVE, FREE-TEXT, AGAINST THE REPORT'S OWN TEXT — a FOURTH field in    #}
+        {# this same `.grid.grid-3` (CSS grid simply wraps it onto an implicit   #}
+        {# second row, the identical reasoning `_my_tasks_reminders.html`'s own  #}
+        {# Person field already relies on for its `.grid.grid-4`), reusing the   #}
+        {# exact `data-filter-colname`/`data-filter-mode="contains"` plain-      #}
+        {# <input> mechanism cases/templates/cases/case_detail.html's own        #}
+        {# Reports tab already carries — no new JavaScript, static/js/ui.js's    #}
+        {# own `data-filter-table` pass already defaults an omitted              #}
+        {# `data-filter-mode` to "contains" and re-filters on every keystroke.    #}
+        {# Targets "Report" (the <td> below holding r.text).                     #}
+        <input type="text" data-filter-for="reportsTable" data-filter-colname="Report"
+               data-filter-mode="contains" placeholder="Search report text…" autocomplete="off">
+      </div>
     </div>
   </div>
 
@@ -568,6 +583,16 @@
         <label><i class="fa-solid fa-calendar-day"></i> To date (Jalali)</label>
         <input type="text" data-jalali-datetime data-filter-for="remindersTable"
                data-filter-colname="Due" data-filter-mode="lte" placeholder="To date" autocomplete="off">
+      </div>
+      <div class="field">
+        <label><i class="fa-solid fa-magnifying-glass"></i> Search</label>
+        {# LIVE, FREE-TEXT, AGAINST THE NOTE ITSELF — a FOURTH field in this      #}
+        {# same `.grid.grid-3`, wrapping the identical way the Reports filter    #}
+        {# card's own fourth field does just above; same reused mechanism as     #}
+        {# cases/templates/cases/case_detail.html's own Reminders tab. Targets    #}
+        {# "Note" (the <td> below holding r.note).                                #}
+        <input type="text" data-filter-for="remindersTable" data-filter-colname="Note"
+               data-filter-mode="contains" placeholder="Search note text…" autocomplete="off">
       </div>
     </div>
   </div>

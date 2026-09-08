@@ -13,7 +13,28 @@
   id in this page's URL for a company to be implied by.
 
   BOTH <select>s CARRY data-combo — the exact searchable-select pattern
-  every other picker in this app already uses, zero new JavaScript.
+  every other picker in this app already uses, zero new JavaScript. — ON
+  EVERY VISIT EXCEPT is_next_step. On THAT step, neither <select> is drawn
+  at ALL: the owner's own instruction is that a next reminder set right
+  after closing one out must stay on the SAME case/company, "قابل تغییر
+  نباید باشند" (not changeable) — and a disabled data-combo <select> would
+  still LOOK fully interactive, because static/js/ui.js's own buildCombo()
+  draws its search box as a separate, always-enabled <input> sitting in
+  front of the (merely hidden) <select> and never once checks that
+  <select>'s disabled state; disabling the underlying element would have
+  stopped a real submit while still inviting a click on what still looks
+  like a live search field. So this step draws a plain, static
+  ".chip"-styled line instead — the SAME non-link chip company_detail.html's
+  own Reminders tab already uses for a bare "on a case, redacted" row,
+  reused here for the identical reason: something visibly named but
+  impossible to mistake for a control — printing `locked_client`/
+  `locked_case_row` (marketing/views.py::my_tasks_add), never the form
+  field, so there is no <select> on the page at all to be either forged or
+  mistaken for editable. THE REAL LOCK IS SERVER-SIDE REGARDLESS — see that
+  view's own "LOCKED ON THE 'SET YOUR NEXT REMINDER' STEP" comment: even a
+  hand-built POST naming a different company/case is ignored on this step,
+  so this template's job is only to stop a real person from being shown a
+  choice that was never actually going to be honoured.
 
   THE DUE-AT BOX CARRIES data-jalali-datetime, the same picker every other
   Jalali field in this app uses. static/js/jalali_picker.js does not support
@@ -126,17 +147,51 @@
   </div>
 
   <div class="field">
+    {% if is_next_step %}
+    {# LOCKED — see this file's own head comment. A plain, non-interactive  #}
+    {# ".chip" display of the just-closed reminder's own company, never the #}
+    {# <select>: nothing here is a control, so nothing here can be clicked  #}
+    {# open or typed into as if it might change. The real enforcement is    #}
+    {# server-side, in marketing/views.py::my_tasks_add — this is only the  #}
+    {# honest reflection of that on screen.                                 #}
+    <label><i class="fa-solid fa-building"></i> Company</label>
+    <div>
+      <span class="chip c-draft" aria-disabled="true">
+        <i class="fa-solid fa-lock"></i>
+        {% if locked_client %}<span dir="auto">{{ locked_client.name }}</span>{% else %}<span class="muted">No company</span>{% endif %}
+      </span>
+    </div>
+    <div class="help">Locked to the reminder you just closed — a next reminder always stays on the same company. Use “Add Task” from My Tasks for anything else.</div>
+    {% else %}
     <label for="{{ form.client_id.id_for_label }}"><i class="fa-solid fa-building"></i> {{ form.client_id.label }}</label>
     {{ form.client_id }}
     {% if form.client_id.errors %}<ul class="errorlist">{% for e in form.client_id.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    {% endif %}
   </div>
 
   <div class="field">
+    {% if is_next_step %}
+    {# LOCKED — identical reasoning to Company above, over locked_case_row  #}
+    {# (marketing/views.py::my_tasks_add — the same already-fetched         #}
+    {# case_choices row the ordinary picker's own <option> would have come  #}
+    {# from, found by pk, no new query).                                    #}
+    <label><i class="fa-solid fa-folder-open"></i> Case</label>
+    <div>
+      <span class="chip c-draft" aria-disabled="true">
+        <i class="fa-solid fa-lock"></i>
+        {% if locked_case_row %}
+        <span class="mono">{{ locked_case_row.doc_no }}</span><span dir="auto"> · {{ locked_case_row.client_name }}</span>
+        {% else %}<span class="muted">No case</span>{% endif %}
+      </span>
+    </div>
+    <div class="help">Locked to the reminder you just closed — not changeable on this step.</div>
+    {% else %}
     <label for="{{ form.case_id.id_for_label }}"><i class="fa-solid fa-folder-open"></i> {{ form.case_id.label }}</label>
     {{ form.case_id }}
     {% if form.case_id.errors %}<ul class="errorlist">{% for e in form.case_id.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
     {% if not form.cases_available %}
     <div class="help">There are no cases your own access lets you see. The reminder can still name a company, or nothing at all.</div>
+    {% endif %}
     {% endif %}
   </div>
 

@@ -9,15 +9,4 @@ Icons must exist in static/css/icons-offline.css.
 <a href="{% url 'people:request_types' %}" class="sb-item">
   <span class="ic"><i class="fa-solid fa-clipboard-check"></i></span>Request types
 </a>
-{# The admin-wide "My Tasks" — every person's reports and reminders, one   #}
-{# more filter (Person) beyond what the ordinary personal page already has.#}
-{# marketing:my_tasks_all is the SAME view/template as the sidebar's own   #}
-{# "Personal" -> My Tasks link, parameterised by scope="all" in the URL    #}
-{# itself and gated the identical way this whole nav group already is —   #}
-{# see marketing/views.py::my_tasks and marketing/views.py::_my_tasks_is_admin #}
-{# for why this is admin-only, not the wider Supervisor/GM tier a couple  #}
-{# of other Marketing screens use for their own "sees everyone" split.    #}
-<a href="{% url 'marketing:my_tasks_all' %}" class="sb-item">
-  <span class="ic"><i class="fa-solid fa-list-check"></i></span>All Reports &amp; Reminders
-</a>
 {% endif %}

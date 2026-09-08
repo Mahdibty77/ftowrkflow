@@ -32,13 +32,19 @@
   ever be a frozen copy, never a live lookup) alongside its own text. This is
   where that report actually LIVES, long after my_tasks_add's own
   `closed_report` confirmation screen (shown once, immediately after
-  closing) has scrolled out of view — so the identical three-point
-  Set → Due → Reported timeline is drawn again here, in the "When" column,
-  for every row that has one (r.has_timeline — marketing/views.py::_task_report_rows's
-  own flag, true iff reminder_set_at is not null). A PLAIN report — never
-  tied to a reminder, whether written from THIS tab's own "Add report" form
-  or, in principle, from anywhere else in the app — carries no such
-  timeline and that column simply reads "—".
+  closing) has scrolled out of view. Two SEPARATE things used to be crammed
+  into one "Reminder timeline" cell — the frozen note text and the
+  Set → Due → Reported timeline — which read as clutter, so they now live in
+  two different places: the "Reminder note" column holds ONLY
+  r.reminder_note (or "—" for a row with no reminder behind it at all), and
+  the three-point timeline is drawn as its own full-width strip UNDER the
+  row (a second `<tr>` whose single `<td>` spans every column), right-
+  aligned, immediately following any row where r.has_timeline is true
+  (marketing/views.py::_task_report_rows's own flag, true iff
+  reminder_set_at is not null). A PLAIN report — never tied to a reminder,
+  whether written from THIS tab's own "Add report" form or, in principle,
+  from anywhere else in the app — gets neither: its note column reads "—"
+  and no timeline strip follows it at all.
 
   THE PERSON FILTER/COLUMN (`scope_all` ONLY) IS THE IDENTICAL MECHANISM THE
   REMINDERS TAB CARRIES — see `_my_tasks_reminders.html`'s own head comment's
@@ -59,6 +65,22 @@
     </button>
   </div>
   <div class="grid grid-4">
+    <div class="field">
+      <label><i class="fa-solid fa-magnifying-glass"></i> Search</label>
+      {# LIVE, FREE-TEXT, AGAINST THE REPORT'S OWN TEXT — the identical         #}
+      {# `data-filter-colname`/`data-filter-mode="contains"` plain-<input>      #}
+      {# mechanism cases/templates/cases/case_detail.html's own Reports tab     #}
+      {# already carries, and company_detail.html's Reports tab gains alongside #}
+      {# this one — no new JavaScript, static/js/ui.js's own                    #}
+      {# `data-filter-table` pass already defaults an omitted                  #}
+      {# `data-filter-mode` to "contains" and re-filters on every keystroke.    #}
+      {# Targets "Report" (the <td> further down holding r.text) — NOT          #}
+      {# "Reminder note", the separate frozen-note column beside it (see this   #}
+      {# file's own head comment's "THE CLOSED-REMINDER TIMELINE" section for   #}
+      {# why those two are different columns).                                 #}
+      <input type="text" data-filter-for="myTasksReportsTable" data-filter-colname="Report"
+             data-filter-mode="contains" placeholder="Search report text…" autocomplete="off">
+    </div>
     <div class="field">
       <label><i class="fa-solid fa-folder-open"></i> Case</label>
       {# EQUALS, not contains — same reasoning as the Reminders tab's own    #}
@@ -137,7 +159,7 @@
         {% if scope_all %}<th>Person</th>{% endif %}
         <th>Company</th>
         <th>Case</th>
-        <th>Reminder timeline</th>
+        <th>Reminder note</th>
         <th>Report</th>
       </tr>
     </thead>
@@ -173,35 +195,18 @@
         </td>
         <td>
           {% comment %}
-            THE THREE-POINT TIMELINE — see this file's own head comment. Set
-            and Due come from the CLOSED reminder's own frozen columns;
-            Reported is this report's own created_at, i.e. this same row's
-            own Date column, repeated here so all three points read as one
-            connected line rather than sending the reader back to the first
-            column to find the third point.
+            THE REMINDER'S OWN NOTE — and nothing else. Used to share this
+            cell with the Set → Due → Reported timeline (see this file's own
+            head comment for why that got pulled out into its own strip
+            below the row); this column now holds only the frozen note
+            text, or "—" for a row with no reminder behind it at all.
           {% endcomment %}
           {% if r.has_timeline %}
-          <div class="row-flex" style="gap:.5rem;align-items:center;flex-wrap:nowrap;font-size:.78rem;">
-            <div>
-              <div class="muted" style="font-size:.68rem;">Set</div>
-              <div class="mono">{{ r.reminder_set_at|jalali:"Y.m.d H:i" }}</div>
+            {% if r.reminder_note %}
+            <div class="help" style="white-space:pre-line;max-width:26ch;overflow-wrap:anywhere;" dir="auto">
+              <i class="fa-solid fa-note-sticky"></i> {{ r.reminder_note }}
             </div>
-            <span class="muted">→</span>
-            <div>
-              <div class="muted" style="font-size:.68rem;">Due</div>
-              <div class="mono">{{ r.reminder_due_at|jalali:"Y.m.d H:i" }}</div>
-            </div>
-            <span class="muted">→</span>
-            <div>
-              <div class="muted" style="font-size:.68rem;">Reported</div>
-              <div class="mono">{{ r.created_at|jalali:"Y.m.d H:i" }}</div>
-            </div>
-          </div>
-          {% if r.reminder_note %}
-          <div class="help" style="margin-top:.3rem;white-space:pre-line;max-width:26ch;overflow-wrap:anywhere;" dir="auto">
-            <i class="fa-solid fa-note-sticky"></i> {{ r.reminder_note }}
-          </div>
-          {% endif %}
+            {% else %}<span class="muted">—</span>{% endif %}
           {% else %}
           <span class="muted">—</span>
           {% endif %}
@@ -217,6 +222,51 @@
           <div dir="auto" style="white-space:pre-line;max-width:32ch;overflow-wrap:anywhere;">{{ r.text|default:"—" }}</div>
         </td>
       </tr>
+      {% if r.has_timeline %}
+      <tr data-follows-row="1">
+        {% comment %}
+          THE THREE-POINT TIMELINE, AS ITS OWN STRIP UNDER THE ROW — pulled
+          out of the "Reminder note" column above (see this file's own head
+          comment) so the note reads cleanly on its own and the timeline
+          reads as a single connected line rather than fighting the note for
+          space inside one cell. Set and Due come from the CLOSED reminder's
+          own frozen columns; Reported is this SAME row's own created_at
+          (its own Date column, repeated here) so all three points line up
+          without sending the reader back to the first column. Right-aligned
+          per the owner's own request ("پایین سمت راست" — bottom-right of
+          this row). `colspan` spans every column of the row above, exactly
+          like the table's own empty-state row further down.
+
+          `data-follows-row` is what makes this row correctly hide/show in
+          step with the data row directly above it once a filter is active
+          (static/js/ui.js's data-filter-table pass) — without it, this row's
+          own single-cell-plus-colspan shape is indistinguishable from the
+          table's own genuine "no results" placeholder row, which that same
+          filter pass deliberately never touches; a filtered-out report used
+          to leave this exact strip orphaned on screen with no data row above
+          it. See static/js/ui.js's own isFollowerRow/isPlaceholderRow for the
+          full reasoning.
+        {% endcomment %}
+        <td colspan="{% if scope_all %}6{% else %}5{% endif %}" style="border-top:none;padding-top:0;">
+          <div class="row-flex" style="gap:.5rem;align-items:center;flex-wrap:nowrap;font-size:.78rem;justify-content:flex-end;">
+            <div>
+              <div class="muted" style="font-size:.68rem;">Set</div>
+              <div class="mono">{{ r.reminder_set_at|jalali:"Y.m.d H:i" }}</div>
+            </div>
+            <span class="muted">→</span>
+            <div>
+              <div class="muted" style="font-size:.68rem;">Due</div>
+              <div class="mono">{{ r.reminder_due_at|jalali:"Y.m.d H:i" }}</div>
+            </div>
+            <span class="muted">→</span>
+            <div>
+              <div class="muted" style="font-size:.68rem;">Reported</div>
+              <div class="mono">{{ r.created_at|jalali:"Y.m.d H:i" }}</div>
+            </div>
+          </div>
+        </td>
+      </tr>
+      {% endif %}
       {% empty %}
       <tr>
         <td colspan="{% if scope_all %}6{% else %}5{% endif %}" class="empty">

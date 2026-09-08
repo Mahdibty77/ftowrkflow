@@ -722,22 +722,79 @@ a.ppl-month-link:hover{
 .ppl-month-card.is-idle,
 .ppl-month-card.is-upcoming{opacity:.9;}
 
-/* Open-reminder badge overlaid on every year/month card (and, via the same
-   two classes, every day card on the month drill-down page below) — see
-   people/templates/people/person_shift.html and person_shift_month.html's
-   own comments for why it sits OUTSIDE the year/month card's own <a> rather
-   than inside it. ``.ppl-card-has-badge`` just gives the card (or, for an
-   active month, the small wrapper around its <a>) the ``position:relative``
-   the badge's own ``absolute`` needs to anchor to THAT card's own corner
-   instead of the page. */
+/* Open-reminder badge — every year tile, every month card (idle or active),
+   and every day card on the month drill-down page below carries one when
+   (and only when — see the templates' own ``{% if …reminder_count %}``
+   guards) this person has at least one open reminder due in that period. It
+   USED TO be ``position:absolute`` over the card's own top-right corner and
+   render even at a count of zero, which meant it sat on top of whatever the
+   card already had there — the card's own title on a year/idle-month tile,
+   and, on the day-drill-down page, that day's own status pill ("Today" /
+   "Ended" / …). The owner's complaint was exactly that collision, not the
+   badge's presence, so this round moves every copy into the card's own
+   NORMAL DOCUMENT FLOW instead: a card that "carries" a badge now means the
+   badge sits in a row that belongs to the card's own markup, never a chip
+   floating over content that would otherwise be there alone. Three
+   different flow positions, one per card shape:
+
+   * Year tile / idle month card — no card-wide <a> to collide with, so the
+     badge sits directly in ``.ppl-month-head`` beside the title, wrapped
+     with it in one ``.ppl-month-head-title`` group so ``justify-content:
+     space-between`` on the head still puts the status pill at the far end
+     exactly as before this badge existed.
+   * Active month card — its ``.ppl-month-card`` IS an <a> (to
+     ``person_shift_month``), and a clickable badge is its OWN <a> to My
+     Tasks; a second anchor cannot nest inside the first, which is why this
+     one still lives in ``.ppl-month-card-outer`` as a sibling of the card's
+     link rather than inside it (see the template's own comment) — but now
+     as a small flow row flush above that link (``.ppl-month-card-badge-row``)
+     instead of an absolutely-positioned overlay on top of it.
+   * Day card — already flowed inside ``.ppl-day-card-tags`` rather than
+     absolutely positioned (a day card has no card-wide <a> either), but
+     shared ONE row with that day's own status pill; see the day-card rules
+     further down for why that row is now a column instead, precisely so
+     the badge can sit BELOW the pill rather than beside — or on top of —
+     it, the owner's own explicit instruction for that page.
+
+   ``.ppl-card-has-badge``/``.ppl-month-card-outer``'s own ``position:
+   relative`` predate this change and are harmless to leave in place (a
+   badge in normal flow needs no positioning context from its ancestor),
+   but nothing below still depends on either for this badge. */
 .ppl-card-has-badge{position:relative;}
 .ppl-month-card-outer{position:relative;display:block;}
 .ppl-month-card-outer > .ppl-month-card{height:100%;}
 .ppl-reminder-badge{
-  position:absolute;top:.5rem;inset-inline-end:.5rem;z-index:2;
-  font-size:.66rem;padding:.12rem .45rem;box-shadow:0 1px 4px rgba(0,0,0,.12);
+  font-size:.66rem;padding:.12rem .45rem;white-space:nowrap;
 }
-.ppl-day-card .ppl-reminder-badge{position:static;box-shadow:none;}
+/* A link, not a translucent overlay chip — this badge already reads as
+   clickable (bell icon, count, pointer cursor from .chip), so the ONLY
+   feedback still missing on hover was some visual change at all: the
+   platform-wide ``a:hover{text-decoration:underline}`` (static/css/app.css)
+   is what a plain link relies on, but this chip is a small pill, not prose,
+   and underlining a pill's icon+number reads as broken rather than as a
+   link. Same fix, and the same reason, as ``.reminder-notice:hover`` in
+   static/css/app.css (see that rule's own comment): matching ``a:hover``'s
+   specificity shape with a single class + ``:hover`` (``.ppl-reminder-
+   badge`` is one class) is enough to win the cascade, so the override does
+   not need ``!important`` or an extra qualifying class. Scoped to the <a>
+   variant only (``a.ppl-reminder-badge``) — the plain ``<span>`` an admin
+   sees on someone ELSE's card is not a link at all and must never look or
+   feel like one. */
+a.ppl-reminder-badge:hover{
+  text-decoration:none;background:var(--accent);color:var(--on-accent);
+}
+/* Year tile / idle month card only — see this block's own head comment.
+   ``min-width:0`` lets the title beside it truncate/wrap rather than force
+   the whole head row wider than the card. */
+.ppl-month-head-title{
+  display:inline-flex;align-items:center;gap:.4rem;min-width:0;
+}
+/* Active month card only — see this block's own head comment. The badge
+   sits flush above the card's own link, right-aligned, reading as a small
+   tab attached to that specific card rather than a page-wide overlay. */
+.ppl-month-card-badge-row{
+  display:flex;justify-content:flex-end;margin-bottom:.3rem;
+}
 
 .ppl-month-head{
   display:flex;align-items:center;justify-content:space-between;gap:.35rem;margin-bottom:.4rem;
@@ -943,7 +1000,23 @@ a.ppl-month-link:hover{
   vertical-align:middle;
   white-space:nowrap;
 }
+/* A COLUMN, not a single row — the owner's explicit instruction was that
+   the open-reminder badge must sit BELOW this day's own status pill
+   ("Today" / "Ended" / "Soon" / "Off" / "Done"), never beside it where a
+   wrap could still land them on the same line, and never on top of it the
+   way the old absolutely-positioned badge could. flex-direction:column
+   turns each direct child into its own row regardless of width, so the
+   status pill (rendered first — see the template) always occupies the top
+   row and ``.ppl-day-card-tags-extra`` (the OT tag and/or the reminder
+   badge, whichever exist) always occupies a row beneath it. */
 .ppl-day-card-tags{
+  display:flex;flex-direction:column;align-items:flex-end;gap:.3rem;
+}
+/* The OT tag and the reminder badge share this one row below the status
+   pill (see .ppl-day-card-tags above) — still wrapping and right-aligned
+   between themselves, exactly as the whole group used to before the status
+   pill was pulled onto its own row above. */
+.ppl-day-card-tags-extra{
   display:flex;align-items:center;gap:.3rem;flex-wrap:wrap;justify-content:flex-end;
 }
 .ppl-ot-tag{

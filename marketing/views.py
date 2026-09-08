@@ -2169,6 +2169,18 @@ def _task_rows(request, case_access, scope: str = "own") -> list:
       (``marketing/static/marketing/js/my_tasks.js``) — nothing server-side
       ever reads them back.
 
+    ``row.created_at`` NEEDS NO COMPUTATION HERE AT ALL — ``Reminder.created_at``
+    (``auto_now_add=True``) IS ALREADY ON EVERY ROW ``reminders.list_for_user``
+    hands back, this function simply never read it into the template before
+    this round. It is the "Created" column the owner asked for alongside the
+    existing "Due" one — WHEN the reminder was SET, not when it falls due —
+    on BOTH the personal and the admin-wide table (their own wording: shown
+    "به آن شخص و ادمین", to that person and to admin, i.e. every viewer of
+    either table). Nothing else about this field is special-cased per
+    ``scope`` the way ``person_name``/``person_key`` are — every row, in
+    either view, already carries its own real creation stamp regardless of
+    who set it.
+
     ONE QUERY for the rows (``reminders.list_for_user``, already
     ``select_related`` for client/case/owner) plus ONE for the case-
     visibility check, plus — ``scope="all"`` ONLY — ONE MORE for
@@ -2288,6 +2300,36 @@ def _task_hour_blocks(user) -> list:
                 or _in_window(_dt.time(h, 59), start, end)):
             blocks.append({"key": "%02d" % h, "label": "%02d:00" % h})
     return blocks
+
+
+def _task_hours_with_reminders(rows) -> set:
+    """Which of TODAY's own hour blocks (see ``_task_hour_blocks`` above)
+    actually contain at least one of this viewer's own reminders — the
+    owner's own ask for the hour-block row: every block used to render
+    identically whether it held something due or nothing at all, so seeing
+    what needs attention meant opening each hour in turn. This just answers
+    "which keys", nothing about count or which reminder — ``my_tasks.html``
+    only ever needs a yes/no per button to give it a distinct look.
+
+    REUSES ``row.day_key``/``row.hour_key`` RATHER THAN RE-DERIVING THEM FROM
+    ``row.due_at`` A SECOND TIME — the exact pair ``_task_rows`` already
+    computes off ``timezone.localtime`` for the client-side day/hour pills
+    (see that function's own docstring); recomputing here off the raw
+    (UTC-stored) ``due_at`` would risk a reminder just after local midnight
+    disagreeing with which day/hour the table and this set say it falls in.
+    ``today_key`` is computed the same ``timezone.localtime`` way for the
+    identical reason — a naive ``date()`` on ``now()`` would be the SERVER's
+    date, not this viewer's own local one, on any deployment where they ever
+    differ.
+
+    Takes plain ``rows`` (ALL of them, any day) rather than a scope/user pair
+    — the view already has them in hand for the table itself, and this is a
+    one-line filter over an in-memory list, not a query of its own.
+    """
+    from django.utils import timezone
+
+    today_key = timezone.localtime(timezone.now()).date().isoformat()
+    return {row.hour_key for row in rows if row.day_key == today_key}
 
 
 def _task_report_rows(request, case_access, scope: str = "own") -> list:
@@ -2517,6 +2559,17 @@ def my_tasks(request, scope: str = "own"):
     case_choices = _visible_case_rows_all(request, case_access)
     rows = _task_rows(request, case_access, scope=scope)
     report_rows = _task_report_rows(request, case_access, scope=scope)
+    # The hour-block row's own "does this hour actually have something due"
+    # mark — see _task_hours_with_reminders's own docstring. Computed over
+    # THIS viewer's own `rows` (already in hand for the table itself, not a
+    # second query) and merged onto `hour_blocks` here, in the view, rather
+    # than in the template: a template loop deciding membership in a set
+    # built from a second loop is exactly the kind of two-source-of-truth
+    # drift this file's own rows elsewhere are built to avoid.
+    hour_blocks = _task_hour_blocks(request.user)
+    hours_with_reminders = _task_hours_with_reminders(rows)
+    for block in hour_blocks:
+        block["has_reminder"] = block["key"] in hours_with_reminders
 
     return render(request, "marketing/my_tasks.html", {
         "active_tab": "reminders",
@@ -2549,7 +2602,7 @@ def my_tasks(request, scope: str = "own"):
             {(r.person_name, r.person_key) for r in rows if r.person_key}
         ) if scope == "all" else [],
         "day_groups": _task_day_groups(rows),
-        "hour_blocks": _task_hour_blocks(request.user),
+        "hour_blocks": hour_blocks,
         # The Reminders tab's own Due-date range, pre-filled from the query
         # string — see this view's own docstring's "``?from=``/``?to=``"
         # section. Blank on every ordinary visit (``request.GET`` carries
@@ -2648,6 +2701,36 @@ def my_tasks_add(request):
         if report_id is not None else None
     )
 
+    # THE JUST-CLOSED REMINDER'S OWN company/case — read ONCE, off the query
+    # string, regardless of request.method. Three readers share this exact
+    # pair from here on: the GET branch below uses it to PRE-FILL the form;
+    # the POST branch uses the SAME pair to LOCK what actually gets written
+    # (see "LOCKED ON THE NEXT-REMINDER STEP" a few lines down — the owner's
+    # own instruction that a next reminder set from this step must stay on
+    # the SAME case/company, never a different one); and the template uses
+    # it a third time to print the read-only, locked display in place of the
+    # ordinary pickers. One value, three readers, so none of the three can
+    # ever end up disagreeing about what this step is "for".
+    client_raw = _int_or_none(request.GET.get("client"))
+    case_raw = _int_or_none(request.GET.get("case"))
+    # DISPLAY-ONLY LOOKUPS for the locked, read-only fields task_form.html
+    # draws on this step (see that template's own comment) — never consulted
+    # by the write path below, which re-validates client_raw/case_raw on its
+    # own. ``case_choices`` is the exact, already-fetched list a few lines up
+    # (the same one the picker's own ``<option>``s come from on every OTHER
+    # visit), so finding this one row in it costs no new query; ``client``
+    # rows are shared, platform-wide directory data with no access rule to
+    # re-check (see ``TaskForm``'s own docstring), so a single by-pk lookup
+    # is all that is needed for its name.
+    locked_case_row = (
+        next((row for row in case_choices if row["case_id"] == case_raw), None)
+        if case_raw is not None else None
+    )
+    locked_client = (
+        Client.objects.filter(pk=client_raw).first()
+        if client_raw is not None else None
+    )
+
     if request.method == "POST":
         form = TaskForm(
             request.POST, user=request.user,
@@ -2656,10 +2739,31 @@ def my_tasks_add(request):
         if form.is_valid():
             data = form.cleaned_data
             allowed_case_ids = {row["case_id"] for row in case_choices}
-            case_id = data.get("case_id")
+            # LOCKED ON THE "SET YOUR NEXT REMINDER" STEP — the owner's own
+            # wording: "اگر یادآور مجدد کاربر خواست بزاره باید برای همان
+            # پرونده یا شرکت بزاره و قابل تغییر نباید باشند" (if the user
+            # wants to set a next reminder, it must be for the SAME case or
+            # company — not changeable). task_form.html draws both fields as
+            # a plain, non-interactive read-only display on this step, so
+            # nothing about them is even offered to change in the ordinary
+            # UI — but that is a client-side courtesy only: a disabled
+            # <select> is simply never submitted by a real browser, and a
+            # hand-built POST could still carry a DIFFERENT client_id/
+            # case_id the ChoiceField would happily accept (it only checks
+            # "is this among the values THIS viewer may pick at all", not
+            # "does it match what this particular screen was locked to"). So
+            # on this step the form's own cleaned client_id/case_id are never
+            # even read for the write — client_raw/case_raw (the SAME query-
+            # string pair this view was reached with, the just-closed
+            # reminder's own company/case) are used unconditionally instead.
+            # They still pass through the IDENTICAL re-validation any other
+            # pick would (``case_id in allowed_case_ids`` below) — a query-
+            # string value is still user-controlled input, not yet a proven
+            # fact, even though this time it did not arrive in the POST body.
+            case_id = case_raw if is_next_step else data.get("case_id")
+            client_id = client_raw if is_next_step else data.get("client_id")
             case = (Case.objects.filter(pk=case_id).select_related("client").first()
                     if case_id in allowed_case_ids else None)
-            client_id = data.get("client_id")
             client = (Client.objects.filter(pk=client_id).first()
                       if client_id else None)
             # See the docstring's "WHEN A CASE IS PICKED BUT NO COMPANY WAS"
@@ -2674,8 +2778,6 @@ def my_tasks_add(request):
             return redirect("marketing:my_tasks")
     else:
         initial = {}
-        client_raw = _int_or_none(request.GET.get("client"))
-        case_raw = _int_or_none(request.GET.get("case"))
         if client_raw is not None:
             initial["client_id"] = str(client_raw)
         if case_raw is not None:
@@ -2689,6 +2791,8 @@ def my_tasks_add(request):
         "form": form,
         "is_next_step": is_next_step,
         "closed_report": closed_report,
+        "locked_client": locked_client,
+        "locked_case_row": locked_case_row,
     })
 
 
