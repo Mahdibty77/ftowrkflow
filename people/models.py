@@ -431,10 +431,16 @@ class PersonRole(models.Model):
             return "Administrator"
         if self.is_general_manager:
             return "General Manager"
+        # str(...) here for the same reason accounts.models.Profile.unit_label
+        # / role_label wrap their own Unit.LABELS/Role.LABELS lookup: those
+        # dicts hold gettext_lazy proxies now (accounts.constants.Unit/Role
+        # .CHOICES), and the plain ``.join()`` two lines below requires real
+        # ``str`` instances — a lazy proxy raises TypeError there even though
+        # it is otherwise a fully usable stand-in for one.
         parts = [
             p for p in [
-                Unit.LABELS.get(self.unit, ""),
-                Role.LABELS.get(self.role, ""),
+                str(Unit.LABELS.get(self.unit, "")),
+                str(Role.LABELS.get(self.role, "")),
             ] if p
         ]
         return " · ".join(parts) if parts else "Unassigned"

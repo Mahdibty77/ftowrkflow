@@ -1,14 +1,18 @@
 """A form field that accepts a Jalali date and stores a real date.
 
-The platform already has a Jalali picker, but it is a date *and time* widget
-that writes "YYYY-MM-DD HH:MM" — right for a deadline, wrong for a birth date,
-and it lives in a shared file this module deliberately does not modify.
+The platform's shared Jalali picker (static/js/jalali_picker.js) now has a
+date-only mode — ``data-jalali-date``, alongside its original date+time
+``data-jalali-datetime`` — added for exactly this field, so a birth date gets
+a real calendar instead of being typed as free text. This field still owns
+its OWN conversion (``to_python`` / ``prepare_value`` below, via the
+platform's Jalali<->Gregorian arithmetic in ``cases.jalali``) because the
+picker only ever writes plain "YYYY-MM-DD" text into the input; parsing that
+into a real ``date`` — and rejecting the text a hand-made POST could still
+send — stays this field's job.
 
-So a birth date is typed as text in the format people already read everywhere
-else in the app (1370/05/14) and converted here, using the platform's own
-conversion rather than a second implementation that could drift from it. The
-value is stored as an ordinary date, which keeps it sortable, comparable and
-correct for anything that later needs to compute an age or a length of service.
+The value is stored as an ordinary date, which keeps it sortable, comparable
+and correct for anything that later needs to compute an age or a length of
+service.
 """
 import datetime
 import re
@@ -38,6 +42,9 @@ class JalaliDateField(forms.Field):
             "autocomplete": "off",
             "class": "ppl-jdate",
             "maxlength": "10",
+            # Attaches static/js/jalali_picker.js in its date-only mode — a
+            # real calendar, no time row, day click commits immediately.
+            "data-jalali-date": "1",
         }
         widget = kwargs.pop("widget", None) or forms.TextInput(attrs=attrs)
         if isinstance(widget, forms.TextInput):
@@ -45,6 +52,7 @@ class JalaliDateField(forms.Field):
             widget.attrs.setdefault("inputmode", attrs["inputmode"])
             widget.attrs.setdefault("autocomplete", attrs["autocomplete"])
             widget.attrs.setdefault("maxlength", attrs["maxlength"])
+            widget.attrs.setdefault("data-jalali-date", attrs["data-jalali-date"])
             existing = widget.attrs.get("class", "")
             if "ppl-jdate" not in existing:
                 widget.attrs["class"] = (existing + " ppl-jdate").strip()

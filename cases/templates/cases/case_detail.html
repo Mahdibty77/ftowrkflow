@@ -29,7 +29,7 @@
 <div class="grid grid-3">
   <div class="card" style="grid-column:span 2;">
     <div class="card-head">
-      <h3><i class="fa-solid fa-circle-info" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Case information" %}</h3>
+      <h3><i class="fa-solid fa-circle-info" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Case information" %}</h3>
       {% if 'edit_info' in actions and is_fresh_draft %}
         <a href="{% url 'cases:edit_items' case.pk %}" class="btn btn-sm"><i class="fa-solid fa-pen"></i> {% trans "Edit information" %}</a>
       {% elif 'edit_contacts' in actions %}
@@ -114,7 +114,18 @@
             {% endif %}
           </dd>
           {% endif %}
-          <dt><i class="fa-solid fa-sitemap"></i>{% trans "Holder unit" %}</dt><dd>{{ case.holder_unit|default:"—" }}</dd>
+          <dt><i class="fa-solid fa-sitemap"></i>{% trans "Current owner" %}</dt>
+          <dd>
+            {% with owner=case.current_owner %}
+              {% if owner %}
+                <span dir="auto">{{ owner.get_full_name|default:owner.username }}</span>
+              {% else %}
+                {# holder_unit_label, not the raw holder_unit code — see that #}
+                {# property's own comment on cases/models.py::Case. #}
+                {{ case.holder_unit_label|default:"—" }}
+              {% endif %}
+            {% endwith %}
+          </dd>
           <dt><i class="fa-solid fa-calendar-plus"></i>{% trans "Created" %}</dt><dd>{{ case.created_at|jalali:"Y.m.d H:i" }}</dd>
           {% if case.deadline %}<dt><i class="fa-solid fa-clock"></i>{% trans "Deadline" %}</dt><dd>{{ case.deadline|jalali:"Y.m.d H:i" }}</dd>{% endif %}
         </dl>
@@ -508,7 +519,7 @@
   <div class="tab-panel active" id="panel-reports">
     <div class="card">
       <div class="card-head">
-        <h3><i class="fa-solid fa-file-lines" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Reports" %}</h3>
+        <h3><i class="fa-solid fa-file-lines" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Reports" %}</h3>
       </div>
 
       {% if is_case_owner %}
@@ -559,12 +570,17 @@
       {# sorts/displays by.                                                      #}
       <div class="card" style="margin-bottom:.8rem;">
         <div class="card-head">
-          <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Filters" %}</h3>
+          <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Filters" %}</h3>
           <button type="button" class="btn btn-sm" data-filter-clear="caseReportsTable" title="{% trans 'Reset all filters' %}">
             <i class="fa-solid fa-eraser"></i> {% trans "Clear filters" %}
           </button>
         </div>
-        <div class="grid grid-3">
+        {# COMPACT, ONE-ROW LAYOUT — `.filters-row`, the same modifier         #}
+        {# marketing/templates/marketing/company_detail.html's own Reports/   #}
+        {# Reminders filter cards carry this round (static/css/app.css's own  #}
+        {# comment on that class explains the flex/wrap mechanics); layered   #}
+        {# onto this card's existing `.grid.grid-3`, never a replacement.     #}
+        <div class="grid grid-3 filters-row">
           <div class="field">
             <label><i class="fa-solid fa-magnifying-glass"></i> {% trans "Search" %}</label>
             <input type="text" data-filter-for="caseReportsTable" data-filter-colname="{% trans "Report" %}"
@@ -632,7 +648,7 @@
   <div class="tab-panel active" id="panel-reminders">
     <div class="card">
       <div class="card-head">
-        <h3><i class="fa-solid fa-bell" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Reminders" %}</h3>
+        <h3><i class="fa-solid fa-bell" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Reminders" %}</h3>
       </div>
 
       {% if is_case_owner %}
@@ -680,12 +696,15 @@
       {# the column this table already sorts by and shows the overdue colour on. #}
       <div class="card" style="margin-bottom:.8rem;">
         <div class="card-head">
-          <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Filters" %}</h3>
+          <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Filters" %}</h3>
           <button type="button" class="btn btn-sm" data-filter-clear="caseRemindersTable" title="{% trans 'Reset all filters' %}">
             <i class="fa-solid fa-eraser"></i> {% trans "Clear filters" %}
           </button>
         </div>
-        <div class="grid grid-3">
+        {# COMPACT, ONE-ROW LAYOUT — the identical `.filters-row` modifier the #}
+        {# Reports panel's own filter card above carries (see that card's own #}
+        {# comment, and static/css/app.css's own comment on the class).       #}
+        <div class="grid grid-3 filters-row">
           <div class="field">
             <label><i class="fa-solid fa-magnifying-glass"></i> {% trans "Search" %}</label>
             <input type="text" data-filter-for="caseRemindersTable" data-filter-colname="{% trans "Note" %}"

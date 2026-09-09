@@ -1,6 +1,11 @@
 /* Lightweight, dependency-free Jalali (Shamsi) date + time picker.
-   Attaches to <input data-jalali-datetime>. Writes the value back as
-   "YYYY-MM-DD HH:MM" in Jalali. Conversion ported from cases/jalali.py. */
+   Attaches to <input data-jalali-datetime>, writing "YYYY-MM-DD HH:MM".
+   Also attaches, date-only, to <input data-jalali-date>, writing
+   "YYYY-MM-DD" — same calendar, no time row, and a day click commits
+   immediately since there is nothing left to set. A birth date is the
+   reason this variant exists: right widget, wrong grain, so it gets its
+   own attribute rather than a second implementation of the calendar math.
+   Conversion ported from cases/jalali.py. */
 (function () {
   "use strict";
 
@@ -65,7 +70,7 @@
   }
   function pad(n) { return (n < 10 ? "0" : "") + n; }
 
-  function build(input) {
+  function build(input, dateOnly) {
     input.style.display = "none";
     var wrap = document.createElement("div");
     wrap.className = "jdp-wrap";
@@ -96,7 +101,8 @@
 
     function commit() {
       if (state.jd) {
-        var v = state.jy + "-" + pad(state.jm) + "-" + pad(state.jd) + " " + pad(state.hh) + ":" + pad(state.mm);
+        var v = state.jy + "-" + pad(state.jm) + "-" + pad(state.jd);
+        if (!dateOnly) v += " " + pad(state.hh) + ":" + pad(state.mm);
         input.value = v; display.value = v;
         input.dispatchEvent(new Event("change", { bubbles: true }));
       }
@@ -123,12 +129,18 @@
         html += '<button type="button" class="jdp-day' + sel + '" data-day="' + d + '">' + d + '</button>';
       }
       html += '</div>';
-      html += '<div class="jdp-time"><i class="fa-regular fa-clock"></i>' +
-        '<input type="number" min="0" max="23" class="jdp-hh" value="' + pad(state.hh) + '">:' +
-        '<input type="number" min="0" max="59" class="jdp-mm" value="' + pad(state.mm) + '">' +
-        '<span class="jdp-spacer"></span>' +
-        '<button type="button" class="jdp-today">Today</button>' +
-        '<button type="button" class="jdp-ok">Done</button></div>';
+      if (dateOnly) {
+        html += '<div class="jdp-time">' +
+          '<span class="jdp-spacer"></span>' +
+          '<button type="button" class="jdp-today">Today</button></div>';
+      } else {
+        html += '<div class="jdp-time"><i class="fa-regular fa-clock"></i>' +
+          '<input type="number" min="0" max="23" class="jdp-hh" value="' + pad(state.hh) + '">:' +
+          '<input type="number" min="0" max="59" class="jdp-mm" value="' + pad(state.mm) + '">' +
+          '<span class="jdp-spacer"></span>' +
+          '<button type="button" class="jdp-today">Today</button>' +
+          '<button type="button" class="jdp-ok">Done</button></div>';
+      }
       pop.innerHTML = html;
     }
 
@@ -176,10 +188,16 @@
         render(); return;
       }
       var day = e.target.closest("[data-day]");
-      if (day) { state.jd = parseInt(day.getAttribute("data-day"), 10); render(); return; }
+      if (day) {
+        state.jd = parseInt(day.getAttribute("data-day"), 10);
+        if (dateOnly) { commit(); pop.style.display = "none"; return; }
+        render(); return;
+      }
       if (e.target.closest(".jdp-today")) {
         var t = g2j(new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate());
-        state.jy = t[0]; state.jm = t[1]; state.jd = t[2]; render(); return;
+        state.jy = t[0]; state.jm = t[1]; state.jd = t[2];
+        if (dateOnly) { commit(); pop.style.display = "none"; return; }
+        render(); return;
       }
       if (e.target.closest(".jdp-ok")) {
         var hh = parseInt(pop.querySelector(".jdp-hh").value, 10);
@@ -199,6 +217,7 @@
   }
 
   document.addEventListener("DOMContentLoaded", function () {
-    document.querySelectorAll("input[data-jalali-datetime]").forEach(build);
+    document.querySelectorAll("input[data-jalali-datetime]").forEach(function (el) { build(el, false); });
+    document.querySelectorAll("input[data-jalali-date]").forEach(function (el) { build(el, true); });
   });
 })();

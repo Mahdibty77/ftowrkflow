@@ -241,8 +241,16 @@ div.ppl-radio label:has(input:checked){
 /* A departed person stays legible — this is a record, not a deleted row — but
    should not compete with the people who are here. */
 .ppl-table tr.ppl-departed td:not(.ppl-actions){ opacity:.62; }
+/* text-align:end, not right — this is the LAST column of `.ppl-table` (a
+   `.data` table, which already mirrors its own column order for free under
+   <html dir="rtl"> — see static/css/app.css's own [dir=rtl] section), so it
+   renders as the table's outer-left column in Persian. A physical right
+   pinned the action buttons to the edge FACING the "Status" column beside it
+   instead of the table's true outer edge once that mirroring happens; `end`
+   tracks whichever edge is actually trailing under either direction, the
+   same swap app.css already made for every other `.data` cell. */
 .ppl-table td.ppl-actions{
-  text-align:right; white-space:nowrap;
+  text-align:end; white-space:nowrap;
 }
 .ppl-table td.ppl-actions .btn{ margin-inline-start:.3rem; }
 .ppl-badge{
@@ -731,9 +739,9 @@ a.ppl-month-link:hover{
    card already had there — the card's own title on a year/idle-month tile,
    and, on the day-drill-down page, that day's own status pill ("Today" /
    "Ended" / …). The owner's complaint was exactly that collision, not the
-   badge's presence, so this round moves every copy into the card's own
-   NORMAL DOCUMENT FLOW instead: a card that "carries" a badge now means the
-   badge sits in a row that belongs to the card's own markup, never a chip
+   badge's presence, so an earlier round moved every copy into the card's own
+   NORMAL DOCUMENT FLOW instead: a card that "carries" a badge meant the
+   badge sat in a row that belonged to the card's own markup, never a chip
    floating over content that would otherwise be there alone. Three
    different flow positions, one per card shape:
 
@@ -741,14 +749,31 @@ a.ppl-month-link:hover{
      badge sits directly in ``.ppl-month-head`` beside the title, wrapped
      with it in one ``.ppl-month-head-title`` group so ``justify-content:
      space-between`` on the head still puts the status pill at the far end
-     exactly as before this badge existed.
+     exactly as before this badge existed. Unaffected by this round's own
+     fix below — a plain flow row inside a plain (non-<a>) card never had
+     anywhere to overflow to, so it never grew the collision this round
+     fixes.
    * Active month card — its ``.ppl-month-card`` IS an <a> (to
      ``person_shift_month``), and a clickable badge is its OWN <a> to My
-     Tasks; a second anchor cannot nest inside the first, which is why this
-     one still lives in ``.ppl-month-card-outer`` as a sibling of the card's
-     link rather than inside it (see the template's own comment) — but now
-     as a small flow row flush above that link (``.ppl-month-card-badge-row``)
-     instead of an absolutely-positioned overlay on top of it.
+     Tasks; a second anchor cannot nest inside the first, so the badge lives
+     in ``.ppl-month-card-outer`` as a sibling of the card's link rather than
+     inside it (see the template's own comment). Putting it in NORMAL FLOW
+     as a row flush above that link, as the previous round did, turned out
+     to be its own bug: the sibling <a> inside the outer still claims
+     ``height:100%`` of the grid row the outer is stretched to, so adding a
+     whole extra row ABOVE it pushed the anchor's rendered bottom edge past
+     the outer's own box — and, with nothing clipping that overflow, straight
+     into the row of cards below it in the grid. This round reverts the
+     ACTIVE card's badge to ``position:absolute`` (``.ppl-month-card-outer``'s
+     own ``position:relative`` below is what it anchors to), but — unlike the
+     pre-previous-round version this replaces — placed low enough to clear
+     the head row's title and status pill instead of sitting on top of them:
+     ``top`` clears the card's own top padding plus the head row's height,
+     landing the badge just under the status pill, which is exactly where
+     ``inset-inline-end`` (matching the pill's own side) puts it. Two sibling
+     <a> elements, one drawn over the other's visual area via position, is
+     valid HTML and exactly what this is — the badge is not, and must never
+     become, a descendant of the big card link.
    * Day card — already flowed inside ``.ppl-day-card-tags`` rather than
      absolutely positioned (a day card has no card-wide <a> either), but
      shared ONE row with that day's own status pill; see the day-card rules
@@ -756,10 +781,13 @@ a.ppl-month-link:hover{
      the badge can sit BELOW the pill rather than beside — or on top of —
      it, the owner's own explicit instruction for that page.
 
-   ``.ppl-card-has-badge``/``.ppl-month-card-outer``'s own ``position:
-   relative`` predate this change and are harmless to leave in place (a
-   badge in normal flow needs no positioning context from its ancestor),
-   but nothing below still depends on either for this badge. */
+   ``.ppl-card-has-badge``'s own ``position:relative`` predates this change
+   and is harmless to leave in place on the year tile / idle-month / day
+   card shapes above, none of which position anything against it. The
+   ACTIVE month card's badge below anchors on ``.ppl-month-card-outer``'s
+   OWN ``position:relative`` instead (already present for unrelated reasons
+   — see ``> .ppl-month-card{height:100%}`` next to it), so it needs no
+   further change here. */
 .ppl-card-has-badge{position:relative;}
 .ppl-month-card-outer{position:relative;display:block;}
 .ppl-month-card-outer > .ppl-month-card{height:100%;}
@@ -789,11 +817,41 @@ a.ppl-reminder-badge:hover{
 .ppl-month-head-title{
   display:inline-flex;align-items:center;gap:.4rem;min-width:0;
 }
-/* Active month card only — see this block's own head comment. The badge
-   sits flush above the card's own link, right-aligned, reading as a small
-   tab attached to that specific card rather than a page-wide overlay. */
+/* Active month card only — see this block's own head comment for why this
+   is absolutely positioned rather than flowed above the card's own link.
+   ``top`` clears the card's own top padding plus the head row's rendered
+   height (title + status pill) with a small gap to spare — measured live
+   (DevTools ``getBoundingClientRect()`` against a real card, not guessed
+   from font-size arithmetic, which undershot this by enough to visibly
+   collide) at pill-bottom ≈ card-top + 29px, so 2.2rem (35px) clears it by
+   ~6px. ``inset-inline-end`` matches the card's own inline padding (.7rem)
+   so the badge lines up directly under the status pill, which sits at that
+   same edge of the head row in both English (LTR) and Persian (RTL) —
+   reading as a small tab attached to that specific card, not a page-wide
+   overlay. Taking the badge OUT of flow like this reserves it no space of
+   its own, though, so the very next rule pushes the stats grid down by
+   hand to make room — without it the absolutely-positioned badge painted
+   directly on top of the card's own "Done" figure instead of the gap
+   between them, a second collision this same fix has to close. */
 .ppl-month-card-badge-row{
-  display:flex;justify-content:flex-end;margin-bottom:.3rem;
+  position:absolute;
+  top:2.2rem;
+  inset-inline-end:.7rem;
+  margin:0;
+  z-index:1;
+}
+/* Reserves the room the badge above needs: only the active month card that
+   actually HAS one (``.ppl-month-card-badge-row`` only ever renders when
+   ``m.reminder_count`` is truthy — see the template) gets its stats grid
+   pushed down; a card with no open reminders keeps the plain ``.ppl-month-
+   head{margin-bottom:.4rem}`` from above untouched, so its layout is
+   pixel-identical to before this fix. Measured the same way as ``top``
+   above: the badge's own ~21px height plus a matching ~6px gap on its far
+   side needs roughly 24px (1.5rem) more clearance than the head's own base
+   margin already gives, landing the stats grid's first row (Plan/Done)
+   just clear of the badge instead of underneath it. */
+.ppl-month-card-badge-row + .ppl-month-link .ppl-month-head{
+  margin-bottom:1.9rem;
 }
 
 .ppl-month-head{

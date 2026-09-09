@@ -3046,3 +3046,1129 @@ msgstr "یادآوری‌های باز خودتان که در %(year)s سررس�
 
 msgid "Your own open reminders due on Day %(day)s — open My Tasks filtered to this day"
 msgstr "یادآوری‌های باز خودتان که در روز %(day)s سررسید دارند — باز کردن وظایف من با فیلتر این روز"
+
+# ---------------------------------------------------------------------------
+# AUDIT #134 FOLLOW-UP (this round) — closing three confirmed i18n gaps where
+# sidebar/chrome already translated but a piece of business vocabulary right
+# beside it did not:
+#
+# 1. accounts/constants.py's Unit/Role/SupplyKind/Gender.CHOICES were plain
+#    Python strings, never gettext_lazy-wrapped, unlike every choices= list
+#    elsewhere in the platform. They feed Profile.unit_label/role_label/
+#    title_line ("Marketing · Expert"), rendered on nearly every page — the
+#    sidebar footer, People, the Console, a company's sub-header, a case's
+#    "holding unit" field. "Commercial"/"Technical"/"Supply"/"Marketing"
+#    already had catalog entries (added when marketing/rolechart.py and the
+#    company pages were translated) and are reused here rather than
+#    duplicated — only Manager/Supervisor/Expert/Internal Supply/External
+#    Supply/Male/Female are new entries below.
+#
+# 2. cases/constants.py::MarketingLabel.CHOICES / MANUAL_ONLY_CHOICES — the
+#    role-tag vocabulary on Company Directory chips, Company Detail's role
+#    card and the Case-Create marketing-role dropdown — was checked against
+#    marketing/rolechart.py's SLOTS (the hand-written "<fa> — <EN>" text the
+#    relationship chart uses). They already matched byte-for-byte, key for
+#    key, with no drift: no code change was needed for this one and no new
+#    catalog entries were required. Recorded here for the audit trail; see
+#    the round's own final report for the verification that produced this
+#    finding.
+#
+# 3. cases/constants.py::CaseStatus.ARCHIVE_GROUP / ARCHIVE_TAB_ORDER are
+#    documented, on purpose, as internal Python/JS matching keys that must
+#    stay plain English (cases/services.py::archive_tab_counts matches a
+#    row's own status_fval against them, and archive.html's data-status /
+#    the hidden fstatus control post them straight back). The archive page's
+#    own status-TAB-STRIP text was the one place still reading those raw
+#    English keys as its visible label, while the per-row status column two
+#    inches below it already read translated text from CaseStatus.LABELS.
+#    Fixed with a SEPARATE display-only dict, ARCHIVE_GROUP_LABELS, used only
+#    by archive_tab_counts() to build each tab's visible words/tooltip —
+#    ARCHIVE_GROUP/ARCHIVE_TAB_ORDER themselves are untouched. Six of its ten
+#    entries (Draft/With Technical/With Supply/Cannot supply/Burned/
+#    Cancelled) resolve to already-catalogued CaseStatus.LABELS text with no
+#    new msgid; the other four (the tab strip's own shorter phrasings of
+#    "With Commercial (final)", "Closed / Sent to client", "Final Approved"
+#    and "Final Closed") are new entries below.
+# ---------------------------------------------------------------------------
+
+#. accounts/constants.py::Role — the seat role shown in "<Unit> · <Role>"
+#. everywhere a person's title line is rendered (sidebar footer, People,
+#. Console, company sub-header, case holding-unit field).
+#: accounts/constants.py:64
+msgid "Manager"
+msgstr "مدیر"
+
+#: accounts/constants.py:65
+msgid "Supervisor"
+msgstr "سرپرست"
+
+#: accounts/constants.py:66
+msgid "Expert"
+msgstr "کارشناس"
+
+#. accounts/constants.py::SupplyKind — Internal vs External split shown only
+#. for Supply experts, alongside their unit/role title line.
+#: accounts/constants.py:78
+msgid "Internal Supply"
+msgstr "تأمین داخلی"
+
+#: accounts/constants.py:79
+msgid "External Supply"
+msgstr "تأمین خارجی"
+
+#. accounts/constants.py::Gender — chooses the Mr./Ms. honorific on exported
+#. documents (accounts.models.Profile.honorific_last_name); the CHOICES text
+#. itself (this entry) is the plain "Male"/"Female" shown in the account's
+#. own edit form, never on an exported document — see Gender.HONORIFIC's own
+#. comment for why that dict stays plain "Mr."/"Ms." regardless of language.
+#: accounts/constants.py:92
+msgid "Male"
+msgstr "مرد"
+
+#: accounts/constants.py:93
+msgid "Female"
+msgstr "زن"
+
+#. cases/constants.py::CaseStatus.ARCHIVE_GROUP_LABELS — display-only text
+#. for the Case Archive page's status tab strip (cases/templates/cases/
+#. archive.html). "With Commercial" collapses three statuses (Returned to
+#. Commercial, Pending cancel, With Commercial (final)) into one tab; the
+#. Persian below deliberately drops the "(نهایی)" suffix the single-status
+#. "With Commercial (final)" label carries, since this tab covers all three.
+#: cases/constants.py:377
+msgid "With Commercial"
+msgstr "نزد بازرگانی"
+
+#. Shorter tab-strip phrasing of "Closed / Sent to client" (cases/
+#. constants.py's own CaseStatus.CHOICES entry for CLOSED).
+#: cases/constants.py:378
+msgid "Sent to client"
+msgstr "ارسال‌شده به مشتری"
+
+#. Same word as "Final Approved" (cases/constants.py's CaseStatus.CHOICES),
+#. lower-cased for the tab strip's own sentence-case style; same Persian.
+#: cases/constants.py:379
+msgid "Final approved"
+msgstr "تأیید نهایی"
+
+#. Same word as "Final Closed" (cases/constants.py's CaseStatus.CHOICES),
+#. lower-cased for the tab strip's own sentence-case style; same Persian.
+#: cases/constants.py:380
+msgid "Final closed"
+msgstr "بسته نهایی"
+
+# ---------------------------------------------------------------------------
+# AUDIT #134 FOLLOW-UP (this round) — two mechanisms the app's own bilingual
+# chrome never reached:
+#
+# 1. DJANGO FLASH/TOAST MESSAGES. Every literal string argument to
+#    messages.success()/error()/warning()/info() across accounts/views.py,
+#    people/views.py, people/views_requests.py, cases/views.py,
+#    itemcoder/bridge.py, itemcoder/data_admin.py and itemcoder/tool_access.py
+#    is now wrapped in gettext() (not gettext_lazy — these are evaluated
+#    per-request, at call time, same as cases/views.py's pre-existing
+#    pi_locked_reason/to_locked_reason messages). A message that interpolates
+#    real business data (a person's name, a seat/role/client code, a document
+#    number, an exception's own text) keeps that value OUTSIDE the translated
+#    text via a %(name)s-style placeholder — only the surrounding English
+#    sentence is a catalog entry, never the interpolated value itself. A few
+#    call sites turned out to already be covered by earlier-round entries
+#    ("No personnel record is linked to this login.", the pi_locked_reason/
+#    to_locked_reason pair, and "Technical Offer"/"Proforma" themselves) and
+#    are reused rather than duplicated — not listed again below. Deliberately
+#    left OUT OF SCOPE: messages.*() calls whose argument is already a
+#    variable rather than a literal (str(exc), a service-returned refusal/
+#    warning string, Django form.add_error() text) — translating those means
+#    reaching into cases.inquiry_validate / people.seats / cases.services and
+#    similar shared validators, a separate, larger change; the two
+#    session-flash dicts (_reveal_credential, _seat_row_flash) accounts/
+#    views.py writes outside the messages framework entirely; and the
+#    'title'/'hint' upload-page context strings in cases/views.py, which are
+#    plain template context, not flash messages.
+#
+# 2. marketing/static/marketing/js/chart_interact.js — the relationship-chart
+#    page's interactive JS hard-coded English UI text set via .textContent/
+#    .innerHTML/.placeholder/aria-label, invisible to Django's own {% trans %}
+#    and unreachable by the language toggle. Fixed the same way home.html's
+#    {% block scripts %} already bridges template -> JS for this chart: every
+#    string below is rendered server-side via {% trans %} into
+#    window.FT_MARKETING_CHART.i18n, and chart_interact.js reads from that
+#    object (via the new t()/fmt() helpers at its own top) instead of a
+#    literal at each of the spots the review flagged — updateModeBanner()'s
+#    full set of mode-banner states, including the composite "edits attach
+#    to …"/"chart is showing …" sentences (each carrying a SEPARATE
+#    fully-translated with-role/without-role template rather than one
+#    template with a spliced-in fragment, so Persian word order is free to
+#    differ from English in either shape), quickResetRoleField('Pick a
+#    company first…')'s page-init call (which was overwriting home.html's
+#    own {% trans %} placeholder the instant the page loaded — the worst of
+#    the group, per the review), the company/role/case picker empty-states,
+#    the "us" card's heading/count line/archive link, the "+ Add company"
+#    panel, the "No … yet" empty-state variants, and the tooltip/aria-label
+#    pair. A few keys (Active/Deactivate/Add/"Pick a company first…"/"Choose
+#    a role to add…") deliberately reuse a msgid this same page already
+#    carries as static chrome rather than duplicating it — not listed again
+#    below. No business logic, branching or DOM structure in that file was
+#    touched — every change is a string-source swap at the exact spot the
+#    string was already being set.
+# ---------------------------------------------------------------------------
+
+#: accounts/views.py:1169
+msgid "You're back in your own account."
+msgstr "شما به حساب کاربری خودتان بازگشتید."
+
+#: accounts/views.py:445
+msgid "Administrator and General Manager seats are not assigned this way."
+msgstr "سمت‌های مدیر سیستم و مدیر عمومی به این روش تخصیص داده نمی‌شوند."
+
+#: accounts/views.py:458
+msgid "Choose a person to assign this seat to."
+msgstr "شخصی را برای تخصیص این سمت انتخاب کنید."
+
+#: accounts/views.py:462
+msgid "Cannot assign a seat to a departed person."
+msgstr "نمی‌توان این سمت را به فردی جداشده تخصیص داد."
+
+#: accounts/views.py:658
+msgid "This seat is vacant — nothing to delegate."
+msgstr "این سمت خالی است — چیزی برای واگذاری وجود ندارد."
+
+#: accounts/views.py:662
+msgid "No role on this seat."
+msgstr "این سمت هیچ نقشی ندارد."
+
+#: accounts/views.py:810
+msgid "This seat can no longer be edited — someone has already signed in with it."
+msgstr "این سمت دیگر قابل ویرایش نیست — شخصی از قبل با آن وارد شده است."
+
+#: accounts/views.py:870
+msgid "Use your profile page to change your own password."
+msgstr "برای تغییر رمز عبور خودتان از صفحه پروفایل استفاده کنید."
+
+#: accounts/views.py:888 people/views.py:1001
+msgid "Password reset for “%(name)s”."
+msgstr "رمز عبور برای «%(name)s» بازنشانی شد."
+
+#: accounts/views.py:1026
+msgid "Only a Platform Administrator or General Manager may impersonate a user."
+msgstr "فقط مدیر سیستم یا مدیر عمومی می‌تواند به‌جای کاربر دیگری وارد شود."
+
+#: accounts/views.py:1034
+msgid "You are already signed in as yourself."
+msgstr "شما همین حالا با حساب خودتان وارد هستید."
+
+#: accounts/views.py:1048
+msgid "This account is closed and cannot be impersonated."
+msgstr "این حساب غیرفعال است و نمی‌توان به‌جای آن وارد شد."
+
+#: accounts/views.py:1057
+msgid "Administrator and General Manager accounts cannot be impersonated."
+msgstr "نمی‌توان به‌جای حساب‌های مدیر سیستم و مدیر عمومی وارد شد."
+
+#: accounts/views.py:1072
+msgid "This account has not set its own password yet and cannot be impersonated."
+msgstr "این حساب هنوز رمز عبور خود را تنظیم نکرده و نمی‌توان به‌جای آن وارد شد."
+
+#: accounts/views.py:1120
+msgid "You are now viewing the platform as %(name)s."
+msgstr "اکنون پلتفرم را به‌عنوان %(name)s مشاهده می‌کنید."
+
+#: accounts/views.py:1163
+msgid "Could not return to the administrator account automatically. Please sign in again."
+msgstr "بازگشت خودکار به حساب مدیر سیستم ممکن نشد. لطفاً دوباره وارد شوید."
+
+#: accounts/views.py:819
+msgid "Seat updated."
+msgstr "سمت به‌روزرسانی شد."
+
+#: accounts/views.py:914
+msgid "Your password has been set. Welcome in."
+msgstr "رمز عبور شما تنظیم شد. خوش آمدید."
+
+#: accounts/views.py:1043
+msgid "You are already viewing the platform as %(name)s."
+msgstr "شما هم‌اکنون پلتفرم را به‌عنوان %(name)s مشاهده می‌کنید."
+
+#: accounts/views.py:1222
+msgid "Profile photo saved."
+msgstr "عکس پروفایل ذخیره شد."
+
+#: accounts/views.py:1719
+msgid "You cannot disable your own account."
+msgstr "نمی‌توانید حساب خودتان را غیرفعال کنید."
+
+#: accounts/views.py:2094
+msgid "Could not read the backups folder."
+msgstr "خواندن پوشه پشتیبان‌ها ممکن نشد."
+
+#: accounts/views.py:675
+msgid "Delegated %(n)s open task(s) to %(name)s."
+msgstr "%(n)s کار باز به %(name)s واگذار شد."
+
+#: accounts/views.py:682
+msgid "Seat closed after delegating open tasks."
+msgstr "سمت پس از واگذاری کارهای باز بسته شد."
+
+#: accounts/views.py:787
+msgid "Seat “%(code)s” created (inactive until assigned in People)."
+msgstr "سمت «%(code)s» ایجاد شد (تا زمان تخصیص در بخش پرسنل، غیرفعال است)."
+
+#: accounts/views.py:1185
+msgid "Choose a photo to upload."
+msgstr "عکسی را برای بارگذاری انتخاب کنید."
+
+#: accounts/views.py:1203
+msgid "The selected photo was empty. Try another file."
+msgstr "عکس انتخاب‌شده خالی بود. فایل دیگری را امتحان کنید."
+
+#: accounts/views.py:1229
+msgid "Profile photo removed."
+msgstr "عکس پروفایل حذف شد."
+
+#: accounts/views.py:1359
+msgid "Language updated."
+msgstr "زبان به‌روزرسانی شد."
+
+#: accounts/views.py:1361
+msgid "Please choose a valid language."
+msgstr "یک زبان معتبر انتخاب کنید."
+
+#: accounts/views.py:1958
+msgid "Backup started on this server: database (cases, people, seats…) into backups/db/ and media into backups/media/. Wait a few seconds and refresh — new files appear in Available backups below."
+msgstr "پشتیبان‌گیری روی این سرور آغاز شد: پایگاه‌داده (پرونده‌ها، پرسنل، سمت‌ها و...) در backups/db/ و فایل‌های رسانه در backups/media/. چند ثانیه صبر کنید و صفحه را تازه‌سازی کنید — فایل‌های جدید در «پشتیبان‌های موجود» در پایین ظاهر می‌شوند."
+
+#: accounts/views.py:1967
+msgid "Could not start the backup (backups folder not writable). Check that the backup service is running and the backups folder is mounted."
+msgstr "شروع پشتیبان‌گیری ممکن نشد (پوشه پشتیبان‌ها قابل نوشتن نیست). بررسی کنید که سرویس پشتیبان‌گیری در حال اجراست و پوشه پشتیبان‌ها متصل شده است."
+
+#: accounts/views.py:1235
+msgid "Your profile was updated."
+msgstr "پروفایل شما به‌روزرسانی شد."
+
+#: accounts/views.py:1368
+msgid "Your password was changed."
+msgstr "رمز عبور شما تغییر کرد."
+
+#: accounts/views.py:1726
+msgid "Access restored for %(name)s."
+msgstr "دسترسی برای %(name)s بازگردانده شد."
+
+#: accounts/views.py:1736
+msgid "Access cut off for %(name)s."
+msgstr "دسترسی برای %(name)s قطع شد."
+
+#: accounts/views.py:1977
+msgid "Invalid backup file selected."
+msgstr "فایل پشتیبان انتخاب‌شده نامعتبر است."
+
+#: accounts/views.py:767
+msgid "Seat “%(code)s” created and linked to %(name)s."
+msgstr "سمت «%(code)s» ایجاد و به %(name)s متصل شد."
+
+#: accounts/views.py:773
+msgid "Seat “%(code)s” created and linked to %(name)s. Use “Reset password” to hand them a sign-in password."
+msgstr "سمت «%(code)s» ایجاد و به %(name)s متصل شد. برای دادن رمز عبور ورود به او، از «بازنشانی رمز عبور» استفاده کنید."
+
+#: accounts/views.py:1374
+msgid "Platform settings saved."
+msgstr "تنظیمات پلتفرم ذخیره شد."
+
+#: accounts/views.py:2016
+msgid "Could not queue the restore (backups folder not writable)."
+msgstr "قرار دادن بازیابی در صف ممکن نشد (پوشه پشتیبان‌ها قابل نوشتن نیست)."
+
+#: accounts/views.py:2021
+msgid "Please choose a .tar.gz backup file to upload."
+msgstr "یک فایل پشتیبان .tar.gz برای بارگذاری انتخاب کنید."
+
+#: accounts/views.py:1386 people/views.py:604
+msgid "Start and end times must be different."
+msgstr "زمان شروع و پایان باید متفاوت باشند."
+
+#: accounts/views.py:1391
+msgid "Daily hours updated for all people (%(n)s): %(start)s–%(end)s, floating %(float)s, reconnect %(reconnect)s."
+msgstr "ساعات کاری روزانه برای همه پرسنل (%(n)s نفر) به‌روزرسانی شد: %(start)s–%(end)s، زمان شناور %(float)s، زمان اتصال مجدد %(reconnect)s."
+
+#: accounts/views.py:1984
+msgid "Code-tables restore queued. This replaces the SQLite code databases only (pipe/fitting/…). Refresh in a few seconds to see the result."
+msgstr "بازیابی جداول کد در صف قرار گرفت. این کار فقط پایگاه‌داده‌های SQLite کدها (لوله/اتصالات/...) را جایگزین می‌کند. برای دیدن نتیجه، چند ثانیه دیگر صفحه را تازه‌سازی کنید."
+
+#: accounts/views.py:2023
+msgid "The file must be a .tar.gz backup archive."
+msgstr "فایل باید یک بایگانی پشتیبان .tar.gz باشد."
+
+#: accounts/views.py:1383 people/views.py:601
+msgid "Please enter valid times (HH:MM / MM:SS)."
+msgstr "زمان‌های معتبر وارد کنید (HH:MM / MM:SS)."
+
+#: accounts/views.py:1410
+msgid "Unit stamps updated."
+msgstr "مهرهای واحد به‌روزرسانی شد."
+
+#: accounts/views.py:1992
+msgid "Media restore queued. This replaces uploaded files only (avatars, stamps, signatures). Refresh in a few seconds to see the result."
+msgstr "بازیابی رسانه در صف قرار گرفت. این کار فقط فایل‌های بارگذاری‌شده (آواتارها، مهرها، امضاها) را جایگزین می‌کند. برای دیدن نتیجه، چند ثانیه دیگر صفحه را تازه‌سازی کنید."
+
+#: accounts/views.py:2000
+msgid "Database restore queued. This replaces PostgreSQL data (cases, people, seats…). Media and code tables are left unchanged. You may need to sign in again. Refresh in a few seconds to see the result."
+msgstr "بازیابی پایگاه‌داده در صف قرار گرفت. این کار داده‌های PostgreSQL (پرونده‌ها، پرسنل، سمت‌ها و...) را جایگزین می‌کند. رسانه‌ها و جداول کد بدون تغییر باقی می‌مانند. ممکن است لازم باشد دوباره وارد شوید. برای دیدن نتیجه، چند ثانیه دیگر صفحه را تازه‌سازی کنید."
+
+#: accounts/views.py:2009
+msgid "Restore queued. It replaces the current database and uploaded files (code tables are left unchanged unless this is an older full backup). You may need to sign in again. Refresh in a few seconds to see the result."
+msgstr "بازیابی در صف قرار گرفت. این کار پایگاه‌داده فعلی و فایل‌های بارگذاری‌شده را جایگزین می‌کند (جداول کد بدون تغییر باقی می‌مانند مگر اینکه این یک پشتیبان کامل قدیمی‌تر باشد). ممکن است لازم باشد دوباره وارد شوید. برای دیدن نتیجه، چند ثانیه دیگر صفحه را تازه‌سازی کنید."
+
+#: accounts/views.py:2027 accounts/views.py:2063
+msgid "Backup file is too large (max %(gb)s GB)."
+msgstr "فایل پشتیبان بیش از حد بزرگ است (حداکثر %(gb)s گیگابایت)."
+
+#: accounts/views.py:2067
+msgid "Failed to save the uploaded file."
+msgstr "ذخیره فایل بارگذاری‌شده ناموفق بود."
+
+#: accounts/views.py:2053
+msgid "Uploaded as %(name)s. You can restore it from the list below."
+msgstr "با نام %(name)s بارگذاری شد. می‌توانید آن را از فهرست زیر بازیابی کنید."
+
+#: people/views.py:665
+msgid "Invalid month."
+msgstr "ماه نامعتبر است."
+
+#: people/views.py:983
+msgid "This person has no login username yet."
+msgstr "این شخص هنوز نام کاربری ورود ندارد."
+
+#: people/views.py:1014
+msgid "No seat was selected."
+msgstr "هیچ سمتی انتخاب نشد."
+
+#: people/views.py:1125
+msgid "Role «%(title)s» translated to %(name)s (substitute)."
+msgstr "نقش «%(title)s» به %(name)s منتقل شد (جایگزین)."
+
+#: people/views.py:1149
+msgid "Role «%(title)s» returned to %(name)s."
+msgstr "نقش «%(title)s» به %(name)s بازگردانده شد."
+
+#: people/views.py:1164
+msgid "No seat selected."
+msgstr "هیچ سمتی انتخاب نشده است."
+
+#: people/views.py:623
+msgid "Work shift for %(name)s saved (%(start)s–%(end)s, floating time %(float)s, reconnect time %(reconnect)s). Only the current month's planned hours were updated."
+msgstr "شیفت کاری برای %(name)s ذخیره شد (%(start)s–%(end)s، زمان شناور %(float)s، زمان اتصال مجدد %(reconnect)s). فقط ساعات برنامه‌ریزی‌شده ماه جاری به‌روزرسانی شد."
+
+#: people/views.py:799
+msgid "%(name)s marked «departed»."
+msgstr "%(name)s «جداشده» علامت خورد."
+
+#: people/views.py:805
+msgid "%(name)s marked «active» again."
+msgstr "%(name)s دوباره «شاغل» علامت خورد."
+
+#: people/views.py:1032
+msgid "%(n)s seat(s) assigned to %(name)s: %(seats)s"
+msgstr "%(n)s سمت به %(name)s تخصیص یافت: %(seats)s"
+
+#: people/views.py:1040
+msgid "%(n)s seat(s) were taken by someone else and were skipped."
+msgstr "%(n)s سمت توسط شخص دیگری گرفته شده و نادیده گرفته شد."
+
+#: people/views.py:1060
+msgid "Login released from %(name)s; account renamed to «%(code)s»."
+msgstr "ورود از %(name)s آزاد شد؛ نام حساب به «%(code)s» تغییر یافت."
+
+#: people/views.py:263
+msgid "%(name)s was registered. Detail code: %(code)s — username: %(username)s"
+msgstr "%(name)s ثبت شد. کد تفصیلی: %(code)s — نام کاربری: %(username)s"
+
+#: people/views.py:302
+msgid "%(name)s's information was saved."
+msgstr "اطلاعات %(name)s ذخیره شد."
+
+#: people/views.py:1081
+msgid "Cannot close «%(title)s» while %(n)s open task(s) remain — Delegate first."
+msgstr "تا زمانی که %(n)s کار باز روی «%(title)s» باقی است، نمی‌توان آن را بست — ابتدا واگذار کنید."
+
+#: people/views.py:1092
+msgid "Role «%(title)s» closed; seat freed as «%(code)s»."
+msgstr "نقش «%(title)s» بسته شد؛ سمت با نام «%(code)s» آزاد شد."
+
+#: people/views.py:1098
+msgid "Role «%(title)s» closed for %(name)s."
+msgstr "نقش «%(title)s» برای %(name)s بسته شد."
+
+#: people/views.py:1173
+msgid "Seat «%(code)s» assigned."
+msgstr "سمت «%(code)s» تخصیص یافت."
+
+#: people/views.py:1178
+msgid "That seat already belongs to this person."
+msgstr "این سمت از قبل متعلق به این شخص است."
+
+#: people/views.py:1189
+msgid "Role «%(title)s» translated onto %(name)s."
+msgstr "نقش «%(title)s» به %(name)s منتقل شد."
+
+#: people/views_requests.py:227
+msgid "Overtime is not assigned to you."
+msgstr "اضافه‌کاری به شما تخصیص داده نشده است."
+
+#: people/views_requests.py:328
+msgid "You cannot view this request."
+msgstr "شما نمی‌توانید این درخواست را مشاهده کنید."
+
+#: people/views_requests.py:156
+msgid "Access for %(title)s updated (+%(added)s / −%(removed)s)."
+msgstr "دسترسی برای %(title)s به‌روزرسانی شد (+%(added)s / −%(removed)s)."
+
+#: people/views_requests.py:280
+msgid "Overtime request %(code)s submitted (%(label)s). Waiting for General Manager review."
+msgstr "درخواست اضافه‌کاری %(code)s ثبت شد (%(label)s). در انتظار بررسی مدیر عمومی."
+
+#: people/views_requests.py:151
+msgid "Invalid person selection."
+msgstr "انتخاب شخص نامعتبر است."
+
+#: people/views_requests.py:263
+msgid "Enter a valid overtime duration."
+msgstr "مدت زمان معتبری برای اضافه‌کاری وارد کنید."
+
+#: people/views_requests.py:422
+msgid "Overtime approved for %(name)s (%(label)s)."
+msgstr "اضافه‌کاری برای %(name)s تأیید شد (%(label)s)."
+
+#: people/views_requests.py:436
+msgid "Unknown decision."
+msgstr "تصمیم نامشخص است."
+
+#: people/views_requests.py:432
+msgid "Overtime request for %(name)s was rejected."
+msgstr "درخواست اضافه‌کاری %(name)s رد شد."
+
+#: cases/views.py:3218
+msgid "Done."
+msgstr "انجام شد."
+
+#: cases/views.py:3613
+msgid "Unknown export format."
+msgstr "قالب خروجی نامشخص است."
+
+#: cases/views.py:1330 cases/views.py:3512 cases/views.py:3647 cases/views.py:3723 itemcoder/bridge.py:2367
+msgid "You do not have access to this case."
+msgstr "شما به این پرونده دسترسی ندارید."
+
+#: cases/views.py:2005
+msgid "Only this case's own commercial owner may write a report on it."
+msgstr "فقط مالک بازرگانی همین پرونده می‌تواند روی آن گزارش بنویسد."
+
+#: cases/views.py:2018
+msgid "Report added."
+msgstr "گزارش افزوده شد."
+
+#: cases/views.py:2022
+msgid "The report needs at least one option ticked or some text."
+msgstr "گزارش باید دست‌کم یک گزینه علامت‌خورده یا مقداری متن داشته باشد."
+
+#: cases/views.py:2053
+msgid "Only this case's own commercial owner may set a reminder on it."
+msgstr "فقط مالک بازرگانی همین پرونده می‌تواند روی آن یادآوری تنظیم کند."
+
+#: cases/views.py:2066
+msgid "Reminder set."
+msgstr "یادآوری تنظیم شد."
+
+#: cases/views.py:2068
+msgid "Enter a note and a valid Jalali date/time."
+msgstr "یادداشتی و تاریخ/زمان جلالی معتبری وارد کنید."
+
+#: cases/views.py:2905 cases/views.py:2779
+msgid "Case updated."
+msgstr "پرونده به‌روزرسانی شد."
+
+#: cases/views.py:3049 cases/views.py:3209
+msgid "That action is not available right now."
+msgstr "این عملیات در حال حاضر در دسترس نیست."
+
+#: cases/views.py:3055
+msgid "A comment is required for this action."
+msgstr "برای این عملیات، نظر الزامی است."
+
+#: cases/views.py:3516 cases/views.py:3653 cases/views.py:3729
+msgid "You don't have permission to use this export."
+msgstr "شما مجوز استفاده از این خروجی را ندارید."
+
+#: cases/views.py:3524 cases/views.py:3663 cases/views.py:3739
+msgid "There is no such form to export yet."
+msgstr "هنوز چنین فرمی برای گرفتن خروجی وجود ندارد."
+
+#: cases/views.py:3817
+msgid "Only the Commercial manager or an Administrator can manage Clients & FX."
+msgstr "فقط مدیر بازرگانی یا مدیر سیستم می‌تواند مشتریان و نرخ ارز را مدیریت کند."
+
+#: cases/views.py:3857 cases/views.py:3875 cases/views.py:3924 cases/views.py:3960 cases/views.py:4018
+msgid "Only the Commercial manager or an Administrator can manage FX rates."
+msgstr "فقط مدیر بازرگانی یا مدیر سیستم می‌تواند نرخ‌های ارز را مدیریت کند."
+
+#: cases/views.py:3883
+msgid "Choose a currency from the list."
+msgstr "ارزی را از فهرست انتخاب کنید."
+
+#: cases/views.py:3888
+msgid "Unknown currency."
+msgstr "ارز نامشخص است."
+
+#: cases/views.py:3902 cases/views.py:3937
+msgid "Enter a positive Rial price."
+msgstr "قیمتی مثبت به ریال وارد کنید."
+
+#: cases/views.py:3914
+msgid "%(code)s added at %(amount)s Rial."
+msgstr "%(code)s با قیمت %(amount)s ریال افزوده شد."
+
+#: cases/views.py:3944
+msgid "%(code)s updated to %(amount)s Rial."
+msgstr "%(code)s به %(amount)s ریال به‌روزرسانی شد."
+
+#: cases/views.py:3969
+msgid "No currencies on the board yet."
+msgstr "هنوز هیچ ارزی روی تابلو نیست."
+
+#: cases/views.py:4004
+msgid "Updated %(n)s exchange rate. 24-hour timer restarted."
+msgid_plural "Updated %(n)s exchange rates. 24-hour timer restarted."
+msgstr[0] "%(n)s نرخ ارز به‌روزرسانی شد. تایمر ۲۴ ساعته دوباره آغاز شد."
+msgstr[1] "%(n)s نرخ ارز به‌روزرسانی شد. تایمر ۲۴ ساعته دوباره آغاز شد."
+
+#: cases/views.py:4025
+msgid "Default currencies (USD / EUR) cannot be removed."
+msgstr "ارزهای پیش‌فرض (دلار / یورو) قابل حذف نیستند."
+
+#: cases/views.py:4031
+msgid "%(code)s removed from the FX board."
+msgstr "%(code)s از تابلوی ارز حذف شد."
+
+#: cases/views.py:4071
+msgid "Only the Commercial manager or an Administrator can manage clients."
+msgstr "فقط مدیر بازرگانی یا مدیر سیستم می‌تواند مشتریان را مدیریت کند."
+
+#: cases/views.py:4114
+msgid "Only the Commercial manager or an Administrator can add clients."
+msgstr "فقط مدیر بازرگانی یا مدیر سیستم می‌تواند مشتری اضافه کند."
+
+#: cases/views.py:4140
+msgid "Only the Commercial manager or an Administrator can rename clients."
+msgstr "فقط مدیر بازرگانی یا مدیر سیستم می‌تواند نام مشتریان را تغییر دهد."
+
+#: cases/views.py:4160
+msgid "Only the Commercial manager or an Administrator can upload client codes."
+msgstr "فقط مدیر بازرگانی یا مدیر سیستم می‌تواند کدهای مشتری را بارگذاری کند."
+
+#: cases/views.py:4213
+msgid "Only an Administrator can wipe all clients."
+msgstr "فقط مدیر سیستم می‌تواند همه مشتریان را پاک کند."
+
+#: cases/views.py:4232
+msgid "Only an Administrator can delete individual clients."
+msgstr "فقط مدیر سیستم می‌تواند مشتریان را تک‌به‌تک حذف کند."
+
+#: cases/views.py:4282
+msgid "Commercial access only."
+msgstr "فقط دسترسی بازرگانی."
+
+#: cases/views.py:4294 cases/views.py:4312
+msgid "Only the Commercial manager can edit expert codes."
+msgstr "فقط مدیر بازرگانی می‌تواند کدهای کارشناسان را ویرایش کند."
+
+#: cases/views.py:4331
+msgid "Only the Commercial manager can upload expert codes."
+msgstr "فقط مدیر بازرگانی می‌تواند کدهای کارشناسان را بارگذاری کند."
+
+#: cases/views.py:999
+msgid "Substitutes cannot open a new case. Return the seat first."
+msgstr "جایگزین‌ها نمی‌توانند پرونده جدید باز کنند. ابتدا سمت را بازگردانید."
+
+#: cases/views.py:1001
+msgid "Only Commercial users can open a new case."
+msgstr "فقط کاربران بازرگانی می‌توانند پرونده جدید باز کنند."
+
+#: cases/views.py:1276
+msgid "Case #%(pk)s no longer exists."
+msgstr "پرونده #%(pk)s دیگر وجود ندارد."
+
+#: cases/views.py:2271 cases/views.py:2346
+msgid "This case can't be made Internal & External right now."
+msgstr "این پرونده در حال حاضر نمی‌تواند داخلی و خارجی شود."
+
+#: cases/views.py:2403
+msgid "A new version can't be started for this case right now."
+msgstr "در حال حاضر نمی‌توان نسخه جدیدی برای این پرونده آغاز کرد."
+
+#: cases/views.py:2561
+msgid "Contact fields cannot be edited right now."
+msgstr "فیلدهای تماس در حال حاضر قابل ویرایش نیستند."
+
+#: cases/views.py:2596
+msgid "Case contacts updated."
+msgstr "اطلاعات تماس پرونده به‌روزرسانی شد."
+
+#: cases/views.py:2620
+msgid "This side can no longer be edited here."
+msgstr "این سو دیگر از اینجا قابل ویرایش نیست."
+
+#: cases/views.py:2624
+msgid "This case can no longer be edited here."
+msgstr "این پرونده دیگر از اینجا قابل ویرایش نیست."
+
+#: cases/views.py:3001
+msgid "Proforma currency converted."
+msgstr "ارز پیش‌فاکتور تبدیل شد."
+
+#: cases/views.py:3893
+msgid "%(code)s is already on the board."
+msgstr "%(code)s از قبل روی تابلو است."
+
+#: cases/views.py:4147
+msgid "Client renamed (the code stays the same)."
+msgstr "نام مشتری تغییر یافت (کد بدون تغییر ماند)."
+
+#: cases/views.py:4191
+msgid "Clients imported: %(created)s new, %(updated)s updated."
+msgstr "مشتریان درون‌ریزی شدند: %(created)s جدید، %(updated)s به‌روزرسانی‌شده."
+
+#: cases/views.py:4220
+msgid "All clients cleared (%(n)s removed). You can upload a new Excel now."
+msgstr "همه مشتریان پاک شدند (%(n)s مورد حذف شد). اکنون می‌توانید فایل اکسل جدید بارگذاری کنید."
+
+#: cases/views.py:4239
+msgid "Client deleted: %(label)s"
+msgstr "مشتری حذف شد: %(label)s"
+
+#: cases/views.py:4301
+msgid "Expert code added."
+msgstr "کد کارشناس افزوده شد."
+
+#: cases/views.py:4320
+msgid "Expert code updated."
+msgstr "کد کارشناس به‌روزرسانی شد."
+
+#: cases/views.py:4340
+msgid "Expert codes imported: %(created)s new, %(updated)s updated."
+msgstr "کدهای کارشناسان درون‌ریزی شدند: %(created)s جدید، %(updated)s به‌روزرسانی‌شده."
+
+#: cases/views.py:2356
+msgid "Converted to Internal & External. The %(side)s side was created at version %(version)02d and is a Draft in your hands."
+msgstr "به داخلی و خارجی تبدیل شد. سوی %(side)s در نسخه %(version)02d ایجاد شد و اکنون پیش‌نویس در اختیار شماست."
+
+#: cases/views.py:2516
+msgid "New inquiry version %(version)02d saved."
+msgstr "نسخه جدید استعلام %(version)02d ذخیره شد."
+
+#: cases/views.py:2637
+msgid "A side has already been submitted. Create a new version for the side you want to change."
+msgstr "یک سو از قبل ارسال شده است. برای سویی که می‌خواهید تغییر دهید، نسخه جدیدی ایجاد کنید."
+
+#: cases/views.py:3215
+msgid "Action failed: %(exc)s"
+msgstr "عملیات ناموفق بود: %(exc)s"
+
+#: cases/views.py:3608
+msgid "Could not generate the %(fmt)s export: %(exc)s"
+msgstr "ساخت خروجی %(fmt)s ممکن نشد: %(exc)s"
+
+#: cases/views.py:3692
+msgid "Could not generate the PDF export: %(exc)s"
+msgstr "ساخت خروجی PDF ممکن نشد: %(exc)s"
+
+#: cases/views.py:3767
+msgid "Could not generate the Print view: %(exc)s"
+msgstr "ساخت نمای چاپ ممکن نشد: %(exc)s"
+
+#: cases/views.py:3978
+msgid "Missing price for %(code)s."
+msgstr "قیمت %(code)s وارد نشده است."
+
+#: cases/views.py:3992
+msgid "%(code)s: enter a positive Rial price."
+msgstr "%(code)s: قیمتی مثبت به ریال وارد کنید."
+
+#: cases/views.py:4126
+msgid "Client added with code %(code)s."
+msgstr "مشتری با کد %(code)s افزوده شد."
+
+#: cases/views.py:4179
+msgid "Upload failed unexpectedly. Use a valid .xlsx (Code, Name). If the file is very large, try again or split it."
+msgstr "بارگذاری به‌طور غیرمنتظره‌ای ناموفق بود. از یک فایل .xlsx معتبر (کد، نام) استفاده کنید. اگر فایل بسیار بزرگ است، دوباره امتحان کنید یا آن را تقسیم کنید."
+
+#: cases/views.py:4199
+msgid "…and %(n)s more warnings."
+msgstr "…و %(n)s هشدار دیگر."
+
+#: cases/views.py:2487
+msgid "No new version was created: change the table (edit a cell, add or delete a row) — or turn on Unit conversion / Update price / the two-stage upgrade — before saving."
+msgstr "هیچ نسخه جدیدی ایجاد نشد: پیش از ذخیره، جدول را تغییر دهید (یک سلول را ویرایش یا یک ردیف را اضافه/حذف کنید) — یا تبدیل واحد / به‌روزرسانی قیمت / ارتقای دومرحله‌ای را روشن کنید."
+
+#: cases/views.py:3009
+msgid "Currency conversion failed: %(exc)s"
+msgstr "تبدیل ارز ناموفق بود: %(exc)s"
+
+#: cases/views.py:3986
+msgid "%(code)s: %(exc)s"
+msgstr "%(code)s: %(exc)s"
+
+#: cases/views.py:1037
+msgid "Case %(doc_no)s created."
+msgstr "پرونده %(doc_no)s ایجاد شد."
+
+#: cases/views.py:3170
+msgid "Edit the items — a new version is saved only if you change the table."
+msgstr "اقلام را ویرایش کنید — نسخه جدید فقط در صورت تغییر جدول ذخیره می‌شود."
+
+#: cases/views.py:3183
+msgid "Edit the items and set the deadline — the new side is created when you confirm."
+msgstr "اقلام را ویرایش و مهلت را تنظیم کنید — سوی جدید هنگام تأیید ایجاد می‌شود."
+
+#: cases/views.py:3204
+msgid "Unknown action."
+msgstr "عملیات نامشخص است."
+
+#: itemcoder/bridge.py:2265
+msgid "You can only work on your own side of this case."
+msgstr "شما فقط می‌توانید روی سوی خودتان از این پرونده کار کنید."
+
+#: itemcoder/bridge.py:2272
+msgid "%(base)s The %(side)s side is not with your unit right now, so its forms cannot be opened from here."
+msgstr "%(base)s سوی %(side)s در حال حاضر نزد واحد شما نیست، بنابراین فرم‌های آن از اینجا قابل باز شدن نیست."
+
+#: itemcoder/bridge.py:2218
+msgid "Qty and Unit cannot be changed on this %(what)s. They are the client's columns; only the Technical unit may change them, and only on the Technical Offer. Nothing was saved. (Rows: %(rows)s.)"
+msgstr "تعداد و واحد روی این %(what)s قابل تغییر نیستند. این‌ها ستون‌های مشتری هستند؛ فقط واحد فنی می‌تواند آن‌ها را تغییر دهد، و فقط روی پیشنهاد فنی. چیزی ذخیره نشد. (ردیف‌ها: %(rows)s.)"
+
+#: itemcoder/bridge.py:2230
+msgid "Qty / Unit are invalid; nothing was saved:\n"
+msgstr "تعداد / واحد نامعتبر است؛ چیزی ذخیره نشد:\n"
+
+#: itemcoder/bridge.py:2268
+msgid "%(base)s The %(side)s side is assigned to %(name)s; once a side is assigned to an expert, only that expert can build or revise its forms."
+msgstr "%(base)s سوی %(side)s به %(name)s تخصیص یافته است؛ پس از تخصیص یک سو به کارشناس، فقط همان کارشناس می‌تواند فرم‌های آن را بسازد یا ویرایش کند."
+
+#: itemcoder/bridge.py:2323
+msgid "You are not allowed to build this form right now."
+msgstr "در حال حاضر مجاز به ساخت این فرم نیستید."
+
+#: itemcoder/bridge.py:2982
+msgid "%(kind)s%(label)s saved."
+msgstr "%(kind)s%(label)s ذخیره شد."
+
+#: itemcoder/bridge.py:2796
+msgid "The tool sent malformed data; nothing was saved."
+msgstr "ابزار داده نادرستی ارسال کرد؛ چیزی ذخیره نشد."
+
+#: itemcoder/data_admin.py:476
+msgid "Upload session expired. Please upload the file again."
+msgstr "نشست بارگذاری منقضی شد. لطفاً فایل را دوباره بارگذاری کنید."
+
+#: itemcoder/data_admin.py:1245
+msgid "Please choose a rules JSON file to upload."
+msgstr "یک فایل JSON قوانین برای بارگذاری انتخاب کنید."
+
+#: itemcoder/data_admin.py:1311
+msgid "Please choose an offer JSON file to upload."
+msgstr "یک فایل JSON پیشنهاد برای بارگذاری انتخاب کنید."
+
+#: itemcoder/data_admin.py:232
+msgid "Please enter the group name (e.g. pipe, fitting)."
+msgstr "نام گروه را وارد کنید (مثلاً pipe، fitting)."
+
+#: itemcoder/data_admin.py:237
+msgid "Group name must be letters, digits, underscore or hyphen only."
+msgstr "نام گروه فقط باید شامل حروف، اعداد، زیرخط یا خط تیره باشد."
+
+#: itemcoder/data_admin.py:574
+msgid "Import verified: %(rows)s rows in SQLite (%(size)s MB) at %(path)s"
+msgstr "درون‌ریزی تأیید شد: %(rows)s ردیف در SQLite (%(size)s مگابایت) در %(path)s"
+
+#: itemcoder/data_admin.py:753
+msgid "Updated %(added)s prices in '%(name)s'."
+msgstr "%(added)s قیمت در «%(name)s» به‌روزرسانی شد."
+
+#: itemcoder/data_admin.py:805
+msgid "Feature name is required."
+msgstr "نام ویژگی الزامی است."
+
+#: itemcoder/data_admin.py:1250 itemcoder/data_admin.py:1316
+msgid "That file is not valid JSON."
+msgstr "این فایل JSON معتبری نیست."
+
+#: itemcoder/data_admin.py:1262
+msgid "Rules for '%(group)s' were replaced from the uploaded file."
+msgstr "قوانین «%(group)s» از فایل بارگذاری‌شده جایگزین شد."
+
+#: itemcoder/data_admin.py:1323
+msgid "Offer for '%(group)s' was replaced from the uploaded file."
+msgstr "پیشنهاد «%(group)s» از فایل بارگذاری‌شده جایگزین شد."
+
+#: itemcoder/data_admin.py:616
+msgid "Only administrators can wipe an entire group."
+msgstr "فقط مدیران سیستم می‌توانند یک گروه کامل را پاک کنند."
+
+#: itemcoder/data_admin.py:714
+msgid "Price list '%(name)s' is ready."
+msgstr "فهرست قیمت «%(name)s» آماده است."
+
+#: itemcoder/data_admin.py:778
+msgid "Loaded %(n)s features for '%(group)s' from the schema file."
+msgstr "%(n)s ویژگی برای «%(group)s» از فایل شمای داده بارگذاری شد."
+
+#: itemcoder/data_admin.py:883
+msgid "Value removed."
+msgstr "مقدار حذف شد."
+
+#: itemcoder/data_admin.py:1267
+msgid "Could not apply the rules file: %(exc)s"
+msgstr "اعمال فایل قوانین ممکن نشد: %(exc)s"
+
+#: itemcoder/data_admin.py:1328
+msgid "Could not apply the offer file: %(exc)s"
+msgstr "اعمال فایل پیشنهاد ممکن نشد: %(exc)s"
+
+#: itemcoder/data_admin.py:253 itemcoder/data_admin.py:732
+msgid "Could not read the file: %(exc)s"
+msgstr "خواندن فایل ممکن نشد: %(exc)s"
+
+#: itemcoder/data_admin.py:627
+msgid "All data for '%(group)s' was deleted."
+msgstr "همه داده‌های «%(group)s» حذف شد."
+
+#: itemcoder/data_admin.py:784
+msgid "Could not load schema: %(exc)s"
+msgstr "بارگذاری شمای داده ممکن نشد: %(exc)s"
+
+#: itemcoder/data_admin.py:872
+msgid "Added '%(value)s' = %(code)s and linked it in rules.json."
+msgstr "«%(value)s» = %(code)s افزوده و در rules.json پیوند داده شد."
+
+#: itemcoder/data_admin.py:879
+msgid "Only administrators can remove feature values."
+msgstr "فقط مدیران سیستم می‌توانند مقادیر ویژگی را حذف کنند."
+
+#: itemcoder/data_admin.py:632
+msgid "Could not wipe group: %(exc)s"
+msgstr "پاک کردن گروه ممکن نشد: %(exc)s"
+
+#: itemcoder/data_admin.py:813
+msgid "A feature named '%(name)s' already exists."
+msgstr "ویژگی‌ای با نام «%(name)s» از قبل وجود دارد."
+
+#: itemcoder/data_admin.py:832
+msgid "Added sub feature '%(name)s'."
+msgstr "زیرویژگی «%(name)s» افزوده شد."
+
+#: itemcoder/data_admin.py:837
+msgid "Could not add feature: %(exc)s"
+msgstr "افزودن ویژگی ممکن نشد: %(exc)s"
+
+#: itemcoder/tool_access.py:66
+msgid "Only administrators can manage tool data."
+msgstr "فقط مدیران سیستم می‌توانند داده‌های ابزار را مدیریت کنند."
+
+#: itemcoder/tool_access.py:76
+msgid "You do not have access to pricing management."
+msgstr "شما به مدیریت قیمت‌گذاری دسترسی ندارید."
+
+#: itemcoder/tool_access.py:86
+msgid "You do not have access to coding reference data."
+msgstr "شما به مرجع کدینگ دسترسی ندارید."
+
+#. marketing/static/marketing/js/chart_interact.js's own FT_MARKETING_CHART.i18n
+#. keys — see this section's own banner comment, point 2, and home.html's
+#. {% block scripts %} for where each is rendered server-side.
+#: marketing/static/marketing/js/chart_interact.js:628
+msgid "Case mode"
+msgstr "حالت پرونده"
+
+#: marketing/static/marketing/js/chart_interact.js:629
+msgid "Editing chart for case %(doc)s — %(client)s"
+msgstr "ویرایش نمودار برای پرونده %(doc)s — %(client)s"
+
+#: marketing/static/marketing/js/chart_interact.js:640
+msgid "Leave case mode"
+msgstr "خروج از حالت پرونده"
+
+#: marketing/static/marketing/js/chart_interact.js:657
+msgid "Showing"
+msgstr "نمایش"
+
+#: marketing/static/marketing/js/chart_interact.js:673
+msgid "Query"
+msgstr "استعلام"
+
+#: marketing/static/marketing/js/chart_interact.js:661
+msgid "Clear all"
+msgstr "پاک کردن همه"
+
+#: marketing/static/marketing/js/chart_interact.js:618
+msgid "edits attach to %(name)s"
+msgstr "ویرایش‌ها به %(name)s متصل می‌شود"
+
+#: marketing/static/marketing/js/chart_interact.js:617
+msgid "edits attach to %(name)s — %(role)s"
+msgstr "ویرایش‌ها به %(name)s — %(role)s متصل می‌شود"
+
+#: marketing/static/marketing/js/chart_interact.js:622
+msgid "chart is showing %(name)s"
+msgstr "نمودار %(name)s را نشان می‌دهد"
+
+#: marketing/static/marketing/js/chart_interact.js:621
+msgid "chart is showing %(name)s — %(role)s"
+msgstr "نمودار %(name)s — %(role)s را نشان می‌دهد"
+
+#: marketing/static/marketing/js/chart_interact.js:194
+msgid "No companies match \"%(q)s\"."
+msgstr "هیچ شرکتی با «%(q)s» مطابقت ندارد."
+
+#: marketing/static/marketing/js/chart_interact.js:194
+msgid "No companies yet."
+msgstr "هنوز شرکتی وجود ندارد."
+
+#: marketing/static/marketing/js/chart_interact.js:396
+msgid "No roles yet."
+msgstr "هنوز نقشی وجود ندارد."
+
+#: marketing/static/marketing/js/chart_interact.js:396
+msgid "No roles match \"%(q)s\"."
+msgstr "هیچ نقشی با «%(q)s» مطابقت ندارد."
+
+#: marketing/static/marketing/js/chart_interact.js:1278
+msgid "Cases connected to Us"
+msgstr "پرونده‌های متصل به ما"
+
+#: marketing/static/marketing/js/chart_interact.js:1352
+msgid "Showing %(shown)s of %(total)s cases"
+msgstr "نمایش %(shown)s از %(total)s پرونده"
+
+#: marketing/static/marketing/js/chart_interact.js:1552
+msgid "Open %(name)s in the case archive →"
+msgstr "باز کردن %(name)s در بایگانی پرونده‌ها →"
+
+#: marketing/static/marketing/js/chart_interact.js:2343
+msgid "+ Add company"
+msgstr "+ افزودن شرکت"
+
+#. The "create a brand-new client" row inside createCompanyPicker's own
+#. result list (buildCreateRow) — shared by the "+ Add company" panel above
+#. and the Quick Inquiry company field, found live while verifying this
+#. round's own fix (not in the original review's line list).
+#: marketing/static/marketing/js/chart_interact.js:304
+msgid "+ Add \"%(name)s\""
+msgstr "+ افزودن «%(name)s»"
+
+#: marketing/static/marketing/js/chart_interact.js:2355
+msgid "Add a company"
+msgstr "افزودن یک شرکت"
+
+#: marketing/static/marketing/js/chart_interact.js:2360
+msgid "Close add-company panel"
+msgstr "بستن پنل افزودن شرکت"
+
+#: marketing/static/marketing/js/chart_interact.js:2372
+msgid "Search the whole directory…"
+msgstr "جست‌وجو در کل فهرست…"
+
+#: marketing/static/marketing/js/chart_interact.js:2668 marketing/static/marketing/js/chart_interact.js:2700
+msgid "Nothing connected yet."
+msgstr "هنوز چیزی متصل نشده است."
+
+#: marketing/static/marketing/js/chart_interact.js:2716
+msgid "Not connected to anything yet."
+msgstr "هنوز به چیزی متصل نشده است."
+
+#: marketing/static/marketing/js/chart_interact.js:2773 marketing/static/marketing/js/chart_interact.js:3175
+msgid "No companies tagged yet."
+msgstr "هنوز شرکتی برچسب نخورده است."
+
+#: marketing/static/marketing/js/chart_interact.js:2970
+msgid "No cases found."
+msgstr "پرونده‌ای یافت نشد."
+
+#: marketing/static/marketing/js/chart_interact.js:2839
+msgid "Remove %(name)s"
+msgstr "حذف %(name)s"
+
+#: marketing/static/marketing/js/chart_interact.js:2889
+msgid "Activate as this"
+msgstr "فعال‌سازی به‌عنوان این"
+
+#: marketing/static/marketing/js/chart_interact.js:2890
+msgid "Activate %(name)s as this card's anchor"
+msgstr "فعال‌سازی %(name)s به‌عنوان لنگر این کارت"
+
+#: marketing/static/marketing/js/chart_interact.js:3163
+msgid "connection only"
+msgstr "فقط اتصال"
+
+#: marketing/static/marketing/js/chart_interact.js:3369
+msgid "Choose a role…"
+msgstr "یک نقش انتخاب کنید…"
+
+#: marketing/static/marketing/js/chart_interact.js:3369
+msgid "No roles yet"
+msgstr "هنوز نقشی نیست"
+
+#: marketing/static/marketing/js/chart_interact.js:3452
+msgid "Loading roles…"
+msgstr "در حال بارگذاری نقش‌ها…"
+
+#: marketing/static/marketing/js/chart_interact.js:3508
+msgid "Already has every role"
+msgstr "همه نقش‌ها را از قبل دارد"
+
+#: marketing/static/marketing/js/chart_interact.js:3634
+msgid "No cases match \"%(q)s\"."
+msgstr "هیچ پرونده‌ای با «%(q)s» مطابقت ندارد."
+
+#: marketing/static/marketing/js/chart_interact.js:3634
+msgid "No cases yet."
+msgstr "هنوز پرونده‌ای وجود ندارد."
+
+# ---------------------------------------------------------------------------
+# AUDIT #134 FOLLOW-UP (this round) — reminder-due topbar bell widget.
+# core/templates/base.html moved the "one of your reminders is due"
+# notification out of the full-width banner the previous round built and
+# into a small dropdown anchored to a bell button inside the topbar itself
+# (see that template's own long comment on #reminderBellWidget, and
+# static/css/app.css's "Reminder due notification" section, for the why).
+# "Reminder due" and "My Tasks" are both reused from entries already above
+# rather than duplicated here — only the panel's own closing link is new.
+# ---------------------------------------------------------------------------
+
+#: core/templates/base.html:605
+msgid "View in My Tasks"
+msgstr "مشاهده در کارهای من"
+
+# ---------------------------------------------------------------------------
+# AUDIT #134 CLEANUP — independent-review fix pass (this stage).
+#
+# cases/templates/cases/case_detail.html's "Current owner" field (added by an
+# earlier stage this round, backed by cases/models.py::Case.current_owner())
+# had NO catalog entry at all — the {% trans %} tag itself was already
+# correct, but with nothing in this file to translate it, gettext silently
+# falls back to the raw English msgid, so the field read "Current owner" in
+# an otherwise fully-Persian details panel. Confirmed live and reported by
+# the independent reviewer (case 14, Persian). Same class of gap as the
+# "Cannot submit to Supply" catalog entries earlier in this file — the
+# template was right, only the catalog was missing.
+#
+# "دارندهٔ فعلی" ("current holder"), not "مالک فعلی" ("current owner"/
+# possessor): this same page already uses "مالک بازرگانی" ("commercial
+# owner") for a completely different concept — the case's original commercial
+# creator (services.is_case_commercial_owner, used to gate the Reports/
+# Reminders write forms further down this same template). "Current owner"
+# here means something else again — whichever person or unit currently HOLDS
+# the case (Case.current_owner() / holder_unit) — so it is worded to match
+# the existing "Holder unit" msgid's own "نگهدارنده" root instead of reusing
+# "مالک" and inviting a reader to conflate the two.
+# ---------------------------------------------------------------------------
+
+#: cases/templates/cases/case_detail.html:117
+msgid "Current owner"
+msgstr "دارندهٔ فعلی"

@@ -4,13 +4,27 @@
 {# so a reminder's due time prints the same calendar in the same shape as the   #}
 {# stamp on the reminders list it links to.                                     #}
 <!DOCTYPE html>
-<html lang="en">
+{# The active request language decides both attributes here, not a hardcoded  #}
+{# "en": get_current_language reads the language django.utils.translation     #}
+{# activated for THIS request (LocaleMiddleware, from the account's saved     #}
+{# preference — see accounts/views.py's language setting and core/settings   #}
+{# LANGUAGE_CODE), and get_current_language_bidi is Django's own test for     #}
+{# whether that language is right-to-left (True for "fa", exactly the same    #}
+{# test django.utils.translation.get_language_bidi() runs) rather than a      #}
+{# hand-maintained "is it fa" check that would silently miss any other RTL    #}
+{# language this project ever adds. dir="rtl" is what actually flips native   #}
+{# CSS mirroring (flexbox row direction, table-cell text-align, form control  #}
+{# alignment) for free across the app; lang="fa" alone only affects font      #}
+{# selection/hyphenation and screen-reader pronunciation, never layout.       #}
+{% get_current_language as LANGUAGE_CODE %}
+{% get_current_language_bidi as LANGUAGE_BIDI %}
+<html lang="{{ LANGUAGE_CODE }}" dir="{% if LANGUAGE_BIDI %}rtl{% else %}ltr{% endif %}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Foolad Tabar Workflow{% endblock %}</title>
   {% include "includes/favicon.html" %}
-  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=my-tasks-2">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=alert-inline-1">
   <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-17">
   <link rel="stylesheet" href="{% static 'css/icons-offline.css' %}?v=shift-icons-4">
   <script>
@@ -492,6 +506,108 @@
     <div class="main-sticky-head">
     <header class="topbar">
       <h1 class="page-title">{% block topbar %}{% endblock %}</h1>
+
+      {# .topbar-end groups everything that lives at the OTHER end of the bar #}
+      {# from the page title into one flex row, so a second item (the        #}
+      {# reminder bell below) can sit snugly next to the profile widget      #}
+      {# instead of splitting .topbar's own justify-content:space-between    #}
+      {# three ways. Nothing inside sets a physical left/right of its own —  #}
+      {# the wrapper is a plain flex row riding the SAME <html dir> the rest #}
+      {# of the app now mirrors under (see this file's own <html> line, and  #}
+      {# static/css/app.css's "Reminder due notification" section for why    #}
+      {# that is enough, with no [dir=rtl] override needed, to put the bell  #}
+      {# on the correct side of the profile widget in both languages. #}
+      <div class="topbar-end">
+
+      {% comment %}
+        "ONE OF YOUR REMINDERS IS DUE" — the Marketing reminders notification,
+        now a compact bell widget living IN the topbar rather than a banner
+        below it.
+
+        Fed by marketing/context_processors.py::reminder_notice (unchanged —
+        see that module for the per-person, fails-closed gate this relies
+        on) exactly as before this round; only the PRESENTATION moved. It is
+        present ONLY for a person who can hold a reminder, and only when one
+        of THEIR OWN is due — nobody ever sees anybody else's here.
+
+        REDESIGNED AGAIN THIS ROUND — the owner's ask this time was purely
+        layout, not data: the previous round's redesign turned this into a
+        full-width `.flash-warning` strip sitting in the normal scrolling
+        content just under the fixed topbar (see static/css/app.css's own
+        "Reminder due notification" comment for that shape's own reasoning,
+        now superseded), and in practice that banner sat close enough to the
+        topbar's bottom edge to visually overlap/collide with it, and — being
+        a multi-line box sized to its own content (headline, chips, note) —
+        it ate real page height on every screen it appeared on, which the
+        owner did not want from something that is a persistent status
+        indicator, not page content.
+
+        The fix moves it INTO the topbar itself, as a small icon button (this
+        widget) that toggles a dropdown, using the exact same open/close
+        mechanism the profile widget two doors down already uses (id
+        toggled by a plain button; see #reminderBellWidget/#reminderBellPanel
+        and the outside-click handler paired with them further down this
+        file, both copied from #whoWidget/#profileMenu's own pattern rather
+        than inventing a second one). Being inside <header class="topbar">
+        means it inherits the topbar's place in .main-sticky-head's
+        position:sticky stack for free — no position:fixed of its own to get
+        wrong — and being a button sized to the icon rather than a banner
+        sized to its content, it can never grow taller than the 3.6rem the
+        topbar already reserves (.topbar's own min-height).
+
+        DATA UNCHANGED — every field the old banner read (client_name /
+        case_doc_no / due_at / note / others — see marketing/reminders.py's
+        own _payload) is read here too, all of it now inside the dropdown
+        panel rather than inline in a banner. The one thing that changed
+        PRESENTATION rather than just location is `others`: the old banner
+        spelled it out as its own "+N more due" pill; here it becomes the
+        small numeric badge on the trigger button instead (others + 1, i.e.
+        the TOTAL open-and-due count, so the badge answers "how many" the
+        instant you see the icon rather than after you open the panel — with
+        no badge at all when there is exactly one due reminder, since a
+        badge reading "1" on a bell that is already the whole notification
+        would just be visual noise for a fact the icon alone already states).
+      {% endcomment %}
+      {% if reminder_notice %}
+      <div class="reminder-bell" id="reminderBellWidget">
+        <button class="reminder-bell-btn" type="button"
+                onclick="document.getElementById('reminderBellPanel').classList.toggle('open')"
+                aria-haspopup="true" aria-label="{% trans "Reminder due" %}">
+          <i class="fa-solid fa-bell"></i>
+          {% if reminder_notice.others %}
+          <span class="reminder-bell-badge">{{ reminder_notice.others|add:1 }}</span>
+          {% endif %}
+        </button>
+        <div class="reminder-bell-panel" id="reminderBellPanel">
+          <div class="reminder-bell-head">
+            <strong class="reminder-bell-time">{{ reminder_notice.due_at|jalali:"Y.m.d H:i" }}</strong>
+            <span class="reminder-bell-label">{% trans "Reminder due" %}</span>
+          </div>
+          {% if reminder_notice.client_name or reminder_notice.case_doc_no %}
+          <div class="reminder-bell-facts">
+            {% if reminder_notice.client_name %}
+            <span class="chip c-warn"><i class="fa-solid fa-building"></i><span dir="auto">{{ reminder_notice.client_name }}</span></span>
+            {% endif %}
+            {% if reminder_notice.case_doc_no %}
+            <span class="chip c-warn"><i class="fa-solid fa-folder-open"></i><span class="mono">{{ reminder_notice.case_doc_no }}</span></span>
+            {% endif %}
+          </div>
+          {% endif %}
+          {% if reminder_notice.note %}
+          <div class="reminder-bell-note" dir="auto">{{ reminder_notice.note|truncatechars:120 }}</div>
+          {% endif %}
+          {# Points at "My Tasks" now, not the retired standalone reminders   #}
+          {# page — see marketing/views.py::my_tasks/::reminder_list. That   #}
+          {# URL name still exists (it 302s here), so this could still       #}
+          {# resolve through it, but linking straight at the real            #}
+          {# destination is one hop fewer for every click this gets.        #}
+          <a class="reminder-bell-link" href="{% url 'marketing:my_tasks' %}">
+            {% trans "View in My Tasks" %} <i class="fa-solid fa-arrow-right-long"></i>
+          </a>
+        </div>
+      </div>
+      {% endif %}
+
       <div class="who" id="whoWidget">
         {% with p=user.profile %}
         <button class="who-btn" type="button" onclick="document.getElementById('profileMenu').classList.toggle('open')">
@@ -555,6 +671,7 @@
         </div>
         {% endwith %}
       </div>
+      </div>{# /.topbar-end #}
     </header>
 
     {% if shift_seconds_left is not None %}
@@ -593,89 +710,6 @@
       </div>
     {% endif %}
 
-    {% comment %}
-      "ONE OF YOUR REMINDERS IS DUE" — the Marketing reminders notification.
-
-      Fed by marketing/context_processors.py::reminder_notice, which is
-      registered in settings.TEMPLATES alongside the four context processors
-      that already feed this area (theme, impersonation, work shift, licence).
-      It is present ONLY for a person who can hold a reminder, and only when one
-      of THEIR OWN is due — nobody ever sees anybody else's here.
-
-      A .flash.flash-warning rather than the hand-styled banners below it: those
-      two predate the theme tokens and hard-code light-mode colours, which is
-      why they read badly in dark mode. .flash-warning is defined once in
-      static/css/app.css out of --warnbg / --warnline / --warn, so this banner
-      follows the viewer's skin and light/dark setting with no colours of its
-      own. The whole strip is the link — clicking anywhere on it lands on the
-      reminders list, which is where both ways of acting on it live (set a new
-      time, or mark it dealt with). It stays until one of those happens: nothing
-      here dismisses it, because a banner that can be waved away is a reminder
-      you can forget twice.
-
-      REDESIGNED THIS ROUND — the owner's own ask was purely layout: the old
-      shape was one run-on line ("Reminder due · Company · DOC-1 ·
-      2026.06.01 10:30 — note text +3 more due") where the due stamp, the
-      company, the case number and the "how many others" count all fought for
-      the same line with no visual priority between them, and the "+N more
-      due" count trailed off the end of the note — easy to miss if the note
-      ran long, and positioned as if it were part of the note rather than a
-      fact about the whole banner. The DATA is exactly what it was before
-      (reminder_notice.client_name / case_doc_no / due_at / note / others —
-      see marketing/reminders.py::_payload, unchanged by this round); only the
-      markup changed, into the four pieces the new CSS below actually lays
-      out: a headline row (the due stamp — the single fact this banner exists
-      to deliver — first and largest), a facts row underneath it (company,
-      then case number, each its own small chip so either can be absent
-      without leaving a stray separator), the note text on its own line
-      below that, and the "N more due/overdue" count pinned to the banner's
-      OWN bottom-right corner via .reminder-notice's CSS (position:relative +
-      the count's own position:absolute), not the end of whichever text
-      happens to be last. See static/css/app.css's own comment on
-      .reminder-notice for the layout mechanics.
-
-      NO COMPANY, NO EMPTY CHIP — a bare reminder (see
-      marketing/models.py::Reminder.client) has an empty client_name
-      (marketing/reminders.py::_payload turns its NULL into ""), so the
-      company chip below is guarded on it exactly as the old inline version
-      guarded its separator; a reminder with neither a company nor a case
-      degrades to just the due stamp and the note, with no empty facts row
-      left behind (that row itself is guarded on having at least one of the
-      two chips to show).
-    {% endcomment %}
-    {% if reminder_notice %}
-      {# Points at "My Tasks" now, not the retired standalone reminders     #}
-      {# page — see marketing/views.py::my_tasks/::reminder_list. That URL  #}
-      {# name still exists (it 302s here), so this could still resolve      #}
-      {# through it, but linking straight at the real destination is one    #}
-      {# hop fewer for every click this banner gets.                       #}
-      <a class="flash flash-warning reminder-notice" href="{% url 'marketing:my_tasks' %}">
-        <i class="fa-solid fa-bell reminder-notice-icon"></i>
-        <div class="reminder-notice-body">
-          <div class="reminder-notice-head">
-            <strong class="reminder-notice-time">{{ reminder_notice.due_at|jalali:"Y.m.d H:i" }}</strong>
-            <span class="reminder-notice-label">{% trans "Reminder due" %}</span>
-          </div>
-          {% if reminder_notice.client_name or reminder_notice.case_doc_no %}
-          <div class="reminder-notice-facts">
-            {% if reminder_notice.client_name %}
-            <span class="chip reminder-notice-chip"><i class="fa-solid fa-building"></i><span dir="auto">{{ reminder_notice.client_name }}</span></span>
-            {% endif %}
-            {% if reminder_notice.case_doc_no %}
-            <span class="chip reminder-notice-chip"><i class="fa-solid fa-folder-open"></i><span class="mono">{{ reminder_notice.case_doc_no }}</span></span>
-            {% endif %}
-          </div>
-          {% endif %}
-          {% if reminder_notice.note %}
-          <div class="reminder-notice-note" dir="auto">{{ reminder_notice.note|truncatechars:120 }}</div>
-          {% endif %}
-        </div>
-        {% if reminder_notice.others %}
-        <span class="count reminder-notice-others">{% blocktrans with count=reminder_notice.others %}+{{ count }} more due{% endblocktrans %}</span>
-        {% endif %}
-      </a>
-    {% endif %}
-
     {% if is_impersonating %}
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 14px;
         padding:12px 16px;border-radius:12px;background:#eef0ff;border:1px solid #c7ccfa;color:#3730a3;
@@ -687,15 +721,20 @@
           Ending an impersonation changes who you are signed in as, so it goes through a
           CSRF-protected POST instead of a plain link — see accounts.views.impersonate_stop.
           This is a form dressed up as the button-shaped link it replaces: the form itself
-          carries the margin-left:auto that used to push the control to the end of the flex
-          row, and the button repeats the font properties a button element does not inherit
+          carries the margin-inline-start:auto that pushes the control to the END of the
+          flex row — not margin-left, because "end" is the RIGHT edge under this page's
+          own <html dir="rtl"> (Persian), and a physical margin-left:auto would instead
+          shove the button toward the row's START there, off toward the wrong corner of
+          the banner. inline-start/end read the same active <html dir> this whole app now
+          mirrors under (see base.html's own <html> line) with nothing else to keep in
+          sync. The button repeats the font properties a button element does not inherit
           from the banner (family and the 600 weight) so nothing about it looks different.
 
           Note {% templatetag openbrace %}# … #{% templatetag closebrace %} cannot be used
           here: that form of comment is single-line only, so a multi-line one is emitted into
           the page as visible text.
         {% endcomment %}
-        <form method="post" action="{% url 'accounts:impersonate_stop' %}" style="margin:0 0 0 auto;">
+        <form method="post" action="{% url 'accounts:impersonate_stop' %}" style="margin-inline-start:auto;">
           {% csrf_token %}
           <button type="submit" style="background:#3730a3;color:#fff;border:0;appearance:none;
             -webkit-appearance:none;padding:7px 14px;border-radius:8px;font-family:inherit;
@@ -710,7 +749,11 @@
         font-size:14px;font-weight:600;">
         <i class="fa-solid fa-triangle-exclamation"></i>
         <span>{{ license_status.days_remaining }} day(s) remaining until the software license expires (expires {{ license_status.expiry_iso }}). Please renew soon to avoid interruption.</span>
-        <a href="{% url 'licensing:activate' %}" style="margin-left:auto;background:#9a6700;color:#fff;
+        {# margin-inline-start:auto, not margin-left — same reason as the      #}
+        {# impersonation banner's form just above: this needs to push toward  #}
+        {# the END of the flex row under both directions, and "end" is the    #}
+        {# LEFT edge, not the right one, once <html dir="rtl"> is active.     #}
+        <a href="{% url 'licensing:activate' %}" style="margin-inline-start:auto;background:#9a6700;color:#fff;
           text-decoration:none;padding:7px 14px;border-radius:8px;font-size:13px;">Enter new license</a>
       </div>
     {% endif %}
@@ -825,6 +868,15 @@
     var w = document.getElementById('whoWidget');
     var m = document.getElementById('profileMenu');
     if (m && w && !w.contains(e.target)) m.classList.remove('open');
+    /* Same outside-click-closes contract as the profile widget just above,
+       copied rather than shared because the two toggle buttons already live
+       as separate inline onclick="" handlers (see the reminder bell's own
+       button in the topbar) — one shared helper would mean introducing a
+       first generalised widget-toggle function this file does not have yet,
+       which is more change than a second three-line listener justifies. */
+    var rw = document.getElementById('reminderBellWidget');
+    var rp = document.getElementById('reminderBellPanel');
+    if (rp && rw && !rw.contains(e.target)) rp.classList.remove('open');
   });
   (function () {
     var here = window.location.pathname;
@@ -1149,6 +1201,6 @@
   {% block anon_content %}{% endblock %}
 {% endif %}
 {% block scripts %}{% endblock %}
-  <script src="{% static 'js/jalali_picker.js' %}?v=7"></script>
+  <script src="{% static 'js/jalali_picker.js' %}?v=8"></script>
 </body>
 </html>

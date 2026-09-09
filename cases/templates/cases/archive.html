@@ -45,6 +45,13 @@
 
 <nav class="archive-status-tabs" id="archiveStatusTabs" role="tablist" aria-label="{% trans 'Filter by status' %}">
   {% for tab in status_tabs %}
+  {# data-status stays tab.label — the plain-English ARCHIVE_GROUP/          #}
+  {# ARCHIVE_TAB_ORDER key that archive_stream.js and the hidden fstatus     #}
+  {# control match against a row's own status_fval (cases/constants.py's    #}
+  {# ARCHIVE_GROUP is deliberately never translated — see its own comment). #}
+  {# Only what a reader actually SEES — the tab's words and its tooltip —   #}
+  {# uses tab.display, the translated text services.archive_tab_counts      #}
+  {# builds from CaseStatus.ARCHIVE_GROUP_LABELS.                           #}
   <button type="button"
           class="archive-status-tab"
           role="tab"
@@ -52,7 +59,7 @@
           data-color="{{ tab.color }}"
           style="--tab-sc:{{ tab.color }}"
           aria-selected="false"
-          title="{{ tab.label }}">
+          title="{{ tab.display }}">
     <span class="ast-dot" aria-hidden="true"></span>
     <span class="ast-label">{% for w in tab.words %}{% if not forloop.first %} {% endif %}<span class="ast-w">{{ w }}</span>{% endfor %}</span>
     <span class="ast-count">{{ tab.count }}</span>

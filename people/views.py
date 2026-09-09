@@ -54,6 +54,7 @@ from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
 from . import spec
@@ -259,8 +260,13 @@ def person_create(request):
             person = form.save(actor=request.user, post=request.POST)
             messages.success(
                 request,
-                f"{person.display_name} ثبت شد. کد تفصیلی: {person.detail_code} — "
-                f"نام کاربری: {person.username}")
+                _("%(name)s was registered. Detail code: %(code)s — username: %(username)s")
+                % {
+                    "name": person.display_name,
+                    "code": person.detail_code,
+                    "username": person.username,
+                },
+            )
             return redirect("people:person_detail", pk=person.pk)
     else:
         form = PersonForm()
@@ -291,7 +297,10 @@ def person_edit(request, pk):
         form = PersonForm(request.POST, instance=person)
         if form.is_valid():
             form.save(actor=request.user, post=request.POST)
-            messages.success(request, f"اطلاعات {person.display_name} ذخیره شد.")
+            messages.success(
+                request,
+                _("%(name)s's information was saved.") % {"name": person.display_name},
+            )
             return redirect("people:person_profile", pk=person.pk)
     else:
         form = PersonForm(instance=person)
@@ -482,7 +491,7 @@ def person_shift(request, pk):
     minute_choices = [f"{i:02d}" for i in range(60)]
 
     now = sh.now_local()
-    jy, jm, _ = gregorian_to_jalali(now.year, now.month, now.day)
+    jy, jm, _jd = gregorian_to_jalali(now.year, now.month, now.day)
     try:
         view_year = int(request.GET.get("year") or jy)
     except (TypeError, ValueError):
@@ -550,7 +559,7 @@ def person_shift(request, pk):
             "year": year,
             "year_cards": year_cards,
             "report_year": view_year,
-            "tracking_label": f"{td} {sh.month_name_en(tm)} {ty}",
+            "tracking_label": f"{td} {sh.month_name(tm)} {ty}",
             "hours_per_day": round(sh.shift_minutes(s, e) / 60, 2),
             "is_admin": is_admin,
             "viewer_is_self": viewer_is_self,
@@ -589,10 +598,10 @@ def person_shift(request, pk):
             new_float = _parse_mmss("float_time", "15", "0")
             new_grace = _parse_mmss("reconnect_time", "10", "0")
         except ValueError:
-            messages.error(request, "Please enter valid times (HH:MM / MM:SS).")
+            messages.error(request, _("Please enter valid times (HH:MM / MM:SS)."))
             return redirect("people:person_shift", pk=person.pk)
         if new_start == new_end:
-            messages.error(request, "Start and end times must be different.")
+            messages.error(request, _("Start and end times must be different."))
             return redirect("people:person_shift", pk=person.pk)
 
         if step != "2":
@@ -611,11 +620,18 @@ def person_shift(request, pk):
         )
         messages.success(
             request,
-            f"Work shift for {person.display_name} saved "
-            f"({new_start.strftime('%H:%M')}–{new_end.strftime('%H:%M')}, "
-            f"floating time {sh.format_float_mmss(new_float)}, "
-            f"reconnect time {sh.format_float_mmss(new_grace)}). "
-            f"Only the current month's planned hours were updated.",
+            _(
+                "Work shift for %(name)s saved (%(start)s–%(end)s, floating time "
+                "%(float)s, reconnect time %(reconnect)s). Only the current month's "
+                "planned hours were updated."
+            )
+            % {
+                "name": person.display_name,
+                "start": new_start.strftime("%H:%M"),
+                "end": new_end.strftime("%H:%M"),
+                "float": sh.format_float_mmss(new_float),
+                "reconnect": sh.format_float_mmss(new_grace),
+            },
         )
         return redirect("people:person_shift", pk=person.pk)
 
@@ -646,7 +662,7 @@ def person_shift_month(request, pk, year, month):
     month = int(month)
     year = int(year)
     if month < 1 or month > 12:
-        messages.error(request, "Invalid month.")
+        messages.error(request, _("Invalid month."))
         return redirect("people:person_shift", pk=person.pk)
 
     # Same "who is looking, at whose record" pair ``person_shift`` computes —
@@ -660,7 +676,7 @@ def person_shift_month(request, pk, year, month):
     sh.freeze_past_months(person)
     days = sh.month_day_details(person, year, month)
     now = sh.now_local()
-    cy, cm, _ = gregorian_to_jalali(now.year, now.month, now.day)
+    cy, cm, _cd = gregorian_to_jalali(now.year, now.month, now.day)
     cards = sh.year_month_cards(person, year)
     month_card = next((c for c in cards if c["month"] == month), None)
 
@@ -679,7 +695,7 @@ def person_shift_month(request, pk, year, month):
         "person": person,
         "jalali_year": year,
         "jalali_month": month,
-        "month_name": sh.month_name_en(month),
+        "month_name": sh.month_name(month),
         "days": days,
         "month_card": month_card,
         "is_current_month": (year, month) == (cy, cm),
@@ -778,10 +794,16 @@ def person_toggle_status(request, pk):
     person = get_object_or_404(Person, pk=pk)
     if person.is_active:
         person.status = PersonStatus.DEPARTED
-        messages.success(request, f"{person.display_name} «خارج‌شده» علامت خورد.")
+        messages.success(
+            request,
+            _("%(name)s marked «departed».") % {"name": person.display_name},
+        )
     else:
         person.status = PersonStatus.ACTIVE
-        messages.success(request, f"{person.display_name} دوباره «شاغل» شد.")
+        messages.success(
+            request,
+            _("%(name)s marked «active» again.") % {"name": person.display_name},
+        )
     person.save(update_fields=["status", "updated_at"])
     sync_person_users_active(person)
     return redirect(_back_to_list(request))
@@ -905,7 +927,11 @@ def person_seats(request, pk):
         if p.is_general_manager:
             title = "General Manager"
         else:
-            parts = [x for x in [Unit.LABELS.get(p.unit, ""), Role.LABELS.get(p.role, "")] if x]
+            # str(...): Unit.LABELS / Role.LABELS now hold gettext_lazy proxies
+            # (accounts.constants.Unit/Role.CHOICES) — the join() below needs
+            # real str instances, same reason accounts.models.Profile's own
+            # unit_label/role_label properties resolve eagerly.
+            parts = [x for x in [str(Unit.LABELS.get(p.unit, "")), str(Role.LABELS.get(p.role, ""))] if x]
             if p.supply_kind:
                 sk = SupplyKind.LABELS.get(p.supply_kind, p.supply_kind)
                 if sk:
@@ -954,7 +980,7 @@ def person_reset_password(request, pk):
         messages.error(request, str(exc))
         return redirect("people:person_seats", pk=person.pk)
     if login_user is None:
-        messages.error(request, "This person has no login username yet.")
+        messages.error(request, _("This person has no login username yet."))
         return redirect("people:person_seats", pk=person.pk)
 
     generated = generate_temp_password()
@@ -970,7 +996,10 @@ def person_reset_password(request, pk):
         "password": generated,
         "label": f"Password reset for {person.display_name}",
     }
-    messages.success(request, f"Password reset for “{person.display_name}”.")
+    messages.success(
+        request,
+        _("Password reset for “%(name)s”.") % {"name": person.display_name},
+    )
     return redirect("people:person_list")
 
 
@@ -982,7 +1011,7 @@ def seat_assign(request, pk):
     person = get_object_or_404(Person, pk=pk)
     wanted = request.POST.getlist("seats")
     if not wanted:
-        messages.warning(request, "No seat was selected.")
+        messages.warning(request, _("No seat was selected."))
         return redirect("people:person_seats", pk=person.pk)
 
     chosen = list(available_seats().filter(pk__in=wanted))
@@ -1000,14 +1029,15 @@ def seat_assign(request, pk):
     if done:
         messages.success(
             request,
-            f"{len(done)} seat(s) assigned to {person.display_name}: " + ", ".join(done),
+            _("%(n)s seat(s) assigned to %(name)s: %(seats)s")
+            % {"n": len(done), "name": person.display_name, "seats": ", ".join(done)},
         )
     for reason in failed:
         messages.error(request, reason)
     if missing > 0:
         messages.warning(
             request,
-            f"{missing} seat(s) were taken by someone else and were skipped.",
+            _("%(n)s seat(s) were taken by someone else and were skipped.") % {"n": missing},
         )
     return redirect("people:person_seats", pk=person.pk)
 
@@ -1027,7 +1057,8 @@ def seat_release(request, pk, seat_id):
     else:
         messages.success(
             request,
-            f"Login released from {person.display_name}; account renamed to «{freed}».",
+            _("Login released from %(name)s; account renamed to «%(code)s».")
+            % {"name": person.display_name, "code": freed},
         )
     return redirect("people:person_seats", pk=person.pk)
 
@@ -1047,7 +1078,8 @@ def role_release(request, pk, role_id):
         if tasks > 0 and role.source_user_id:
             messages.warning(
                 request,
-                f"Cannot close «{title}» while {tasks} open task(s) remain — Delegate first.",
+                _("Cannot close «%(title)s» while %(n)s open task(s) remain — Delegate first.")
+                % {"title": title, "n": tasks},
             )
             return redirect("accounts:seat_delegate", pk=role.source_user_id)
         freed = close_seat(role, actor=request.user)
@@ -1057,10 +1089,15 @@ def role_release(request, pk, role_id):
         if freed:
             messages.success(
                 request,
-                f"Role «{title}» closed; seat freed as «{freed}».",
+                _("Role «%(title)s» closed; seat freed as «%(code)s».")
+                % {"title": title, "code": freed},
             )
         else:
-            messages.success(request, f"Role «{title}» closed for {person.display_name}.")
+            messages.success(
+                request,
+                _("Role «%(title)s» closed for %(name)s.")
+                % {"title": title, "name": person.display_name},
+            )
     return redirect("people:person_seats", pk=person.pk)
 
 
@@ -1085,7 +1122,8 @@ def role_translate(request, pk, role_id):
         return redirect("people:person_seats", pk=person.pk)
     messages.success(
         request,
-        f"Role «{title}» translated to {to_person.display_name} (substitute).",
+        _("Role «%(title)s» translated to %(name)s (substitute).")
+        % {"title": title, "name": to_person.display_name},
     )
     return redirect("people:person_seats", pk=to_person.pk)
 
@@ -1108,7 +1146,7 @@ def role_return(request, pk, role_id):
         return redirect("people:person_seats", pk=person.pk)
     messages.success(
         request,
-        f"Role «{title}» returned to {owner.display_name}.",
+        _("Role «%(title)s» returned to %(name)s.") % {"title": title, "name": owner.display_name},
     )
     return redirect("people:person_seats", pk=owner.pk)
 
@@ -1123,7 +1161,7 @@ def seat_claim(request, pk):
     person = get_object_or_404(Person, pk=pk)
     seat_id = (request.POST.get("seat") or "").strip()
     if not seat_id.isdigit():
-        messages.error(request, "No seat selected.")
+        messages.error(request, _("No seat selected."))
         return redirect("people:person_seats", pk=person.pk)
     seat_user = get_object_or_404(User.objects.select_related("profile", "person_link"), pk=int(seat_id))
     link = getattr(seat_user, "person_link", None)
@@ -1132,11 +1170,12 @@ def seat_claim(request, pk):
             assign_seat(person, seat_user, actor=request.user)
             messages.success(
                 request,
-                f"Seat «{seat_user.profile.seat_code or seat_user.username}» assigned.",
+                _("Seat «%(code)s» assigned.")
+                % {"code": seat_user.profile.seat_code or seat_user.username},
             )
         else:
             if link.person_id == person.pk:
-                messages.warning(request, "That seat already belongs to this person.")
+                messages.warning(request, _("That seat already belongs to this person."))
                 return redirect("people:person_seats", pk=person.pk)
             role = PersonRole.objects.filter(
                 person=link.person, source_user=seat_user,
@@ -1147,7 +1186,8 @@ def seat_claim(request, pk):
             translate_role(role, person, actor=request.user)
             messages.success(
                 request,
-                f"Role «{title}» translated onto {person.display_name}.",
+                _("Role «%(title)s» translated onto %(name)s.")
+                % {"title": title, "name": person.display_name},
             )
     except SeatError as exc:
         messages.error(request, str(exc))

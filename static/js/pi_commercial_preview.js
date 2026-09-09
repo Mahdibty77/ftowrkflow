@@ -190,6 +190,68 @@
     }
   }
 
+  function computeBaseTotals(card) {
+    // Same DOM read as refreshCard()'s subtotal/service/VAT pass, but always
+    // at factor 1 (the version's own saved currency) — this feeds the
+    // multi-currency preview, which shows every board currency at once and
+    // must not depend on whatever the To-picker currently has selected.
+    var panel = card.closest(".tab-panel");
+    var table = visiblePiTable(panel);
+    var vatPct = toNumber(card.getAttribute("data-vat-percent") || "10");
+    var subtotal = 0;
+    var svcSum = 0;
+    if (table) {
+      table.querySelectorAll("td[data-col-key='TOTAL PRICE']").forEach(function (td) {
+        var tr = td.closest("tr");
+        if (tr && (tr.classList.contains("row-soft-deleted") || tr.classList.contains("row-unsuppliable"))) return;
+        var base = td.getAttribute("data-base-value");
+        if (base == null || base === "") { base = td.textContent; td.setAttribute("data-base-value", base); }
+        subtotal += toNumber(base);
+      });
+      table.querySelectorAll("tbody tr").forEach(function (tr) {
+        if (tr.classList.contains("row-soft-deleted") || tr.classList.contains("row-unsuppliable")) return;
+        var comment = (tr.getAttribute("data-svc-comment") || "").trim();
+        if (!comment || /^(nan|none|<na>|null)$/i.test(comment)) return;
+        var unit = toNumber(tr.getAttribute("data-svc-raw") || "");
+        var qty = toNumber(tr.getAttribute("data-svc-qty") || "") || 1;
+        svcSum += unit * qty;
+      });
+    }
+    return subtotal + subtotal * (vatPct / 100) + svcSum;
+  }
+
+  function renderMultiPreview(card, data) {
+    var body = card.querySelector(".pi-conv-multi-body");
+    if (!body) return;
+    var ext = card.getAttribute("data-external-currency") === "1";
+    var from = lockedFromOf(card);
+    var grand = computeBaseTotals(card);
+    // rial_price per code; Rial itself is the reference unit (price 1) and is
+    // never one of the FX board's own rate rows, only synthesised into units.
+    var rialPriceOf = { rial: 1 };
+    (data.rates || []).forEach(function (r) { rialPriceOf[r.code] = toNumber(r.rial_price); });
+    var fromRial = rialPriceOf[from];
+    body.innerHTML = "";
+    (data.units || []).forEach(function (u) {
+      if (u.code === from) return;
+      if (ext && u.code === "rial") return;
+      if (!fromRial || !rialPriceOf[u.code]) return;
+      // Same "src_rial / dst_rial" convention factorFor() already uses below.
+      var factor = fromRial / rialPriceOf[u.code];
+      var row = document.createElement("tr");
+      var nameCell = document.createElement("td");
+      var sym = u.symbol || u.code.toUpperCase();
+      if (sym === "﷼") sym = "Rial";
+      nameCell.textContent = sym + " — " + (u.name || u.code.toUpperCase());
+      var valCell = document.createElement("td");
+      valCell.style.fontVariantNumeric = "tabular-nums";
+      valCell.textContent = formatMoney(grand * factor, u.code, ext) + " " + unitLabel(u.code, ext);
+      row.appendChild(nameCell);
+      row.appendChild(valCell);
+      body.appendChild(row);
+    });
+  }
+
   function syncFxRate(card, done) {
     var staleEl = card.querySelector(".pi-fx-stale");
     var noteEl = card.querySelector(".pi-fx-rate-note");
@@ -227,6 +289,7 @@
         fillUnitOptions(toSel, data.units, ext, to);
         lockFromSelect(card);
         card._fxStale = !!data.stale;
+        renderMultiPreview(card, data);
         if (saveBtn) saveBtn.disabled = !!data.stale || from === to || !data.convertible;
         if (data.convertible && data.rate != null && !data.stale) {
           setRateInputValue(rateInp, data.rate);

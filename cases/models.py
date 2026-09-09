@@ -230,6 +230,26 @@ class Case(models.Model):
         return PriceType.LABELS.get(self.price_type, "")
 
     @property
+    def holder_unit_label(self) -> str:
+        """Translated display text for ``holder_unit`` ("Technical" / "فنی"), not
+        the raw storage code ("TECHNICAL").
+
+        Added for case_detail.html's "Current owner" field: when
+        ``current_owner()`` below returns ``None`` (the case sits unassigned in
+        a unit's shared queue rather than with one named person) the template
+        falls back to showing which UNIT holds it — and used to print
+        ``holder_unit`` straight, which is a plain Python constant, never a
+        translatable string. Mirrors the exact same ``Unit.LABELS.get(...)``
+        lookup every other unit-label site in the codebase already uses
+        (accounts.models.Profile.unit_label, people/models.py, reports/views.py)
+        rather than inventing a new pattern. Falls back to the raw code for any
+        value not in ``Unit.LABELS`` (there shouldn't be one — holder_unit is
+        always one of the three workflow units — but this keeps a legacy/blank
+        value rendering exactly as before rather than turning it into "").
+        """
+        return Unit.LABELS.get(self.holder_unit, self.holder_unit)
+
+    @property
     def has_internal(self) -> bool:
         return self.price_type in (PriceType.INTERNAL, PriceType.BOTH)
 
@@ -316,6 +336,36 @@ class Case(models.Model):
         if side == Side.EXTERNAL:
             return self.external_holder or self.holder_unit
         return self.holder_unit
+
+    def current_owner(self, side: str = None):
+        """The PERSON currently holding this case's side, not just their unit.
+
+        ``side_holder`` answers "which unit"; the case-detail page also wants
+        "which person" — the case page shows every version to the owning
+        unit already, so a Commercial user watching a case they built wants
+        to know it moved from the Technical manager's queue to a specific
+        expert, not just that it is "with Technical" both before and after.
+        Falls back to the manager-level assignee (or ``None`` while a case
+        sits unassigned in a unit's shared queue) exactly as ``inbox_filter_q``
+        already resolves ownership for that unit.
+        """
+        side = side or self.primary_side
+        holder = self.side_holder(side)
+        if holder == Unit.COMMERCIAL:
+            return self.created_by
+        if holder == Unit.TECHNICAL:
+            if side == Side.INTERNAL and self.technical_internal_assignee_id:
+                return self.technical_internal_assignee
+            if side == Side.EXTERNAL and self.technical_external_assignee_id:
+                return self.technical_external_assignee
+            return self.technical_assignee
+        if holder == Unit.SUPPLY:
+            if side == Side.INTERNAL and self.supply_internal_assignee_id:
+                return self.supply_internal_assignee
+            if side == Side.EXTERNAL and self.supply_external_assignee_id:
+                return self.supply_external_assignee
+            return self.supply_assignee
+        return None
 
     def set_side_state(self, side: str, status: str, holder: str):
         if side == Side.INTERNAL:

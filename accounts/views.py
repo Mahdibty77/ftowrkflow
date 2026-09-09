@@ -57,6 +57,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone, translation
 from django.utils.decorators import method_decorator
+from django.utils.translation import gettext as _
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_POST
 
@@ -441,7 +442,7 @@ def seat_assign(request, pk):
     )
     profile = seat_user.profile
     if profile.is_admin or profile.is_general_manager:
-        messages.error(request, "Administrator and General Manager seats are not assigned this way.")
+        messages.error(request, _("Administrator and General Manager seats are not assigned this way."))
         return redirect("accounts:user_list")
 
     link = getattr(seat_user, "person_link", None)
@@ -454,11 +455,11 @@ def seat_assign(request, pk):
 
     to_pk = (request.POST.get("person") or "").strip()
     if not to_pk.isdigit():
-        messages.error(request, "Choose a person to assign this seat to.")
+        messages.error(request, _("Choose a person to assign this seat to."))
         return redirect("accounts:user_list")
     person = get_object_or_404(Person, pk=int(to_pk))
     if not person.is_active:
-        messages.error(request, "Cannot assign a seat to a departed person.")
+        messages.error(request, _("Cannot assign a seat to a departed person."))
         return redirect("accounts:user_list")
 
     try:
@@ -654,11 +655,11 @@ def seat_delegate(request, pk):
     )
     link = getattr(seat_user, "person_link", None)
     if link is None:
-        messages.error(request, "This seat is vacant — nothing to delegate.")
+        messages.error(request, _("This seat is vacant — nothing to delegate."))
         return redirect("accounts:user_list")
     role = PersonRole.objects.filter(person=link.person, source_user=seat_user).first()
     if role is None:
-        messages.error(request, "No role on this seat.")
+        messages.error(request, _("No role on this seat."))
         return redirect("accounts:user_list")
 
     if request.method == "POST":
@@ -671,13 +672,14 @@ def seat_delegate(request, pk):
             n = delegate_tasks(role, to_person, case_ids, actor=request.user)
             messages.success(
                 request,
-                f"Delegated {n} open task(s) to {to_person.display_name}.",
+                _("Delegated %(n)s open task(s) to %(name)s.")
+                % {"n": n, "name": to_person.display_name},
             )
             remaining = open_task_count(role)
             if remaining == 0 and request.POST.get("then_close") == "1":
                 from people.seats import close_seat
                 close_seat(role, actor=request.user)
-                messages.success(request, "Seat closed after delegating open tasks.")
+                messages.success(request, _("Seat closed after delegating open tasks."))
             return redirect("accounts:user_list")
         except SeatError as exc:
             messages.error(request, str(exc))
@@ -762,13 +764,17 @@ def user_create(request):
                     }
                     messages.success(
                         request,
-                        f"Seat “{code}” created and linked to {person.display_name}.",
+                        _("Seat “%(code)s” created and linked to %(name)s.")
+                        % {"code": code, "name": person.display_name},
                     )
                 else:
                     messages.success(
                         request,
-                        f"Seat “{code}” created and linked to {person.display_name}. "
-                        "Use “Reset password” to hand them a sign-in password.",
+                        _(
+                            "Seat “%(code)s” created and linked to %(name)s. "
+                            "Use “Reset password” to hand them a sign-in password."
+                        )
+                        % {"code": code, "name": person.display_name},
                     )
                 return redirect("people:person_seats", pk=person.pk)
             request.session["_reveal_credential"] = {
@@ -778,7 +784,8 @@ def user_create(request):
             }
             messages.success(
                 request,
-                f"Seat “{code}” created (inactive until assigned in People).",
+                _("Seat “%(code)s” created (inactive until assigned in People).")
+                % {"code": code},
             )
             return redirect("accounts:user_list")
     else:
@@ -800,7 +807,7 @@ def user_edit(request, pk):
     if user.last_login is not None:
         messages.error(
             request,
-            "This seat can no longer be edited — someone has already signed in with it.",
+            _("This seat can no longer be edited — someone has already signed in with it."),
         )
         return redirect("accounts:user_list")
     profile = user.profile
@@ -809,7 +816,7 @@ def user_edit(request, pk):
         form = UserEditForm(request.POST, request.FILES, user=user)
         if form.is_valid():
             form.save()
-            messages.success(request, "Seat updated.")
+            messages.success(request, _("Seat updated."))
             return redirect("accounts:user_list")
     else:
         gender_map = {
@@ -860,7 +867,7 @@ def user_reset_password(request, pk):
     """
     target = get_object_or_404(User.objects.select_related("profile"), pk=pk)
     if target.pk == request.user.pk:
-        messages.error(request, "Use your profile page to change your own password.")
+        messages.error(request, _("Use your profile page to change your own password."))
         return redirect("accounts:user_list")
 
     generated = generate_temp_password()
@@ -877,7 +884,10 @@ def user_reset_password(request, pk):
         "label": f"Password reset for {target.get_full_name() or target.username}",
     }
     messages.success(
-        request, f"Password reset for “{target.get_full_name() or target.username}”.")
+        request,
+        _("Password reset for “%(name)s”.")
+        % {"name": target.get_full_name() or target.username},
+    )
     return redirect("accounts:user_list")
 
 
@@ -901,7 +911,7 @@ def force_password_change(request):
         if form.is_valid():
             form.save()
             update_session_auth_hash(request, request.user)
-            messages.success(request, "Your password has been set. Welcome in.")
+            messages.success(request, _("Your password has been set. Welcome in."))
             return redirect("core:home")
     else:
         form = ForcePasswordChangeForm(user=request.user)
@@ -1013,7 +1023,7 @@ def impersonate_start(request, pk):
         # Platform Administrator nor a General Manager, including every
         # departmental manager. This explicit re-check exists so that fact
         # is not implicit.
-        messages.error(request, "Only a Platform Administrator or General Manager may impersonate a user.")
+        messages.error(request, _("Only a Platform Administrator or General Manager may impersonate a user."))
         return redirect(_impersonation_refusal_redirect(request))
 
     switching = bool(request.session.get("impersonator_id"))
@@ -1021,7 +1031,7 @@ def impersonate_start(request, pk):
     target = get_object_or_404(User.objects.select_related("profile"), pk=pk)
 
     if target.pk == actor.pk:
-        messages.error(request, "You are already signed in as yourself.")
+        messages.error(request, _("You are already signed in as yourself."))
         return redirect(_impersonation_refusal_redirect(request))
     if switching and target.pk == request.user.pk:
         # Same person twice — pressing "Log in as" again on a page restored
@@ -1030,10 +1040,12 @@ def impersonate_start(request, pk):
         # audit trail a spurious pair of rows.
         messages.info(
             request,
-            f"You are already viewing the platform as {target.get_full_name() or target.username}.")
+            _("You are already viewing the platform as %(name)s.")
+            % {"name": target.get_full_name() or target.username},
+        )
         return redirect("core:home")
     if not target.is_active:
-        messages.error(request, "This account is closed and cannot be impersonated.")
+        messages.error(request, _("This account is closed and cannot be impersonated."))
         return redirect(_impersonation_refusal_redirect(request))
     target_profile = getattr(target, "profile", None)
     if target_profile is not None and (target_profile.is_admin or target_profile.is_general_manager):
@@ -1042,7 +1054,7 @@ def impersonate_start(request, pk):
         # Manager identity can never be entered via impersonation, only by
         # signing in with its own credentials — this now matters for General
         # Manager accounts too, since they can initiate impersonation.
-        messages.error(request, "Administrator and General Manager accounts cannot be impersonated.")
+        messages.error(request, _("Administrator and General Manager accounts cannot be impersonated."))
         return redirect(_impersonation_refusal_redirect(request))
     if target_profile is not None and target_profile.must_change_password:
         # An account that is still on its admin-issued temporary password is one
@@ -1057,7 +1069,8 @@ def impersonate_start(request, pk):
         # chosen their own password.
         messages.error(
             request,
-            "This account has not set its own password yet and cannot be impersonated.")
+            _("This account has not set its own password yet and cannot be impersonated."),
+        )
         return redirect(_impersonation_refusal_redirect(request))
 
     original_admin_id = actor.pk
@@ -1104,7 +1117,9 @@ def impersonate_start(request, pk):
 
     messages.info(
         request,
-        f"You are now viewing the platform as {target.get_full_name() or target.username}.")
+        _("You are now viewing the platform as %(name)s.")
+        % {"name": target.get_full_name() or target.username},
+    )
     return redirect("core:home")
 
 
@@ -1145,12 +1160,13 @@ def impersonate_stop(request):
     if admin_user is None or not admin_user.is_active:
         messages.error(
             request,
-            "Could not return to the administrator account automatically. Please sign in again.")
+            _("Could not return to the administrator account automatically. Please sign in again."),
+        )
         return redirect("accounts:login")
 
     admin_user.backend = _AUTH_BACKEND
     auth_login(request, admin_user)
-    messages.info(request, "You're back in your own account.")
+    messages.info(request, _("You're back in your own account."))
     return redirect("accounts:user_list")
 
 
@@ -1166,7 +1182,7 @@ def my_profile(request):
         if "save_avatar" in request.POST:
             raw = request.FILES.get("avatar")
             if not raw:
-                messages.error(request, "Choose a photo to upload.")
+                messages.error(request, _("Choose a photo to upload."))
                 return redirect("accounts:my_profile")
             try:
                 raw = _validate_avatar_upload(raw)
@@ -1184,7 +1200,7 @@ def my_profile(request):
 
             data = raw.read()
             if not data:
-                messages.error(request, "The selected photo was empty. Try another file.")
+                messages.error(request, _("The selected photo was empty. Try another file."))
                 return redirect("accounts:my_profile")
             orig = (getattr(raw, "name", "") or "").lower()
             if orig.endswith(".png"):
@@ -1203,20 +1219,20 @@ def my_profile(request):
                 except Exception:
                     pass
             profile.avatar.save(base, ContentFile(data), save=True)
-            messages.success(request, "Profile photo saved.")
+            messages.success(request, _("Profile photo saved."))
             return redirect("accounts:my_profile")
         elif "clear_avatar" in request.POST:
             if profile.avatar:
                 profile.avatar.delete(save=False)
                 profile.avatar = None
                 profile.save(update_fields=["avatar"])
-            messages.success(request, "Profile photo removed.")
+            messages.success(request, _("Profile photo removed."))
             return redirect("accounts:my_profile")
         else:
             form = SelfProfileForm(request.POST, request.FILES, instance=profile)
             if form.is_valid():
                 form.save()
-                messages.success(request, "Your profile was updated.")
+                messages.success(request, _("Your profile was updated."))
                 return redirect("accounts:my_profile")
 
     # Only expose image URLs when the file actually exists on disk — otherwise
@@ -1340,22 +1356,22 @@ def settings_page(request):
                 # translated proof string (see accounts/templates/accounts/
                 # settings.html and locale/fa/LC_MESSAGES/django.po).
                 translation.activate(new_language)
-                messages.success(request, "Language updated.")
+                messages.success(request, _("Language updated."))
             else:
-                messages.error(request, "Please choose a valid language.")
+                messages.error(request, _("Please choose a valid language."))
             return redirect(settings_url)
         elif "change_password" in request.POST:
             pw_form = SelfPasswordForm(request.POST, user=request.user)
             if pw_form.is_valid():
                 pw_form.save()
                 update_session_auth_hash(request, request.user)
-                messages.success(request, "Your password was changed.")
+                messages.success(request, _("Your password was changed."))
                 return redirect(settings_url)
         elif "save_platform" in request.POST and is_admin:
             platform_form = AdminPlatformForm(request.POST, instance=PlatformConfig.load())
             if platform_form.is_valid():
                 platform_form.save()
-                messages.success(request, "Platform settings saved.")
+                messages.success(request, _("Platform settings saved."))
                 return redirect(settings_url)
         elif "save_daily_hours" in request.POST and is_admin:
             try:
@@ -1364,18 +1380,25 @@ def settings_page(request):
                 new_float = _parse_mmss_post(request, "float_time", "float_m", "float_s", 15, 0)
                 new_grace = _parse_mmss_post(request, "reconnect_time", "grace_m", "grace_s", 10, 0)
             except ValueError:
-                messages.error(request, "Please enter valid times (HH:MM / MM:SS).")
+                messages.error(request, _("Please enter valid times (HH:MM / MM:SS)."))
                 return redirect(settings_url)
             if new_start == new_end:
-                messages.error(request, "Start and end times must be different.")
+                messages.error(request, _("Start and end times must be different."))
                 return redirect(settings_url)
             n = _apply_global_daily_hours(new_start, new_end, new_float, new_grace)
             messages.success(
                 request,
-                f"Daily hours updated for all people ({n}): "
-                f"{new_start.strftime('%H:%M')}–{new_end.strftime('%H:%M')}, "
-                f"floating {sh.format_float_mmss(new_float)}, "
-                f"reconnect {sh.format_float_mmss(new_grace)}.",
+                _(
+                    "Daily hours updated for all people (%(n)s): "
+                    "%(start)s–%(end)s, floating %(float)s, reconnect %(reconnect)s."
+                )
+                % {
+                    "n": n,
+                    "start": new_start.strftime("%H:%M"),
+                    "end": new_end.strftime("%H:%M"),
+                    "float": sh.format_float_mmss(new_float),
+                    "reconnect": sh.format_float_mmss(new_grace),
+                },
             )
             return redirect(settings_url)
         elif "save_unit_stamps" in request.POST and is_admin:
@@ -1384,7 +1407,7 @@ def settings_page(request):
             )
             if stamps_form.is_valid():
                 stamps_form.save()
-                messages.success(request, "Unit stamps updated.")
+                messages.success(request, _("Unit stamps updated."))
                 return redirect(settings_url)
 
     def _media_url(field):
@@ -1693,18 +1716,26 @@ def user_toggle_active(request, pk):
     user = get_object_or_404(User, pk=pk)
     if request.method == "POST":
         if user == request.user:
-            messages.error(request, "You cannot disable your own account.")
+            messages.error(request, _("You cannot disable your own account."))
         else:
             user.is_active = not user.is_active
             user.save(update_fields=["is_active"])
             if user.is_active:
-                messages.success(request, f"Access restored for {user.get_full_name() or user.username}.")
+                messages.success(
+                    request,
+                    _("Access restored for %(name)s.")
+                    % {"name": user.get_full_name() or user.username},
+                )
             else:
                 # Deactivating alone doesn't end a session already open in
                 # someone's browser — without this, "cut off" only blocks the
                 # *next* sign-in attempt, not access already in progress.
                 _kill_sessions_for(user)
-                messages.success(request, f"Access cut off for {user.get_full_name() or user.username}.")
+                messages.success(
+                    request,
+                    _("Access cut off for %(name)s.")
+                    % {"name": user.get_full_name() or user.username},
+                )
     return redirect("accounts:user_list")
 
 
@@ -1924,65 +1955,77 @@ def backup_console(request):
                 )
                 messages.success(
                     request,
-                    "Backup started on this server: database (cases, people, seats…) "
-                    "into backups/db/ and media into backups/media/. Wait a few seconds "
-                    "and refresh — new files appear in Available backups below.",
+                    _(
+                        "Backup started on this server: database (cases, people, seats…) "
+                        "into backups/db/ and media into backups/media/. Wait a few seconds "
+                        "and refresh — new files appear in Available backups below."
+                    ),
                 )
             else:
                 messages.error(
                     request,
-                    "Could not start the backup (backups folder not writable). "
-                    "Check that the backup service is running and the backups "
-                    "folder is mounted.",
+                    _(
+                        "Could not start the backup (backups folder not writable). "
+                        "Check that the backup service is running and the backups "
+                        "folder is mounted."
+                    ),
                 )
 
         elif action == "restore":
             name = (request.POST.get("name", "") or "").replace("\\", "/")
             if not _safe_backup_path(name):
-                messages.error(request, "Invalid backup file selected.")
+                messages.error(request, _("Invalid backup file selected."))
             elif _queue_request("restore", name):
                 _write_status("running", "restore", name, "Restore in progress…")
                 kind = _backup_kind(name)
                 if kind == "code_db":
                     messages.success(
                         request,
-                        "Code-tables restore queued. This replaces the SQLite code databases only "
-                        "(pipe/fitting/…). Refresh in a few seconds to see the result.",
+                        _(
+                            "Code-tables restore queued. This replaces the SQLite code databases only "
+                            "(pipe/fitting/…). Refresh in a few seconds to see the result."
+                        ),
                     )
                 elif kind == "media":
                     messages.success(
                         request,
-                        "Media restore queued. This replaces uploaded files only "
-                        "(avatars, stamps, signatures). Refresh in a few seconds to see the result.",
+                        _(
+                            "Media restore queued. This replaces uploaded files only "
+                            "(avatars, stamps, signatures). Refresh in a few seconds to see the result."
+                        ),
                     )
                 elif kind == "db":
                     messages.success(
                         request,
-                        "Database restore queued. This replaces PostgreSQL data "
-                        "(cases, people, seats…). Media and code tables are left unchanged. "
-                        "You may need to sign in again. Refresh in a few seconds to see the result.",
+                        _(
+                            "Database restore queued. This replaces PostgreSQL data "
+                            "(cases, people, seats…). Media and code tables are left unchanged. "
+                            "You may need to sign in again. Refresh in a few seconds to see the result."
+                        ),
                     )
                 else:
                     messages.success(
                         request,
-                        "Restore queued. It replaces the current database and uploaded files "
-                        "(code tables are left unchanged unless this is an older full backup). "
-                        "You may need to sign in again. Refresh in a few seconds to see the result.",
+                        _(
+                            "Restore queued. It replaces the current database and uploaded files "
+                            "(code tables are left unchanged unless this is an older full backup). "
+                            "You may need to sign in again. Refresh in a few seconds to see the result."
+                        ),
                     )
             else:
-                messages.error(request, "Could not queue the restore (backups folder not writable).")
+                messages.error(request, _("Could not queue the restore (backups folder not writable)."))
 
         elif action == "upload":
             upload = request.FILES.get("backup_file")
             if upload is None:
-                messages.error(request, "Please choose a .tar.gz backup file to upload.")
+                messages.error(request, _("Please choose a .tar.gz backup file to upload."))
             elif not upload.name.endswith(".tar.gz"):
-                messages.error(request, "The file must be a .tar.gz backup archive.")
+                messages.error(request, _("The file must be a .tar.gz backup archive."))
             elif getattr(upload, "size", 0) and int(upload.size) > BACKUP_UPLOAD_MAX_BYTES:
                 messages.error(
                     request,
-                    "Backup file is too large (max %s GB)."
-                    % (BACKUP_UPLOAD_MAX_BYTES // (1024 ** 3)),
+                    _("Backup file is too large (max %(gb)s GB).")
+                    % {"gb": BACKUP_UPLOAD_MAX_BYTES // (1024 ** 3)},
                 )
             else:
                 # Uploads land under db/ so they appear in the list and can be restored.
@@ -2007,7 +2050,8 @@ def backup_console(request):
                     else:
                         messages.success(
                             request,
-                            "Uploaded as %s. You can restore it from the list below." % dest_rel,
+                            _("Uploaded as %(name)s. You can restore it from the list below.")
+                            % {"name": dest_rel},
                         )
                 except ValueError:
                     try:
@@ -2016,11 +2060,11 @@ def backup_console(request):
                         pass
                     messages.error(
                         request,
-                        "Backup file is too large (max %s GB)."
-                        % (BACKUP_UPLOAD_MAX_BYTES // (1024 ** 3)),
+                        _("Backup file is too large (max %(gb)s GB).")
+                        % {"gb": BACKUP_UPLOAD_MAX_BYTES // (1024 ** 3)},
                     )
                 except OSError:
-                    messages.error(request, "Failed to save the uploaded file.")
+                    messages.error(request, _("Failed to save the uploaded file."))
 
         return redirect("accounts:backup_console")
 
@@ -2047,7 +2091,7 @@ def backup_console(request):
         backups = _list_backups()
     except Exception:
         backups = []
-        messages.error(request, "Could not read the backups folder.")
+        messages.error(request, _("Could not read the backups folder."))
 
     context = {
         "backups": backups,

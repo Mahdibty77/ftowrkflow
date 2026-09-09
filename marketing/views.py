@@ -212,6 +212,75 @@ def home(request):
         # test — see chart_interact.js's renderUsCasesPanelContent.
         "can_open_cases": case_access.can_open,
         "case_open_prefix": _case_open_prefix(case_access),
+        # Every string chart_interact.js used to set literally (a mode-banner
+        # label, an empty-list placeholder, a tooltip) — see that file's own
+        # top-of-file "---- i18n ----" comment for how it reads this, and
+        # home.html's own {% block scripts %} for where it is handed over via
+        # json_script.
+        #
+        # BUILT HERE, IN PYTHON, RATHER THAN AS A RUN OF {% trans %} TAGS IN
+        # THE TEMPLATE — deliberately, not a style preference: Django's own
+        # {% trans %} tag, given a literal string argument, doubles every '%'
+        # in it (Variable.resolve()'s own defensive escaping, so a translated
+        # literal can later survive an old-style %-format call unchanged)
+        # BEFORE the doubled string ever reaches gettext() — so a template tag
+        # written as {% trans "...%(name)s..." %} does not look up the catalog
+        # entry keyed on "...%(name)s..." at all, it looks up one keyed on
+        # "...%%(name)%%s...", which does not exist, and silently renders the
+        # original English back. Caught live on this exact page: the plain-
+        # word keys (no '%' in them) translated correctly through a {% trans
+        # %} tag, but every %(name)s-style composite here quietly stayed
+        # English. gettext() called directly, from Python, has no such
+        # escaping step, so building the whole dict here sidesteps the bug
+        # rather than working around it string-by-string in the template.
+        "chart_i18n": {
+            "caseMode": _("Case mode"),
+            "editingCaseFor": _("Editing chart for case %(doc)s — %(client)s"),
+            "leaveCaseMode": _("Leave case mode"),
+            "active": _("Active"),
+            "deactivate": _("Deactivate"),
+            "showing": _("Showing"),
+            "query": _("Query"),
+            "clear": _("Clear"),
+            "clearAll": _("Clear all"),
+            "editsAttachTo": _("edits attach to %(name)s"),
+            "editsAttachToRole": _("edits attach to %(name)s — %(role)s"),
+            "chartShowing": _("chart is showing %(name)s"),
+            "chartShowingRole": _("chart is showing %(name)s — %(role)s"),
+            "noCompaniesMatch": _('No companies match "%(q)s".'),
+            "noCompaniesYet": _("No companies yet."),
+            # The "+ Add company" panel and the Quick Inquiry company field
+            # both create a brand-new client through the SAME shared
+            # createCompanyPicker() helper (chart_interact.js), so this one
+            # entry covers the create-row text in both places.
+            "addQuoted": _('+ Add "%(name)s"'),
+            "noRolesYetPeriod": _("No roles yet."),
+            "noRolesMatch": _('No roles match "%(q)s".'),
+            "casesConnectedToUs": _("Cases connected to Us"),
+            "showingOfCases": _("Showing %(shown)s of %(total)s cases"),
+            "openInArchive": _("Open %(name)s in the case archive →"),
+            "addCompanyBtn": _("+ Add company"),
+            "addCompanyTitle": _("Add a company"),
+            "closeAddCompanyPanel": _("Close add-company panel"),
+            "searchWholeDirectory": _("Search the whole directory…"),
+            "add": _("Add"),
+            "nothingConnectedYet": _("Nothing connected yet."),
+            "notConnectedToAnythingYet": _("Not connected to anything yet."),
+            "noCompaniesTaggedYet": _("No companies tagged yet."),
+            "noCasesFound": _("No cases found."),
+            "removeCompany": _("Remove %(name)s"),
+            "activateAsThis": _("Activate as this"),
+            "activateAsAnchor": _("Activate %(name)s as this card's anchor"),
+            "connectionOnly": _("connection only"),
+            "chooseARole": _("Choose a role…"),
+            "noRolesYet": _("No roles yet"),
+            "loadingRoles": _("Loading roles…"),
+            "pickCompanyFirst": _("Pick a company first…"),
+            "chooseRoleToAdd": _("Choose a role to add…"),
+            "alreadyHasEveryRole": _("Already has every role"),
+            "noCasesMatch": _('No cases match "%(q)s".'),
+            "noCasesYet": _("No cases yet."),
+        },
     }
     # An optional "jump straight into this case's marketing connections" deep
     # link (?case=123), the entry point a new button on the cases archive
@@ -2165,10 +2234,16 @@ def _task_rows(request, case_access, scope: str = "own") -> list:
       zero-padded 24-hour ``HH``), computed off ``timezone.localtime`` the
       same way ``core/templatetags/ft_extras.py::jalali`` converts before it
       prints a stamp, so a row's own group key and its own printed time can
-      never disagree about which calendar day or hour it falls in. They
-      exist purely for the CLIENT-SIDE day/hour pills
-      (``marketing/static/marketing/js/my_tasks.js``) — nothing server-side
-      ever reads them back.
+      never disagree about which calendar day or hour it falls in.
+      ``day_key`` is read in TWO places: the CLIENT-SIDE day pills
+      (``marketing/static/marketing/js/my_tasks.js``, unchanged this round)
+      AND, server-side, ``_task_hour_groups`` below, which only ever places
+      a row in an hour box when its own ``day_key`` is today's. ``hour_key``
+      USED to also drive a client-side hour-pill click-filter; that pill row
+      is gone (see ``_my_tasks_reminders.html``'s own head comment and
+      ``_task_hour_groups``'s own docstring), so it is now read ONLY
+      server-side, by that same function, to decide which box a row's
+      content actually renders inside.
 
     ``row.created_at`` NEEDS NO COMPUTATION HERE AT ALL — ``Reminder.created_at``
     (``auto_now_add=True``) IS ALREADY ON EVERY ROW ``reminders.list_for_user``
@@ -2278,9 +2353,15 @@ def _task_day_groups(rows) -> list:
 
 
 def _task_hour_blocks(user) -> list:
-    """Hour-block pills for TODAY, spanning THIS person's own work-shift
-    window rather than a flat 24-hour grid — the owner's own wording,
-    "طبق شیفت کاری اش" (according to their own work shift). Built off
+    """Hour blocks for TODAY, spanning THIS person's own work-shift window
+    rather than a flat 24-hour grid — the owner's own wording, "طبق شیفت
+    کاری اش" (according to their own work shift). USED TO be rendered as a
+    row of clickable pills (see ``_task_hours_with_reminders``'s own
+    docstring for the click-filter this round retired); now each one is an
+    always-visible box (``_task_hour_groups`` below, and
+    ``_my_tasks_reminders.html``'s own head comment), but the blocks
+    themselves — which hours, and their own "HH:00" label — are unchanged;
+    only what the template does with them is different. Built off
     ``people/work_shift.py::shift_window(person_for_user(user))`` — the SAME
     pair ``marketing/reminders.py::validate_due_at_shift`` reads, so the
     blocks a person sees here and the window their own submitted time is
@@ -2314,20 +2395,24 @@ def _task_hours_with_reminders(rows) -> set:
     actually contain at least one of this viewer's own reminders — the
     owner's own ask for the hour-block row: every block used to render
     identically whether it held something due or nothing at all, so seeing
-    what needs attention meant opening each hour in turn. This just answers
-    "which keys", nothing about count or which reminder — ``my_tasks.html``
-    only ever needs a yes/no per button to give it a distinct look.
+    what needs attention meant reading each one's own content in turn
+    (originally: opening each hour's click-filter to find out; now: reading
+    the box itself — see ``_task_hour_groups`` below for the click-filter
+    this round retired). This just answers "which keys", nothing about
+    count or which reminder — ``my_tasks.html`` only ever needs a yes/no per
+    box to give it a distinct look (``has_reminder``, merged onto each block
+    by the view, one flag per hour, muted styling for a "no" — see
+    ``_my_tasks_reminders.html``'s own head comment).
 
     REUSES ``row.day_key``/``row.hour_key`` RATHER THAN RE-DERIVING THEM FROM
     ``row.due_at`` A SECOND TIME — the exact pair ``_task_rows`` already
-    computes off ``timezone.localtime`` for the client-side day/hour pills
-    (see that function's own docstring); recomputing here off the raw
-    (UTC-stored) ``due_at`` would risk a reminder just after local midnight
-    disagreeing with which day/hour the table and this set say it falls in.
-    ``today_key`` is computed the same ``timezone.localtime`` way for the
-    identical reason — a naive ``date()`` on ``now()`` would be the SERVER's
-    date, not this viewer's own local one, on any deployment where they ever
-    differ.
+    computes off ``timezone.localtime`` (see that function's own docstring);
+    recomputing here off the raw (UTC-stored) ``due_at`` would risk a
+    reminder just after local midnight disagreeing with which day/hour the
+    table and this set say it falls in. ``today_key`` is computed the same
+    ``timezone.localtime`` way for the identical reason — a naive ``date()``
+    on ``now()`` would be the SERVER's date, not this viewer's own local
+    one, on any deployment where they ever differ.
 
     Takes plain ``rows`` (ALL of them, any day) rather than a scope/user pair
     — the view already has them in hand for the table itself, and this is a
@@ -2337,6 +2422,57 @@ def _task_hours_with_reminders(rows) -> set:
 
     today_key = timezone.localtime(timezone.now()).date().isoformat()
     return {row.hour_key for row in rows if row.day_key == today_key}
+
+
+def _task_hour_groups(rows, hour_blocks) -> list:
+    """Attaches TODAY's own reminders onto their matching hour block, for
+    the always-visible per-hour boxes ``_my_tasks_reminders.html`` now
+    renders instead of the click-to-filter hour-pill row this round retired
+    — the owner's own instruction, "کلا تب های ساعت‌ها ... را خالی بزار"
+    (empty the hour-tabs concept out entirely): rather than one flat table a
+    click narrowed by hour, every shift hour is now its own box, and a box
+    whose ``has_reminder`` is true renders its OWN matching rows directly,
+    with no click needed to reach them.
+
+    TAKES ``hour_blocks`` AFTER ``has_reminder`` HAS ALREADY BEEN STAMPED
+    ONTO IT (the view's own call order, just below) and returns the SAME
+    list with one more key, ``rows``, added to each block — never a second,
+    competing notion of which hour a reminder belongs to: both keys are
+    read off the identical ``row.hour_key`` (``_task_rows``), so a block's
+    own "does it have anything" flag and the actual rows its box renders
+    can never disagree with each other.
+
+    ONE PASS OVER ``rows`` — a plain dict keyed by ``hour_key``, built once
+    and looked up once per block — rather than the nested "for every block,
+    scan every row" a template-side grouping loop would otherwise have to
+    do; with a shift window in the dozens of hours at most and a viewer's
+    own reminder count typically far smaller neither shape would ever be
+    slow in practice, but a single pass costs nothing extra to write and
+    keeps the template a flat loop instead of a nested one — see this
+    page's own docstring for why the grouping was done here, server-side,
+    rather than in the template.
+
+    TODAY ONLY, the exact restriction ``_task_hour_blocks``/
+    ``_task_hours_with_reminders`` already carry — a row whose ``day_key``
+    is not today's own local date is simply never placed in any group,
+    exactly as it was never reachable through the old hour-pill row either.
+
+    MUTATES AND RETURNS THE SAME ``hour_blocks`` LIST — the same shape
+    ``_task_rows`` already uses when it stamps display fields directly onto
+    each row rather than building a parallel structure; there is exactly
+    ONE list of hour blocks on this page, this function's own job is only
+    ever to add one more key to each entry already in it.
+    """
+    from django.utils import timezone
+
+    today_key = timezone.localtime(timezone.now()).date().isoformat()
+    by_hour: dict = {}
+    for row in rows:
+        if row.day_key == today_key:
+            by_hour.setdefault(row.hour_key, []).append(row)
+    for block in hour_blocks:
+        block["rows"] = by_hour.get(block["key"], [])
+    return hour_blocks
 
 
 def _task_report_rows(request, case_access, scope: str = "own") -> list:
@@ -2512,16 +2648,28 @@ def my_tasks(request, scope: str = "own"):
     the way every other Marketing page does, and never offers a case this
     viewer's own commercial seat access would refuse.
 
-    DAY/HOUR GROUPING AND THE FILTER CARD ARE BOTH CLIENT-SIDE, over the ONE
+    THE DAY PILL AND THE FILTER CARD ARE BOTH CLIENT-SIDE, over the ONE
     table this view renders every one of this viewer's own rows into —
     ``static/js/ui.js``'s existing ``data-filter-table`` pass, the exact
     mechanism the case archive and ``company_detail.html``'s own Reports/
     Reminders tabs already use, driven here by a few extra HIDDEN columns
-    (Day/Hour/State) and a small page-only script
+    (Day/State) and a small page-only script
     (``marketing/static/marketing/js/my_tasks.js``) that sets those hidden
     controls' values and re-runs the SAME filter pass ui.js already exposes
     (``table.ftApplyFilters``) rather than teaching the table a second way to
     hide a row. See the template for the full wiring.
+
+    THE HOUR BOXES ARE SERVER-SIDE GROUPING, NOT A THIRD HIDDEN COLUMN — an
+    earlier version of this page ALSO put Hour behind a hidden column and a
+    click-filter pill row the way Day and State still are; that pill row is
+    gone this round (``_task_hour_groups``, and ``_my_tasks_reminders.html``
+    's own head comment, both explain why), replaced by boxes the view
+    itself groups ``rows`` onto. The filter card still has to reach the
+    reminders rendered inside those boxes, which are plain ``<div>``s, not
+    the ``<tr>``s ``data-filter-table`` already knows how to hide — see the
+    template's own head comment and ``my_tasks.js``'s own for the small,
+    page-owned second pass that keeps them in step with the SAME filter
+    card instead.
 
     ``?from=``/``?to=`` PRE-FILL THE REMINDERS TAB'S OWN DUE-DATE RANGE, A
     NEW ENTRY POINT ADDED FOR THE SHIFT PAGE'S OPEN-REMINDER BADGES
@@ -2566,7 +2714,7 @@ def my_tasks(request, scope: str = "own"):
     case_choices = _visible_case_rows_all(request, case_access)
     rows = _task_rows(request, case_access, scope=scope)
     report_rows = _task_report_rows(request, case_access, scope=scope)
-    # The hour-block row's own "does this hour actually have something due"
+    # The hour-box row's own "does this hour actually have something due"
     # mark — see _task_hours_with_reminders's own docstring. Computed over
     # THIS viewer's own `rows` (already in hand for the table itself, not a
     # second query) and merged onto `hour_blocks` here, in the view, rather
@@ -2577,6 +2725,11 @@ def my_tasks(request, scope: str = "own"):
     hours_with_reminders = _task_hours_with_reminders(rows)
     for block in hour_blocks:
         block["has_reminder"] = block["key"] in hours_with_reminders
+    # THEN, and only then, hand hour_blocks (has_reminder already stamped)
+    # to _task_hour_groups so it can add each block's own `rows` — see that
+    # function's own docstring for why this order matters and why the
+    # grouping happens here rather than as a nested loop in the template.
+    hour_groups = _task_hour_groups(rows, hour_blocks)
 
     return render(request, "marketing/my_tasks.html", {
         "active_tab": "reminders",
@@ -2609,7 +2762,11 @@ def my_tasks(request, scope: str = "own"):
             {(r.person_name, r.person_key) for r in rows if r.person_key}
         ) if scope == "all" else [],
         "day_groups": _task_day_groups(rows),
-        "hour_blocks": hour_blocks,
+        # Each hour block PLUS its own matching rows (`_task_hour_groups`
+        # above) — the always-visible per-hour boxes render straight off
+        # this, one flat loop, rather than filtering `rows` themselves once
+        # per hour (see that function's own docstring).
+        "hour_groups": hour_groups,
         # The Reminders tab's own Due-date range, pre-filled from the query
         # string — see this view's own docstring's "``?from=``/``?to=``"
         # section. Blank on every ordinary visit (``request.GET`` carries

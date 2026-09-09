@@ -93,6 +93,36 @@
 
   var CAN_EDIT = !!CFG.canEdit;
 
+  // ---- i18n --------------------------------------------------------------
+  // Every string this file used to set literally (a banner label, an
+  // empty-list placeholder, a tooltip) now comes from CFG.i18n instead — see
+  // home.html's own {% block scripts %} for where each key is translated
+  // server-side via {% trans %}. ``t(key)`` is the plain lookup (falls back
+  // to the key itself only if CFG.i18n is somehow missing a key, so a typo
+  // here shows up as a visibly wrong word rather than a blank banner);
+  // ``fmt(template, params)`` is the one substitution step every %(name)s
+  // placeholder in those translated strings needs — the same %(name)s
+  // convention the Python side's own gettext() calls already use, so a
+  // translator sees ONE style of placeholder across the whole platform
+  // rather than a Python flavour and a separate JS one. Composite sentences
+  // (the mode banner's "edits attach to X — role", "chart is showing X —
+  // role") deliberately carry a SEPARATE fully-translated template for the
+  // with-role and without-role cases (editsAttachTo/editsAttachToRole,
+  // chartShowing/chartShowingRole) rather than one template with an
+  // optional fragment spliced in — exactly the two-branch shape a Django
+  // {% blocktrans %} with an {% if %} around it would produce, so Persian
+  // word order can differ from English in either branch independently
+  // instead of being pinned to wherever the English fragment happens to sit.
+  function t(key) {
+    return (CFG.i18n && CFG.i18n[key]) || key;
+  }
+  function fmt(key, params) {
+    var template = t(key);
+    return template.replace(/%\(([a-zA-Z0-9_]+)\)s/g, function (whole, name) {
+      return Object.prototype.hasOwnProperty.call(params, name) ? params[name] : whole;
+    });
+  }
+
   var svg = document.getElementById('rcSvg');
   var queryLinesG = document.getElementById('rcQueryLines');
 
@@ -191,7 +221,7 @@
       if (!companies.length) {
         var empty = document.createElement('div');
         empty.className = 'rc-row-empty';
-        empty.textContent = q ? 'No companies match "' + q + '".' : 'No companies yet.';
+        empty.textContent = q ? fmt('noCompaniesMatch', { q: q }) : t('noCompaniesYet');
         listEl.appendChild(empty);
       }
       // "+ Add ..." only when there is text to add, it does not already name
@@ -271,7 +301,7 @@
     function buildCreateRow(name) {
       var row = document.createElement('div');
       row.className = 'rc-row mc-row-add';
-      row.textContent = '+ Add "' + name + '"';
+      row.textContent = fmt('addQuoted', { name: name });
       function activate() {
         post(CFG.clientCreateUrl, { name: name }).then(function (data) {
           if (!data.ok) { return; }
@@ -393,7 +423,7 @@
       if (!matches.length) {
         var empty = document.createElement('div');
         empty.className = 'rc-row-empty';
-        empty.textContent = !items.length ? 'No roles yet.' : 'No roles match "' + q + '".';
+        empty.textContent = !items.length ? t('noRolesYetPeriod') : fmt('noRolesMatch', { q: q });
         listEl.appendChild(empty);
       }
     }
@@ -583,11 +613,16 @@
     var queryIsAnchor = !!(activeAnchor && queryStatus &&
       queryStatus.clientId === activeAnchor.client.id &&
       queryStatus.field === activeAnchor.field);
+    var anchorRole = activeAnchor ? roleTextFor(activeAnchor.field) : '';
     var anchorNote = activeAnchor
-      ? 'edits attach to ' + activeAnchor.client.name + ' — ' + roleTextFor(activeAnchor.field)
+      ? (anchorRole
+          ? fmt('editsAttachToRole', { name: activeAnchor.client.name, role: anchorRole })
+          : fmt('editsAttachTo', { name: activeAnchor.client.name }))
       : '';
     var showingNote = queryStatus
-      ? 'chart is showing ' + queryStatus.name + (queryStatus.role ? ' — ' + queryStatus.role : '')
+      ? (queryStatus.role
+          ? fmt('chartShowingRole', { name: queryStatus.name, role: queryStatus.role })
+          : fmt('chartShowing', { name: queryStatus.name }))
       : '';
     modeBannerNote.hidden = true;
     modeBannerNote.textContent = '';
@@ -595,8 +630,8 @@
     // 1. CASE MODE — the one state that wins outright, wording unchanged.
     if (caseMeta) {
       modeBanner.hidden = false;
-      modeBannerLabel.textContent = 'Case mode';
-      setBannerText('Editing chart for case ' + caseMeta.docNo + ' — ' + caseMeta.clientName, '');
+      modeBannerLabel.textContent = t('caseMode');
+      setBannerText(fmt('editingCaseFor', { doc: caseMeta.docNo, client: caseMeta.clientName }), '');
       // Everything that is ALSO true and cannot be read off that line: a
       // query painted for someone else (Quick Inquiry over case mode), and/or
       // an anchor a pivot has moved off the case's own client.
@@ -607,16 +642,16 @@
         modeBannerNote.textContent = notes.join(' · ');
         modeBannerNote.hidden = false;
       }
-      modeBannerBtn.textContent = 'Leave case mode';
+      modeBannerBtn.textContent = t('leaveCaseMode');
       return;
     }
 
     // 2. A COMPANY IS ACTIVE, and the chart is showing its own query.
     if (activeAnchor && (!queryStatus || queryIsAnchor)) {
       modeBanner.hidden = false;
-      modeBannerLabel.textContent = 'Active';
+      modeBannerLabel.textContent = t('active');
       setBannerText(activeAnchor.client.name, roleTextFor(activeAnchor.field));
-      modeBannerBtn.textContent = 'Deactivate';
+      modeBannerBtn.textContent = t('deactivate');
       return;
     }
 
@@ -624,20 +659,20 @@
     //    to another.
     if (activeAnchor && queryStatus) {
       modeBanner.hidden = false;
-      modeBannerLabel.textContent = 'Showing';
+      modeBannerLabel.textContent = t('showing');
       setBannerText(queryStatus.name, queryStatus.role || '');
       modeBannerNote.textContent = anchorNote;
       modeBannerNote.hidden = false;
-      modeBannerBtn.textContent = 'Clear all';
+      modeBannerBtn.textContent = t('clearAll');
       return;
     }
 
     // 4. A plain query that set no anchor at all.
     if (queryStatus) {
       modeBanner.hidden = false;
-      modeBannerLabel.textContent = 'Query';
+      modeBannerLabel.textContent = t('query');
       setBannerText(queryStatus.name, queryStatus.role || '');
-      modeBannerBtn.textContent = 'Clear';
+      modeBannerBtn.textContent = t('clear');
       return;
     }
 
@@ -1275,7 +1310,7 @@
   usCasesHead.className = 'rc-us-cases-head';
   var usCasesTitle = document.createElement('div');
   usCasesTitle.className = 'rc-us-cases-title';
-  usCasesTitle.textContent = 'Cases connected to Us';
+  usCasesTitle.textContent = t('casesConnectedToUs');
   usCasesHead.appendChild(usCasesTitle);
   var usCasesCounts = document.createElement('div');
   usCasesCounts.className = 'rc-us-cases-counts';
@@ -1349,7 +1384,7 @@
     // exactly the rows underneath it.
     var shownCases = total > US_CASES_MAX_ROWS ? cases.slice(0, US_CASES_MAX_ROWS) : cases;
     usCasesMore.hidden = shownCases.length >= total;
-    usCasesMore.textContent = 'Showing ' + shownCases.length + ' of ' + total + ' cases';
+    usCasesMore.textContent = fmt('showingOfCases', { shown: shownCases.length, total: total });
     cases = shownCases;
     var order = [];
     var byLabel = {};
@@ -1549,7 +1584,7 @@
       encodeURIComponent(client.name + ' (' + client.code + ')');
     if (CFG.caseOpenPrefix) { target = CFG.caseOpenPrefix + encodeURIComponent(target); }
     usCasesArchiveLink.href = target;
-    usCasesArchiveLink.textContent = 'Open ' + client.name + ' in the case archive →';
+    usCasesArchiveLink.textContent = fmt('openInArchive', { name: client.name });
     usCasesArchiveLink.hidden = false;
   }
 
@@ -2340,7 +2375,7 @@
   var addCompanyBtn = document.createElement('button');
   addCompanyBtn.type = 'button';
   addCompanyBtn.className = 'btn btn-sm rc-modal-add';
-  addCompanyBtn.textContent = '+ Add company';
+  addCompanyBtn.textContent = t('addCompanyBtn');
   addCompanyBtn.hidden = true;
   modalHeadEl.insertBefore(addCompanyBtn, closeX);
 
@@ -2352,12 +2387,12 @@
   addCompanyHead.className = 'rc-add-company-head';
   var addCompanyTitle = document.createElement('div');
   addCompanyTitle.className = 'rc-add-company-title';
-  addCompanyTitle.textContent = 'Add a company';
+  addCompanyTitle.textContent = t('addCompanyTitle');
   addCompanyHead.appendChild(addCompanyTitle);
   var addCompanyCloseBtn = document.createElement('button');
   addCompanyCloseBtn.type = 'button';
   addCompanyCloseBtn.className = 'rc-modal-x';
-  addCompanyCloseBtn.setAttribute('aria-label', 'Close add-company panel');
+  addCompanyCloseBtn.setAttribute('aria-label', t('closeAddCompanyPanel'));
   addCompanyCloseBtn.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
   addCompanyHead.appendChild(addCompanyCloseBtn);
   addCompanyPanel.appendChild(addCompanyHead);
@@ -2369,7 +2404,7 @@
   var addCompanySearchInput = document.createElement('input');
   addCompanySearchInput.type = 'text';
   addCompanySearchInput.className = 'rc-modal-search-input';
-  addCompanySearchInput.placeholder = 'Search the whole directory…';
+  addCompanySearchInput.placeholder = t('searchWholeDirectory');
   addCompanySearchInput.autocomplete = 'off';
   addCompanySearchInput.setAttribute('dir', 'auto');
   addCompanySearchWrap.appendChild(addCompanySearchInput);
@@ -2388,7 +2423,7 @@
   var addCompanyConfirmBtn = document.createElement('button');
   addCompanyConfirmBtn.type = 'button';
   addCompanyConfirmBtn.className = 'btn btn-sm btn-primary';
-  addCompanyConfirmBtn.textContent = 'Add';
+  addCompanyConfirmBtn.textContent = t('add');
   addCompanyConfirmBtn.disabled = true;
   addCompanyActions.appendChild(addCompanyConfirmBtn);
   addCompanyPanel.appendChild(addCompanyActions);
@@ -2665,7 +2700,7 @@
     } else if (modalKind === 'inert') {
       renderInertMessage();
     } else if (modalKind === 'us') {
-      if (CFG.isAdminTier) { fetchAllCasesSearch(''); } else { renderEmptyRow('Nothing connected yet.'); }
+      if (CFG.isAdminTier) { fetchAllCasesSearch(''); } else { renderEmptyRow(t('nothingConnectedYet')); }
     } else {
       fetchLabelCompanies();
     }
@@ -2697,7 +2732,7 @@
   // query, not a new selection).
   function renderContextualQueryRow(field) {
     listEl.innerHTML = '';
-    if (!lastQueryData) { renderEmptyRow('Nothing connected yet.'); return; }
+    if (!lastQueryData) { renderEmptyRow(t('nothingConnectedYet')); return; }
     var row = document.createElement('div');
     row.className = 'rc-row rc-row-static';
     var name = document.createElement('span');
@@ -2713,7 +2748,7 @@
   // fields this round, so there is nothing to list and nothing to do beyond
   // Close (already the only visible button — see configureDefaultActions).
   function renderInertMessage() {
-    renderEmptyRow('Not connected to anything yet.');
+    renderEmptyRow(t('notConnectedToAnythingYet'));
   }
 
   // ---- "label" cards: default browsing mode ------------------------------
@@ -2770,7 +2805,7 @@
     if (!companies.length) {
       var empty = document.createElement('div');
       empty.className = 'rc-row-empty';
-      empty.textContent = 'No companies tagged yet.';
+      empty.textContent = t('noCompaniesTaggedYet');
       listEl.appendChild(empty);
       return;
     }
@@ -2836,7 +2871,7 @@
       var xBtn = document.createElement('button');
       xBtn.type = 'button';
       xBtn.className = 'rc-row-remove';
-      xBtn.setAttribute('aria-label', 'Remove ' + company.name);
+      xBtn.setAttribute('aria-label', fmt('removeCompany', { name: company.name }));
       xBtn.textContent = '×';
       xBtn.addEventListener('click', function (ev) {
         ev.stopPropagation();
@@ -2886,8 +2921,8 @@
       var pivotBtn = document.createElement('button');
       pivotBtn.type = 'button';
       pivotBtn.className = 'rc-row-pivot';
-      pivotBtn.title = 'Activate as this';
-      pivotBtn.setAttribute('aria-label', 'Activate ' + company.name + ' as this card’s anchor');
+      pivotBtn.title = t('activateAsThis');
+      pivotBtn.setAttribute('aria-label', fmt('activateAsAnchor', { name: company.name }));
       pivotBtn.textContent = '→';
       pivotBtn.addEventListener('click', function (ev) {
         ev.stopPropagation();
@@ -2967,7 +3002,7 @@
   function renderAllCasesRows(cases) {
     listEl.innerHTML = '';
     if (!cases.length) {
-      renderEmptyRow('No cases found.');
+      renderEmptyRow(t('noCasesFound'));
       return;
     }
     cases.forEach(function (c) {
@@ -3160,7 +3195,7 @@
       var extraRow = buildLabelRow(pseudo, connectCtx);
       var tag = document.createElement('span');
       tag.className = 'rc-row-badge';
-      tag.textContent = 'connection only';
+      tag.textContent = t('connectionOnly');
       // pseudo.source is null, so buildLabelRow never gives this row a pivot
       // control (see its own comment) — nothing trails the name any more,
       // so a plain append is the row's true last child, unlike a real row
@@ -3172,7 +3207,7 @@
     if (!shown) {
       var empty = document.createElement('div');
       empty.className = 'rc-row-empty';
-      empty.textContent = 'No companies tagged yet.';
+      empty.textContent = t('noCompaniesTaggedYet');
       listEl.appendChild(empty);
     }
     updateAnchorConnectConfirmState();
@@ -3331,7 +3366,7 @@
         quickRolePicker.setItems(items);
         quickRoleInput.value = '';
         quickRoleInput.disabled = !quickRoles.length;
-        quickRoleInput.placeholder = quickRoles.length ? 'Choose a role…' : 'No roles yet';
+        quickRoleInput.placeholder = quickRoles.length ? t('chooseARole') : t('noRolesYet');
         quickRolePicker.render('');
         if (selectField) { quickRolePicker.selectByField(selectField); }
         quickShowRoleDropdown(false);
@@ -3414,10 +3449,10 @@
           // visible record of what's picked; set it to the company's name
           // rather than leaving whatever the reader had typed to find it.
           quickCompanyInput.value = client.name;
-          quickResetRoleField('Loading roles…');
+          quickResetRoleField(t('loadingRoles'));
           quickFetchRoles(client, null);
         } else {
-          quickResetRoleField('Pick a company first…');
+          quickResetRoleField(t('pickCompanyFirst'));
         }
         quickUpdateConfirmState();
       });
@@ -3470,7 +3505,7 @@
         }));
         quickNewRoleInput.value = '';
         quickNewRoleInput.disabled = !available.length;
-        quickNewRoleInput.placeholder = available.length ? 'Choose a role to add…' : 'Already has every role';
+        quickNewRoleInput.placeholder = available.length ? t('chooseRoleToAdd') : t('alreadyHasEveryRole');
         quickNewRoleAdd.disabled = true;
         quickNewRoleList.innerHTML = '';
         quickNewRoleList.hidden = true;
@@ -3515,7 +3550,7 @@
         chartRoot.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
 
-      quickResetRoleField('Pick a company first…');
+      quickResetRoleField(t('pickCompanyFirst'));
     }
   }
 
@@ -3596,7 +3631,7 @@
         var empty = document.createElement('div');
         empty.className = 'rc-row-empty';
         var q = (query || '').trim();
-        empty.textContent = q ? 'No cases match "' + q + '".' : 'No cases yet.';
+        empty.textContent = q ? fmt('noCasesMatch', { q: q }) : t('noCasesYet');
         caseModeList.appendChild(empty);
       }
     }

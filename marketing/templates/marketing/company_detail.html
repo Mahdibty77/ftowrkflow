@@ -122,7 +122,7 @@
   {# --------------------------------------------------------------- company #}
   <div class="card">
     <div class="card-head">
-      <h3><i class="fa-solid fa-building" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Company" %}</h3>
+      <h3><i class="fa-solid fa-building" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Company" %}</h3>
     </div>
     <dl class="kv-ic compact">
       <dt><i class="fa-solid fa-building"></i>{% trans "Name" %}</dt>
@@ -154,7 +154,7 @@
   {# chips into a two-column list of rows, one role per line.                #}
   <div class="card dir-roles-card">
     <div class="card-head">
-      <h3><i class="fa-solid fa-tags" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Roles" %}
+      <h3><i class="fa-solid fa-tags" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Roles" %}
         <span class="count">{{ labels|length }}</span>
       </h3>
     </div>
@@ -194,7 +194,7 @@
   {# describe the same cases.                                                #}
   <div class="card">
     <div class="card-head">
-      <h3><i class="fa-solid fa-folder-open" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Cases" %}</h3>
+      <h3><i class="fa-solid fa-folder-open" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Cases" %}</h3>
     </div>
     <dl class="kv-ic compact">
       <dt><i class="fa-solid fa-layer-group"></i>{% trans "Total cases" %}</dt>
@@ -211,7 +211,7 @@
         {# for a genuinely-zero bucket, never absent for a nonzero one — see #}
         {# marketing/views.py::_pi_money_by_bucket.                         #}
         {% if show_money and pi_totals.approved %}
-        <span class="mono muted" style="margin-left:.5rem;">{{ pi_totals.approved }}</span>
+        <span class="mono muted" style="margin-inline-start:.5rem;">{{ pi_totals.approved }}</span>
         {% endif %}
       </dd>
       {# Burned + Cancelled, summed into this one line — the owner's own      #}
@@ -221,7 +221,7 @@
       <dd>
         {{ counts.cancelled }}
         {% if show_money and pi_totals.cancelled %}
-        <span class="mono muted" style="margin-left:.5rem;">{{ pi_totals.cancelled }}</span>
+        <span class="mono muted" style="margin-inline-start:.5rem;">{{ pi_totals.cancelled }}</span>
         {% endif %}
       </dd>
       {# NEW this round — final-closed cases, split out of Approved for this #}
@@ -230,14 +230,14 @@
       <dd>
         {{ counts.closed }}
         {% if show_money and pi_totals.closed %}
-        <span class="mono muted" style="margin-left:.5rem;">{{ pi_totals.closed }}</span>
+        <span class="mono muted" style="margin-inline-start:.5rem;">{{ pi_totals.closed }}</span>
         {% endif %}
       </dd>
       <dt><i class="fa-solid fa-hourglass-half"></i>{% trans "No result" %}</dt>
       <dd>
         {{ counts.pending }}
         {% if show_money and pi_totals.pending %}
-        <span class="mono muted" style="margin-left:.5rem;">{{ pi_totals.pending }}</span>
+        <span class="mono muted" style="margin-inline-start:.5rem;">{{ pi_totals.pending }}</span>
         {% endif %}
       </dd>
     </dl>
@@ -258,7 +258,7 @@
 <div class="tab-panel active" id="panel-contacts">
   <div class="card">
     <div class="card-head">
-      <h3><i class="fa-solid fa-users" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Contacts" %}
+      <h3><i class="fa-solid fa-users" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Contacts" %}
         <span class="count" data-filter-count="contactsTable">{{ contacts|length }}</span>
       </h3>
       {% if can_edit %}
@@ -354,7 +354,7 @@
 <div class="tab-panel" id="panel-cases">
   <div class="card">
     <div class="card-head">
-      <h3><i class="fa-solid fa-folder-open" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Cases" %}
+      <h3><i class="fa-solid fa-folder-open" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Cases" %}
         <span class="count">{{ counts.total }}</span>
       </h3>
       {# Persian nouns do not inflect for number the way "approved"/"case"    #}
@@ -434,12 +434,19 @@
 <div class="tab-panel" id="panel-reports">
   <div class="card" style="margin-bottom:1rem;">
     <div class="card-head">
-      <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Filters" %}</h3>
+      <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Filters" %}</h3>
       <button type="button" class="btn btn-sm" data-filter-clear="reportsTable" title="{% trans "Reset all filters" %}">
         <i class="fa-solid fa-eraser"></i> {% trans "Clear filters" %}
       </button>
     </div>
-    <div class="grid grid-3">
+    {# COMPACT, ONE-ROW LAYOUT — `.filters-row`, the same modifier My Tasks'    #}
+    {# own filter cards carry (static/css/app.css's own comment on that       #}
+    {# class explains the flex/wrap mechanics); layered onto this card's      #}
+    {# existing `.grid.grid-3`, never a replacement for it — the fourth,      #}
+    {# free-text Search field a few lines down still wraps onto a second      #}
+    {# line exactly as it already did, only shorter now that every field's    #}
+    {# own label sits beside its control instead of stacked above it.         #}
+    <div class="grid grid-3 filters-row">
       <div class="field">
         <label><i class="fa-solid fa-folder-open"></i> {% trans "Case" %}</label>
         <input type="text" data-filter-for="reportsTable" data-filter-colname="{% trans "Case" %}"
@@ -475,7 +482,7 @@
 
   <div class="card">
     <div class="card-head">
-      <h3><i class="fa-solid fa-file-lines" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Reports" %}
+      <h3><i class="fa-solid fa-file-lines" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Reports" %}
         <span class="count" data-filter-count="reportsTable">{{ reports|length }}</span>
       </h3>
       {# THE SAME GATE AS "Add contact" ABOVE — can_edit — because it is the    #}
@@ -568,12 +575,15 @@
 <div class="tab-panel" id="panel-reminders">
   <div class="card" style="margin-bottom:1rem;">
     <div class="card-head">
-      <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Filters" %}</h3>
+      <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Filters" %}</h3>
       <button type="button" class="btn btn-sm" data-filter-clear="remindersTable" title="{% trans "Reset all filters" %}">
         <i class="fa-solid fa-eraser"></i> {% trans "Clear filters" %}
       </button>
     </div>
-    <div class="grid grid-3">
+    {# COMPACT, ONE-ROW LAYOUT — the identical `.filters-row` modifier the     #}
+    {# Reports panel's own filter card just above carries (see that card's    #}
+    {# own comment, and static/css/app.css's own comment on the class).       #}
+    <div class="grid grid-3 filters-row">
       <div class="field">
         <label><i class="fa-solid fa-folder-open"></i> {% trans "Case" %}</label>
         <input type="text" data-filter-for="remindersTable" data-filter-colname="{% trans "Case" %}"
@@ -604,7 +614,7 @@
 
   <div class="card">
     <div class="card-head">
-      <h3><i class="fa-solid fa-bell" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Reminders" %}
+      <h3><i class="fa-solid fa-bell" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Reminders" %}
         <span class="count" data-filter-count="remindersTable">{{ reminders|length }}</span>
       </h3>
       {# THE SAME GATE "Add contact"/"Add report" CARRY — can_edit — the same   #}
@@ -728,7 +738,7 @@
 <div class="tab-panel" id="panel-timeline">
   <div class="card">
     <div class="card-head">
-      <h3><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Company timeline" %}</h3>
+      <h3><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Company timeline" %}</h3>
     </div>
     {# The case audit timeline's own markup: <ul class="timeline"> with a       #}
     {# .tl-action sentence, a .tl-meta actor+stamp line and an optional         #}

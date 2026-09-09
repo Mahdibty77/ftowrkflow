@@ -1,20 +1,34 @@
 /* ===========================================================================
-   My Tasks — Reminders tab: day/hour grouping and the "missed only" toggle.
+   My Tasks — Reminders tab: the day pill, the "missed only" toggle, and the
+   always-visible per-hour boxes' own small filter mirror.
 
-   THE ONLY BEHAVIOUR THIS FILE OWNS is translating three page-only controls
-   — the day pills (#taskDayTabs), the hour pills (#taskHourTabs), and the
-   missed-only switch (#taskMissedToggle) — into the three HIDDEN <input>s
+   THE DAY PILL (#taskDayTabs) AND THE MISSED-ONLY SWITCH (#taskMissedToggle)
+   translate into TWO hidden <input>s
    marketing/templates/marketing/_my_tasks_reminders.html already wires with
-   data-filter-for="myTasksTable" (#taskDayFilter / #taskHourFilter /
-   #taskMissedFilter). Everything about actually HIDING a row is
+   data-filter-for="myTasksTable" (#taskDayFilter / #taskMissedFilter).
+   Everything about actually HIDING a row of the REAL table is
    static/js/ui.js's own existing `data-filter-table` pass — this file never
-   sets `tr.style.display` itself, it only sets a hidden control's `.value`
-   and then calls the public re-run hook that pass already exposes on the
-   table (`table.ftApplyFilters`), the same one a table whose rows arrive
-   after the first pass (the archive's own infinite scroll) already uses.
-   Two page-only pill rows sharing one generic engine this way is what keeps
-   "click Today, then click 14:00" and "type a case number in the filter
-   card" from ever being two different notions of "narrow the list".
+   sets a real `<tr>`'s `style.display` itself, it only sets a hidden
+   control's `.value` and then calls the public re-run hook that pass
+   already exposes on the table (`table.ftApplyFilters`), the same one a
+   table whose rows arrive after the first pass (the archive's own infinite
+   scroll) already uses.
+
+   AN HOUR PILL ROW USED TO SIT HERE TOO — a THIRD hidden input this file
+   set on click, narrowing the same table by hour. The owner's own
+   instruction this round, "کلا تب های ساعت‌ها ... را خالی بزار" (empty the
+   hour-tabs concept out entirely), replaced that click-filter row with
+   `#taskHourBoxes`, an always-visible stack of per-hour boxes the VIEW now
+   builds directly (marketing/views.py::_task_hour_groups) — there is
+   nothing left to click, so there is no hour-pill wiring left in this file
+   either. What DOES remain this file's job: showing/hiding that whole
+   section in step with the day pill (exactly the same `isToday` check the
+   old hour-pill row used to gate its own visibility on), and — since the
+   boxes' own rows are `<div>`s the filter card's search/case/company/date
+   controls cannot reach through ui.js's `<table>`-shaped pass — a second,
+   small filter pass of this file's own that mirrors those SAME controls
+   onto them. See `hbApply` below and _my_tasks_reminders.html's own head
+   comment for the full reasoning.
 
    Self-guarding, like marketing/js/chart_interact.js and
    marketing/js/directory.js: if #myTasksTable is not on the page, every
@@ -27,9 +41,8 @@
   if (!table) return;
 
   var dayTabs = document.getElementById("taskDayTabs");
-  var hourTabs = document.getElementById("taskHourTabs");
+  var hourBoxes = document.getElementById("taskHourBoxes");
   var dayFilter = document.getElementById("taskDayFilter");
-  var hourFilter = document.getElementById("taskHourFilter");
   var missedFilter = document.getElementById("taskMissedFilter");
   var missedToggle = document.getElementById("taskMissedToggle");
 
@@ -57,32 +70,14 @@
         setActive(dayTabs, btn);
         dayFilter.value = btn.getAttribute("data-day-key") || "";
         var isToday = btn.getAttribute("data-is-today") === "1";
-        if (hourTabs) {
+        if (hourBoxes) {
           // Inline style, not the `hidden` property — see the template's own
-          // comment on #taskHourTabs for why `.archive-status-tabs`'s own
-          // `display:flex` needs an inline override to actually win.
-          hourTabs.style.display = isToday ? "" : "none";
-          if (!isToday) {
-            // Leaving Today clears whichever hour block was picked — an
-            // hour filter with no "Today" day filter behind it would
-            // silently narrow every OTHER day down to nothing, which is not
-            // what closing the hour row is supposed to mean.
-            var allHour = hourTabs.querySelector(".archive-status-tab");
-            if (allHour) setActive(hourTabs, allHour);
-            if (hourFilter) hourFilter.value = "";
-          }
+          // comment on #taskHourBoxes for why `.archive-status-tabs`'s own
+          // `display:flex` would need an inline override to actually win
+          // (a rule this section no longer even carries, having dropped
+          // that class along with the click-filter buttons it was styling).
+          hourBoxes.style.display = isToday ? "" : "none";
         }
-        apply();
-      });
-    });
-  }
-
-  // ---------------------------------------------------------------- hours --
-  if (hourTabs && hourFilter) {
-    Array.prototype.forEach.call(hourTabs.querySelectorAll(".archive-status-tab"), function (btn) {
-      btn.addEventListener("click", function () {
-        setActive(hourTabs, btn);
-        hourFilter.value = btn.getAttribute("data-hour-key") || "";
         apply();
       });
     });
@@ -99,11 +94,13 @@
   // ---------------------------------------------------------- clear filters
   // "Clear filters" already resets every ordinary control through ui.js's
   // own data-filter-clear pass (it walks every control carrying
-  // data-filter-for="myTasksTable", which includes the three hidden ones
-  // above). What ui.js cannot know is that THIS page also has pill buttons
-  // whose own `.is-active` class needs to come back to "All" / "All hours"
-  // in step with it — left alone, a reader would see "Today" still
-  // highlighted after a clear that actually put every day back on screen.
+  // data-filter-for="myTasksTable", which includes the two hidden ones
+  // above). What ui.js cannot know is that THIS page also has a pill button
+  // whose own `.is-active` class needs to come back to "All" in step with
+  // it, and an hour-box section that needs to disappear along with it —
+  // left alone, a reader would see "Today" still highlighted, and the hour
+  // boxes still open, after a clear that actually put every day back on
+  // screen.
   var clearBtn = document.querySelector('[data-filter-clear="myTasksTable"]');
   if (clearBtn) {
     clearBtn.addEventListener("click", function () {
@@ -111,12 +108,99 @@
         var allDay = dayTabs.querySelector(".archive-status-tab");
         if (allDay) setActive(dayTabs, allDay);
       }
-      if (hourTabs) {
-        hourTabs.style.display = "none";
-        var allHour = hourTabs.querySelector(".archive-status-tab");
-        if (allHour) setActive(hourTabs, allHour);
-      }
+      if (hourBoxes) hourBoxes.style.display = "none";
       if (missedToggle) missedToggle.checked = false;
     });
+  }
+
+  /* -------------------------------------------------------------------------
+     THE HOUR BOXES' OWN FILTER MIRROR.
+
+     `#taskHourBoxes` holds one `.hb-row` <div> per TODAY reminder (grouped
+     under its own hour's box, server-side — marketing/views.py::
+     _task_hour_groups), each one carrying small, plain-English `data-hb-*`
+     attributes instead of the `<td>`s ui.js's own `data-filter-table` pass
+     reads a `<tr>`'s columns off — see _my_tasks_reminders.html's own head
+     comment for why a `<div>` cannot simply be handed to that shared,
+     every-page pass. This is the small, page-owned equivalent: the SAME
+     filter-card controls (marked `data-hb-target` in the template,
+     alongside their own `data-filter-colname`), read the SAME way ui.js
+     reads them (mode, current value), compared against the matching
+     `data-hb-*` attribute on each row instead of a column index. A row that
+     fails ANY active control's own test is hidden — the identical AND ui.js
+     applies to the real table — so a reminder filtered out of the table
+     below disappears from its own hour box too, never one without the
+     other.
+
+     `dateKey`/`foldDigits` below are a DELIBERATE, VERBATIM MIRROR of
+     static/js/ui.js's own pair of the same name — copied rather than
+     imported because this file loads as a plain, non-module <script> the
+     same way every other page-specific file under this app's own
+     static/…/js/ folders does, and duplicating twelve lines of pure,
+     side-effect-free string logic costs
+     far less than teaching the build a module graph for one shared helper.
+     Keep the two in sync by hand; see ui.js's own copy for what each step
+     is for (Jalali digit-folding, separator normalisation, zero-padding).
+   */
+  function foldDigits(s) {
+    var out = "";
+    for (var i = 0; i < s.length; i++) {
+      var cp = s.charCodeAt(i);
+      if (cp >= 0x0660 && cp <= 0x0669) out += String(cp - 0x0660);        // Arabic-Indic
+      else if (cp >= 0x06F0 && cp <= 0x06F9) out += String(cp - 0x06F0);   // Persian
+      else out += s.charAt(i);
+    }
+    return out;
+  }
+  function pad0(digits, width) {
+    var s = String(parseInt(digits, 10));
+    while (s.length < width) s = "0" + s;
+    return s;
+  }
+  function dateKey(value) {
+    var head = (value || "").trim().split(" ")[0].slice(0, 10);
+    var parts = foldDigits(head).split(/[-/.]/).filter(Boolean);
+    var numeric = parts.length === 3 && parts.every(function (p) { return /^[0-9]+$/.test(p); });
+    if (!numeric) return head;
+    return pad0(parts[0], 4) + "." + pad0(parts[1], 2) + "." + pad0(parts[2], 2);
+  }
+
+  if (hourBoxes) {
+    var hbControls = Array.prototype.slice.call(
+      document.querySelectorAll('[data-filter-for="myTasksTable"][data-hb-target]'));
+
+    function hbApply() {
+      var terms = [];
+      hbControls.forEach(function (c) {
+        var raw = (c.value || "").trim().toLowerCase();
+        if (!raw) return;
+        terms.push({
+          target: c.getAttribute("data-hb-target"),
+          mode: c.getAttribute("data-filter-mode") || "contains",
+          raw: raw,
+        });
+      });
+      Array.prototype.forEach.call(hourBoxes.querySelectorAll("[data-hb-row]"), function (row) {
+        var show = terms.every(function (t) {
+          var text = (row.getAttribute("data-hb-" + t.target) || "").toLowerCase();
+          if (t.mode === "gte") return dateKey(text) >= dateKey(t.raw);
+          if (t.mode === "lte") return dateKey(text) <= dateKey(t.raw);
+          if (t.mode === "equals") return text === t.raw;
+          return text.indexOf(t.raw) !== -1;
+        });
+        row.style.display = show ? "" : "none";
+      });
+    }
+
+    hbControls.forEach(function (c) {
+      c.addEventListener("input", hbApply);
+      c.addEventListener("change", hbApply);
+    });
+    // Runs once on load too — a visit carrying ?from=/?to= (see
+    // marketing/views.py::my_tasks's own docstring) pre-fills the date
+    // fields with a value neither an "input" nor a "change" event ever
+    // fired for, and every hour box still has to open already narrowed to
+    // match, exactly like the real table below does on the same visit.
+    hbApply();
   }
 })();

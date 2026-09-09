@@ -11,6 +11,17 @@
         "--noreload"
       ],
       "port": 8844
+    },
+    {
+      "name": "ftworkflow-dev",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "C:/Users/Asus/AppData/Local/Temp/claude/C--personal-work-ftworkflow/38fdfb16-a3c5-4309-a66d-d74b843d6174/scratchpad/dev_manage.py",
+        "runserver",
+        "127.0.0.1:8861",
+        "--noreload"
+      ],
+      "port": 8861
     }
   ]
 }

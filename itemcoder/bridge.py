@@ -19,6 +19,7 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.translation import gettext as _
 
 from .calculation_customizer import get_calculation_ui_config
 
@@ -178,12 +179,12 @@ _DISPLAY_TO_CANONICAL = {
 }
 
 # ---------------------------------------------------------------------------
-# Technical's Qty / Unit override on the Technical Offer
+# Technical's Qty / Unit / Size override on the Technical Offer
 # ---------------------------------------------------------------------------
-# Qty and Unit belong to the CLIENT: the inquiry owns them, and the TO copies
-# them down from the latest inquiry of the same side on every open so a TO
-# always shows what the client last asked for. That copy-down is the whole
-# reason a value typed into those two cells on the TO used to disappear on the
+# Qty, Unit and Size belong to the CLIENT: the inquiry owns them, and the TO
+# copies them down from the latest inquiry of the same side on every open so a
+# TO always shows what the client last asked for. That copy-down is the whole
+# reason a value typed into those cells on the TO used to disappear on the
 # next open — it is not a UI lock, it is an overwrite.
 #
 # The intent of the copy-down is preserved exactly: every row still follows the
@@ -194,8 +195,13 @@ _DISPLAY_TO_CANONICAL = {
 # inquiry's own value back — so nothing has to be un-stuck by hand.
 _QTY_OVERRIDE_KEY = "_qty_override"
 _UNIT_OVERRIDE_KEY = "_unit_override"
+_SIZE_OVERRIDE_KEY = "_size_override"
 # canonical grid column -> the mark that frees it from the inquiry copy-down.
-_OVERRIDE_KEY_BY_COL = {"qty": _QTY_OVERRIDE_KEY, "unit": _UNIT_OVERRIDE_KEY}
+_OVERRIDE_KEY_BY_COL = {
+    "qty": _QTY_OVERRIDE_KEY,
+    "unit": _UNIT_OVERRIDE_KEY,
+    "size": _SIZE_OVERRIDE_KEY,
+}
 
 # Coding fields that must survive the form.columns filter after Edit restore.
 _CODING_KEEP_COLUMNS = (
@@ -1105,7 +1111,7 @@ def _apply_brand_split(case, form_kind, side, table, *, mode="edit", current_for
       • No Reject/Confirm buttons on PI.
     """
     from cases.constants import FormKind
-    _ = (mode, current_form)
+    _unused = (mode, current_form)
 
     def _norm(v):
         return str(_clean_cell_value(v) if v is not None else "").strip()
@@ -1698,7 +1704,7 @@ def _form_grid_frame(case, form_kind, side=None, mode="edit", *, blank_remark=Fa
                   "_remark_ack",
                   "_brand_split", "_prev_brand", "_brand_ack", "_brand_pending", "_brand_pf_text",
                   "_brand_baseline", "_ftco_user_edited",
-                  _QTY_OVERRIDE_KEY, _UNIT_OVERRIDE_KEY):
+                  _QTY_OVERRIDE_KEY, _UNIT_OVERRIDE_KEY, _SIZE_OVERRIDE_KEY):
         if extra in df.columns and extra not in cols:
             cols.append(extra)
     for extra in _CODING_KEEP_COLUMNS:
@@ -1966,6 +1972,32 @@ def _strip_qu_in_place(row):
             row[key] = val.strip()
 
 
+def _size_of(row):
+    """The row's Size under either key spelling a snapshot may use.
+
+    Same first-non-blank order the TO-from-inquiry copy-down reads Size in
+    (``key_variants = ("Size", "size")`` in ``_form_grid_frame``), so this and
+    that copy-down never disagree about which cell holds the value.
+    """
+    if not isinstance(row, dict):
+        return ""
+    for key in ("Size", "size"):
+        val = row.get(key)
+        if val is not None and str(val).strip() != "":
+            return str(val).strip()
+    return ""
+
+
+def _strip_size_in_place(row):
+    """Trim the row's OWN Size cell — same reason as ``_strip_qu_in_place``."""
+    if not isinstance(row, dict):
+        return
+    for key in ("Size", "size"):
+        val = row.get(key)
+        if isinstance(val, str) and val != val.strip():
+            row[key] = val.strip()
+
+
 def _index_qu(rows):
     """``{client number: row}`` and ``{item number: row}`` for a stored table.
 
@@ -2100,21 +2132,33 @@ def _apply_qty_unit_rules(request, case, form_kind, side, table, mode):
     painted from. "Changed" means "differs from what this page showed", never
     "differs from something recomputed on the side".
 
-    SIZE IS NOT GUARDED BY VALUE, AND THAT IS A DECISION, NOT AN OMISSION.
-    It is not opened for editing either — the owner asked for two columns, not
-    three, so no seat is handed a SIZE editor. The tempting next step is to
-    refuse a SIZE that differs from the painted one on the grounds that nobody
-    could have typed it. That would be wrong, because a size CAN legitimately
-    change without anyone typing in the size cell: row_processor.js paints
-    ``Size_Override`` into that cell whenever the coder finds a size token in
-    the row's Remark / Revision text, and the very next save posts the new
-    value back. Guarding SIZE against the render would refuse that ordinary
-    Technical save — the same false refusal this function was just repaired
-    for, moved one column across. Qty and Unit have no such path: no script
-    writes them, so a difference there really is either the Technical editor or
-    a forged POST. The residue is that a hand-made POST can still set a SIZE
-    string, on a form its author is already authorised to write; closing that
-    needs the override to be a value the server can recompute, not a guess.
+    SIZE IS NOT GUARDED BY VALUE HERE, AND THAT IS STILL A DECISION, NOT AN
+    OMISSION — even now that Technical can click and edit it too (the owner's
+    later instruction: three columns, not two; see ``tool_for_case``, which
+    now opens "qty", "unit" AND "size" for a Technical seat on a TO). The
+    tempting next step is to refuse a SIZE that differs from the painted one
+    on the grounds that nobody but Technical could have typed it. That would
+    be wrong, because a size CAN legitimately change without anyone typing in
+    the size cell: row_processor.js paints ``Size_Override`` into that cell
+    whenever the coder finds a size token in the row's Remark / Revision text,
+    and the very next save — by WHOEVER is authorised to save this TO, not
+    only Technical — posts the new value back. Guarding SIZE against the
+    render would refuse that ordinary save — the same false refusal this
+    function was repaired for, moved one column across. Qty and Unit have no
+    such path: no script writes them, so a difference there really is either
+    the Technical editor or a forged POST. The residue is that a hand-made
+    POST can still set a SIZE string, on a form its author is already
+    authorised to write; closing that needs the override to be a value the
+    server can recompute, not a guess.
+
+    SIZE DOES still get the other half of what Qty/Unit get: the per-row
+    override mark (``_SIZE_OVERRIDE_KEY``) that frees a changed cell from the
+    inquiry copy-down in ``_form_grid_frame``, below, alongside Qty/Unit's.
+    That mark is not a value guard — it is re-derived from "does this row's
+    current Size still match the inquiry's", the same question asked of every
+    row on every TO save regardless of who saves it or why the value moved
+    (typed, or Size_Override), which is exactly why it is safe where the
+    value guard above is not.
     """
     from cases.constants import FormKind
     from cases.inquiry_validate import validate_qty_unit
@@ -2138,6 +2182,7 @@ def _apply_qty_unit_rules(request, case, form_kind, side, table, mode):
         label = cr or it or i
         # Judge and store the same text — see ``_strip_qu_in_place``.
         _strip_qu_in_place(row)
+        _strip_size_in_place(row)
         qty, unit = _qu_of(row)
 
         base = by_cr.get(cr) if cr in by_cr else by_item.get(it)
@@ -2153,10 +2198,15 @@ def _apply_qty_unit_rules(request, case, form_kind, side, table, mode):
             continue
         # Re-derive the override marks for EVERY row of a TO save. A row that
         # matches the inquiry follows it again; a row that does not is pinned.
+        # Size rides along here too (see the docstring): it gets the mark, not
+        # the refusal-by-value the loop above applies to Qty/Unit.
         src = inq_cr.get(cr) or inq_item.get(it)
         inq_qty, inq_unit = _qu_of(src) if src else ("", "")
+        inq_size = _size_of(src) if src else ""
+        size = _size_of(row)
         for key, value, inq_value in ((_QTY_OVERRIDE_KEY, qty, inq_qty),
-                                      (_UNIT_OVERRIDE_KEY, unit, inq_unit)):
+                                      (_UNIT_OVERRIDE_KEY, unit, inq_unit),
+                                      (_SIZE_OVERRIDE_KEY, size, inq_size)):
             if inq_value and value != inq_value:
                 row[key] = "1"
             else:
@@ -2164,15 +2214,20 @@ def _apply_qty_unit_rules(request, case, form_kind, side, table, mode):
 
     if changed:
         shown = ", ".join(changed[:8]) + ("…" if len(changed) > 8 else "")
-        what = "Technical Offer" if is_to else "Proforma"
-        return (
-            f"Qty and Unit cannot be changed on this {what}. They are the "
-            f"client's columns; only the Technical unit may change them, and "
-            f"only on the Technical Offer. Nothing was saved. "
-            f"(Rows: {shown}.)"
-        )
+        what = _("Technical Offer") if is_to else _("Proforma")
+        return _(
+            "Qty and Unit cannot be changed on this %(what)s. They are the "
+            "client's columns; only the Technical unit may change them, and "
+            "only on the Technical Offer. Nothing was saved. (Rows: %(rows)s.)"
+        ) % {"what": what, "rows": shown}
     if errors:
-        return "Qty / Unit are invalid; nothing was saved:\n" + "\n".join(errors)
+        # ``errors`` itself comes from ``cases.inquiry_validate.validate_qty_unit``,
+        # the one shared row validator used by the inquiry grid, case creation and
+        # this save path alike — its own message strings are left untouched here
+        # deliberately, so that translating them happens once, at that shared
+        # definition, rather than diverging into a second copy maintained only
+        # for this caller. Only the prefix this function itself writes is wrapped.
+        return _("Qty / Unit are invalid; nothing was saved:\n") + "\n".join(errors)
     return ""
 
 
@@ -2207,14 +2262,17 @@ def _own_side_refusal(case, side):
                else case.supply_assignee)
     elif holder == Unit.TECHNICAL:
         who = case.technical_assignee
-    base = "You can only work on your own side of this case."
+    base = _("You can only work on your own side of this case.")
     if who is not None:
         name = who.get_full_name() or who.username
-        return (f"{base} The {label} side is assigned to {name}; once a side is "
-                f"assigned to an expert, only that expert can build or revise "
-                f"its forms.")
-    return (f"{base} The {label} side is not with your unit right now, so its "
-            f"forms cannot be opened from here.")
+        return _(
+            "%(base)s The %(side)s side is assigned to %(name)s; once a side is "
+            "assigned to an expert, only that expert can build or revise its forms."
+        ) % {"base": base, "side": label, "name": name}
+    return _(
+        "%(base)s The %(side)s side is not with your unit right now, so its "
+        "forms cannot be opened from here."
+    ) % {"base": base, "side": label}
 
 
 def _may_build_form(request, case, form_kind, side):
@@ -2262,7 +2320,7 @@ def _may_build_form(request, case, form_kind, side):
                               or case.technical_assignee_id == seat_id))
             permitted = bool(tech_owns and holder == "TECHNICAL")
     if not permitted:
-        return False, "You are not allowed to build this form right now."
+        return False, _("You are not allowed to build this form right now.")
     # On split cases, only the side's owner may save that side.
     if case.is_split and not services.can_act_on_side(
             case, request.user, side, role=ctx.role, work_user=ctx.seat_user):
@@ -2306,7 +2364,7 @@ def tool_for_case(request, case_id, kind):
     _ctx = work_context(request)
     if not services.user_can_view_case(case, request.user,
                                        role=_ctx.role, work_user=_ctx.seat_user):
-        messages.error(request, "You do not have access to this case.")
+        messages.error(request, _("You do not have access to this case."))
         return redirect("cases:inbox")
     kind = kind.upper()
     mode = request.GET.get("mode", "build")
@@ -2393,7 +2451,7 @@ def tool_for_case(request, case_id, kind):
     # traceback and fall back to an empty grid so the page always loads.
     seed_error = None
     table_html = None
-    # QTY and UNIT open for the TECHNICAL unit, in the TO tool, only.
+    # QTY, UNIT and SIZE open for the TECHNICAL unit, in the TO tool, only.
     #
     # Three conditions, and each is doing work. ``kind == "TO"`` keeps the
     # Proforma exactly as locked as it is today, for Supply and everyone else.
@@ -2403,9 +2461,14 @@ def tool_for_case(request, case_id, kind):
     # other — stated here rather than inferred from the fact that today only
     # Technical can build a TO.
     #
-    # SIZE stays out: the owner asked for two columns, not three.
+    # SIZE joined Qty/Unit on the owner's later instruction (three columns, not
+    # two). It is still not guarded BY VALUE in ``_apply_qty_unit_rules`` — see
+    # that function's docstring for why a changed-from-render refusal would
+    # misfire against the Remark/Revision Size_Override the coding pipeline
+    # already performs on every TO save; it gets the per-row override mark
+    # instead, exactly like Qty/Unit.
     qty_unit_editable = (
-        ("qty", "unit")
+        ("qty", "unit", "size")
         if kind == "TO" and not read_only and _active_unit(request) == "TECHNICAL"
         else None
     )
@@ -2730,7 +2793,7 @@ def save_from_tool(request, case_id, kind):
         table = json.loads(request.POST.get("table", "[]"))
         meta = json.loads(request.POST.get("meta", "{}"))
     except json.JSONDecodeError:
-        messages.error(request, "The tool sent malformed data; nothing was saved.")
+        messages.error(request, _("The tool sent malformed data; nothing was saved."))
         return redirect("cases:case_detail", pk=case.pk)
 
     # Normalize FTCO DISCRIPTION on save: manual edits stay plain text; any
@@ -2916,5 +2979,5 @@ def save_from_tool(request, case_id, kind):
                            meta=meta, actor=request.user, side=side,
                            new_version=new_version, is_edit=is_edit)
     label = (" (" + Side.LABELS.get(side, "") + ")") if side else ""
-    messages.success(request, f"{kind}{label} saved.")
+    messages.success(request, _("%(kind)s%(label)s saved.") % {"kind": kind, "label": label})
     return redirect("cases:case_detail", pk=case.pk)

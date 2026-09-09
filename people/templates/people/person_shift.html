@@ -4,7 +4,7 @@
 {% block topbar %}{% trans "Work shift" %} · {{ person.display_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-26">
+  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-27">
 {% endblock %}
 
 {% block content %}
@@ -227,13 +227,18 @@
           tiles — nothing extra to show is not a "0" to print). The active
           branch's card is itself an ``<a>`` to ``person_shift_month`` — a
           second ``<a>`` cannot nest inside it, so THAT branch keeps the
-          badge OUTSIDE the link, as a sibling row of its own
-          (``.ppl-month-card-badge-row``, see people.css) flush above the
-          card rather than an overlay on top of it; clicking the badge goes
-          to My Tasks, clicking anywhere else on the card still opens the
-          month. The idle branch has no such link to avoid, so its badge
-          lives directly in the card's own ``.ppl-month-head``, beside the
-          title, exactly like the year tiles above.
+          badge OUTSIDE the link, as a sibling of it
+          (``.ppl-month-card-badge-row``, see people.css). That sibling is
+          absolutely positioned to sit visually INSIDE the card, just below
+          its "Current"/"Frozen"/"جاری" status pill — see people.css's own
+          comment on why (a normal-flow row here used to overflow the card's
+          own box and collide with the row of cards below it in the grid).
+          Two non-nested sibling ``<a>`` elements, one drawn over the other's
+          visual area, is valid HTML: clicking the badge goes to My Tasks,
+          clicking anywhere else on the card still opens the month. The idle
+          branch has no such link to avoid, so its badge lives directly in
+          the card's own ``.ppl-month-head``, beside the title, exactly like
+          the year tiles above — unaffected by any of this.
         {% endcomment %}
         {% if m.status == 'idle' %}
           <div class="ppl-month-card is-idle ppl-card-has-badge">

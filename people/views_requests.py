@@ -23,6 +23,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
 from .models import Person, RequestType, StaffRequest
@@ -47,7 +48,7 @@ gm_required = user_passes_test(_is_gm, login_url="accounts:login")
 def _person_or_redirect(request):
     person = sr.person_for_request_user(request.user)
     if person is None:
-        messages.error(request, "No personnel record is linked to this login.")
+        messages.error(request, _("No personnel record is linked to this login."))
         return None
     return person
 
@@ -147,12 +148,13 @@ def request_type_assign(request, type_id):
         try:
             ids = [int(x) for x in raw]
         except ValueError:
-            messages.error(request, "Invalid person selection.")
+            messages.error(request, _("Invalid person selection."))
             return redirect("people:request_type_assign", type_id=rt.pk)
         added, removed = sr.set_access_for_type(rt, ids, granted_by=request.user)
         messages.success(
             request,
-            f"Access for {rt.title} updated (+{added} / −{removed}).",
+            _("Access for %(title)s updated (+%(added)s / −%(removed)s).")
+            % {"title": rt.title, "added": added, "removed": removed},
         )
         return redirect("people:request_types")
 
@@ -222,7 +224,7 @@ def overtime_form(request):
     if person is None:
         return redirect("core:home")
     if not sr.person_has_access(person, RequestType.CODE_OVERTIME):
-        messages.error(request, "Overtime is not assigned to you.")
+        messages.error(request, _("Overtime is not assigned to you."))
         return redirect("people:my_requests")
 
     session_key = "ot_selected_case_ids"
@@ -258,7 +260,7 @@ def overtime_form(request):
             hours = int(request.POST.get("ot_hours") or 0)
             minutes = int(request.POST.get("ot_minutes") or 0)
         except ValueError:
-            messages.error(request, "Enter a valid overtime duration.")
+            messages.error(request, _("Enter a valid overtime duration."))
             return redirect("people:overtime_form")
         try:
             req = sr.submit_overtime(
@@ -275,8 +277,11 @@ def overtime_form(request):
         request.session[session_key] = []
         messages.success(
             request,
-            f"Overtime request {req.request_code} submitted ({req.requested_label}). "
-            f"Waiting for General Manager review.",
+            _(
+                "Overtime request %(code)s submitted (%(label)s). "
+                "Waiting for General Manager review."
+            )
+            % {"code": req.request_code, "label": req.requested_label},
         )
         return redirect("people:overtime_form")
 
@@ -320,7 +325,7 @@ def request_detail(request, pk):
     is_gm = _is_gm(request.user)
     person = sr.person_for_request_user(request.user)
     if not is_gm and (person is None or req.person_id != person.pk):
-        messages.error(request, "You cannot view this request.")
+        messages.error(request, _("You cannot view this request."))
         return redirect("people:my_requests")
 
     can_decide = (
@@ -414,17 +419,21 @@ def gm_overtime_decide(request, pk):
             )
             messages.success(
                 request,
-                f"Overtime approved for {req.person.display_name} "
-                f"({sr.minutes_label(req.approved_minutes or 0)}).",
+                _("Overtime approved for %(name)s (%(label)s).")
+                % {
+                    "name": req.person.display_name,
+                    "label": sr.minutes_label(req.approved_minutes or 0),
+                },
             )
         elif decision == "reject":
             sr.decide_overtime(req, user=request.user, approve=False, note=note)
             messages.success(
                 request,
-                f"Overtime request for {req.person.display_name} was rejected.",
+                _("Overtime request for %(name)s was rejected.")
+                % {"name": req.person.display_name},
             )
         else:
-            messages.error(request, "Unknown decision.")
+            messages.error(request, _("Unknown decision."))
     except ValueError as exc:
         messages.error(request, str(exc))
     return redirect("people:request_detail", pk=req.pk)

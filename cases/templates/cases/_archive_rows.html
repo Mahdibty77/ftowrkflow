@@ -40,7 +40,12 @@
           <td>{{ c.offer_stage_label }}</td>
           <td>{{ c.kind_label }}</td>
           {% if show_money %}<td class="mono">{{ c.grand_total_display|default:"—" }}</td>{% endif %}
-          <td class="muted">{{ c.created_at|jalali:"Y.m.d H:i" }}</td>
+          {# dir="ltr": a Jalali stamp is generated, never mirrored — same reason  #}
+          {# the document number two columns back stays LTR (see app.css's own    #}
+          {# [dir=rtl] section, "Deliberate LTR islands"). This cell has no .mono  #}
+          {# class to pick that up automatically (it is plain, muted text, not a  #}
+          {# code box), so the attribute is spelled out here instead.             #}
+          <td class="muted" dir="ltr">{{ c.created_at|jalali:"Y.m.d H:i" }}</td>
         </tr>
 {% empty %}
 {# Only the first window may say "nothing here". A later slice that comes back #}

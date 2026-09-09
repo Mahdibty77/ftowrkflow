@@ -104,10 +104,11 @@ def dataframe_to_html_with_ids(df, data_json=None, editable_columns=None):
     ``editable_columns`` — extra CANONICAL column names to stamp with
     ``data-editable="1"`` for this render, on top of the layout/calculation
     columns that are always writable. The caller decides; it is how the Technical
-    Offer opens ``qty`` / ``unit`` for a Technical seat and nobody else. Passing
-    nothing keeps the previous behaviour exactly (every other caller does).
-    The attribute is only what lets the BROWSER open an editor — the value that
-    comes back is authorised again in ``itemcoder.bridge.save_from_tool``.
+    Offer opens ``qty`` / ``unit`` / ``size`` for a Technical seat and nobody
+    else. Passing nothing keeps the previous behaviour exactly (every other
+    caller does). The attribute is only what lets the BROWSER open an editor —
+    the value that comes back is authorised again in
+    ``itemcoder.bridge.save_from_tool``.
     """
     editable_columns = {str(c) for c in (editable_columns or ())}
     display_to_canonical = df.attrs.get("display_to_canonical", {}) if hasattr(df, "attrs") else {}
@@ -122,10 +123,10 @@ def dataframe_to_html_with_ids(df, data_json=None, editable_columns=None):
         "_remark_ack",
         "_brand_split", "_prev_brand", "_brand_ack", "_brand_pending", "_brand_pf_text",
         "_brand_baseline", "_ftco_user_edited",
-        # Technical's per-row Qty / Unit override marks (bridge._QTY_OVERRIDE_KEY
-        # and _UNIT_OVERRIDE_KEY). Metadata carried through the snapshot, never a
-        # visible column.
-        "_qty_override", "_unit_override",
+        # Technical's per-row Qty / Unit / Size override marks
+        # (bridge._QTY_OVERRIDE_KEY / _UNIT_OVERRIDE_KEY / _SIZE_OVERRIDE_KEY).
+        # Metadata carried through the snapshot, never a visible column.
+        "_qty_override", "_unit_override", "_size_override",
     )]
     records = df.to_dict("records")
 

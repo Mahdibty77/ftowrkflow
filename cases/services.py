@@ -383,8 +383,20 @@ def log(case: Case, actor, action: str, *, comment: str = "",
         form_kind: str = "", form_version=None, two_stage: bool = False,
         side: str = "") -> CaseEvent:
     actor_name, actor_role_label = _actor_snapshot(actor)
+    # actor_name/actor_role_label above freeze the real human's display name —
+    # unchanged. The FK below is a different question: which User archive_scope
+    # / inbox_filter_q will later match this event against. Those filter on the
+    # ACTIVE SEAT (people.role_nav.work_context's ctx.seat_user), bound into
+    # this ContextVar for the whole request precisely so this line could read
+    # it (see the module docstring of people.role_nav). Writing the bare login
+    # ``actor`` here instead, for someone working a secondary/substitute seat,
+    # meant this event satisfied none of archive_scope's seat_user clauses —
+    # the case vanished from that person's Archive AND Search after they acted,
+    # with nothing refused and nothing logged wrong to look at.
+    from people.role_nav import get_bound_work_seat
+    routing_actor = get_bound_work_seat() or actor
     return CaseEvent.objects.create(
-        case=case, actor=actor, action=action, comment=comment,
+        case=case, actor=routing_actor, action=action, comment=comment,
         from_unit=from_unit, to_unit=to_unit,
         form_kind=form_kind, form_version=form_version, two_stage=two_stage,
         side=side, actor_name=actor_name, actor_role_label=actor_role_label,
@@ -1453,9 +1465,17 @@ def save_form(case: Case, *, kind: str, columns: list, table: list, meta: dict,
     table = _promote_remark_split(case, kind, side, table)
     table = _promote_brand_split(case, kind, side, table)
 
+    # Same seat-vs-login distinction as cases.services.log: created_by feeds
+    # archive_scope's ``created_by=seat_user`` clause, so it must be the active
+    # seat, not the bare login, or a form built under a secondary seat quietly
+    # drops out of that seat's own Archive/Search. signed_by (below) and
+    # freeze_technical_expert stay on ``actor`` — those are the human on record,
+    # not a routing key.
+    from people.role_nav import get_bound_work_seat
+    routing_actor = get_bound_work_seat() or actor
     form, _created = CaseForm.objects.get_or_create(
         case=case, kind=kind, side=side, version=version, two_stage=inq_two_stage,
-        defaults={"created_by": actor, "unit_at_creation": _unit_of(actor)},
+        defaults={"created_by": routing_actor, "unit_at_creation": _unit_of(routing_actor)},
     )
     form.columns = columns
     form.table = table
@@ -1473,6 +1493,19 @@ def save_form(case: Case, *, kind: str, columns: list, table: list, meta: dict,
                 new_meta["_sent_rb"] = inherited
     # Fresh edit: not published to any unit until the next handoff.
     new_meta.pop("_sent_to", None)
+    # "Update price"/"currency conversion" chips are decided once, on the
+    # Inquiry, by commit_inquiry_version — they are never in the tool's own
+    # POST (itemcoder/bridge.py has no notion of them), so a TO/PI built or
+    # edited off THIS inquiry version must copy them down here or its own
+    # version chip and _form_table.html badge silently read as a bare
+    # "Version NN" while the Inquiry tab, reading the same flags off the
+    # Inquiry's own CaseForm, correctly shows "Version NN · Update price".
+    inq_meta = (inq.meta or {}) if inq else {}
+    for flag in ("update_price", "update_price_requested", "unit_convert_requested"):
+        if inq_meta.get(flag):
+            new_meta[flag] = True
+        else:
+            new_meta.pop(flag, None)
     form.meta = new_meta
     form.two_stage = inq_two_stage
     form.signed_by = actor
@@ -1860,6 +1893,9 @@ def archive_scope(request):
       commercial expert           -> only cases they personally created
       technical manager (on)      -> only TOs they personally created
       supply manager (on)         -> only PIs they personally created
+      technical / supply manager
+        (off, the default)        -> every case that passed through their unit,
+                                      same as their unit's supervisor — see below
       unit supervisor             -> every case that passed through their unit
       technical / supply (else)   -> cases they personally participated in
     Scope uses the active seat user so secondary / translated seats see their
@@ -1962,7 +1998,20 @@ def archive_scope(request):
             pk__in=CaseForm.objects.filter(
                 kind=FormKind.PI, created_by=seat_user).values("case_id")
         ).distinct()
-    elif profile_role == Role.SUPERVISOR and profile_unit:
+    elif profile_role in (Role.SUPERVISOR, Role.MANAGER) and profile_unit:
+        # Reached by a Technical/Supply MANAGER only with "Only my cases" OFF
+        # (the ``is_unit_manager and mine_only`` branches above already claim
+        # the ON case) — a Commercial manager never reaches here, handled by
+        # its own branch earlier. Before this, mine_only-off fell through to
+        # the generic "else" bucket below: cases the manager personally
+        # created/was assigned/acted on. A case an EXPERT built or sent
+        # onward without the manager ever becoming an actor on it — the
+        # ordinary path once a manager assigns work away — had no clause
+        # there that matched the manager's own seat, so it was invisible to
+        # the very manager whose unit it belonged to. The owner's rule is
+        # "every case given to my unit stays in my Archive, assigned away or
+        # not", which is exactly what the unit supervisor already gets below
+        # — a manager needs no narrower a view than their own supervisor.
         u = profile_unit
         qs = qs.filter(
             Q(holder_unit=u)
@@ -2288,16 +2337,29 @@ def archive_tab_counts(cases, params):
     for c in cases:
         tabs_present.update(c.status_groups)
 
-    status_tabs = [
-        {
+    status_tabs = []
+    for label in CaseStatus.ARCHIVE_TAB_ORDER:
+        if label not in tabs_present:
+            continue
+        # "label" stays the plain English ARCHIVE_GROUP/ARCHIVE_TAB_ORDER
+        # string — it is what the template's data-status attribute and the
+        # hidden fstatus <option> post back, and both are matched, in
+        # cases/services.py and archive_stream.js, against a row's own
+        # status_fval (built from the same English ARCHIVE_GROUP values).
+        # "display" is the ONLY translated piece: resolved eagerly here
+        # (str() on the gettext_lazy proxy), safe because this function runs
+        # per request — after LanguageMiddleware has already activated this
+        # viewer's language — never at import time. See
+        # CaseStatus.ARCHIVE_GROUP_LABELS' own comment for why the two must
+        # not be merged into one.
+        display = str(CaseStatus.ARCHIVE_GROUP_LABELS.get(label, label))
+        status_tabs.append({
             "label": label,
+            "display": display,
             "count": tab_counts.get(label, 0),
             "color": CaseStatus.ARCHIVE_TAB_COLORS.get(label, "#64748b"),
-            "words": label.split(),
-        }
-        for label in CaseStatus.ARCHIVE_TAB_ORDER
-        if label in tabs_present
-    ]
+            "words": display.split(),
+        })
     return in_range, filtered, len(filtered), status_tabs
 
 
@@ -2429,8 +2491,16 @@ def inbox_filter_q(user, *, role=None, work_user=None):
         ns = nonsplit & Q(status__in=[CaseStatus.WITH_TECHNICAL, CaseStatus.RETURNED_TO_TECHNICAL])
         if profile.role == Role.MANAGER:
             ns = ns & (Q(assigned_to__isnull=True) | Q(assigned_to=work) | Q(technical_assignee=work))
+            # Same exclusion as the non-split case just above: once a split
+            # case's Technical side is assigned to a specific expert, it must
+            # leave every OTHER manager's inbox exactly as the non-split
+            # branch already does (can_act_on_side refuses the manager the
+            # moment technical_assignee is set to someone else, so a manager
+            # who could still see this here had a case with nothing they
+            # could do to it — no action, and no reachable "view" chip out).
             sp = split & (side_active_at(Unit.TECHNICAL, Side.INTERNAL)
-                          | side_active_at(Unit.TECHNICAL, Side.EXTERNAL))
+                          | side_active_at(Unit.TECHNICAL, Side.EXTERNAL)) \
+                & (Q(technical_assignee__isnull=True) | Q(technical_assignee=work))
         else:
             ns = ns & (Q(assigned_to=work) | Q(technical_assignee=work))
             # ``technical_assignee`` has to be matched here as well: Technical
@@ -2457,8 +2527,14 @@ def inbox_filter_q(user, *, role=None, work_user=None):
                 | Q(supply_internal_assignee=work) | Q(supply_external_assignee=work)
                 | Q(supply_assignee=work)
                 | Q(assigned_to=work))
-            sp = split & (side_active_at(Unit.SUPPLY, Side.INTERNAL)
-                          | side_active_at(Unit.SUPPLY, Side.EXTERNAL))
+            # Same reasoning as the Technical manager branch above: once a
+            # split case's Supply side is individually assigned, it must
+            # leave every OTHER manager's inbox, per side.
+            sp = split & (
+                (side_active_at(Unit.SUPPLY, Side.INTERNAL)
+                 & (Q(supply_internal_assignee__isnull=True) | Q(supply_internal_assignee=work)))
+                | (side_active_at(Unit.SUPPLY, Side.EXTERNAL)
+                   & (Q(supply_external_assignee__isnull=True) | Q(supply_external_assignee=work))))
         else:
             ns = ns & (
                 Q(supply_internal_assignee=work) | Q(supply_external_assignee=work)
@@ -2971,12 +3047,28 @@ def is_currency_conversion_only(case, side: str = "") -> bool:
 
 def _clone_offer_form_for_version(case, actor, *, kind: str, side: str,
                                   version: int, two_stage: bool,
-                                  source_form, clear_currency: bool = False):
-    """Copy a TO/PI snapshot onto a new inquiry version (currency-only reopen).
+                                  source_form, clear_currency: bool = False,
+                                  currency_only: bool = True):
+    """Copy a TO/PI snapshot onto a new inquiry version.
 
-    Clones are Commercial-only artefacts: marked ``currency_conversion_only`` so
-    Technical/Supply never see or work them. A later real inquiry revision
-    advances past this version number.
+    Two callers, two different clones, chosen by ``currency_only``:
+
+      * A currency-only reopen (default, ``currency_only=True``): the clone is
+        a Commercial-only artefact — marked ``currency_conversion_only`` and
+        pre-``sent`` — so Technical/Supply never see or work it (tool_for_case
+        and archive/inbox filters skip straight past it to the last REAL
+        snapshot; see ``form_is_currency_conversion_only``'s callers). Nothing
+        changed for Technical/Supply here, so there is nothing to hand them.
+
+      * A content-unchanged Update-Price revision (``currency_only=False``):
+        the table did not change either, but "Update Price" — unlike a
+        currency reopen — IS a real ask directed at Technical/Supply (go
+        re-look at pricing). Without carrying TO/PI forward at all, each unit
+        was found "behind" this inquiry version independently and had no way
+        to Edit/forward without first running its OWN redundant New Version
+        pass — see the version-carry bug this parameter was added to fix.
+        This clone is therefore an ordinary, OPEN, visible TO/PI at the new
+        version: no ``currency_conversion_only`` marker, not pre-sent.
     """
     if source_form is None:
         return None
@@ -2987,7 +3079,10 @@ def _clone_offer_form_for_version(case, actor, *, kind: str, side: str,
             meta.pop(key, None)
         # Keep meta["currency"] as the current display unit so the clone starts
         # from the last converted amounts; Commercial can convert again.
-    meta["currency_conversion_only"] = True
+    if currency_only:
+        meta["currency_conversion_only"] = True
+    else:
+        meta.pop("currency_conversion_only", None)
     clone = CaseForm(
         case=case, kind=kind, side=side or "",
         version=version, created_by=actor,
@@ -2996,7 +3091,7 @@ def _clone_offer_form_for_version(case, actor, *, kind: str, side: str,
     clone.columns = list(source_form.columns or [])
     clone.table = [dict(r or {}) for r in (source_form.table or [])]
     clone.meta = meta
-    clone.sent = True
+    clone.sent = currency_only
     clone.two_stage = bool(two_stage)
     clone.is_current = True
     clone.save()
@@ -3259,6 +3354,18 @@ def allowed_actions(case: Case, user, *, role=None, work_user=None) -> set[str]:
             actions.add("view")
             if has_to or has_pi:
                 actions.add("export")
+            # Contact / client-role fields are not the creator's workflow
+            # actions (submit, edit_info, …) that stay creator-only below —
+            # they are the same "Commercial may always update the four client
+            # contact fields on any non-terminal case they can open" grant the
+            # creator gets further down, just reached from this branch too.
+            # Without this, a case handed off to a different Commercial
+            # person (no formal Delegate — e.g. the manager fixing a typo, or
+            # a peer covering informally) had no way to open that editor at
+            # all while the case sat with Technical/Supply, even though any
+            # Commercial seat can already view/export it here.
+            if status not in CaseStatus.TERMINAL:
+                actions.add("edit_contacts")
             # Cancel / burn approval queue: commercial manager resolves requests
             # filed by experts (whole case or a split side).
             if is_manager and (
@@ -3980,6 +4087,20 @@ def convert_pi_currency(case: Case, actor, *, form_id: int, from_unit: str,
     # conversion ("Rate: 1,700,000 Rial") for this version, and exports keep it.
     meta["currency_rate"] = rate
     meta["currency_from"] = src
+    # The itemcoder PI tool (opened later by Supply's own "View" link into this
+    # SAME version) reads its currency label from meta["calc"]["to"], written
+    # only when someone saves inside that tool — never by this endpoint. Left
+    # alone, a version converted here keeps showing the tool's last-saved
+    # currency (often the original "rial") even though the prices above were
+    # just rewritten in ``dst`` — correct numbers, stale label, for whichever
+    # unit opens the tool next. Keep the two in lockstep here so every viewer
+    # of this version, tool or card, agrees on what currency it is in.
+    calc = dict(meta.get("calc") or {})
+    calc["from"] = src
+    calc["to"] = dst
+    calc["currency"] = dst
+    calc["rate"] = rate
+    meta["calc"] = calc
     form.table = new_table
     form.meta = meta
     form.save(update_fields=["table", "meta", "updated_at"])
@@ -4280,7 +4401,15 @@ def assign(case: Case, actor, assignee, comment: str = "", side: str = ""):
             case.supply_assignee = assignee
         if side in (Side.INTERNAL, Side.EXTERNAL):
             _activate_split_if_needed(case)
-        fields = ["supply_internal_assignee", "supply_external_assignee",
+        # Mirror the Technical branch above: keep the generic ``assigned_to``
+        # in step with the specific assignee too. archive_scope's fallback
+        # bucket (a plain expert with no other match) reads assigned_to as
+        # one of its safety-net clauses; leaving it stale here — pointing at
+        # whoever send_to_supply() last put there, often nobody — meant a
+        # Supply expert had one fewer of the redundant paths back to their
+        # own case that Technical's assignees already had.
+        case.assigned_to = assignee
+        fields = ["assigned_to", "supply_internal_assignee", "supply_external_assignee",
                   "supply_assignee", "split_active",
                   "internal_status", "external_status",
                   "internal_holder", "external_holder", "updated_at"]
@@ -5362,6 +5491,42 @@ def commit_inquiry_version(case: Case, actor, *, new_table: list, side: str = ""
             case, actor, kind=FormKind.PI, side=target_side,
             version=version, two_stage=inq_two, source_form=prior_pi,
             clear_currency=True)
+    elif chip_update:
+        # Content-unchanged Update-Price revision: carry TO/PI forward to
+        # this version too, same shape as the currency-only path above, but
+        # VISIBLE and OPEN (currency_only=False) — Technical/Supply have a
+        # real ask here (re-price), unlike a currency reopen. Without this,
+        # each unit was independently "behind" the new inquiry version with
+        # nothing carried forward, and could only catch up by running its
+        # OWN New Version pass first — forcing a redundant re-version at
+        # every hop of Technical -> Supply -> Commercial for a version that
+        # had already been decided once, upstream, by Commercial.
+        inq_two = bool(new_form.two_stage)
+        cloned_to = _clone_offer_form_for_version(
+            case, actor, kind=FormKind.TO, side=target_side,
+            version=version, two_stage=inq_two, source_form=prior_to,
+            currency_only=False)
+        cloned_pi = _clone_offer_form_for_version(
+            case, actor, kind=FormKind.PI, side=target_side,
+            version=version, two_stage=inq_two, source_form=prior_pi,
+            currency_only=False)
+        # The clone above copies the PRIOR TO/PI's own meta (never had these
+        # flags — they are new on THIS inquiry version), not the Inquiry's.
+        # Stamp them here so Technical's/Supply's own version chip also reads
+        # "Update price", exactly like save_form does for a form built the
+        # ordinary way (see save_form's identical copy, a few hundred lines
+        # up, which this clone path bypasses entirely).
+        for cloned in (cloned_to, cloned_pi):
+            if cloned is None:
+                continue
+            cmeta = dict(cloned.meta or {})
+            for flag in ("update_price", "update_price_requested", "unit_convert_requested"):
+                if form_meta.get(flag):
+                    cmeta[flag] = True
+                else:
+                    cmeta.pop(flag, None)
+            cloned.meta = cmeta
+            cloned.save(update_fields=["meta"])
     else:
         # A real revision supersedes any Commercial FX-only TO/PI clones so
         # Technical/Supply build at this inquiry version (e.g. 04), not the

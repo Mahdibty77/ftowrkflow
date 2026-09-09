@@ -219,6 +219,12 @@
       {% else %}
         <a class="btn btn-sm btn-primary" href="/tool/case/{{ case.pk }}/TO/?mode=newversion&amp;side={{ sd.code }}"><i class="fa-solid fa-code-branch"></i> {% trans "New version" %}</a>
       {% endif %}
+    {% elif is_admin_view and sd.version_lists.TO and not is_split %}
+      {# Same read-only View as the Technical-seat branch below, extended to #}
+      {# GM/Admin: user_can_view_case already lets them open the case page,  #}
+      {# and _may_build_form already refuses them a save, so tool_for_case   #}
+      {# was already read-only for them — this only adds the button.        #}
+      <a class="btn btn-sm" href="/tool/case/{{ case.pk }}/TO/?mode=edit&amp;side={{ sd.code }}"><i class="fa-solid fa-eye"></i> {% trans "View" %}</a>
     {% elif is_tech and sd.version_lists.TO and not is_split %}
       {# Technical does not hold the case, so there is no Edit here. The offer #}
       {# is still theirs to read, and the whole table is already printed below #}
@@ -330,6 +336,18 @@
          data-locked-from="{% if sd.code == 'EXTERNAL' %}usd{% else %}rial{% endif %}">
       <div class="muted" style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.35rem;"><i class="fa-solid fa-right-left"></i> {% trans "Unit conversion" %}</div>
       <div class="pi-fx-stale" hidden></div>
+      {# Overview: the Grand Total converted into every board currency at once, #}
+      {# filled by syncFxRate() from the same FX payload it already fetches for #}
+      {# the From/To picker below — no extra request. Pick a row's currency in  #}
+      {# "To" underneath, then Confirm applies that ONE conversion; this table  #}
+      {# itself never posts anything. #}
+      <div class="pi-conv-multi-preview" style="margin-bottom:.6rem;">
+        <div class="muted" style="font-size:.7rem;margin-bottom:.25rem;">{% trans "Grand Total in every currency" %}</div>
+        <table class="data" style="font-size:.8rem;">
+          <thead><tr><th>{% trans "Currency" %}</th><th>{% trans "Grand Total" %}</th></tr></thead>
+          <tbody class="pi-conv-multi-body"></tbody>
+        </table>
+      </div>
       <div class="row-flex" style="gap:.5rem;flex-wrap:wrap;align-items:flex-end;">
         <label style="font-size:.78rem;">{% trans "From" %}
           <select class="pi-conv-from" disabled style="display:block;margin-top:.15rem;min-width:7rem;opacity:.85;background:var(--cloud);color:var(--ink);">
@@ -426,7 +444,7 @@
   {# "Date", the same column this table already sorts/displays by.             #}
   <div class="card" style="margin-bottom:.8rem;">
     <div class="card-head">
-      <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Filters" %}</h3>
+      <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Filters" %}</h3>
       <button type="button" class="btn btn-sm" data-filter-clear="caseReportsTable-{{ sd.code }}" title="{% trans 'Reset all filters' %}">
         <i class="fa-solid fa-eraser"></i> {% trans "Clear filters" %}
       </button>
@@ -537,7 +555,7 @@
   {# already sorts by and shows the overdue colour on.                          #}
   <div class="card" style="margin-bottom:.8rem;">
     <div class="card-head">
-      <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-right:.4rem;"></i>{% trans "Filters" %}</h3>
+      <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Filters" %}</h3>
       <button type="button" class="btn btn-sm" data-filter-clear="caseRemindersTable-{{ sd.code }}" title="{% trans 'Reset all filters' %}">
         <i class="fa-solid fa-eraser"></i> {% trans "Clear filters" %}
       </button>

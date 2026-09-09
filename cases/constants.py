@@ -343,6 +343,46 @@ class CaseStatus:
         "Cancelled": COLORS[CANCELLED],
     }
 
+    # DISPLAY TEXT for the archive's own status-tab strip (cases/templates/
+    # cases/archive.html) — and ONLY for that. Every key here is one of the
+    # ARCHIVE_TAB_ORDER strings above; every value is the gettext_lazy text a
+    # viewer should actually read on that tab. This is deliberately a
+    # SEPARATE dict from ARCHIVE_GROUP/ARCHIVE_TAB_ORDER themselves, which
+    # stay plain English on purpose — see ARCHIVE_GROUP's own comment. Those
+    # two remain the internal grouping KEYS that cases/services.py's
+    # ``archive_tab_counts`` matches rows against (a row's own
+    # ``status_fval``, and the hidden ``fstatus`` filter control) and that
+    # the tab strip's ``data-status`` attribute is compared against by the
+    # column-filter JS — none of that plumbing reads THIS dict at all.
+    # ``cases/services.py::archive_tab_counts`` is the one place that does:
+    # it looks a tab's English group string up in here to build the tab's
+    # visible words, leaving ``label``/``data-status`` untouched so the
+    # matching logic cannot drift.
+    #
+    # Reuses CaseStatus.LABELS' own already-translated Persian text wherever
+    # the group string is identical to a status label (Draft, With Technical,
+    # With Supply, Cannot supply, Burned, Cancelled) — gettext_lazy resolves
+    # by msgid text, so wrapping the same English string here automatically
+    # picks up the same catalog entry, with nothing duplicated in
+    # locale/fa/LC_MESSAGES/django.po. The four archive-only groupings that
+    # have no identical CaseStatus label text of their own ("With Commercial"
+    # collapses three different statuses into one tab; "Sent to client",
+    # "Final approved" and "Final closed" are shorter tab-strip phrasings of
+    # "Closed / Sent to client", "Final Approved" and "Final Closed") get
+    # their own catalog entries instead.
+    ARCHIVE_GROUP_LABELS = {
+        "Draft": _("Draft"),
+        "With Technical": _("With Technical"),
+        "With Supply": _("With Supply"),
+        "With Commercial": _("With Commercial"),
+        "Sent to client": _("Sent to client"),
+        "Final approved": _("Final approved"),
+        "Final closed": _("Final closed"),
+        "Cannot supply": _("Cannot supply"),
+        "Burned": _("Burned"),
+        "Cancelled": _("Cancelled"),
+    }
+
 
 class EventAction:
     CREATE = "CREATE"

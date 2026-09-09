@@ -175,17 +175,32 @@
   color:var(--accent-strong);
   font-weight:700;
 }
-.dir-money-l i{ margin-right:.3rem; }
+/* margin-inline-end, not margin-right — this gap belongs BETWEEN the icon and
+   the label text that follows it (.dir-money-l's own template markup: icon,
+   then the label), so it needs to sit on the icon's TRAILING side under
+   either direction rather than staying pinned to its physical right, which
+   would leave the icon and label flush together and the gap stranded on the
+   band's outer edge instead once the row mirrors under Persian — the same
+   fix, and the same reasoning, as every h3/card-head icon this round (see
+   e.g. company_detail.html's own `<h3><i ...>` headings). */
+.dir-money-l i{ margin-inline-end:.3rem; }
 .dir-money-v{
   font-size:1rem;
   font-weight:800;
   overflow-wrap:anywhere;
   min-width:0;
 }
+/* margin-inline-start:auto, not margin-left — the same "pin to the end of the
+   row" idiom static/css/app.css's own [dir=rtl] section documents at length
+   (see e.g. .sb-item .nav-badge there): a physical margin-left:auto keeps
+   pulling free space from the box's true left even once this row mirrors
+   under <html dir="rtl">, which is the row's START in Persian, not its end —
+   it would shove the note in beside the money figure instead of pinning it
+   flush at the band's outer edge. */
 .dir-money-note{
   font-size:.72rem;
   color:var(--muted);
-  margin-left:auto;
+  margin-inline-start:auto;
 }
 
 /* The reports list. One block per report — who wrote it and when, the case it
@@ -240,10 +255,10 @@
    columns beside it either. */
 @media (max-width:760px){
   .dir-labels-cell{ max-width:none; }
-  /* The money band's note is pushed to the far end by margin-left:auto on a
-     wide row; once the band wraps onto two lines that push is meaningless, so
-     it drops back to sitting under the figure. */
-  .dir-money-note{ margin-left:0; }
+  /* The money band's note is pushed to the far end by margin-inline-start:auto
+     on a wide row (see that rule above); once the band wraps onto two lines
+     that push is meaningless, so it drops back to sitting under the figure. */
+  .dir-money-note{ margin-inline-start:0; }
 }
 
 /* ---------------------------------------------------------------------------
@@ -285,9 +300,15 @@
    about, so the list has to make it findable at a glance. A left border in the
    warning accent, matching the .flash-warning banner that sent the reader
    here — not a background wash, which would fight the chips inside the row. */
+/* border-inline-start, not border-left — this stripe marks the CARD'S leading
+   edge (the same role app.css's own .dstat/.lc-cell coloured rules play, both
+   already converted for this round — see app.css's [dir=rtl] section for the
+   full reasoning), so it needs to move to the true right once this list
+   mirrors under Persian rather than staying pinned to the card's true left,
+   which would draw it along the trailing edge instead. */
 .dir-reminder.is-due{
   border-color:var(--warnline);
-  border-left:3px solid var(--warn);
+  border-inline-start:3px solid var(--warn);
 }
 /* The company chip is a real link. .chip is written for a <span>, so an <a>
    wearing it picks up the browser's link colour and underline; both are undone

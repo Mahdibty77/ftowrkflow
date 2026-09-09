@@ -15,8 +15,23 @@ paired with the two roles that already exist, which is why nothing had to be
 added to Role. (Adding them to Role instead would have handed every other unit
 a "Marketing Expert" seat it should never have.)
 """
+from django.utils.translation import gettext_lazy as _
 
-
+# CHOICES BELOW ARE ``gettext_lazy``-WRAPPED, NOT PLAIN STRINGS. Unit.LABELS /
+# Role.LABELS / SupplyKind.LABELS / Gender.LABELS feed
+# accounts.models.Profile.unit_label / role_label / title_line — rendered on
+# nearly every page (the sidebar footer, People, the Console, a company's
+# sub-header, a case's "holding unit" field) — so a plain string here would
+# show "Marketing · Expert" to a Persian-language viewer exactly as it shows
+# to an English one. ``gettext_lazy`` (not the eager ``gettext``) is required
+# because these CHOICES lists are built once, at import time, long before any
+# request (and therefore any viewer's chosen language) exists — a lazy proxy
+# instead re-resolves against whichever language is active at the moment it
+# is finally rendered to text, per request, after
+# accounts.middleware.LanguageMiddleware has activated that viewer's own
+# language. Same reasoning cases/constants.py's own CHOICES docstring spells
+# out in full for CaseStatus/EventAction; this module simply did not have it
+# applied yet.
 class Unit:
     COMMERCIAL = "COMMERCIAL"
     TECHNICAL = "TECHNICAL"
@@ -31,10 +46,10 @@ class Unit:
     WORKFLOW = (COMMERCIAL, TECHNICAL, SUPPLY)
 
     CHOICES = [
-        (COMMERCIAL, "Commercial"),
-        (TECHNICAL, "Technical"),
-        (SUPPLY, "Supply"),
-        (MARKETING, "Marketing"),
+        (COMMERCIAL, _("Commercial")),
+        (TECHNICAL, _("Technical")),
+        (SUPPLY, _("Supply")),
+        (MARKETING, _("Marketing")),
     ]
 
     LABELS = dict(CHOICES)
@@ -46,9 +61,9 @@ class Role:
     EXPERT = "EXPERT"
 
     CHOICES = [
-        (MANAGER, "Manager"),
-        (SUPERVISOR, "Supervisor"),
-        (EXPERT, "Expert"),
+        (MANAGER, _("Manager")),
+        (SUPERVISOR, _("Supervisor")),
+        (EXPERT, _("Expert")),
     ]
 
     LABELS = dict(CHOICES)
@@ -60,8 +75,8 @@ class SupplyKind:
     EXTERNAL = "EXTERNAL"
 
     CHOICES = [
-        (INTERNAL, "Internal Supply"),
-        (EXTERNAL, "External Supply"),
+        (INTERNAL, _("Internal Supply")),
+        (EXTERNAL, _("External Supply")),
     ]
     LABELS = dict(CHOICES)
 
@@ -74,11 +89,18 @@ class Gender:
     FEMALE = "FEMALE"
 
     CHOICES = [
-        (MALE, "Male"),
-        (FEMALE, "Female"),
+        (MALE, _("Male")),
+        (FEMALE, _("Female")),
     ]
     LABELS = dict(CHOICES)
 
+    # Deliberately plain strings, NOT gettext_lazy: this dict feeds
+    # honorific_last_name, which is stamped onto EXPORTED DOCUMENTS (the
+    # signature/identity box on a TO/PI PDF) — a fixed business convention of
+    # the document itself, not platform chrome, and it must read the same
+    # "Mr./Ms." regardless of which language the signer happens to have
+    # chosen in their own Settings. Out of this round's scope; see the task
+    # that added Unit/Role/SupplyKind/Gender.CHOICES above for the boundary.
     HONORIFIC = {MALE: "Mr.", FEMALE: "Ms."}
 
 

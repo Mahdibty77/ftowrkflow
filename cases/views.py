@@ -26,7 +26,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme, urlencode
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext as _, ngettext
 
 from accounts.constants import Role, Unit
 from core.persian_text import normalize_persian
@@ -970,8 +970,13 @@ def archive_slice(request):
     response["X-Archive-Next-Offset"] = str(offset + len(window))
     response["X-Archive-Has-More"] = "1" if offset + len(window) < total else "0"
     if tabs_payload is not None:
-        # ASCII-safe: a header value is Latin-1 in Django/WSGI, and a client or
-        # order number can carry Persian text if a future tab label ever did.
+        # ASCII-safe: a header value is Latin-1 in Django/WSGI. Each tab dict's
+        # "display"/"words" are now genuinely Persian text for a Persian
+        # viewer (see CaseStatus.ARCHIVE_GROUP_LABELS) — ensure_ascii=True is
+        # what keeps that from breaking the header; the JS on the other end
+        # (archive_stream.js) only ever reads "label" (plain English, used to
+        # find the tab by data-status) and "count" from this payload, so the
+        # escaped \uXXXX text in the other fields is inert either way.
         response["X-Archive-Tabs"] = json.dumps(tabs_payload, ensure_ascii=True)
     return response
 
@@ -991,9 +996,9 @@ def case_create(request):
         can_create = profile.can_create_case
     if profile is None or not can_create:
         if ctx.is_substitute:
-            messages.error(request, "Substitutes cannot open a new case. Return the seat first.")
+            messages.error(request, _("Substitutes cannot open a new case. Return the seat first."))
         else:
-            messages.error(request, "Only Commercial users can open a new case.")
+            messages.error(request, _("Only Commercial users can open a new case."))
         return redirect("cases:inbox")
 
     if request.method == "POST":
@@ -1027,7 +1032,10 @@ def case_create(request):
                     except ValueError as exc:
                         form.add_error(None, str(exc))
                     else:
-                        messages.success(request, f"Case {case.doc_no} created.")
+                        messages.success(
+                            request,
+                            _("Case %(doc_no)s created.") % {"doc_no": case.doc_no},
+                        )
                         return redirect("cases:case_detail", pk=case.pk)
     else:
         form = CaseCreateForm()
@@ -1265,7 +1273,7 @@ def case_detail(request, pk):
         # The case isn't in the database (e.g. a stale/bookmarked URL pointing at
         # a row that no longer exists). Send the user to their inbox with a short
         # note instead of showing a raw 404 page.
-        messages.info(request, f"Case #{pk} no longer exists.")
+        messages.info(request, _("Case #%(pk)s no longer exists.") % {"pk": pk})
         return redirect("cases:inbox")
     profile = _profile(request.user)
     from people.role_nav import work_context
@@ -1319,7 +1327,7 @@ def case_detail(request, pk):
     if not services.user_can_view_case(case, request.user,
                                         case_forms=case_forms, case_events=case_events,
                                         role=role, work_user=seat_user):
-        messages.error(request, "You do not have access to this case.")
+        messages.error(request, _("You do not have access to this case."))
         return redirect("cases:inbox")
 
     # The viewer has now actually opened this case, so drop its inbox NEW badge
@@ -1994,7 +2002,7 @@ def case_report_add(request, pk):
     if not services.is_case_commercial_owner(case, request):
         messages.error(
             request,
-            "Only this case's own commercial owner may write a report on it.")
+            _("Only this case's own commercial owner may write a report on it."))
         return redirect("cases:case_detail", pk=case.pk)
 
     from marketing import services as marketing_services
@@ -2007,11 +2015,11 @@ def case_report_add(request, pk):
             case.client, request.user,
             text=data["text"], options=list(data["options"]), case=case,
         )
-        messages.success(request, "Report added.")
+        messages.success(request, _("Report added."))
     else:
         messages.error(
             request,
-            "The report needs at least one option ticked or some text.")
+            _("The report needs at least one option ticked or some text."))
     return redirect(
         "%s?opentab=reports" % reverse("cases:case_detail", args=[case.pk]))
 
@@ -2042,7 +2050,7 @@ def case_reminder_add(request, pk):
     if not services.is_case_commercial_owner(case, request):
         messages.error(
             request,
-            "Only this case's own commercial owner may set a reminder on it.")
+            _("Only this case's own commercial owner may set a reminder on it."))
         return redirect("cases:case_detail", pk=case.pk)
 
     from marketing import reminders as marketing_reminders
@@ -2055,9 +2063,9 @@ def case_reminder_add(request, pk):
             request.user, case.client,
             note=data["note"], due_at=data["due_at"], case=case,
         )
-        messages.success(request, "Reminder set.")
+        messages.success(request, _("Reminder set."))
     else:
-        messages.error(request, "Enter a note and a valid Jalali date/time.")
+        messages.error(request, _("Enter a note and a valid Jalali date/time."))
     return redirect(
         "%s?opentab=reminders" % reverse("cases:case_detail", args=[case.pk]))
 
@@ -2260,7 +2268,7 @@ def edit_items(request, pk):
         # two sides are independent, so creating the missing one is not a
         # routing decision about the one that exists.
         if "upgrade_two_stage" not in services.allowed_actions_for_request(case, request):
-            messages.error(request, "This case can't be made Internal & External right now.")
+            messages.error(request, _("This case can't be made Internal & External right now."))
             return redirect("cases:case_detail", pk=pk)
         cv_prior_side = (Side.INTERNAL if case.price_type == PriceType.INTERNAL
                          else Side.EXTERNAL)
@@ -2335,7 +2343,7 @@ def edit_items(request, pk):
                         new_table=new_table, comments=new_comments,
                         deadline=cv_deadline)
             except _TransitionRaceLost:
-                messages.error(request, "This case can't be made Internal & External right now.")
+                messages.error(request, _("This case can't be made Internal & External right now."))
                 return redirect("cases:case_detail", pk=pk)
             except ValueError as exc:
                 # The service refused (already split / ended / no inquiry) and
@@ -2345,9 +2353,15 @@ def edit_items(request, pk):
             _made = case.current_form(FormKind.INQUIRY, cv_new_side)
             messages.success(
                 request,
-                f"Converted to Internal & External. The {cv_new_label} side was "
-                f"created at version {(_made.version if _made else cv_version):02d} "
-                "and is a Draft in your hands.")
+                _(
+                    "Converted to Internal & External. The %(side)s side was "
+                    "created at version %(version)02d and is a Draft in your hands."
+                )
+                % {
+                    "side": cv_new_label,
+                    "version": (_made.version if _made else cv_version),
+                },
+            )
             return redirect(
                 f"{reverse('cases:case_detail', args=[pk])}?side={cv_new_side}")
 
@@ -2386,7 +2400,7 @@ def edit_items(request, pk):
     if newver:
         nv_side = side if (case.is_split and side in (Side.INTERNAL, Side.EXTERNAL)) else ""
         if not services.can_new_inquiry_version(case, request.user, nv_side):
-            messages.error(request, "A new version can't be started for this case right now.")
+            messages.error(request, _("A new version can't be started for this case right now."))
             return redirect("cases:case_detail", pk=pk)
 
         # Upgrade flags chosen on the New-version toggle (carried as params).
@@ -2470,9 +2484,11 @@ def edit_items(request, pk):
                 # No change + no upgrade -> refuse, stay on the page.
                 messages.error(
                     request,
-                    "No new version was created: change the table (edit a cell, "
-                    "add or delete a row) — or turn on Unit conversion / Update "
-                    "price / the two-stage upgrade — before saving.")
+                    _(
+                        "No new version was created: change the table (edit a cell, "
+                        "add or delete a row) — or turn on Unit conversion / Update "
+                        "price / the two-stage upgrade — before saving."
+                    ))
                 # Nothing was saved, so put each note back beside its row purely
                 # so the grid re-renders the way the user left it. These dicts
                 # die with the response; they are not the table.
@@ -2495,7 +2511,10 @@ def edit_items(request, pk):
             if nv_deadline is not None and nv_deadline != case.deadline:
                 case.deadline = nv_deadline
                 case.save(update_fields=["deadline", "updated_at"])
-            messages.success(request, f"New inquiry version {version:02d} saved.")
+            messages.success(
+                request,
+                _("New inquiry version %(version)02d saved.") % {"version": version},
+            )
             if nv_side:
                 return redirect(f"{reverse('cases:case_detail', args=[pk])}?side={nv_side}")
             return redirect("cases:case_detail", pk=pk)
@@ -2539,7 +2558,7 @@ def edit_items(request, pk):
     # Contacts-only mode (Case information → Edit): never touch the inquiry table.
     if contacts_only:
         if not can_edit_contacts:
-            messages.error(request, "Contact fields cannot be edited right now.")
+            messages.error(request, _("Contact fields cannot be edited right now."))
             return redirect("cases:case_detail", pk=pk)
         if request.method == "POST":
             case.client_commercial_expert = request.POST.get("client_commercial_expert", "").strip()
@@ -2574,7 +2593,7 @@ def edit_items(request, pk):
             if old_effective != new_effective:
                 marketing_services.log_case_role_change(
                     case, request.user, old_effective, new_effective)
-            messages.success(request, "Case contacts updated.")
+            messages.success(request, _("Case contacts updated."))
             return redirect("cases:case_detail", pk=pk)
         return render(request, "cases/edit_items.html", {
             "case": case,
@@ -2598,11 +2617,11 @@ def edit_items(request, pk):
         owns = services.can_act_on_side(case, request.user, side)
         side_edit = bool(is_comm and owns and side_at_comm and not (cur_s and cur_s.sent))
         if not side_edit:
-            messages.error(request, "This side can no longer be edited here.")
+            messages.error(request, _("This side can no longer be edited here."))
             return redirect("cases:case_detail", pk=pk)
     else:
         if not can_edit_inquiry:
-            messages.error(request, "This case can no longer be edited here.")
+            messages.error(request, _("This case can no longer be edited here."))
             return redirect("cases:case_detail", pk=pk)
         # On a split case, allow editing as long as the CURRENT inquiry version is
         # unsent. Older sent versions are fine — the user just made a fresh
@@ -2613,7 +2632,13 @@ def edit_items(request, pk):
                       case.current_form(FormKind.INQUIRY, Side.INTERNAL) or \
                       case.current_form(FormKind.INQUIRY, Side.EXTERNAL)
             if cur_any and cur_any.sent:
-                messages.error(request, "A side has already been submitted. Create a new version for the side you want to change.")
+                messages.error(
+                    request,
+                    _(
+                        "A side has already been submitted. Create a new version "
+                        "for the side you want to change."
+                    ),
+                )
                 return redirect("cases:case_detail", pk=pk)
 
     # Full case-information editing is only offered on a brand-new draft that
@@ -2751,7 +2776,7 @@ def edit_items(request, pk):
             if deadline_editable:
                 case.deadline = new_deadline
                 case.save(update_fields=["deadline", "updated_at"])
-            messages.success(request, "Case updated.")
+            messages.success(request, _("Case updated."))
             return redirect("cases:case_detail", pk=pk)
 
         # The whole inquiry is rewritten by wiping the pool and re-inserting it,
@@ -2877,7 +2902,7 @@ def edit_items(request, pk):
         services._snapshot_inquiry(case, request.user, sides=snap_sides,
                                    table_override=flagged_table)
         # Inquiry edits are intentionally NOT recorded in any timeline.
-        messages.success(request, "Case updated.")
+        messages.success(request, _("Case updated."))
         return redirect("cases:case_detail", pk=pk)
 
     # Prefer the current inquiry snapshot (keeps soft-delete / add marks).
@@ -2973,13 +2998,16 @@ def transition(request, pk):
             )
             if wants_json:
                 return JsonResponse({"ok": True})
-            messages.success(request, "Proforma currency converted.")
+            messages.success(request, _("Proforma currency converted."))
             return redirect("cases:case_detail", pk=pk)
         except Exception as exc:
             logger.exception("Case #%s currency conversion failed", pk)
             if wants_json:
                 return JsonResponse({"ok": False, "error": str(exc)}, status=400)
-            messages.error(request, f"Currency conversion failed: {exc}")
+            messages.error(
+                request,
+                _("Currency conversion failed: %(exc)s") % {"exc": exc},
+            )
             return redirect("cases:case_detail", pk=pk)
 
     # On a split case these actions dispatch to a per-side service below, and only
@@ -3018,13 +3046,13 @@ def transition(request, pk):
         return True
 
     if not _permitted_for(case):
-        messages.error(request, "That action is not available right now.")
+        messages.error(request, _("That action is not available right now."))
         return redirect("cases:case_detail", pk=pk)
 
     # Cancel / burn / final-close / cannot-supply require a non-empty comment
     # (same rule as the UI ``data-required`` confirm panels).
     if action in ("request_cancel", "burn", "final_close", "cannot_supply") and not comment:
-        messages.error(request, "A comment is required for this action.")
+        messages.error(request, _("A comment is required for this action."))
         return redirect("cases:case_detail", pk=pk)
 
     actor = request.user
@@ -3137,7 +3165,10 @@ def transition(request, pk):
                 if case.is_split and _side:
                     params["side"] = _side
                 qs = urlencode(params)
-                messages.info(request, "Edit the items — a new version is saved only if you change the table.")
+                messages.info(
+                    request,
+                    _("Edit the items — a new version is saved only if you change the table."),
+                )
                 return redirect(f"{reverse('cases:edit_items', args=[pk])}?{qs}")
             elif action == "upgrade_two_stage":
                 # The conversion is NOT performed here any more. Like "New
@@ -3147,9 +3178,13 @@ def transition(request, pk):
                 # on the way through, so this stays safe for an old bookmark or
                 # a replayed POST: it lands on the editor rather than splitting
                 # a case behind the user's back without a deadline.
-                messages.info(request,
-                              "Edit the items and set the deadline — the new "
-                              "side is created when you confirm.")
+                messages.info(
+                    request,
+                    _(
+                        "Edit the items and set the deadline — the new "
+                        "side is created when you confirm."
+                    ),
+                )
                 return redirect(
                     f"{reverse('cases:edit_items', args=[pk])}?convert_two_stage=1")
             elif action == "comment":
@@ -3166,21 +3201,21 @@ def transition(request, pk):
                 elif request.headers.get("X-Requested-With") == "XMLHttpRequest":
                     return JsonResponse({"ok": False, "error": "Empty comment."}, status=400)
             else:
-                messages.error(request, "Unknown action.")
+                messages.error(request, _("Unknown action."))
                 return redirect("cases:case_detail", pk=pk)
     except _TransitionRaceLost:
         # Someone else got there first. Nothing was written by this request:
         # raising out of the atomic block rolls it back, lock included.
-        messages.error(request, "That action is not available right now.")
+        messages.error(request, _("That action is not available right now."))
         return redirect("cases:case_detail", pk=pk)
     except Exception as exc:  # pragma: no cover - defensive
         # Surface a short message to the user, but also log the full traceback so
         # a failed workflow action is never silently lost from the server logs.
         logger.exception("Case #%s action failed", pk)
-        messages.error(request, f"Action failed: {exc}")
+        messages.error(request, _("Action failed: %(exc)s") % {"exc": exc})
         return redirect("cases:case_detail", pk=pk)
 
-    messages.success(request, "Done.")
+    messages.success(request, _("Done."))
     return redirect("cases:case_detail", pk=pk)
 
 
@@ -3474,11 +3509,11 @@ def export_form(request, pk, form_kind, fmt):
     # below ("does your unit do this kind of export"), which let anyone in the
     # right unit download any case's documents by guessing the case id.
     if not services.user_can_view_case(case, request.user):
-        messages.error(request, "You do not have access to this case.")
+        messages.error(request, _("You do not have access to this case."))
         return redirect("cases:inbox")
 
     if not _can_export(profile, form_kind, fmt):
-        messages.error(request, "You don't have permission to use this export.")
+        messages.error(request, _("You don't have permission to use this export."))
         return redirect("cases:case_detail", pk=pk)
 
     side = (request.GET.get("side") or "").strip()
@@ -3486,7 +3521,7 @@ def export_form(request, pk, form_kind, fmt):
     form = _resolve_export_form_for_viewer(
         case, form_kind, side, version, profile)
     if form is None:
-        messages.error(request, "There is no such form to export yet.")
+        messages.error(request, _("There is no such form to export yet."))
         return redirect("cases:case_detail", pk=pk)
 
     # PDF / Print view (HTML): first show the editable bilingual Terms page.
@@ -3568,10 +3603,14 @@ def export_form(request, pk, form_kind, fmt):
             return _file_response(content, filename, "application/pdf")
     except Exception as exc:  # never surface a 500 to the user for an export
         logger.exception("Export failed for case #%s (%s/%s)", pk, form_kind, fmt)
-        messages.error(request, f"Could not generate the {fmt.upper()} export: {exc}")
+        messages.error(
+            request,
+            _("Could not generate the %(fmt)s export: %(exc)s")
+            % {"fmt": fmt.upper(), "exc": exc},
+        )
         return redirect("cases:case_detail", pk=pk)
 
-    messages.error(request, "Unknown export format.")
+    messages.error(request, _("Unknown export format."))
     return redirect("cases:case_detail", pk=pk)
 
 
@@ -3605,13 +3644,13 @@ def export_form_pdf_confirm(request, pk, form_kind):
     if not services.user_can_view_case(case, request.user):
         if _is_ajax(request):
             return JsonResponse({"ok": False, "error": "You do not have access to this case."}, status=403)
-        messages.error(request, "You do not have access to this case.")
+        messages.error(request, _("You do not have access to this case."))
         return redirect("cases:inbox")
 
     if not _can_export(profile, form_kind, "pdf"):
         if _is_ajax(request):
             return JsonResponse({"ok": False, "error": "You don't have permission to use this export."}, status=403)
-        messages.error(request, "You don't have permission to use this export.")
+        messages.error(request, _("You don't have permission to use this export."))
         return redirect("cases:case_detail", pk=pk)
 
     side = (request.GET.get("side") or "").strip()
@@ -3621,7 +3660,7 @@ def export_form_pdf_confirm(request, pk, form_kind):
     if form is None:
         if _is_ajax(request):
             return JsonResponse({"ok": False, "error": "There is no such form to export yet."}, status=404)
-        messages.error(request, "There is no such form to export yet.")
+        messages.error(request, _("There is no such form to export yet."))
         return redirect("cases:case_detail", pk=pk)
 
     try:
@@ -3648,7 +3687,10 @@ def export_form_pdf_confirm(request, pk, form_kind):
                 {"ok": False, "error": f"Could not generate the PDF export: {exc}"},
                 status=500,
             )
-        messages.error(request, f"Could not generate the PDF export: {exc}")
+        messages.error(
+            request,
+            _("Could not generate the PDF export: %(exc)s") % {"exc": exc},
+        )
         return redirect("cases:case_detail", pk=pk)
 
 
@@ -3678,13 +3720,13 @@ def export_form_html_confirm(request, pk, form_kind):
     if not services.user_can_view_case(case, request.user):
         if _is_ajax(request):
             return JsonResponse({"ok": False, "error": "You do not have access to this case."}, status=403)
-        messages.error(request, "You do not have access to this case.")
+        messages.error(request, _("You do not have access to this case."))
         return redirect("cases:inbox")
 
     if not _can_export(profile, form_kind, "html"):
         if _is_ajax(request):
             return JsonResponse({"ok": False, "error": "You don't have permission to use this export."}, status=403)
-        messages.error(request, "You don't have permission to use this export.")
+        messages.error(request, _("You don't have permission to use this export."))
         return redirect("cases:case_detail", pk=pk)
 
     side = (request.GET.get("side") or "").strip()
@@ -3694,7 +3736,7 @@ def export_form_html_confirm(request, pk, form_kind):
     if form is None:
         if _is_ajax(request):
             return JsonResponse({"ok": False, "error": "There is no such form to export yet."}, status=404)
-        messages.error(request, "There is no such form to export yet.")
+        messages.error(request, _("There is no such form to export yet."))
         return redirect("cases:case_detail", pk=pk)
 
     try:
@@ -3720,7 +3762,10 @@ def export_form_html_confirm(request, pk, form_kind):
                 {"ok": False, "error": f"Could not generate the Print view: {exc}"},
                 status=500,
             )
-        messages.error(request, f"Could not generate the Print view: {exc}")
+        messages.error(
+            request,
+            _("Could not generate the Print view: %(exc)s") % {"exc": exc},
+        )
         return redirect("cases:case_detail", pk=pk)
 
 
@@ -3760,8 +3805,19 @@ def _can_manage_clients_fx(user) -> bool:
     return _is_commercial_manager(user) or _is_platform_admin(user)
 
 
-def _deny_clients_fx(request, message: str = "Only the Commercial manager or an Administrator can manage Clients & FX."):
-    messages.error(request, message)
+def _deny_clients_fx(request, message: str | None = None):
+    # ``message`` cannot default to ``_("...")`` directly — a default
+    # expression is evaluated exactly once, when Python parses this ``def``
+    # at module import time, which would freeze the flash text in whatever
+    # language happened to be active during startup for every request ever
+    # after. Deferring the gettext() call into the body keeps it evaluated
+    # per-request, the same as every other flash message in this file.
+    messages.error(
+        request,
+        message if message is not None else _(
+            "Only the Commercial manager or an Administrator can manage Clients & FX."
+        ),
+    )
     if _is_platform_admin(request.user):
         return redirect("accounts:admin_console")
     return redirect("cases:inbox")
@@ -3797,7 +3853,9 @@ def master_data_hub(request):
 @login_required
 def fx_rates(request):
     if not _can_manage_clients_fx(request.user):
-        return _deny_clients_fx(request, "Only the Commercial manager or an Administrator can manage FX rates.")
+        return _deny_clients_fx(
+            request, _("Only the Commercial manager or an Administrator can manage FX rates.")
+        )
     from . import fx_rates as fx
     rates = fx.list_rates()
     for r in rates:
@@ -3813,22 +3871,27 @@ def fx_rates(request):
 @login_required
 def fx_rate_add(request):
     if not _can_manage_clients_fx(request.user):
-        return _deny_clients_fx(request, "Only the Commercial manager or an Administrator can manage FX rates.")
+        return _deny_clients_fx(
+            request, _("Only the Commercial manager or an Administrator can manage FX rates.")
+        )
     if request.method != "POST":
         return redirect("cases:fx_rates")
     from . import fx_rates as fx
     from .models import CurrencyRate
     code = fx.normalize_code(request.POST.get("code", ""))
     if not code or code == "rial":
-        messages.error(request, "Choose a currency from the list.")
+        messages.error(request, _("Choose a currency from the list."))
         return redirect("cases:fx_rates")
     catalog = {c["code"]: c for c in fx.CURRENCY_CATALOG}
     meta = catalog.get(code)
     if meta is None:
-        messages.error(request, "Unknown currency.")
+        messages.error(request, _("Unknown currency."))
         return redirect("cases:fx_rates")
     if CurrencyRate.objects.filter(code=code).exists():
-        messages.error(request, f"{code.upper()} is already on the board.")
+        messages.error(
+            request,
+            _("%(code)s is already on the board.") % {"code": code.upper()},
+        )
         return redirect("cases:fx_rates")
     try:
         price = _parse_rial_price(request.POST.get("rial_price"))
@@ -3836,7 +3899,7 @@ def fx_rate_add(request):
         messages.error(request, str(exc))
         return redirect("cases:fx_rates")
     if price <= 0:
-        messages.error(request, "Enter a positive Rial price.")
+        messages.error(request, _("Enter a positive Rial price."))
         return redirect("cases:fx_rates")
     CurrencyRate.objects.create(
         code=code,
@@ -3846,14 +3909,20 @@ def fx_rate_add(request):
         is_builtin=False,
         updated_by=request.user,
     )
-    messages.success(request, f"{code.upper()} added at {fx.format_rial_amount(price)} Rial.")
+    messages.success(
+        request,
+        _("%(code)s added at %(amount)s Rial.")
+        % {"code": code.upper(), "amount": fx.format_rial_amount(price)},
+    )
     return redirect("cases:fx_rates")
 
 
 @login_required
 def fx_rate_update(request, pk):
     if not _can_manage_clients_fx(request.user):
-        return _deny_clients_fx(request, "Only the Commercial manager or an Administrator can manage FX rates.")
+        return _deny_clients_fx(
+            request, _("Only the Commercial manager or an Administrator can manage FX rates.")
+        )
     from . import fx_rates as fx
     from .models import CurrencyRate
     row = get_object_or_404(CurrencyRate, pk=pk)
@@ -3865,14 +3934,15 @@ def fx_rate_update(request, pk):
         messages.error(request, str(exc))
         return redirect("cases:fx_rates")
     if price <= 0:
-        messages.error(request, "Enter a positive Rial price.")
+        messages.error(request, _("Enter a positive Rial price."))
         return redirect("cases:fx_rates")
     row.rial_price = price
     row.updated_by = request.user
     row.save(update_fields=["rial_price", "updated_by", "updated_at"])
     messages.success(
         request,
-        f"{row.code.upper()} updated to {fx.format_rial_amount(price)} Rial.",
+        _("%(code)s updated to %(amount)s Rial.")
+        % {"code": row.code.upper(), "amount": fx.format_rial_amount(price)},
     )
     return redirect("cases:fx_rates")
 
@@ -3886,7 +3956,9 @@ def fx_rate_update_all(request):
     this moment for the whole board.
     """
     if not _can_manage_clients_fx(request.user):
-        return _deny_clients_fx(request, "Only the Commercial manager or an Administrator can manage FX rates.")
+        return _deny_clients_fx(
+            request, _("Only the Commercial manager or an Administrator can manage FX rates.")
+        )
     if request.method != "POST":
         return redirect("cases:fx_rates")
     from . import fx_rates as fx
@@ -3894,22 +3966,31 @@ def fx_rate_update_all(request):
 
     rows = list(CurrencyRate.objects.all())
     if not rows:
-        messages.error(request, "No currencies on the board yet.")
+        messages.error(request, _("No currencies on the board yet."))
         return redirect("cases:fx_rates")
 
     parsed = []
     for row in rows:
         raw = request.POST.get(f"rate_{row.pk}")
         if raw is None:
-            messages.error(request, f"Missing price for {row.code.upper()}.")
+            messages.error(
+                request,
+                _("Missing price for %(code)s.") % {"code": row.code.upper()},
+            )
             return redirect("cases:fx_rates")
         try:
             price = _parse_rial_price(raw)
         except ValueError as exc:
-            messages.error(request, f"{row.code.upper()}: {exc}")
+            messages.error(
+                request,
+                _("%(code)s: %(exc)s") % {"code": row.code.upper(), "exc": exc},
+            )
             return redirect("cases:fx_rates")
         if price <= 0:
-            messages.error(request, f"{row.code.upper()}: enter a positive Rial price.")
+            messages.error(
+                request,
+                _("%(code)s: enter a positive Rial price.") % {"code": row.code.upper()},
+            )
             return redirect("cases:fx_rates")
         parsed.append((row, price))
 
@@ -3920,8 +4001,12 @@ def fx_rate_update_all(request):
 
     messages.success(
         request,
-        f"Updated {len(parsed)} exchange rate{'s' if len(parsed) != 1 else ''}. "
-        f"24-hour timer restarted.",
+        ngettext(
+            "Updated %(n)s exchange rate. 24-hour timer restarted.",
+            "Updated %(n)s exchange rates. 24-hour timer restarted.",
+            len(parsed),
+        )
+        % {"n": len(parsed)},
     )
     return redirect("cases:fx_rates")
 
@@ -3929,17 +4014,22 @@ def fx_rate_update_all(request):
 @login_required
 def fx_rate_delete(request, pk):
     if not _can_manage_clients_fx(request.user):
-        return _deny_clients_fx(request, "Only the Commercial manager or an Administrator can manage FX rates.")
+        return _deny_clients_fx(
+            request, _("Only the Commercial manager or an Administrator can manage FX rates.")
+        )
     from .models import CurrencyRate
     row = get_object_or_404(CurrencyRate, pk=pk)
     if request.method != "POST":
         return redirect("cases:fx_rates")
     if row.is_builtin or row.code in ("usd", "eur"):
-        messages.error(request, "Default currencies (USD / EUR) cannot be removed.")
+        messages.error(request, _("Default currencies (USD / EUR) cannot be removed."))
         return redirect("cases:fx_rates")
     code = row.code.upper()
     row.delete()
-    messages.success(request, f"{code} removed from the FX board.")
+    messages.success(
+        request,
+        _("%(code)s removed from the FX board.") % {"code": code},
+    )
     return redirect("cases:fx_rates")
 
 
@@ -3977,7 +4067,9 @@ def fx_rates_api(request):
 @login_required
 def client_list(request):
     if not _can_manage_clients_fx(request.user):
-        return _deny_clients_fx(request, "Only the Commercial manager or an Administrator can manage clients.")
+        return _deny_clients_fx(
+            request, _("Only the Commercial manager or an Administrator can manage clients.")
+        )
 
     query = request.GET.get("q", "").strip()
     profile = _profile(request.user)
@@ -4018,7 +4110,9 @@ def client_list(request):
 def client_add(request):
     profile = _profile(request.user)
     if not (profile and profile.can_add_client):
-        return _deny_clients_fx(request, "Only the Commercial manager or an Administrator can add clients.")
+        return _deny_clients_fx(
+            request, _("Only the Commercial manager or an Administrator can add clients.")
+        )
 
     if request.method == "POST":
         form = ClientForm(request.POST)
@@ -4027,7 +4121,10 @@ def client_add(request):
             client.code = services.next_client_code()
             client.created_by = request.user
             client.save()
-            messages.success(request, f"Client added with code {client.code}.")
+            messages.success(
+                request,
+                _("Client added with code %(code)s.") % {"code": client.code},
+            )
             return redirect("cases:client_list")
     else:
         form = ClientForm()
@@ -4039,13 +4136,15 @@ def client_rename(request, pk):
     client = get_object_or_404(Client, pk=pk)
     profile = _profile(request.user)
     if not (profile and profile.can_add_client):
-        return _deny_clients_fx(request, "Only the Commercial manager or an Administrator can rename clients.")
+        return _deny_clients_fx(
+            request, _("Only the Commercial manager or an Administrator can rename clients.")
+        )
 
     if request.method == "POST":
         form = ClientRenameForm(request.POST, instance=client)
         if form.is_valid():
             form.save()
-            messages.success(request, "Client renamed (the code stays the same).")
+            messages.success(request, _("Client renamed (the code stays the same)."))
             return redirect("cases:client_list")
     else:
         form = ClientRenameForm(instance=client)
@@ -4057,7 +4156,9 @@ def client_upload(request):
     """Bulk client codes from Excel (Commercial manager or Admin)."""
     profile = _profile(request.user)
     if not (profile and profile.can_add_client):
-        return _deny_clients_fx(request, "Only the Commercial manager or an Administrator can upload client codes.")
+        return _deny_clients_fx(
+            request, _("Only the Commercial manager or an Administrator can upload client codes.")
+        )
 
     if request.method == "POST" and request.FILES.get("excel_file"):
         try:
@@ -4075,19 +4176,28 @@ def client_upload(request):
             logger.exception("Client Excel upload failed")
             messages.error(
                 request,
-                "Upload failed unexpectedly. Use a valid .xlsx (Code, Name). "
-                "If the file is very large, try again or split it.",
+                _(
+                    "Upload failed unexpectedly. Use a valid .xlsx (Code, Name). "
+                    "If the file is very large, try again or split it."
+                ),
             )
             return render(request, "cases/upload.html", {
                 "title": "Upload client codes",
                 "hint": "Excel with two columns: Code, Name (.xlsx). Numeric codes become 001, 012, …",
                 "action_url": "cases:client_upload",
             })
-        messages.success(request, f"Clients imported: {created} new, {updated} updated.")
+        messages.success(
+            request,
+            _("Clients imported: %(created)s new, %(updated)s updated.")
+            % {"created": created, "updated": updated},
+        )
         for w in (warnings or [])[:12]:
             messages.warning(request, w)
         if warnings and len(warnings) > 12:
-            messages.warning(request, f"…and {len(warnings) - 12} more warnings.")
+            messages.warning(
+                request,
+                _("…and %(n)s more warnings.") % {"n": len(warnings) - 12},
+            )
         return redirect("cases:client_list")
     return render(request, "cases/upload.html", {
         "title": "Upload client codes",
@@ -4100,12 +4210,16 @@ def client_upload(request):
 def client_wipe(request):
     """Admin-only: delete every client so a fresh Excel can be uploaded."""
     if not _is_platform_admin(request.user):
-        return _deny_clients_fx(request, "Only an Administrator can wipe all clients.")
+        return _deny_clients_fx(request, _("Only an Administrator can wipe all clients."))
     if request.method != "POST":
         return redirect("cases:client_list")
     try:
         n = services.wipe_all_clients()
-        messages.success(request, f"All clients cleared ({n} removed). You can upload a new Excel now.")
+        messages.success(
+            request,
+            _("All clients cleared (%(n)s removed). You can upload a new Excel now.")
+            % {"n": n},
+        )
     except ValueError as exc:
         messages.error(request, str(exc))
     return redirect("cases:client_list")
@@ -4115,14 +4229,14 @@ def client_wipe(request):
 def client_delete(request, pk):
     """Admin-only: delete one client if no case uses that client code."""
     if not _is_platform_admin(request.user):
-        return _deny_clients_fx(request, "Only an Administrator can delete individual clients.")
+        return _deny_clients_fx(request, _("Only an Administrator can delete individual clients."))
     client = get_object_or_404(Client, pk=pk)
     if request.method != "POST":
         return redirect("cases:client_list")
     label = f"{client.code} — {client.name}"
     try:
         services.delete_client_if_unused(client)
-        messages.success(request, f"Client deleted: {label}")
+        messages.success(request, _("Client deleted: %(label)s") % {"label": label})
     except ValueError as exc:
         messages.error(request, str(exc))
     return redirect("cases:client_list")
@@ -4165,7 +4279,7 @@ def client_lookup(request):
 def expert_code_list(request):
     profile = _profile(request.user)
     if not (profile and profile.unit == Unit.COMMERCIAL):
-        messages.error(request, "Commercial access only.")
+        messages.error(request, _("Commercial access only."))
         return redirect("cases:inbox")
     return render(request, "cases/expert_code_list.html", {
         "expert_codes": ExpertCode.objects.select_related("user").all(),
@@ -4177,14 +4291,14 @@ def expert_code_list(request):
 def expert_code_add(request):
     profile = _profile(request.user)
     if not (profile and profile.is_manager and profile.unit == Unit.COMMERCIAL):
-        messages.error(request, "Only the Commercial manager can edit expert codes.")
+        messages.error(request, _("Only the Commercial manager can edit expert codes."))
         return redirect("cases:expert_code_list")
 
     if request.method == "POST":
         form = ExpertCodeForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, "Expert code added.")
+            messages.success(request, _("Expert code added."))
             return redirect("cases:expert_code_list")
     else:
         form = ExpertCodeForm()
@@ -4195,7 +4309,7 @@ def expert_code_add(request):
 def expert_code_edit(request, pk):
     profile = _profile(request.user)
     if not (profile and profile.is_manager and profile.unit == Unit.COMMERCIAL):
-        messages.error(request, "Only the Commercial manager can edit expert codes.")
+        messages.error(request, _("Only the Commercial manager can edit expert codes."))
         return redirect("cases:expert_code_list")
 
     expert_code = get_object_or_404(ExpertCode, pk=pk)
@@ -4203,7 +4317,7 @@ def expert_code_edit(request, pk):
         form = ExpertCodeForm(request.POST, instance=expert_code)
         if form.is_valid():
             form.save()
-            messages.success(request, "Expert code updated.")
+            messages.success(request, _("Expert code updated."))
             return redirect("cases:expert_code_list")
     else:
         form = ExpertCodeForm(instance=expert_code)
@@ -4214,14 +4328,18 @@ def expert_code_edit(request, pk):
 def expert_code_upload(request):
     profile = _profile(request.user)
     if not (profile and profile.is_manager and profile.unit == Unit.COMMERCIAL):
-        messages.error(request, "Only the Commercial manager can upload expert codes.")
+        messages.error(request, _("Only the Commercial manager can upload expert codes."))
         return redirect("cases:expert_code_list")
 
     if request.method == "POST" and request.FILES.get("excel_file"):
         created, updated = _import_two_column(
             request.FILES["excel_file"], ExpertCode, "code", "name", request.user
         )
-        messages.success(request, f"Expert codes imported: {created} new, {updated} updated.")
+        messages.success(
+            request,
+            _("Expert codes imported: %(created)s new, %(updated)s updated.")
+            % {"created": created, "updated": updated},
+        )
         return redirect("cases:expert_code_list")
     return render(request, "cases/upload.html", {
         "title": "Upload expert codes",

@@ -232,11 +232,21 @@ class Profile(models.Model):
 
     @property
     def unit_label(self) -> str:
-        return Unit.LABELS.get(self.unit, "")
+        # str(...) resolves the gettext_lazy proxy Unit.LABELS now holds
+        # (accounts.constants.Unit.CHOICES) into a genuine ``str`` right here,
+        # at property-access time — which is always during request handling,
+        # after accounts.middleware.LanguageMiddleware has already activated
+        # this viewer's language, so resolving eagerly loses nothing. It has
+        # to happen somewhere before this value can reach title_line's own
+        # ``" · ".join(parts)`` below: Python's ``str.join`` requires every
+        # item to already be a real ``str`` instance and raises TypeError on
+        # a lazy proxy even though the proxy behaves like a string almost
+        # everywhere else (f-strings, ``+``, dict keys, template output).
+        return str(Unit.LABELS.get(self.unit, ""))
 
     @property
     def role_label(self) -> str:
-        return Role.LABELS.get(self.role, "")
+        return str(Role.LABELS.get(self.role, ""))
 
     @property
     def title_line(self) -> str:

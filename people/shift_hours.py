@@ -75,6 +75,7 @@ from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from django.utils.translation import gettext as _
+from django.utils.translation import get_language
 
 from cases.jalali import gregorian_to_jalali, jalali_to_gregorian
 
@@ -90,14 +91,60 @@ JMONTHS_EN = (
     "Mehr", "Aban", "Azar", "Dey", "Bahman", "Esfand",
 )
 
+# Same twelve months, Persian script. This is a second hand-maintained table
+# rather than a gettext catalog lookup on purpose: these are proper calendar
+# names (like "January"), not sentence fragments assembled at render time, and
+# the codebase already keeps the analogous English table as a plain Python
+# tuple (above) rather than routing it through translate() — see the
+# module-level docstring's remark on this file's calendar vocabulary. Two
+# other hand-maintained copies of the English table already exist elsewhere
+# (core/templatetags/ft_extras.py's own ``_JMONTHS``, and
+# static/js/jalali_picker.js) and are DELIBERATELY left untouched here — see
+# this file's own history in locale/fa/LC_MESSAGES/django.po for why merging
+# all three into one shared table is a larger, separate change than what this
+# round is scoped to fix.
+JMONTHS_FA = (
+    "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
+    "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند",
+)
+
 
 # ---------------------------------------------------------------------------
 # Calendar arithmetic — Jalali months, shift length, where tracking begins
 # ---------------------------------------------------------------------------
 def month_name_en(jm: int) -> str:
+    """Always the English transliteration, regardless of the active request
+    language. Kept as its own function — rather than folding it into
+    ``month_name`` below — because it is the explicit-English form some
+    future caller may need on purpose (a log line, an export, an API
+    payload); nothing in this codebase currently calls it for that reason,
+    but the distinction is cheap to preserve and expensive to reconstruct
+    once the two meanings have been merged into one function.
+    """
     if 1 <= jm <= 12:
         return JMONTHS_EN[jm - 1]
     return str(jm)
+
+
+def month_name(jm: int) -> str:
+    """Month name in whichever language this request is running in.
+
+    Mirrors the per-person language switch ``accounts.middleware
+    .LanguageMiddleware`` already activates for the request (``Profile
+    .language``, never a cookie or the browser) — by the time a view or
+    template calls this, ``translation.get_language()`` already reflects
+    the signed-in person's own saved preference, so reading it here is
+    just as cheap and just as correct as everywhere else in the codebase
+    that leans on Django's active-language state instead of re-deriving it.
+    This is plain table selection, not a gettext-routed string: see
+    ``JMONTHS_FA``'s own comment for why these two tables are hand-kept
+    rather than translated.
+    """
+    if get_language() == "fa":
+        if 1 <= jm <= 12:
+            return JMONTHS_FA[jm - 1]
+        return str(jm)
+    return month_name_en(jm)
 
 
 def shift_minutes(start: time, end: time) -> int:
@@ -874,7 +921,7 @@ def month_day_details(person, jy: int, jm: int) -> list[dict[str, Any]]:
 
         out.append({
             "jalali_day": d["jalali_day"],
-            "label": f"{d['jalali_day']} {month_name_en(jm)}",
+            "label": f"{d['jalali_day']} {month_name(jm)}",
             "weekday": wd,
             "weekday_short": _WEEKDAY_SHORT[wd],
             "status": status,
@@ -904,8 +951,8 @@ def _month_card_from_snap(person, jy, m, snap, *, status: str) -> dict[str, Any]
     excess_h = _excess_hours(done_h, plan_h)
     return {
         "month": m,
-        "name": month_name_en(m),
-        "label": month_name_en(m),
+        "name": month_name(m),
+        "label": month_name(m),
         "status": status,
         "planned_hours": snap.planned_hours,
         "worked_hours": done_h,
@@ -953,7 +1000,7 @@ def year_month_cards(person, jy: int) -> list[dict[str, Any]]:
 
         if before_track and snap is None:
             cards.append({
-                "month": m, "name": month_name_en(m), "label": month_name_en(m),
+                "month": m, "name": month_name(m), "label": month_name(m),
                 "status": "idle", "planned_hours": 0, "worked_hours": 0,
                 "overtime_hours": 0, "excess_hours": 0,
                 "working_days": 0, "off_days": 0,
@@ -981,7 +1028,7 @@ def year_month_cards(person, jy: int) -> list[dict[str, Any]]:
         if is_future:
             plan = plan_month(jy, m, start=start, end=end)
             cards.append({
-                "month": m, "name": month_name_en(m), "label": month_name_en(m),
+                "month": m, "name": month_name(m), "label": month_name(m),
                 "status": "upcoming",
                 "planned_hours": plan["planned_hours"],
                 "worked_hours": 0,
@@ -996,7 +1043,7 @@ def year_month_cards(person, jy: int) -> list[dict[str, Any]]:
         else:
             # Past month after tracking start with no snap yet — treat as idle.
             cards.append({
-                "month": m, "name": month_name_en(m), "label": month_name_en(m),
+                "month": m, "name": month_name(m), "label": month_name(m),
                 "status": "idle", "planned_hours": 0, "worked_hours": 0,
                 "overtime_hours": 0, "excess_hours": 0,
                 "working_days": 0, "off_days": 0,

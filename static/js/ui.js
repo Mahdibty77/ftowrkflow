@@ -302,17 +302,22 @@
   }
 
   // A row that carries no filterable data of its own and must simply track
-  // whichever real data row immediately precedes it — e.g. My Tasks' own
-  // Reports tab, where a report that closed out a reminder gets a second,
-  // decorative <tr> underneath it (a single <td colspan> strip showing that
-  // reminder's Set/Due/Reported dates; see _my_tasks_reports.html). That
-  // strip has the EXACT SAME single-cell-plus-colspan shape isPlaceholderRow
-  // looks for, so without this it fell into that check and was silently
-  // skipped by apply() below — never hidden, never shown, just left exactly
-  // as it started (visible), even after its own data row above it was
-  // filtered out. Opt in with data-follows-row so no EXISTING table (this is
-  // a shared, global script) changes behaviour by accident; only a row that
-  // deliberately asks to inherit its predecessor's visibility does.
+  // whichever real data row immediately precedes it — added for My Tasks'
+  // own Reports tab, back when a report that closed out a reminder got a
+  // second, decorative <tr> underneath it (a single <td colspan> strip
+  // showing that reminder's Set/Due/Reported dates). That strip had the
+  // EXACT SAME single-cell-plus-colspan shape isPlaceholderRow looks for, so
+  // without this it fell into that check and was silently skipped by
+  // apply() below — never hidden, never shown, just left exactly as it
+  // started (visible), even after its own data row above it was filtered
+  // out. A LATER round folded that strip into an ordinary <td> of the same
+  // row instead (see _my_tasks_reports.html's own head comment for why),
+  // so no table in this app opts into data-follows-row any more — but the
+  // mechanism itself stays here, generic and harmless, on the chance a
+  // future table needs this identical shape again: opt in with
+  // data-follows-row so no EXISTING table (this is a shared, global script)
+  // ever changes behaviour by accident; only a row that deliberately asks
+  // to inherit its predecessor's visibility does.
   function isFollowerRow(tr) {
     return tr.hasAttribute("data-follows-row");
   }

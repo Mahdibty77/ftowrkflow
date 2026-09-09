@@ -195,6 +195,38 @@
 {% endblock %}
 {% block scripts %}
 <div hidden>{% csrf_token %}</div>
+{% comment %}
+  chart_interact.js sets a substantial amount of this page's own text
+  dynamically (the mode banner's every state, empty-list placeholders, the
+  "us" panel's heading/count line, the "+ Add company" panel, a couple of
+  tooltips/aria-labels) — none of it reachable by Django's own {% trans %},
+  since it never passes through a template render at all once the page has
+  loaded. FT_MARKETING_CHART.i18n below is the same bridge this page's own
+  config object already builds for every OTHER thing only the browser knows
+  (URLs, flags) — each string translated server-side, in the viewer's own
+  language, and handed to the script to read instead of a hard-coded English
+  literal. The dict itself is built in Python — marketing/views.py's own
+  ``home`` view, context["chart_i18n"] — and NOT as a run of {% trans %}
+  tags here, because Django's {% trans %} tag, given a literal string,
+  doubles every '%' in it before the lookup ever reaches gettext() (see that
+  context entry's own comment for the full story); half these strings carry
+  a %(name)s-style placeholder for chart_interact.js's own fmt() to fill in
+  later, and a doubled '%' would have missed the catalog silently, reverting
+  to English. ``|json_script`` is what gets the already-translated dict from
+  Python to here without a SECOND escaping mechanism of its own to get
+  wrong — no manual quoting, no |escapejs per key, and a value containing a
+  double quote or an apostrophe (an "Activate %(name)s as this card's
+  anchor", say) needs no special care because json.dumps handles all of it.
+  A handful of keys intentionally reuse a msgid this same page already
+  carries as static chrome ("Active", "Deactivate", "Pick a company first…",
+  "Choose a role to add…", "Add") — same gettext() call, same catalog entry,
+  so the banner and the static markup it overwrites can never drift into two
+  different translations of the same word. See chart_interact.js's own
+  updateModeBanner()/quickResetRoleField()/etc. for where each key is read,
+  and locale/fa/LC_MESSAGES/django.po's own AUDIT #134 FOLLOW-UP section for
+  the full catalog entries.
+{% endcomment %}
+{{ chart_i18n|json_script:"ft-marketing-chart-i18n" }}
 <script>
   window.FT_MARKETING_CHART = {
     labelCompaniesUrl: "{% url 'marketing:label_companies' %}",
@@ -246,7 +278,12 @@
     // dual-seat viewer into their Commercial seat on the way to the case —
     // without it the case page would bounce them, since it resolves "did you
     // participate" against the seat being worked. See views._case_open_prefix.
-    caseOpenPrefix: "{{ case_open_prefix|escapejs }}"
+    caseOpenPrefix: "{{ case_open_prefix|escapejs }}",
+    // See this "scripts" block's own opening comment, just above the
+    // csrf_token div near the top of the file, for why this dict is parsed
+    // out of the json_script tag above rather than built as a JS object
+    // literal the way every other key on this config object is.
+    i18n: JSON.parse(document.getElementById('ft-marketing-chart-i18n').textContent)
   };
   // A live read of the CSRF cookie rather than a baked template value — the
   // same reasoning as itemcoder/templates/itemcoder/tool_case.html: it stays
