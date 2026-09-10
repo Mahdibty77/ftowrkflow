@@ -613,22 +613,42 @@ html[data-theme="dark"] .shift-ot-link:hover{
    language rather than inventing a new visual style — the exact same
    .chip.c-warn markup .reminder-bell-facts already prints for the client/
    case facts below, just sized down for a much smaller box (see the
-   override a few rules down) — sitting in the same var(--paper)/var(--
-   line)-family/var(--shadow) "floating card" materials every other panel
-   in this app already uses, with the "cloud" reading coming from the
-   small rotated-square arrow pointing at the bell.
+   override a few rules down) — sitting in the same warm "urgent" materials
+   .reminder-bell-btn.is-due already wears, not the neutral --paper surface
+   every other floating panel in this app uses (see "A STRONGER COLOUR,
+   THIS ROUND" below for why that changed).
+
+   A ROW, NOT A COLUMN, THIS ROUND — the owner's own follow-up: the first
+   version stacked time/facts/note on their own lines, which read fine but
+   grew .topbar past its own 3.6rem min-height (that cost was explicitly
+   accepted at the time — see the git history on this comment — and the
+   owner then asked for it back out). Laying the same three pieces out
+   side by side instead needs more WIDTH, not height, to fit them — hence
+   the much larger max-width below — but never taller than the bell button
+   sitting beside it (height:2.3rem, matching .reminder-bell-btn exactly,
+   with overflow:hidden as the backstop if a viewer's font settings ever
+   push a line taller than that). NOT A CLICK TARGET ANY MORE either (see
+   base.html's own comment on this element): no cursor:pointer, no :hover
+   rule — a plain <div> now, not a <button>; only the bell icon opens the
+   dropdown panel.
+
+   A STRONGER COLOUR, THIS ROUND — the owner's own words: the box "should
+   have a bolder background and draw more attention". The first version
+   used the same quiet var(--paper) surface every other floating panel in
+   this app sits on, with only a thin --warnline border to hint at urgency.
+   This now wears the SAME warm tint .reminder-bell-btn.is-due already
+   uses for the bell button itself (color-mix(...--warn...--warnbg)), just
+   pushed a little stronger since a bubble has more surface area to carry
+   it than a small icon chip does, plus a full-strength --warn border
+   instead of the softer --warnline — so the whole widget (button + bubble)
+   now reads as one consistent "something needs you" colour, not two
+   different intensities of it.
 
    position:static, deliberately NOT absolute like the dropdown panel: a
    bubble that floats free of layout could drift over the page title on a
    narrow viewport with nothing to stop it, where a plain flex sibling is
    automatically kept inside whatever room .topbar-end actually has and
-   shrinks/wraps with it instead. The one visible cost is that .topbar can
-   grow a little past its own 3.6rem min-height while this shows — accepted
-   on purpose this round, unlike the OLD full-width banner this whole
-   widget replaced (this section's own opening comment): that one cost
-   80-120px of scrolling PAGE height on every screen it appeared on; this
-   costs a couple of rows of a small cloud confined to one corner of the
-   sticky topbar, which is what the owner asked this round to bring back.
+   shrinks/wraps with it instead.
 
    Ordered BEFORE the bell button in base.html, not after: this is a plain
    flex row with no [dir=rtl] override anywhere in this file (see
@@ -636,22 +656,22 @@ html[data-theme="dark"] .shift-ot-link:hover{
    correct side of the bell in both languages for free — the same logical-
    order reasoning every other piece of this widget already relies on. */
 .reminder-bell-bubble{
-  position:relative;isolation:isolate;display:flex;flex-direction:column;gap:.2rem;
-  max-width:15rem;padding:.4rem .65rem;margin:0;
-  border-radius:12px;background:var(--paper);border:1px solid var(--warnline);
-  box-shadow:var(--shadow);color:inherit;font:inherit;text-align:start;cursor:pointer;
+  position:relative;isolation:isolate;display:flex;flex-direction:row;align-items:center;gap:.5rem;
+  max-width:26rem;height:2.3rem;padding:0 .75rem;margin:0;overflow:hidden;
+  border-radius:10px;background:color-mix(in srgb,var(--warn) 12%,var(--warnbg));border:1.5px solid var(--warn);
+  box-shadow:var(--shadow);color:inherit;font:inherit;text-align:start;
 }
-.reminder-bell-bubble:hover{border-color:var(--warn)}
 .reminder-bell-bubble-time{
-  display:block;font-size:.72rem;font-weight:750;
-  font-variant-numeric:tabular-nums;color:var(--ink);
+  flex:0 0 auto;font-size:.76rem;font-weight:800;
+  font-variant-numeric:tabular-nums;color:var(--ink);white-space:nowrap;
 }
-.reminder-bell-bubble-facts{display:flex;gap:.25rem;flex-wrap:wrap}
+.reminder-bell-bubble-facts{flex:0 0 auto;display:flex;gap:.25rem;flex-wrap:nowrap}
 /* The identical .chip.c-warn the dropdown panel prints below, only smaller
-   — this box has a fraction of the panel's own 300px to work with. */
-.reminder-bell-bubble-facts .chip{font-size:.6rem;padding:.1rem .4rem;gap:.2rem}
+   — a row this short has far less vertical room than the panel's own 300px
+   block does. */
+.reminder-bell-bubble-facts .chip{font-size:.6rem;padding:.1rem .4rem;gap:.2rem;white-space:nowrap}
 .reminder-bell-bubble-note{
-  display:block;font-size:.68rem;color:var(--muted);
+  flex:1 1 auto;min-width:0;font-size:.72rem;color:var(--ink);opacity:.85;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 /* The speech-bubble arrow: a small square rotated 45deg, half-hidden behind
@@ -667,8 +687,8 @@ html[data-theme="dark"] .shift-ot-link:hover{
 .reminder-bell-bubble-arrow{
   position:absolute;top:50%;inset-inline-end:-5px;z-index:-1;
   width:.55rem;height:.55rem;transform:translateY(-50%) rotate(45deg);
-  background:var(--paper);
-  border-inline-end:1px solid var(--warnline);border-top:1px solid var(--warnline);
+  background:color-mix(in srgb,var(--warn) 12%,var(--warnbg));
+  border-inline-end:1.5px solid var(--warn);border-top:1.5px solid var(--warn);
 }
 /* The count badge: reminder_notice.others + 1, i.e. the TOTAL number of
    due-and-open reminders, not just "how many besides this one" — the

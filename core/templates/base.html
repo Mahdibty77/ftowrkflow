@@ -24,7 +24,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Foolad Tabar Workflow{% endblock %}</title>
   {% include "includes/favicon.html" %}
-  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=reminder-bell-bubble-1">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=reminder-bell-bubble-2">
   <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-17">
   <link rel="stylesheet" href="{% static 'css/icons-offline.css' %}?v=shift-icons-4">
   <script>
@@ -629,12 +629,15 @@
         {# The persistent "latest notification" bubble — see this file's own #}
         {# AUDIT #134 comment above and static/css/app.css's matching one on #}
         {# .reminder-bell-bubble for why this exists beside the click-to-    #}
-        {# open panel rather than replacing it. Same click target as the     #}
-        {# bell: toggles the identical #reminderBellPanel, so there is only  #}
-        {# ever one open/close state to keep in sync, not two.               #}
-        <button type="button" class="reminder-bell-bubble" id="reminderBellBubble"
-                onclick="document.getElementById('reminderBellPanel').classList.toggle('open')"
-                aria-label="{% trans "Reminder due" %}">
+        {# open panel rather than replacing it. PURELY INFORMATIONAL, NOT A  #}
+        {# SECOND CLICK TARGET — a follow-up round removed its own onclick   #}
+        {# (it used to toggle the same #reminderBellPanel the bell does) and #}
+        {# swapped the <button> for a plain <div>: the owner's own ask was   #}
+        {# that hovering this text should do nothing at all — no pointer     #}
+        {# cursor, no colour change — and that only the bell icon itself     #}
+        {# stays clickable, so a control that LOOKED clickable but only      #}
+        {# duplicated the bell's own action was worse than no click at all.  #}
+        <div class="reminder-bell-bubble" id="reminderBellBubble">
           <span class="reminder-bell-bubble-time">{{ reminder_notice.due_at|jalali:"Y.m.d H:i" }}</span>
           {% if reminder_notice.client_name or reminder_notice.case_doc_no %}
           <span class="reminder-bell-bubble-facts">
@@ -647,14 +650,14 @@
           </span>
           {% endif %}
           {% if reminder_notice.note %}
-          {# Truncated much harder than the panel's own |truncatechars:120 — #}
-          {# this box is a sliver of the panel's 300px, not a second copy of #}
-          {# the panel's own generous width, so it needs a shorter clip to   #}
-          {# actually fit on one line instead of wrapping the cloud tall.    #}
-          <span class="reminder-bell-bubble-note" dir="auto">{{ reminder_notice.note|truncatechars:42 }}</span>
+          {# Widened this round (see app.css's own comment on                #}
+          {# .reminder-bell-bubble — row layout now, not stacked, so the     #}
+          {# topbar itself never grows taller) — room for more of the note   #}
+          {# than the old narrow/tall shape could fit on one line.           #}
+          <span class="reminder-bell-bubble-note" dir="auto">{{ reminder_notice.note|truncatechars:70 }}</span>
           {% endif %}
           <span class="reminder-bell-bubble-arrow" aria-hidden="true"></span>
-        </button>
+        </div>
         {% endif %}
         <button class="reminder-bell-btn{% if reminder_notice %} is-due{% endif %}" type="button"
                 onclick="{% if reminder_notice %}document.getElementById('reminderBellPanel').classList.toggle('open'){% else %}window.location.href='{% url 'marketing:my_tasks' %}'{% endif %}"
