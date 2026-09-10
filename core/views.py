@@ -1,17 +1,20 @@
-"""The two site-wide views that belong to no single app.
+"""The site-wide views that belong to no single app.
 
     home()            the landing router: decides which app a signed-in user
                       actually starts in (admin console / dashboard / inbox /
                       Marketing workspace)
     protected_media() every file under MEDIA_ROOT, served behind a login and a
                       per-prefix access rule
+    service_worker()  the PWA service worker script, served at the site ROOT
 
 They are routed from different places. home() is mounted by core/urls.py, which
 the root URLConf includes at site root in the ordinary way. protected_media() is
 mounted directly by the root URLConf (ftworkflow/urls.py) instead, because its
 path has to be built from settings.MEDIA_URL — see the comment there for the
 Django-served-media behaviour it replaces. The access rules protected_media
-enforces are the table further down.
+enforces are the table further down. service_worker() is also mounted directly
+by the root URLConf, for the reason explained on it: a service worker's own URL
+decides how much of the site it is allowed to control.
 """
 import logging
 import mimetypes
@@ -177,6 +180,44 @@ def protected_media(request, path):
     # Content-Length explicitly so browsers do not treat an empty stream as OK.
     fh = target.open("rb")
     response = FileResponse(fh, content_type=content_type or "application/octet-stream")
+    try:
+        response["Content-Length"] = str(target.stat().st_size)
+    except OSError:
+        pass
+    return response
+
+
+def service_worker(request):
+    """The PWA service worker script (static/js/sw.js), served at "/".
+
+    A service worker's own URL sets the ceiling on what it may ever control —
+    one registered from ".../static/js/sw.js" can only ever be given scope
+    under "/static/js/", never the whole site, and the browser enforces that
+    itself (a wider ``scope`` option at registration is simply refused). The
+    file lives under ``static/`` like every other JS asset here, edited the
+    same way, so rather than move it out of that convention (or lean on the
+    front web server to send a ``Service-Worker-Allowed`` header this project
+    cannot guarantee across every deployment) this view re-serves that same
+    file's bytes at the site root, where "the whole site" is the request
+    path's own natural ceiling — no extra header needed, nothing to configure
+    per deployment.
+
+    Read straight from STATICFILES_DIRS on every request, not STATIC_ROOT:
+    that is the source file this project actually edits, so a change to it
+    is live immediately, the same as any other view — not only after the
+    next ``collectstatic``. ``Cache-Control`` is set short rather than left to
+    whatever default a browser applies to a plain script response, so a
+    changed service worker is picked up on the visitor's next open rather
+    than sitting on the browser's own ordinary HTTP cache for a while first
+    (browsers already re-check a registered service worker's OWN byte content
+    periodically regardless, but there is no reason to make that wait longer
+    than it has to).
+    """
+    target = Path(settings.STATICFILES_DIRS[0]) / "js" / "sw.js"
+    if not target.is_file():
+        raise Http404("Not found.")
+    response = FileResponse(target.open("rb"), content_type="application/javascript")
+    response["Cache-Control"] = "no-cache"
     try:
         response["Content-Length"] = str(target.stat().st_size)
     except OSError:

@@ -152,6 +152,26 @@
       return res.json();
     };
   </script>
+  <script>
+    // Registers the PWA service worker (core.views.service_worker, served at
+    // "/" — see that view's own docstring for why it lives at the site root
+    // rather than under /static/). On window "load" rather than immediately,
+    // so registration never competes with the page's own first paint for
+    // bandwidth/priority; feature-detected so a browser with no Service
+    // Worker support (nothing recent lacks it, but this costs nothing) just
+    // skips the whole block instead of throwing.
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/sw.js').catch(function () {
+          // Installing the PWA / the static-asset cache is a nice-to-have,
+          // never a requirement — every page already works with no service
+          // worker at all, so a failed registration (an ad blocker, a
+          // locked-down browser policy, offline on first load) is silently
+          // ignored rather than surfaced to the user.
+        });
+      });
+    }
+  </script>
   {% block head_extra %}{% endblock %}
 </head>
 <body class="unit-{{ active_unit_code|lower }}">

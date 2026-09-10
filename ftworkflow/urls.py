@@ -47,6 +47,11 @@ urlpatterns = [
     path("marketing/", include("marketing.urls")),
     # Item coding / pricing tool + case Build TO/PI bridge.
     path("tool/", include("itemcoder.urls")),
+    # PWA service worker. Has to be served AT the site root — see
+    # core.views.service_worker's own docstring for why its URL, not a
+    # ``scope`` argument, is what actually decides how much of the site a
+    # service worker may ever control.
+    path("sw.js", core_views.service_worker),
     # Root aliases for the item-coding tool.
     #
     # The tool arrived as a standalone project that ran AT site root, and its
