@@ -530,13 +530,20 @@ def assign_seat(person, user, actor=None) -> PersonAccount | PersonRole:
 
 
 def _log_seat_vacation(user, person, *, actor=None, assigned_at=None) -> None:
-    """Record who held this seat before it was freed (for Seats history columns)."""
+    """Record who held this seat before it was freed (for Seats history columns).
+
+    ``person_name`` is a FROZEN column (see ``SeatAssignmentLog``'s own
+    docstring) — resolved through ``_person_label``, not ``person.display_name``
+    directly, for the same "never let a frozen row's language depend on who
+    happens to be reading it, or when it was written" reason that function's
+    own docstring explains.
+    """
     from .models import SeatAssignmentLog
 
     SeatAssignmentLog.objects.create(
         seat_user=user,
         person=person if getattr(person, "pk", None) else None,
-        person_name=(getattr(person, "display_name", None) or "").strip(),
+        person_name=_person_label(person),
         detail_code=(getattr(person, "detail_code", None) or "").strip(),
         assigned_at=assigned_at,
         vacated_at=timezone.now(),
@@ -950,9 +957,31 @@ def refresh_person_seats(person) -> int:
 # Tenure / events / Return / Close / Delegate
 # ---------------------------------------------------------------------------
 def _person_label(person) -> str:
+    """Latin, deterministic name for a FROZEN seat/case-history snapshot.
+
+    Deliberately NOT ``person.display_name`` — this feeds
+    ``SeatEventLog.from_person_name``/``to_person_name`` (the seat History
+    timeline ``people.seat_history`` renders) and the ``CaseEvent.comment``
+    text ``delegate_tasks`` below writes onto the CASE timeline, both written
+    once, at the moment the event happens, and read back later — sometimes by
+    a different viewer, in a different chrome language, than the one active
+    when the row was written. ``Person.display_name`` is now language-aware
+    (it follows whoever is LOOKING, per its own docstring), which is exactly
+    wrong for a frozen row: the same historical "who" would read differently
+    depending on who opens the timeline, or would freeze in whatever language
+    the ACTOR's own chrome happened to be set to that day — the identical
+    drift every other frozen attribution in this codebase already refuses
+    (see ``cases.services._person_display_name``, which this reproduces for a
+    ``Person`` instead of a ``User``). This is exactly what ``display_name``
+    itself always returned before it became language-aware.
+    """
     if person is None:
         return ""
-    return (getattr(person, "display_name", None) or "").strip()
+    return (
+        (getattr(person, "full_name_en", None) or "").strip()
+        or (getattr(person, "username", None) or "").strip()
+        or (getattr(person, "detail_code", None) or "").strip()
+    )
 
 
 def _log_seat_event(

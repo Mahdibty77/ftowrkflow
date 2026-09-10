@@ -68,7 +68,7 @@
   </dl>
 </div>
 
-{% if can_decide %}
+{% if can_decide and req.request_type.code == 'overtime' %}
 <div class="card ppl-card" style="max-width:820px;">
   <div class="card-head"><h3><i class="fa-solid fa-check"></i> Decide</h3></div>
   <form method="post" action="{% url 'people:gm_overtime_decide' req.pk %}">
@@ -99,6 +99,29 @@
     <div class="btn-row" style="margin-top:.9rem;">
       <button type="submit" name="decision" value="approve" class="btn btn-primary"><i class="fa-solid fa-check"></i> Approve</button>
       <button type="submit" name="decision" value="reject" class="btn btn-ghost" style="color:var(--rej);"><i class="fa-solid fa-ban"></i> Reject</button>
+    </div>
+  </form>
+</div>
+{% elif can_decide and req.request_type.code == 'presence_gap' %}
+<div class="card ppl-card" style="max-width:820px;">
+  <div class="card-head"><h3><i class="fa-solid fa-check"></i> Decide</h3></div>
+  {# No duration picker: the disputed minutes are fixed at raise time (the #}
+  {# gap's own measured length), not something the GM shortens/extends the #}
+  {# way an overtime request's approved_minutes can be — see              #}
+  {# staff_requests.decide_presence_gap. #}
+  <div class="help" style="margin-bottom:.6rem;">
+    {% blocktrans with label=req.requested_label %}Approve excuses the gap — nothing is deducted. Reject deducts {{ label }} from this day's worked total.{% endblocktrans %}
+  </div>
+  <form method="post" action="{% url 'people:gm_presence_gap_decide' req.pk %}">
+    {% csrf_token %}
+    <div class="field">
+      <label for="id_decision_note">Decision note</label>
+      <input type="text" name="decision_note" id="id_decision_note" placeholder="Optional note"
+        style="width:100%;max-width:28rem;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:.45rem .65rem;font:inherit;">
+    </div>
+    <div class="btn-row" style="margin-top:.9rem;">
+      <button type="submit" name="decision" value="approve" class="btn btn-primary"><i class="fa-solid fa-check"></i> {% trans "Approve (excuse it)" %}</button>
+      <button type="submit" name="decision" value="reject" class="btn btn-ghost" style="color:var(--rej);"><i class="fa-solid fa-ban"></i> {% trans "Reject (deduct it)" %}</button>
     </div>
   </form>
 </div>

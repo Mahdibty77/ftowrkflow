@@ -95,19 +95,51 @@ so a warm page pays nothing for it.
 ``marketing/reminders.py::_visible_ids_for`` resolves it and fails CLOSED - if
 there is no request to ask, or the access layer raises, the number is withheld
 and the rest of the banner still renders.
+
+AUDIT #134 FOLLOW-UP (this round) — ``reminder_bell``, ONE NEW ADDITIVE KEY,
+FOR A WIDGET THAT NOW RENDERS EVEN WITH NOTHING DUE. The owner's ask this
+round was that the topbar bell itself should always be there (and always
+clickable straight into My Tasks) for anyone who could ever hold a reminder,
+styled neutrally when nothing is due and only turning urgent — coloured,
+with the shake ``static/css/app.css`` now drives — once something actually
+is. ``reminder_notice`` could not be widened to carry that on its own
+without breaking its existing, narrower contract: it is read all over
+``base.html`` with a plain ``{% if reminder_notice %}`` specifically to mean
+"something is due", and every one of those checks (the coloured styling, the
+badge, the always-visible summary bubble, the dropdown panel's own content)
+still needs to mean exactly that after this round, not "the bell merely
+exists". So this is a SECOND, independent key instead: ``True`` whenever the
+gate below is passed, ``{}``/absent whenever it is not (the same "missing
+key and a falsy one read identically" reasoning :func:`reminder_notice`'s
+own docstring already gives for why it returns ``{}`` and not a key holding
+``None``). It costs nothing extra to compute — it is just "did
+``person_for_user`` return something", which the function already had to
+know before it could decide whether to run the due-reminder query at all.
 """
 from __future__ import annotations
 
 
 def reminder_notice(request):
-    """``{"reminder_notice": {...}}`` when one of THIS person's reminders is
-    due, and ``{}`` the rest of the time.
+    """``{"reminder_notice": {...}, "reminder_bell": True}`` when one of
+    THIS person's reminders is due; ``{"reminder_bell": True}`` alone when
+    this login could hold one but nothing is due right now; ``{}`` when this
+    login could never hold a reminder at all (or is not authenticated, or
+    the lookup failed — see the module docstring's "FAILS SOFT" section).
 
-    An empty dict, not a key holding ``None``: ``base.html`` tests the key with
-    a plain ``{% if %}``, and a missing key and a falsy one read identically
-    there — while ``{}`` keeps a template that never looks at it from paying for
-    a variable it does not use. Every other context processor in this project
-    returns ``{}`` from its own no-op paths for the same reason.
+    TWO SEPARATE SIGNALS, ON PURPOSE — see the module docstring's "AUDIT
+    #134 FOLLOW-UP" section for the fuller reasoning. ``reminder_notice``
+    keeps meaning exactly what it always meant ("something is due, and here
+    is its data"); ``reminder_bell`` is the new, wider "may this login see
+    the bell AT ALL" flag ``base.html`` now gates the whole widget on, so a
+    person with nothing currently due still gets a neutral, clickable bell
+    instead of the widget vanishing outright.
+
+    Both keys are plain empty-dict-or-populated, never a key holding
+    ``None``: ``base.html`` tests each with a plain ``{% if %}``, and a
+    missing key and a falsy one read identically there — while ``{}`` keeps
+    a template that never looks at either from paying for a variable it does
+    not use. Every other context processor in this project returns ``{}``
+    from its own no-op paths for the same reason.
     """
     user = getattr(request, "user", None)
     if user is None or not getattr(user, "is_authenticated", False):
@@ -131,6 +163,11 @@ def reminder_notice(request):
         # See the module docstring: the banner is a decoration on every page in
         # the site, and no failure of it may cost the page.
         return {}
+    # Past this point the login has definitely passed the person-record gate
+    # above, so the bell itself always renders now (AUDIT #134 follow-up) —
+    # neutrally styled by base.html/app.css when `notice` is empty, urgent
+    # when it is not. `reminder_notice` is only added to the context when
+    # there IS something due, preserving its old, narrower contract exactly.
     if not notice:
-        return {}
-    return {"reminder_notice": notice}
+        return {"reminder_bell": True}
+    return {"reminder_notice": notice, "reminder_bell": True}

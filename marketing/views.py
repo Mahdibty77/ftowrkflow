@@ -259,6 +259,25 @@ def home(request):
             "casesConnectedToUs": _("Cases connected to Us"),
             "showingOfCases": _("Showing %(shown)s of %(total)s cases"),
             "openInArchive": _("Open %(name)s in the case archive →"),
+            # The panel's own four count-pill labels — Approved / Cancelled /
+            # Closed / No result, added this round alongside the fourth
+            # bucket itself (see client_case_counts's own docstring). Reusing
+            # the EXACT SAME English source strings
+            # marketing/templates/marketing/company_detail.html already
+            # passes through {% trans %} for its own Cases card/tab (the
+            # literal msgid is what gettext keys its catalog lookup on, not
+            # the file it was first seen in), so these four already resolve
+            # to the same, already-translated Persian text that card uses —
+            # no new locale/fa/LC_MESSAGES/django.po entries were needed for
+            # them. THIS IS ALSO WHY THE THREE ORIGINAL LABELS BELOW THIS
+            # COMMENT USED TO BE LITERAL ENGLISH IN chart_interact.js rather
+            # than routed through this dict at all — a pre-existing gap this
+            # round's edit to that same function closes in passing, since the
+            # function was being touched anyway for the fourth bucket.
+            "caseCountApproved": _("Approved"),
+            "caseCountCancelled": _("Cancelled"),
+            "caseCountClosed": _("Closed"),
+            "caseCountPending": _("No result"),
             "addCompanyBtn": _("+ Add company"),
             "addCompanyTitle": _("Add a company"),
             "closeAddCompanyPanel": _("Close add-company panel"),
@@ -595,29 +614,42 @@ def client_connections(request):
 
 @login_required
 def client_case_counts(request):
-    """GET ?client_id= -> ``{"approved": n, "cancelled": n, "pending": n, "total": n}``.
+    """GET ?client_id= -> ``{"total","approved","closed","cancelled","pending"}``.
 
-    The three status counts the chart's "cases connected to Us" panel shows at
-    its top for the company an Inquiry is currently about — approved,
-    cancelled, and "no result" (``pending``). The bucketing itself is not
-    decided here: it is ``services.case_status_counts``, which buckets by the
-    exact same ``_status_fa`` rule that already labels every individual case
-    row in that same panel, so the summary and the rows underneath it can
-    never disagree.
+    THIS ROUND, THE PANEL'S SUMMARY SWITCHED FROM THREE BUCKETS TO THE SAME
+    FOUR ``company_detail``'s own Cases card already shows — Approved /
+    Cancelled / Closed / No result — because the owner asked the chart's
+    "cases connected to Us" panel to show that same breakdown rather than its
+    own, narrower three-way one. The bucketing is not re-implemented here to
+    get that fourth bucket: it is ``_case_card_counts`` below, the IDENTICAL
+    function ``company_detail`` calls for its Cases card, over these rows
+    instead of that page's — one bucketing rule, read by two callers, so a
+    case can never fall in the "Cancelled" bucket on one screen and "Closed"
+    on the other. ``_counts_over``, the three-bucket function this endpoint
+    used to call, is gone outright: switching this, its only caller, to
+    ``_case_card_counts`` left it with nothing left to do.
+
+    THE PER-CASE ROWS UNDERNEATH THIS SUMMARY ARE UNTOUCHED, DELIBERATELY, and
+    do not (and should not) agree with this four-way summary line for line: a
+    FINAL_CLOSED case's own row still prints ``status_fa`` ("تایید شده" —
+    "Approved"), via ``services._status_fa``'s own separate three-way rule
+    (see that function's own module-level comment), while this summary now
+    counts that same case under "Closed". That is not a bug to fix here — it
+    is the EXACT SAME asymmetry ``company_detail.html`` already lives with
+    today, on the very page this endpoint is now matching: its Cases card's
+    four count/money lines sit above a Cases tab table whose own "Outcome"
+    column still prints the three-way ``status_fa`` text per row, untouched.
+    Matching that page's summary without also matching its per-row text is
+    exactly what "the same breakdown" means here.
 
     Gated on ``access.can_view``, like every other read endpoint in this file.
 
     THE NUMBERS DESCRIBE THE ROWS UNDERNEATH THEM, not the company's whole
-    history. That is a change from this endpoint's first version, and it is the
-    same correction ``_counts_over`` already made on the company detail page for
-    the same reason: now that the panel's case rows are scoped to what this
-    viewer may see (see ``client_connections``), a head that still counted every
-    case the company ever had would sit directly above four rows and say
-    fifty-seven. ``services.case_status_counts`` is documented as unscoped and
-    stays that way — it is simply not the number this panel wants — so the
-    buckets are counted here over exactly the visible rows, through the same
-    ``_counts_over`` the detail page uses, which reads the bucket off each row
-    rather than re-deriving it.
+    history — unchanged from before this round: the panel's case rows are
+    scoped to what this viewer may see (see ``client_connections``), so a head
+    that counted every case the company ever had would sit directly above four
+    rows and say fifty-seven. ``_case_card_counts`` is handed exactly the
+    scoped ``rows`` below, never the company's unscoped history.
     """
     access = access_for(request)
     if not access.can_view:
@@ -632,7 +664,7 @@ def client_case_counts(request):
         return JsonResponse({"ok": False, "error": "Unknown client."}, status=404)
     rows = scope_case_rows(
         services.cases_for_client(client), case_access_for(request, access))
-    return JsonResponse({"ok": True, "counts": _counts_over(rows)})
+    return JsonResponse({"ok": True, "counts": _case_card_counts(rows)})
 
 
 @login_required
@@ -910,33 +942,17 @@ def _visible_case_rows_all(request, case_access) -> list:
     ]
 
 
-def _counts_over(case_rows) -> dict:
-    """``{"approved","cancelled","pending","total"}`` over exactly ``case_rows``.
-
-    The company detail page's headline numbers have to describe the rows the
-    reader can actually see underneath them (see ``_visible_case_rows``), and
-    ``services.case_status_counts`` is documented as UNSCOPED — it counts every
-    case the company has ever had, which is the right number for "how big is
-    this company's history" and the wrong one for "how many of the cases in
-    this table were approved".
-
-    So the buckets are counted here, over the visible rows — but the RULE that
-    decides which bucket a case falls in is not re-implemented: each row already
-    carries the bucket's own display text in ``status_fa`` (put there by
-    ``services.cases_for_client``), and ``services._STATUS_BUCKET_KEY`` is the
-    map from that text to the key. Reading that one private name is deliberate
-    and is the same judgement ``marketing/services.py`` itself documents when it
-    calls ``cases.services._actor_snapshot``: the underscore marks it private to
-    the app, not to the module, and it is a pure lookup table with no side
-    effects. Copying the three-way bucketing here instead would create the
-    second definition ``services.py`` went out of its way to avoid, and the two
-    would disagree the first time a status moved between buckets.
-    """
-    counts = {"approved": 0, "cancelled": 0, "pending": 0, "total": 0}
-    for row in case_rows:
-        counts[services._STATUS_BUCKET_KEY[row["status_fa"]]] += 1
-        counts["total"] += 1
-    return counts
+# ``_counts_over`` — the three-bucket function that used to live here, reading
+# each row's already-three-way-bucketed ``status_fa`` via
+# ``services._STATUS_BUCKET_KEY`` — is gone. It backed exactly one caller,
+# ``client_case_counts``, and this round switched that endpoint to
+# ``_case_card_counts`` below (see that view's own docstring for why), which
+# left ``_counts_over`` with no caller at all rather than a narrower one.
+# ``services._STATUS_BUCKET_KEY``/``services.case_status_counts`` themselves
+# are untouched and still very much alive — ``company_detail`` below still
+# calls ``services.case_status_counts`` directly for ``all_counts``, the
+# unscoped "how many more cases exist than you're being shown" figure, which
+# is a different question from either bucketing function on this page.
 
 
 # The Cases CARD's own raw-status bucket, folded in with BURNED — the owner's
@@ -956,13 +972,16 @@ def _case_card_bucket(status) -> str:
     ``"closed"``, ``"approved"``, ``"cancelled"`` or ``"pending"``.
 
     Pulled out of ``_case_card_counts`` below so that ``_pi_money_by_bucket``
-    (added this round, for the card's per-bucket PI totals) classifies every
-    case EXACTLY the same way the counts do, from one place, rather than
-    carrying its own copy of this if/elif chain that could quietly drift from
-    the counts' version over some future edit. Two functions computing "which
-    bucket" by two separate rules is exactly the trap ``_case_card_counts``'s
-    own docstring warns about for ``_counts_over`` vs. this card — the fix
-    here is the same one: one rule, read by both callers.
+    classifies every case EXACTLY the same way the counts do, from one place,
+    rather than carrying its own copy of this if/elif chain that could
+    quietly drift from the counts' version over some future edit — and so
+    that ``_case_card_counts``'s own two callers (``company_detail``'s Cases
+    card and ``client_case_counts``, the chart's "cases connected to Us"
+    panel — see that function's own docstring) read one shared rule rather
+    than each carrying a copy that could drift from the other's. Two
+    functions (or two callers) computing "which bucket" by two separate rules
+    is exactly the trap this file has already been bitten by once; the fix is
+    always the same one: one rule, read by every caller that needs it.
     """
     if status == CaseStatus.FINAL_CLOSED:
         return "closed"
@@ -976,25 +995,25 @@ def _case_card_bucket(status) -> str:
 def _case_card_counts(case_rows) -> dict:
     """``{"total","approved","closed","cancelled","pending"}`` over exactly
     ``case_rows`` — the Cases CARD's own four-way split, for the company
-    detail page's redesigned summary row.
+    detail page's redesigned summary row, and, as of this round, ALSO for the
+    relationship chart's "cases connected to Us" panel.
 
-    A DELIBERATELY SEPARATE BUCKETING FROM ``_counts_over`` RIGHT ABOVE IT,
-    NOT A WIDENING OF IT, even though the two look almost alike and share a
-    caller's worth of case rows. ``_counts_over`` backs TWO callers:
-    ``company_detail`` (until this function replaced it here) and
-    ``client_case_counts`` — the JSON endpoint behind the relationship
-    chart's "cases connected to Us" panel, which ``services.py``'s own module
-    docstring documents as wanting "exactly three buckets, named exactly this
-    way, and nothing finer". Widening ``_counts_over`` itself to carve a
-    fourth "closed" bucket out of "approved" would silently re-carve that
-    chart panel's own Approved number too, which nobody asked for and which
-    would contradict that panel's own documented three-bucket rule. So this
-    is a new, narrow function used ONLY by ``company_detail``'s Cases card
-    (and the matching header chips on its Cases TAB, for one page that agrees
-    with itself), reading the RAW ``status`` on each row rather than the
-    already-three-way-bucketed ``status_fa`` ``_counts_over`` reads, and
-    ``_counts_over``/``client_case_counts``/the chart panel are completely
-    untouched by it.
+    TWO CALLERS NOW, ONE BUCKETING RULE, NOT TWO. This function started life
+    reading the RAW ``status`` on each row (rather than the
+    already-three-way-bucketed ``status_fa`` a since-removed sibling,
+    ``_counts_over``, used to read) specifically so it COULD carve a fourth
+    "closed" bucket out of "approved" without disturbing that older,
+    coarser three-way rule — at the time, ``_counts_over`` was still backing
+    ``client_case_counts``, the JSON endpoint behind the chart's own panel,
+    and widening it in place would have silently re-carved that panel's
+    Approved number too, which nobody had asked for yet. That "yet" is over:
+    the owner has since asked the chart panel for this exact same four-way
+    breakdown, so ``client_case_counts`` now calls this function directly
+    (see its own docstring for the one place the two callers still
+    deliberately disagree — the per-row ``status_fa`` text underneath the
+    summary, which this function's four buckets were never meant to replace),
+    and ``_counts_over`` itself is gone: it had no other caller left to keep
+    it alive.
 
     THE FOUR BUCKETS, PER THE OWNER'S OWN WORDING THIS ROUND:
 
@@ -1002,12 +1021,14 @@ def _case_card_counts(case_rows) -> dict:
       fully shut. THIS BUCKET DID NOT EXIST ON THIS PAGE BEFORE; the owner
       asked for it by name ("Closed").
     * ``approved`` — ``CaseStatus.FINAL_APPROVED`` alone, now EXCLUDING
-      ``FINAL_CLOSED`` (which the shared, chart-facing bucketing above still
-      folds into its own "approved" — see the note above on why that stays
-      untouched). Splitting "closed" out of "approved" for exactly this card
-      is the whole point of a fourth bucket: without the split, a
-      final-closed case would count under two headings on the same card and
-      the four numbers would no longer sum to the total.
+      ``FINAL_CLOSED`` (which ``services._status_fa``'s own, separate
+      three-way rule still folds into its own "Approved" reading — that rule
+      is what puts the text on each row's own ``status_fa``, untouched by
+      this bucket split; see ``client_case_counts``'s docstring for why the
+      two are allowed to disagree). Splitting "closed" out of "approved" for
+      this four-way split is the whole point of a fourth bucket: without the
+      split, a final-closed case would count under two headings and the four
+      numbers would no longer sum to the total.
     * ``cancelled`` — BURNED and CANCELLED SUMMED INTO ONE LINE, per the
       owner's own words quoted on ``_CASE_CARD_CANCELLED`` above.
     * ``pending`` — everything else (still-moving statuses, and the various
@@ -1015,8 +1036,8 @@ def _case_card_counts(case_rows) -> dict:
       because its existing meaning already matches what "no result yet" means
       here; nothing about it changes.
 
-    ``approved + cancelled + closed + pending == total`` always, the same
-    invariant the three-bucket version keeps, just over one more heading.
+    ``approved + cancelled + closed + pending == total`` always — every case
+    lands in exactly one of the four buckets, never zero and never two.
     """
     counts = {"total": 0, "approved": 0, "closed": 0, "cancelled": 0, "pending": 0}
     for row in case_rows:
@@ -1111,58 +1132,20 @@ def _contact_rows(client, request, access) -> list:
     ]
 
 
-def _pi_money_total(case_rows, case_access) -> str:
-    """The company's total PI money over EXACTLY ``case_rows``, formatted — or "".
-
-    THE OWNER ASKED THE COMPANY PAGE FOR THE NUMBER THE ARCHIVE ALREADY SHOWS,
-    so this reuses that page's own two helpers rather than computing money a
-    second time. ``cases/services.py::archive_attach_money`` returns the
-    ``{case id: amount}`` map (VAT-inclusive PI grand totals), and
-    ``cases/export_data.py::format_money_amount`` renders the sum — which is
-    line for line what ``cases/views.py::archive`` does for its "Grand total
-    (all PI)" banner, down to printing "—" for a genuine zero. There is
-    deliberately no arithmetic here that the archive does not also do: a company
-    page and an archive banner disagreeing about the same money would be worse
-    than neither existing.
-
-    OVER THE VISIBLE ROWS, NOT THE WHOLE COMPANY. ``case_rows`` is exactly what
-    the Cases tab lists (``_visible_case_rows``, scoped by
-    ``access.case_access_for``), for the reason ``_counts_over`` above already
-    documents for the outcome counts: a total that summed cases the reader is
-    not being shown would sit above a three-row table and quote a figure those
-    three rows cannot add up to. A Commercial MANAGER now sees every case on the
-    company (see ``access.case_access_for``), so their total is the company's
-    real total; an expert's is the total of their own cases, and that is the
-    honest answer for them.
-
-    RETURNS "" — not "0", not "—" — WHEN THIS VIEWER MAY NOT SEE MONEY AT ALL.
-    ``case_access.show_money`` is "money follows the cases" (see
-    ``access._case_money_visible``): a viewer who may see these case rows may
-    see what they are worth, and one who may see no case rows gets no figure —
-    which is the same answer the empty ``ids`` guard below would have reached
-    anyway, from the other direction. The empty string is what tells the
-    template there is no figure to draw, as opposed to a figure that happens to
-    be nothing. ``archive_attach_money`` is not called at all in that case —
-    the same short-circuit ``cases/views.py::archive`` uses, so the expensive
-    proforma decode is never paid for a reader who would not be shown the
-    result.
-    """
-    if not case_access.show_money:
-        return ""
-    ids = [row["case_id"] for row in case_rows if row.get("case_id") is not None]
-    if not ids:
-        return ""
-    from cases import services as case_services
-    from cases.export_data import format_money_amount
-
-    # ``archive_attach_money`` wants objects with a ``pk`` (it also stamps a
-    # per-row display string onto each, which nothing here reads — the MAP is
-    # what this function is after, exactly as the archive's drill-down banner
-    # uses it). ``.only("id")`` because that is the only column it touches.
-    gt_map = case_services.archive_attach_money(
-        list(Case.objects.filter(pk__in=ids).only("id")))
-    total = sum(gt_map.values()) if gt_map else 0.0
-    return format_money_amount(total) if total else "—"
+# ``_pi_money_total`` — the company's single "Grand total (all PI)" figure
+# over ``case_rows``, once computed here by reusing the archive's own
+# ``cases/services.py::archive_attach_money`` / ``cases/export_data.py::
+# format_money_amount`` pair — is gone. It backed exactly one context var,
+# ``pi_total_display``, which fed exactly one piece of markup: the Cases TAB's
+# own single-line money banner. The owner asked this round for that single
+# figure replaced, everywhere on this page, by the same four-way PI
+# breakdown ``_pi_money_by_bucket`` below already computes for the Cases
+# CARD — so ``pi_total_display`` is gone from this view's context, the
+# banner is gone from the template (see that file's own comment where it
+# used to sit), and the function itself went with them: nothing else in the
+# codebase called it (checked by grep — only doc-comments named it, no other
+# call site). If a future round needs the plain grand total back, the
+# archive's own two helpers it wrapped are still exactly where they were.
 
 
 def _pi_money_by_bucket(case_rows, case_access) -> dict:
@@ -1173,14 +1156,13 @@ def _pi_money_by_bucket(case_rows, case_access) -> dict:
     THE OWNER ASKED THE ONE GRAND TOTAL SPLIT INTO FOUR, one beside each
     count line on the Cases card, so that a reader does not have to guess how
     much of the single figure belonged to, say, the closed cases versus the
-    ones still pending. This is a SIBLING of ``_pi_money_total`` above, not a
-    replacement of it: that function still backs the Cases TAB's own "Grand
-    total (all PI)" banner (``pi_total_display`` in this view's context),
-    which the owner did not ask this round to touch, so it is left computing
-    the one company-wide figure exactly as it always has. Both functions call
-    the SAME ``archive_attach_money`` for the SAME visible ``case_rows`` —
-    there is no second, independent read of the money here, only a second way
-    of adding up the one map ``archive_attach_money`` already returned.
+    ones still pending. THIS IS NOW THE PAGE'S ONLY PI-MONEY FIGURE: it used
+    to sit alongside a sibling, ``_pi_money_total``, which kept computing the
+    one company-wide grand total for a second, separate display further down
+    the page (the Cases TAB's own banner) — that sibling and the display it
+    fed are both gone this round (see the comment left in its place, just
+    above this function), so this function's four numbers are what the whole
+    page shows now, wherever PI money appears on it.
 
     EVERY CASE IS PUT IN A BUCKET WITH ``_case_card_bucket``, the identical
     per-row rule ``_case_card_counts`` uses for the count lines this dict sits
@@ -1191,11 +1173,9 @@ def _pi_money_by_bucket(case_rows, case_access) -> dict:
     the owner's "reuse the exact same bucket assignment" instruction rules
     out.
 
-    GATED IDENTICALLY TO ``_pi_money_total``: an empty dict when
-    ``case_access.show_money`` is False, so the template's own
-    ``{% if show_money %}`` continues to be the one gate that decides whether
-    any money renders on this card at all — this function does not add a
-    second, looser way to see a figure the grand total already hides.
+    GATED ON ``case_access.show_money``: an empty dict when it is False, so
+    the template's own ``{% if show_money %}`` continues to be the one gate
+    that decides whether any PI money renders on this page at all.
     """
     if not case_access.show_money:
         return {}
@@ -1214,9 +1194,8 @@ def _pi_money_by_bucket(case_rows, case_access) -> dict:
     from cases import services as case_services
     from cases.export_data import format_money_amount
 
-    # One call over every visible case, exactly as ``_pi_money_total`` makes
-    # — the per-bucket split below is pure arithmetic over the map it hands
-    # back, not a second query.
+    # One call over every visible case — the per-bucket split below is pure
+    # arithmetic over the map it hands back, not a second query.
     gt_map = case_services.archive_attach_money(
         list(Case.objects.filter(pk__in=all_ids).only("id")))
     result = {}
@@ -1329,11 +1308,14 @@ def company_detail(request, pk):
       chips into a two-column list — see the template.
     * CASES — ``_visible_case_rows`` for the rows, and ``_case_card_counts``
       for this card's OWN four-way split (total / approved / cancelled /
-      closed / no-result), a NEW bucketing distinct from ``_counts_over`` —
-      see that function's own docstring for why the two must stay separate
-      functions rather than one widened in place. The PI money total
-      (``_pi_money_total``, gated by ``show_money``) is unchanged from before
-      this round.
+      closed / no-result) — the SAME function the relationship chart's own
+      "cases connected to Us" panel now also calls, through
+      ``client_case_counts`` (see that view's own docstring for why the two
+      used to read two different bucketings and no longer do). The PI money
+      is ``_pi_money_by_bucket``, gated by ``show_money`` — one figure per
+      bucket, beside the count it belongs to; this card already showed that
+      split before this round and is unchanged by it. The Cases TAB below is
+      the one that changes — see that bullet.
 
     THE FIVE TABS BELOW THEM, in order (Contacts, Cases, Reports, Reminders,
     Timeline — Reminders sits immediately before Timeline, per the owner's own
@@ -1352,7 +1334,17 @@ def company_detail(request, pk):
       through, so this page and the chart can never show the same viewer two
       different sets of cases. ``services.case_status_counts`` is ALSO read,
       unscoped, purely so the page can say honestly how many cases the company
-      has in total when the viewer is only being shown some of them.
+      has in total when the viewer is only being shown some of them. THE OLD
+      SINGLE "GRAND TOTAL (ALL PI)" LINE UNDER THIS TAB'S OWN HEADER CHIPS IS
+      GONE THIS ROUND — ``_pi_money_total``, the function that computed it,
+      is removed outright, it had no other caller. Nothing replaces it in
+      this tab specifically: the Cases CARD above the tabs (same bullet list,
+      further up) already carries the identical four-way PI breakdown via
+      ``_pi_money_by_bucket``, stays on screen no matter which tab is open,
+      and is the one place on this page that figure is shown now — see that
+      function's own docstring, and the template's own comment where the old
+      line used to sit, for why a second copy of the same four numbers is not
+      added here in its place.
     * REPORTS — ``services.list_reports``, which enforces its visibility rule
       itself through the SAME ``_scoped`` helper contacts use: an ordinary
       Marketing user sees only the reports they wrote, a Supervisor/GM/admin
@@ -1405,13 +1397,13 @@ def company_detail(request, pk):
     # ONE decision, several tabs — see the TIMELINE bullet above.
     case_access = case_access_for(request, access)
     case_rows = _visible_case_rows(client, request, case_access)
-    # The Cases CARD's own four-way split (see ``_case_card_counts``'s own
-    # docstring for why this is a separate function from ``_counts_over``,
-    # which the chart's own "cases connected to Us" panel still relies on,
-    # untouched, through ``client_case_counts``). Kept in a context var named
-    # ``counts`` — not ``case_counts`` — because the Cases TAB's own header
-    # chips read the identical dict for the identical reason: one page should
-    # not show two different "approved" numbers for the same rows.
+    # The Cases CARD's own four-way split — see ``_case_card_counts``'s own
+    # docstring for why the chart's own "cases connected to Us" panel now
+    # calls this exact same function too, through ``client_case_counts``,
+    # rather than the three-bucket function it used to. Kept in a context var
+    # named ``counts`` — not ``case_counts`` — because the Cases TAB's own
+    # header chips read the identical dict for the identical reason: one page
+    # should not show two different "approved" numbers for the same rows.
     counts = _case_card_counts(case_rows)
     # Unscoped, company-wide — used ONLY to tell the reader that cases exist
     # which this page is not showing them. Never mixed into the numbers above,
@@ -1431,17 +1423,19 @@ def company_detail(request, pk):
         "case_rows": case_rows,
         "counts": counts,
         "hidden_case_count": max(all_counts["total"] - counts["total"], 0),
-        # The archive's own "Grand total (all PI)" figure, over the visible rows
-        # only — empty string when this viewer may not be shown money at all.
-        # UNCHANGED by this round: the owner's spec keeps this gate exactly as
-        # it was.
-        "pi_total_display": _pi_money_total(case_rows, case_access),
-        # The Cases CARD's own four per-bucket totals (approved/cancelled/
-        # closed/pending), replacing that card's old single grand-total line
-        # — see ``_pi_money_by_bucket`` for why this is a sibling of
-        # ``_pi_money_total`` above rather than a replacement of it. Gated
-        # identically: an empty dict, same as "" above, when show_money is
-        # False.
+        # The Cases CARD's four per-bucket PI totals (approved/cancelled/
+        # closed/pending) — see ``_pi_money_by_bucket``'s own docstring. This
+        # USED TO SIT BESIDE A SECOND CONTEXT VAR, ``pi_total_display``
+        # (``_pi_money_total``, the archive's own single "Grand total (all
+        # PI)" figure over these same visible rows), which fed a second,
+        # separate money display further down the Cases TAB. The owner asked
+        # for that single-figure line gone this round, in favour of this same
+        # four-way breakdown being the page's only PI money display — see the
+        # template's own comment where that line used to sit. With its only
+        # caller removed, ``_pi_money_total`` itself is removed too; nothing
+        # else in the codebase called it (checked by grep before removing).
+        # Gated on show_money exactly as that removed figure was: an empty
+        # dict, not an absent key, when this viewer may not see money at all.
         "pi_totals": _pi_money_by_bucket(case_rows, case_access),
         "show_money": case_access.show_money,
         "timeline": _timeline_with_icons(
@@ -2236,12 +2230,14 @@ def _task_rows(request, case_access, scope: str = "own") -> list:
       prints a stamp, so a row's own group key and its own printed time can
       never disagree about which calendar day or hour it falls in.
       ``day_key`` is read in TWO places: the CLIENT-SIDE day pills
-      (``marketing/static/marketing/js/my_tasks.js``, unchanged this round)
-      AND, server-side, ``_task_hour_groups`` below, which only ever places
-      a row in an hour box when its own ``day_key`` is today's. ``hour_key``
-      USED to also drive a client-side hour-pill click-filter; that pill row
-      is gone (see ``_my_tasks_reminders.html``'s own head comment and
-      ``_task_hour_groups``'s own docstring), so it is now read ONLY
+      (``marketing/static/marketing/js/my_tasks.js``) AND, server-side,
+      ``_task_hour_groups_for_day`` below, which places a row in an hour box
+      only when its own ``day_key`` matches the ONE day that call is
+      building boxes for (Today, Tomorrow, or any further-future day pill —
+      no longer today alone, as of this round). ``hour_key`` USED to also
+      drive a client-side hour-pill click-filter; that pill row is gone (see
+      ``_my_tasks_reminders.html``'s own head comment and
+      ``_task_hour_groups_for_day``'s own docstring), so it is now read ONLY
       server-side, by that same function, to decide which box a row's
       content actually renders inside.
 
@@ -2297,8 +2293,15 @@ def _task_rows(request, case_access, scope: str = "own") -> list:
         row.hour_key = "%02d" % local_due.hour
         if scope == "all":
             person = person_map.get(row.owner_id)
+            # display_name, not full_name: this is a LIVE render (this
+            # dict is built fresh on every request, never stored), so it
+            # should follow the same per-viewer chrome-language toggle
+            # every other live name on this admin-wide page already does —
+            # see Person.display_name's own docstring. full_name would have
+            # shown the Persian name unconditionally, even to a viewer whose
+            # chrome is set to English.
             row.person_name = (
-                person.full_name if person is not None
+                person.display_name if person is not None
                 else row.owner.get_full_name() or row.owner.username)
             row.person_key = person.detail_code if person is not None else ""
         row.state_text = (
@@ -2311,17 +2314,38 @@ def _task_rows(request, case_access, scope: str = "own") -> list:
 
 def _task_day_groups(rows) -> list:
     """The day-pill data for My Tasks' Reminders tab — Today and Tomorrow
-    ALWAYS (even carrying nothing, so the person can still open Today and see
-    their own now-empty shift laid out in hour blocks), then every FUTURE day
-    past tomorrow that has at least one of THESE rows due on it and no
-    others — the owner's own instruction, "do not show empty future days": a
-    pill for a day the table underneath has nothing in is a control that
-    opens an empty list for no reason.
+    ALWAYS (even carrying nothing, so the person can still open either one
+    and see their own now-empty shift laid out in hour blocks), then every
+    FUTURE day past tomorrow that has at least one of THESE rows due on it
+    and no others — the owner's own instruction, "do not show empty future
+    days": a pill for a day the table underneath has nothing in is a control
+    that opens an empty list for no reason.
+
+    ORDER: Today, Tomorrow, then every further-future day ascending — read
+    straight off this list by ``_my_tasks_reminders.html``'s own day-pill
+    loop, which now also appends the ONE further "All" pill AFTER this
+    entire loop rather than before it (the owner's own instruction this
+    round: Today first, Tomorrow second, All last, with any further-future
+    pills sitting between Tomorrow and All since they are chronologically
+    between "tomorrow" and "everything"). This function's own job stays
+    unchanged — it never draws "All" at all, that pill is the template's own
+    static markup, exactly as before.
 
     BUILT OFF THE SAME ``rows`` THE TABLE RENDERS, never a second query — it
     groups by ``row.day_key`` (see ``_task_rows``), so the count printed on
     each pill and the rows that pill's click actually reveals (matched on
     that identical key, client-side) can never disagree.
+
+    NO ``is_today`` FLAG ANY MORE. An earlier round of this function stamped
+    one onto the Today entry alone, read by ``marketing/static/marketing/
+    js/my_tasks.js`` to decide whether a click should reveal the always-
+    visible hour boxes — the ONE thing that flag was ever for. This round
+    generalises hour boxes to EVERY day pill (see ``_task_hour_groups_for_day``
+    below and that JS file's own head comment), so "is this pill the Today
+    one specifically" is no longer a question anything downstream needs
+    answered; carrying the flag with nothing left to read it would be the
+    exact "dead plumbing nothing ever sets again" this codebase already
+    removes outright elsewhere rather than leaving behind "just in case".
     """
     import datetime as _dt
     from collections import Counter
@@ -2340,32 +2364,93 @@ def _task_day_groups(rows) -> list:
         # _my_tasks_reminders.html's own day-pill markup, which prints
         # ``g.label`` verbatim.
         {"key": today_key, "label": _("Today"), "date": None,
-         "count": counts.get(today_key, 0), "is_today": True},
+         "count": counts.get(today_key, 0)},
         {"key": tomorrow_key, "label": _("Tomorrow"), "date": None,
-         "count": counts.get(tomorrow_key, 0), "is_today": False},
+         "count": counts.get(tomorrow_key, 0)},
     ]
     for key in sorted(k for k in counts if k > tomorrow_key):
         groups.append({
             "key": key, "label": None, "date": _dt.date.fromisoformat(key),
-            "count": counts[key], "is_today": False,
+            "count": counts[key],
         })
     return groups
 
 
+def _single_day_key_from_range(due_from: str, due_to: str) -> str | None:
+    """If ``due_from``/``due_to`` — the SAME two ``?from=``/``?to=`` query
+    values ``my_tasks`` already reads (see that view's own docstring's
+    "``?from=``/``?to=``" section) — both name the SAME Jalali calendar day,
+    the Gregorian ISO ``day_key`` that day corresponds to (the exact key
+    every day-pill's own ``data-day-key`` already carries — see
+    ``_task_rows``' ``row.day_key`` and ``_task_day_groups`` above); ``None``
+    otherwise (a blank query string, an unparsable value, or a genuine
+    multi-day range).
+
+    WHY THIS MATTERS THIS ROUND: ``people/views.py::_my_tasks_period_url``
+    builds exactly a same-day ``?from=`` 00:00/``?to=`` 23:59 pair for the
+    work-shift calendar's own open-reminder badge, one Jalali day at a time
+    — a reader clicking a badge for a day several days out lands here with
+    a range that, read as CALENDAR DAYS, is exactly one day wide, even
+    though it is two separate query values. The owner asked that landing
+    here should show THAT day's hour boxes the same way clicking its own
+    pill would — this is the server-side half of that: the view hands the
+    day this range resolves to down to the template as ``active_day_key``,
+    and ``marketing/static/marketing/js/my_tasks.js`` auto-activates the
+    matching pill on load (see that file's own head comment) exactly as if
+    the reader had clicked it themselves. A genuine MULTI-day range (the
+    free-text From/To filter fields, typed by hand) resolves to ``None``
+    here and changes nothing about which pill is active — hour-grouping
+    only ever makes sense for a single day, per the owner's own wording.
+
+    REUSES THE SAME PARSER EVERY DUE-AT BOX ON THIS PAGE ALREADY GOES
+    THROUGH, ``marketing/forms.py::_clean_jalali_datetime`` — never a second,
+    hand-rolled Jalali parse for this one query-string pair. Any parse
+    failure (should not happen from a link this app itself builds, but a
+    hand-edited URL is not a fact) degrades to ``None`` exactly like every
+    other soft-optional query read in this file (see ``_int_or_none``) —
+    too little rather than a 500 on a malformed link.
+    """
+    from django.core.exceptions import ValidationError
+    from django.utils import timezone
+
+    from .forms import _clean_jalali_datetime
+
+    if not due_from or not due_to:
+        return None
+    try:
+        dt_from = _clean_jalali_datetime(due_from)
+        dt_to = _clean_jalali_datetime(due_to)
+    except ValidationError:
+        return None
+    if dt_from is None or dt_to is None:
+        return None
+    day_from = timezone.localtime(dt_from).date()
+    day_to = timezone.localtime(dt_to).date()
+    if day_from != day_to:
+        return None
+    return day_from.isoformat()
+
+
 def _task_hour_blocks(user) -> list:
-    """Hour blocks for TODAY, spanning THIS person's own work-shift window
-    rather than a flat 24-hour grid — the owner's own wording, "طبق شیفت
-    کاری اش" (according to their own work shift). USED TO be rendered as a
-    row of clickable pills (see ``_task_hours_with_reminders``'s own
-    docstring for the click-filter this round retired); now each one is an
-    always-visible box (``_task_hour_groups`` below, and
-    ``_my_tasks_reminders.html``'s own head comment), but the blocks
-    themselves — which hours, and their own "HH:00" label — are unchanged;
-    only what the template does with them is different. Built off
+    """The DAY-SHAPE of every hour box My Tasks' Reminders tab can ever draw
+    — which hours of the day fall inside THIS person's own work-shift
+    window, rather than a flat 24-hour grid — the owner's own wording, "طبق
+    شیفت کاری اش" (according to their own work shift). Built off
     ``people/work_shift.py::shift_window(person_for_user(user))`` — the SAME
     pair ``marketing/reminders.py::validate_due_at_shift`` reads, so the
     blocks a person sees here and the window their own submitted time is
     actually checked against can never disagree.
+
+    ONE SHAPE, SHARED BY EVERY DAY THIS PAGE CAN SHOW HOUR BOXES FOR — a
+    person's own shift window (08:00-17:00, say) is the same 08:00-17:00 on
+    Today, on Tomorrow, and on any further-future day this page's day pills
+    can name; only WHICH REMINDERS land inside each hour differs by day (see
+    ``_task_hour_groups_for_day`` below, which is what actually varies per
+    day). So this function is called exactly ONCE per request, day-agnostic,
+    and its result is handed to ``_task_hour_groups_for_day`` once per day
+    pill rather than recomputed per day — the same "compute once, reuse"
+    discipline ``case_choices``/``client_names`` already follow elsewhere on
+    this page.
 
     REUSES ``_in_window`` RATHER THAN RE-DERIVING THE SAME COMPARISON A
     SECOND TIME — the identical overnight-safe helper
@@ -2390,89 +2475,69 @@ def _task_hour_blocks(user) -> list:
     return blocks
 
 
-def _task_hours_with_reminders(rows) -> set:
-    """Which of TODAY's own hour blocks (see ``_task_hour_blocks`` above)
-    actually contain at least one of this viewer's own reminders — the
-    owner's own ask for the hour-block row: every block used to render
-    identically whether it held something due or nothing at all, so seeing
-    what needs attention meant reading each one's own content in turn
-    (originally: opening each hour's click-filter to find out; now: reading
-    the box itself — see ``_task_hour_groups`` below for the click-filter
-    this round retired). This just answers "which keys", nothing about
-    count or which reminder — ``my_tasks.html`` only ever needs a yes/no per
-    box to give it a distinct look (``has_reminder``, merged onto each block
-    by the view, one flag per hour, muted styling for a "no" — see
-    ``_my_tasks_reminders.html``'s own head comment).
+def _task_hour_groups_for_day(rows, hour_blocks, day_key: str) -> list:
+    """``hour_blocks`` (the day-shape ``_task_hour_blocks`` returns) with
+    ``day_key``'s OWN matching reminders attached to each block — the
+    always-visible per-hour boxes ``_my_tasks_reminders.html`` renders
+    instead of a click-to-filter hour-pill row, one such list per day pill
+    this page shows (Today, Tomorrow, and every further-future day with its
+    own pill — see ``_task_day_groups``), not TODAY alone any more.
 
-    REUSES ``row.day_key``/``row.hour_key`` RATHER THAN RE-DERIVING THEM FROM
-    ``row.due_at`` A SECOND TIME — the exact pair ``_task_rows`` already
-    computes off ``timezone.localtime`` (see that function's own docstring);
-    recomputing here off the raw (UTC-stored) ``due_at`` would risk a
-    reminder just after local midnight disagreeing with which day/hour the
-    table and this set say it falls in. ``today_key`` is computed the same
-    ``timezone.localtime`` way for the identical reason — a naive ``date()``
-    on ``now()`` would be the SERVER's date, not this viewer's own local
-    one, on any deployment where they ever differ.
+    GENERALISES WHAT USED TO BE TWO SEPARATE, TODAY-HARDCODED FUNCTIONS HERE
+    — ``_task_hours_with_reminders`` (which hour keys have anything) and
+    ``_task_hour_groups`` (attach the rows onto the blocks) — INTO ONE, THAT
+    TAKES THE DAY AS AN ARGUMENT RATHER THAN ASSUMING "today" EVERY TIME.
+    The owner's own instruction this round: the always-visible-box treatment
+    an earlier round built for Today alone should apply to Tomorrow and to
+    ANY single specific day this page's own day pills can point at — a
+    reminder-count badge on the work-shift calendar for a day N days out
+    included (``my_tasks``'s own ``active_day_key``, resolved by
+    ``_single_day_key_from_range``). Since a person's shift-hour SHAPE is
+    identical on every calendar day (see ``_task_hour_blocks``'s own
+    docstring), the only thing that ever varied per day was which reminders
+    land in which box — which is exactly what this function now takes a
+    ``day_key`` to answer, called once per day pill rather than assuming the
+    one day the old pair hardcoded.
 
-    Takes plain ``rows`` (ALL of them, any day) rather than a scope/user pair
-    — the view already has them in hand for the table itself, and this is a
-    one-line filter over an in-memory list, not a query of its own.
+    RETURNS A FRESH LIST OF FRESH DICTS, NEVER MUTATES ``hour_blocks`` — a
+    real change from the old ``_task_hour_groups``, which mutated and
+    returned the SAME list because there was only ever one day's worth of
+    boxes to build in a single request. Now that this runs once per day pill
+    over the SAME shared ``hour_blocks`` shape, mutating it in place would
+    have every earlier day's own boxes silently overwritten by the next
+    call's ``rows`` — ``dict(block, ...)`` copies each block's own
+    ``key``/``label`` forward onto a brand new dict instead, so the shared
+    shape list stays exactly what ``_task_hour_blocks`` built, reusable for
+    every day this request draws boxes for.
+
+    ONE PASS OVER ``rows`` PER CALL — a plain dict keyed by ``hour_key``,
+    built once and looked up once per block — rather than the nested "for
+    every block, scan every row" a template-side grouping loop would
+    otherwise have to do; with a shift window in the dozens of hours at most
+    and a viewer's own reminder count typically far smaller neither shape
+    would ever be slow in practice, but a single pass costs nothing extra to
+    write and keeps the template a flat loop instead of a nested one — see
+    this page's own docstring for why the grouping was done here,
+    server-side, rather than in the template.
+
+    ``has_reminder`` IS DERIVED HERE, INLINE, RATHER THAN STAMPED BY A
+    SEPARATE PASS FIRST — the old two-function split existed only because
+    the view used to stamp ``has_reminder`` onto ``hour_blocks`` BEFORE
+    handing it to ``_task_hour_groups``, which then only ever added
+    ``rows``; now that this function owns both in one pass over one day's
+    rows, there is nothing left for a separate "which hours have anything"
+    pass to compute that this function does not already know by the time it
+    builds each block's own ``rows`` list.
     """
-    from django.utils import timezone
-
-    today_key = timezone.localtime(timezone.now()).date().isoformat()
-    return {row.hour_key for row in rows if row.day_key == today_key}
-
-
-def _task_hour_groups(rows, hour_blocks) -> list:
-    """Attaches TODAY's own reminders onto their matching hour block, for
-    the always-visible per-hour boxes ``_my_tasks_reminders.html`` now
-    renders instead of the click-to-filter hour-pill row this round retired
-    — the owner's own instruction, "کلا تب های ساعت‌ها ... را خالی بزار"
-    (empty the hour-tabs concept out entirely): rather than one flat table a
-    click narrowed by hour, every shift hour is now its own box, and a box
-    whose ``has_reminder`` is true renders its OWN matching rows directly,
-    with no click needed to reach them.
-
-    TAKES ``hour_blocks`` AFTER ``has_reminder`` HAS ALREADY BEEN STAMPED
-    ONTO IT (the view's own call order, just below) and returns the SAME
-    list with one more key, ``rows``, added to each block — never a second,
-    competing notion of which hour a reminder belongs to: both keys are
-    read off the identical ``row.hour_key`` (``_task_rows``), so a block's
-    own "does it have anything" flag and the actual rows its box renders
-    can never disagree with each other.
-
-    ONE PASS OVER ``rows`` — a plain dict keyed by ``hour_key``, built once
-    and looked up once per block — rather than the nested "for every block,
-    scan every row" a template-side grouping loop would otherwise have to
-    do; with a shift window in the dozens of hours at most and a viewer's
-    own reminder count typically far smaller neither shape would ever be
-    slow in practice, but a single pass costs nothing extra to write and
-    keeps the template a flat loop instead of a nested one — see this
-    page's own docstring for why the grouping was done here, server-side,
-    rather than in the template.
-
-    TODAY ONLY, the exact restriction ``_task_hour_blocks``/
-    ``_task_hours_with_reminders`` already carry — a row whose ``day_key``
-    is not today's own local date is simply never placed in any group,
-    exactly as it was never reachable through the old hour-pill row either.
-
-    MUTATES AND RETURNS THE SAME ``hour_blocks`` LIST — the same shape
-    ``_task_rows`` already uses when it stamps display fields directly onto
-    each row rather than building a parallel structure; there is exactly
-    ONE list of hour blocks on this page, this function's own job is only
-    ever to add one more key to each entry already in it.
-    """
-    from django.utils import timezone
-
-    today_key = timezone.localtime(timezone.now()).date().isoformat()
     by_hour: dict = {}
     for row in rows:
-        if row.day_key == today_key:
+        if row.day_key == day_key:
             by_hour.setdefault(row.hour_key, []).append(row)
-    for block in hour_blocks:
-        block["rows"] = by_hour.get(block["key"], [])
-    return hour_blocks
+    return [
+        dict(block, rows=by_hour.get(block["key"], []),
+             has_reminder=block["key"] in by_hour)
+        for block in hour_blocks
+    ]
 
 
 def _task_report_rows(request, case_access, scope: str = "own") -> list:
@@ -2525,8 +2590,13 @@ def _task_report_rows(request, case_access, scope: str = "own") -> list:
         row["has_timeline"] = row.get("reminder_set_at") is not None
         if scope == "all":
             person = person_map.get(row.get("created_by_id"))
+            # display_name, not full_name — see the identical comment on
+            # _task_rows above; the "author" fallback is the report's own
+            # FROZEN column (CompanyReport.author_name) for a row whose
+            # writer's account is gone, and stays exactly as written,
+            # regardless of the viewer's own chrome language, on purpose.
             row["person_name"] = (
-                person.full_name if person is not None else row["author"])
+                person.display_name if person is not None else row["author"])
             row["person_key"] = person.detail_code if person is not None else ""
     return rows
 
@@ -2662,14 +2732,29 @@ def my_tasks(request, scope: str = "own"):
     THE HOUR BOXES ARE SERVER-SIDE GROUPING, NOT A THIRD HIDDEN COLUMN — an
     earlier version of this page ALSO put Hour behind a hidden column and a
     click-filter pill row the way Day and State still are; that pill row is
-    gone this round (``_task_hour_groups``, and ``_my_tasks_reminders.html``
-    's own head comment, both explain why), replaced by boxes the view
-    itself groups ``rows`` onto. The filter card still has to reach the
-    reminders rendered inside those boxes, which are plain ``<div>``s, not
-    the ``<tr>``s ``data-filter-table`` already knows how to hide — see the
-    template's own head comment and ``my_tasks.js``'s own for the small,
-    page-owned second pass that keeps them in step with the SAME filter
-    card instead.
+    gone (``_task_hour_groups_for_day``, and ``_my_tasks_reminders.html``'s
+    own head comment, both explain why), replaced by boxes the view itself
+    groups ``rows`` onto, ONE STACK PER DAY PILL as of this round (Today,
+    Tomorrow, and any further-future day pill — no longer Today alone; see
+    ``_task_hour_groups_for_day``'s own docstring). The filter card still
+    has to reach the reminders rendered inside those boxes, which are plain
+    ``<div>``s, not the ``<tr>``s ``data-filter-table`` already knows how to
+    hide — see the template's own head comment and ``my_tasks.js``'s own for
+    the small, page-owned second pass that keeps them in step with the SAME
+    filter card instead, now across every day's own box stack rather than
+    one.
+
+    THE FLAT TABLE ITSELF IS HIDDEN WHENEVER A SINGLE DAY PILL (ANY OF THEM,
+    NOT "All") IS ACTIVE — the owner's own instruction this round: once a
+    reader has narrowed to one calendar day, the hour boxes ARE the view for
+    that day, and the identical rows repeated a second time, flat, beneath
+    them is redundant rather than additive. Purely a CLIENT-SIDE toggle
+    (``my_tasks.js``, over the table's own wrapping ``#taskTableCard`` — see
+    that file's own head comment), because which pill is active is already a
+    client-side-only fact (the day pill has never caused a page reload) and
+    the table's own rows are unaffected either way — nothing here changes
+    which rows this view sends the browser, only whether the browser is
+    currently showing them twice.
 
     ``?from=``/``?to=`` PRE-FILL THE REMINDERS TAB'S OWN DUE-DATE RANGE, A
     NEW ENTRY POINT ADDED FOR THE SHIFT PAGE'S OPEN-REMINDER BADGES
@@ -2688,6 +2773,14 @@ def my_tasks(request, scope: str = "own"):
     through to inputs that already drive it. A visit with neither parameter
     (every ordinary link into this page) renders those two inputs exactly as
     empty as before — this is purely additive.
+
+    THE SAME TWO VALUES ALSO DECIDE ``active_day_key`` (new this round) —
+    see ``_single_day_key_from_range``'s own docstring. A badge link for a
+    day several days out already carries a same-day ``?from=``/``?to=``
+    pair for the reason just above; this second read of the identical pair
+    is what makes THAT day's own hour boxes open automatically, exactly as
+    if the reader had clicked its pill themselves, rather than landing on
+    "All" with only the flat table pre-filtered to match.
     """
     # See this function's own docstring's "``scope``" section — the only
     # two values either real URL ever passes are "own" and "all"; anything
@@ -2714,22 +2807,33 @@ def my_tasks(request, scope: str = "own"):
     case_choices = _visible_case_rows_all(request, case_access)
     rows = _task_rows(request, case_access, scope=scope)
     report_rows = _task_report_rows(request, case_access, scope=scope)
-    # The hour-box row's own "does this hour actually have something due"
-    # mark — see _task_hours_with_reminders's own docstring. Computed over
-    # THIS viewer's own `rows` (already in hand for the table itself, not a
-    # second query) and merged onto `hour_blocks` here, in the view, rather
-    # than in the template: a template loop deciding membership in a set
-    # built from a second loop is exactly the kind of two-source-of-truth
-    # drift this file's own rows elsewhere are built to avoid.
+    due_from = (request.GET.get("from") or "").strip()
+    due_to = (request.GET.get("to") or "").strip()
+    # The day-shape every hour box on this page can ever draw — computed
+    # ONCE, day-agnostic (see _task_hour_blocks' own docstring for why one
+    # person's shift window is the same shape on every calendar day), then
+    # handed to _task_hour_groups_for_day once PER DAY PILL below so each
+    # pill's own box stack carries only that day's own matching rows.
     hour_blocks = _task_hour_blocks(request.user)
-    hours_with_reminders = _task_hours_with_reminders(rows)
-    for block in hour_blocks:
-        block["has_reminder"] = block["key"] in hours_with_reminders
-    # THEN, and only then, hand hour_blocks (has_reminder already stamped)
-    # to _task_hour_groups so it can add each block's own `rows` — see that
-    # function's own docstring for why this order matters and why the
-    # grouping happens here rather than as a nested loop in the template.
-    hour_groups = _task_hour_groups(rows, hour_blocks)
+    day_groups = _task_day_groups(rows)
+    for group in day_groups:
+        # Each day pill's own always-visible hour boxes — Today and
+        # Tomorrow's own earlier-round treatment, now given to EVERY pill
+        # this page can show, per the owner's own instruction this round
+        # (see _task_hour_groups_for_day's own docstring). A fresh list per
+        # group, never a shared/mutated one — see that function's own "RETURNS
+        # A FRESH LIST" section for why that matters now that this runs more
+        # than once per request.
+        group["hour_blocks"] = _task_hour_groups_for_day(
+            rows, hour_blocks, group["key"])
+    # Whichever SINGLE day, if any, ?from=/?to= together name — the shift
+    # calendar's own open-reminder badge link (see _single_day_key_from_range's
+    # own docstring). "" (never None, so the template's own data attribute
+    # reads as a plain empty string rather than the literal word "None") when
+    # the two values are blank, unparsable, or a genuine multi-day range;
+    # marketing/static/marketing/js/my_tasks.js auto-activates the matching
+    # day pill on load when this names one.
+    active_day_key = _single_day_key_from_range(due_from, due_to) or ""
 
     return render(request, "marketing/my_tasks.html", {
         "active_tab": "reminders",
@@ -2761,19 +2865,25 @@ def my_tasks(request, scope: str = "own"):
         "person_choices": sorted(
             {(r.person_name, r.person_key) for r in rows if r.person_key}
         ) if scope == "all" else [],
-        "day_groups": _task_day_groups(rows),
-        # Each hour block PLUS its own matching rows (`_task_hour_groups`
-        # above) — the always-visible per-hour boxes render straight off
-        # this, one flat loop, rather than filtering `rows` themselves once
-        # per hour (see that function's own docstring).
-        "hour_groups": hour_groups,
-        # The Reminders tab's own Due-date range, pre-filled from the query
-        # string — see this view's own docstring's "``?from=``/``?to=``"
-        # section. Blank on every ordinary visit (``request.GET`` carries
-        # neither key), so this changes nothing for any link into this page
-        # that does not ask for it.
-        "due_from": (request.GET.get("from") or "").strip(),
-        "due_to": (request.GET.get("to") or "").strip(),
+        # Each group now carries its own "hour_blocks" (see above) alongside
+        # the plain pill fields (key/label/date/count) an earlier round
+        # already built — one list, read by the template for BOTH the pill
+        # strip itself and that pill's own per-day hour-box container, so
+        # the two can never disagree about which day a pill's box stack
+        # belongs to.
+        "day_groups": day_groups,
+        # See this view's own docstring's "``?from=``/``?to=``" section for
+        # the pre-fill this pair has always done; active_day_key (new this
+        # round) is the SAME pair read a second way — see
+        # _single_day_key_from_range's own docstring — so a badge link for
+        # one specific day auto-opens that day's own hour boxes exactly as
+        # clicking its pill would, on top of the pre-fill this pair already
+        # did. Blank on every ordinary visit (request.GET carries neither
+        # key), so this changes nothing for any link into this page that
+        # does not ask for it.
+        "due_from": due_from,
+        "due_to": due_to,
+        "active_day_key": active_day_key,
         # The Reports tab — see this view's own docstring's "THE REPORTS TAB"
         # section. ``case_choices`` above is reused as-is for its own case
         # picker (the SAME scoped rows, the SAME reason ``_reminder_case_choices``
@@ -2789,6 +2899,115 @@ def my_tasks(request, scope: str = "own"):
             {(r["person_name"], r["person_key"])
              for r in report_rows if r.get("person_key")}),
     })
+
+
+@login_required
+def my_tasks_day_reminders(request):
+    """GET ``?due_at=<raw Jalali text>`` -> JSON: this viewer's OWN open
+    reminders already due on that SAME calendar day — the small, live,
+    in-form preview the owner asked for this round: the instant a person
+    picks (and confirms) a date on ``task_form.html``'s own due-at field,
+    before the whole "add a task" form is even submitted, they should be
+    able to see what else already lands on that day, so a second reminder is
+    never set blind on top of ones already sitting there. See
+    ``marketing/static/marketing/js/task_due_preview.js`` for the ``change``
+    listener that calls this, and that template's own head comment for
+    where the small panel it renders into sits on the page.
+
+    JSON, NOT A PAGE, AND GATED DIFFERENTLY FROM EVERY OTHER "My Tasks" VIEW
+    IN THIS FILE FOR EXACTLY THAT REASON — every other view in this section
+    that fails the linked-Person gate redirects via
+    ``_my_tasks_person_or_redirect`` (a page-navigation response, complete
+    with a flash message), which is the wrong shape for a ``fetch()`` call
+    this page's own JavaScript issues silently in the background; a plain
+    ``{"ok": False}`` JSON body, the same shape every other JSON endpoint in
+    this file already answers a refusal with, is what a caller expecting
+    JSON can actually branch on.
+
+    ALWAYS ``scope="own"``, NEVER READ FROM THE REQUEST — the owner's own
+    wording for this preview is "که آن روز قبلا یادآوری گذاشته" (reminders
+    already set for that day), about the person doing the setting; unlike
+    the Reminders TAB itself (which can widen to "all" for the admin-wide
+    variant of this page — see ``my_tasks``'s own docstring), this preview
+    has no admin-wide reading at all, so there is no ``scope`` parameter
+    here to get wrong.
+
+    OPEN REMINDERS ONLY (``ReminderState.OPEN``) — a reminder that has
+    already been dealt with (the rare pre-close-only-via-report ``DONE`` row
+    still readable elsewhere on this page — see
+    ``marketing/reminders.py``'s own comment on why that state is still a
+    real, renderable one) is not "already scheduled" any more, it is
+    history, and showing it here would make the panel look busier than the
+    day it is describing actually still is.
+
+    THE CASE DOCUMENT NUMBER IS REDACTED THE SAME WAY EVERY OTHER READ OF A
+    REMINDER'S OWN CASE ALREADY IS ON THIS PAGE (``_task_rows``' own
+    ``show_case_no``) — a case this viewer's access no longer covers still
+    shows that the row names one, never its identity, over THIS page's own
+    ``case_access`` (``_my_tasks_case_access``) for the identical reason
+    that function is used everywhere else here: this page's own population
+    is wider than Marketing access alone.
+
+    THE DATE IS PARSED THROUGH THE SAME SHARED HELPER EVERY DUE-AT BOX ON
+    THIS PLATFORM ALREADY GOES THROUGH, ``marketing/forms.py::
+    _clean_jalali_datetime`` — never a second, hand-rolled Jalali parse for
+    this one query parameter. A malformed or blank value degrades to an
+    empty result (``{"ok": True, "reminders": []}``) rather than a 400: the
+    caller is a background fetch fired on every ``change`` of a field the
+    person may still be mid-edit on (a half-typed date, or one the picker
+    has not yet committed), and the honest answer to "nothing readable was
+    submitted yet" is "nothing to show", not an error the small panel would
+    have to render as one.
+    """
+    from django.core.exceptions import ValidationError
+    from django.utils import timezone
+
+    from people.work_shift import person_for_user
+
+    from .forms import _clean_jalali_datetime
+
+    person = person_for_user(request.user)
+    if person is None:
+        return JsonResponse(
+            {"ok": False, "error": "No personnel record is linked to this login."},
+            status=403)
+
+    raw = (request.GET.get("due_at") or "").strip()
+    try:
+        due_at = _clean_jalali_datetime(raw)
+    except ValidationError:
+        due_at = None
+    if due_at is None:
+        return JsonResponse({"ok": True, "day_key": "", "reminders": []})
+
+    day_key = timezone.localtime(due_at).date().isoformat()
+    day_rows = [
+        r for r in reminders.list_for_user(request.user, scope="own")
+        if r.state == ReminderState.OPEN
+        and timezone.localtime(r.due_at).date().isoformat() == day_key
+    ]
+    day_rows.sort(key=lambda r: r.due_at)
+
+    # See this view's own docstring's "THE CASE DOCUMENT NUMBER IS REDACTED"
+    # section — one batched visibility check for every case among today's
+    # rows, the identical shape ``_task_rows`` already uses (over the SAME
+    # ``_my_tasks_case_access``, not a fresh ``case_access_for`` — see that
+    # helper's own docstring for why this page can never reuse the plain
+    # one), rather than a query per row.
+    case_access = _my_tasks_case_access(request)
+    case_ids = [r.case_id for r in day_rows if r.case_id]
+    visible_case_ids = services._visible_case_ids(case_ids, case_access) if case_ids else set()
+
+    out = []
+    for r in day_rows:
+        show_case = r.case_id is not None and r.case_id in visible_case_ids
+        out.append({
+            "time": timezone.localtime(r.due_at).strftime("%H:%M"),
+            "note": r.note or "",
+            "company": r.client.name if r.client_id else "",
+            "case_doc_no": r.case.doc_no if show_case else "",
+        })
+    return JsonResponse({"ok": True, "day_key": day_key, "reminders": out})
 
 
 @login_required

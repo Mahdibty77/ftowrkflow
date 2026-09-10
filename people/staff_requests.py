@@ -62,12 +62,25 @@ def ensure_request_types() -> list[RequestType]:
             "is_active": True,
         },
     )
+    # Not offered on the "start a new request" cards on purpose — see
+    # RequestType.CODE_PRESENCE_GAP's own docstring: the system raises these,
+    # a person never opens one from nothing.
+    gap_obj, _ = RequestType.objects.get_or_create(
+        code=RequestType.CODE_PRESENCE_GAP,
+        defaults={
+            "title": "Presence gap",
+            "description": "System-raised when a shift disconnects longer than the reconnect grace.",
+            "icon": "fa-plug-circle-exclamation",
+            "sort_order": 15,
+            "is_active": True,
+        },
+    )
     # Drop retired types if any remain outside migrations.
     try:
         RequestType.objects.filter(code__in=["leave", "purchase"]).delete()
     except Exception:
         RequestType.objects.filter(code__in=["leave", "purchase"]).update(is_active=False)
-    return [obj]
+    return [obj, gap_obj]
 
 
 def active_request_types() -> list[RequestType]:
@@ -79,10 +92,9 @@ def active_request_types() -> list[RequestType]:
 
 
 def unread_pending_count() -> int:
-    """GM badge: submitted requests the reviewer has not opened yet."""
+    """GM badge: submitted requests the reviewer has not opened yet, any type."""
     return StaffRequest.objects.filter(
         status=StaffRequest.STATUS_SUBMITTED,
-        request_type__code=RequestType.CODE_OVERTIME,
         reviewer_seen_at__isnull=True,
     ).count()
 
@@ -315,6 +327,192 @@ def decide_overtime(
         req.status = StaffRequest.STATUS_REJECTED
         req.save()
     return req
+
+
+# ---------------------------------------------------------------------------
+# Presence gap — raised by shift_hours._record_away, decided by the GM
+# ---------------------------------------------------------------------------
+# Deliberately its own three functions rather than a branch inside the three
+# overtime ones above: "approve" and "reject" MEAN OPPOSITE things for the two
+# types (approved overtime is minutes credited; approved presence-gap is
+# minutes LEFT ALONE, rejected is minutes actually deducted — see
+# rejected_presence_gap_minutes_for_day below), and duration is fixed at
+# creation rather than chosen by the GM at decision time. Folding both into
+# one function would have made every line conditional on which type it was.
+
+def create_presence_gap_draft(
+    person: Person, *, gap_start: datetime, gap_end: datetime, minutes: int,
+) -> StaffRequest | None:
+    """Raise a DRAFT the person must fill in with a reason (system-side only).
+
+    Called from ``shift_hours._record_away`` the moment a beyond-grace gap is
+    closed — never from a view, never at the person's own initiative. One row
+    per gap: if a person somehow already has an unresolved (DRAFT/SUBMITTED)
+    presence-gap request for this exact ``gap_start``, that row is returned
+    unchanged instead of raising a duplicate — ``_record_away`` itself is not
+    called twice for the same interval in normal operation, but a retried
+    request (a flaky ping resubmitted) must not double-charge or double-ask.
+    """
+    if minutes <= 0:
+        return None
+    rt, _ = RequestType.objects.get_or_create(
+        code=RequestType.CODE_PRESENCE_GAP,
+        defaults={"title": "Presence gap", "icon": "fa-plug-circle-exclamation", "sort_order": 15},
+    )
+    existing = StaffRequest.objects.filter(
+        person=person,
+        request_type=rt,
+        status__in=[StaffRequest.STATUS_DRAFT, StaffRequest.STATUS_SUBMITTED],
+        payload__gap_start=gap_start.isoformat(),
+    ).first()
+    if existing is not None:
+        return existing
+    code = allocate_request_code(person, rt)
+    return StaffRequest.objects.create(
+        person=person,
+        request_type=rt,
+        request_code=code,
+        status=StaffRequest.STATUS_DRAFT,
+        requested_minutes=int(minutes),
+        work_day=gap_start.date(),
+        payload={
+            "gap_start": gap_start.isoformat(),
+            "gap_end": gap_end.isoformat(),
+        },
+    )
+
+
+def pending_presence_gap_for(person: Person | None) -> StaffRequest | None:
+    """This person's own not-yet-explained gap, if any (oldest first)."""
+    if person is None:
+        return None
+    return (
+        StaffRequest.objects.filter(
+            person=person,
+            request_type__code=RequestType.CODE_PRESENCE_GAP,
+            status=StaffRequest.STATUS_DRAFT,
+        )
+        .order_by("created_at", "pk")
+        .first()
+    )
+
+
+@transaction.atomic
+def submit_presence_gap_reason(req: StaffRequest, *, user, reason: str) -> StaffRequest:
+    """The person explains their own gap: DRAFT -> SUBMITTED, awaiting the GM."""
+    if req.request_type.code != RequestType.CODE_PRESENCE_GAP:
+        raise ValueError("Not a presence-gap request.")
+    if req.status != StaffRequest.STATUS_DRAFT:
+        raise ValueError("This gap has already been explained.")
+    reason = (reason or "").strip()
+    if not reason:
+        raise ValueError("Enter what happened before submitting.")
+    when = timezone.now()
+    req.comment = reason
+    req.status = StaffRequest.STATUS_SUBMITTED
+    req.submitted_at = when
+    req.created_by = req.created_by or user
+    # Requester just filed it; reviewer must see the unread alarm, same
+    # seen/unseen convention submit_overtime uses.
+    req.requester_seen_at = when
+    req.reviewer_seen_at = None
+    req.save(update_fields=[
+        "comment", "status", "submitted_at", "created_by",
+        "requester_seen_at", "reviewer_seen_at",
+    ])
+    return req
+
+
+@transaction.atomic
+def decide_presence_gap(
+    req: StaffRequest, *, user, approve: bool, note: str = "",
+) -> StaffRequest:
+    """GM decides: approve = excused, no deduction. Reject = minutes stand deducted.
+
+    Nothing here touches ``ShiftDayLog.minutes`` — that ledger keeps its own
+    invariant (never rewritten after the fact; see ``_record_away``'s own
+    docstring on why a past double-deduction bug made that permanent).
+    A rejected request is read back out, at report time, by
+    ``rejected_presence_gap_minutes_for_day`` / ``_for_month`` — the
+    deduction lives entirely in this row's status, applied on the way OUT,
+    not by mutating what was already recorded on the way in.
+
+    ``approved_minutes`` is deliberately left untouched (``None``) by this
+    function, on EITHER outcome — unlike overtime, there is no partial
+    approval here (a GM excuses or does not; the disputed amount is fixed
+    at ``requested_minutes``, set once when the gap was first measured), so
+    the field would only either duplicate ``requested_minutes`` or, worse,
+    read as "0 minutes approved" on a REJECTED row and be misread as
+    nothing being deducted. request_detail.html's generic "Approved
+    duration" row is gated on ``approved_minutes is not None``, so leaving
+    it unset also means that row correctly never renders for this type at
+    all — the presence-gap decide panel already says the outcome in its own
+    words, see that template.
+    """
+    if req.status != StaffRequest.STATUS_SUBMITTED:
+        raise ValueError("Only a submitted explanation can be decided.")
+    if req.request_type.code != RequestType.CODE_PRESENCE_GAP:
+        raise ValueError("Not a presence-gap request.")
+    when = timezone.now()
+    req.decided_by = user
+    req.decided_at = when
+    req.decision_note = (note or "").strip()
+    req.reviewer_seen_at = when
+    req.requester_seen_at = None
+    req.status = StaffRequest.STATUS_APPROVED if approve else StaffRequest.STATUS_REJECTED
+    req.save()
+    return req
+
+
+def rejected_presence_gap_minutes_for_day(person: Person, day: date) -> int:
+    """Minutes to subtract from ``day``'s DISPLAYED total — never from the stored row.
+
+    Sums ``requested_minutes`` (the gap's own measured length), not
+    ``approved_minutes`` — see decide_presence_gap's docstring for why that
+    field is left unset for this type; it is not "how much to deduct".
+    """
+    total = (
+        StaffRequest.objects.filter(
+            person=person,
+            request_type__code=RequestType.CODE_PRESENCE_GAP,
+            status=StaffRequest.STATUS_REJECTED,
+            work_day=day,
+        ).aggregate(s=Sum("requested_minutes"))["s"]
+        or 0
+    )
+    return int(total)
+
+
+def rejected_presence_gap_minutes_for_month(person: Person, jalali_year: int, jalali_month: int) -> int:
+    """Same as the day version, summed over one Jalali month (for the snapshot card)."""
+    from cases.jalali import jalali_to_gregorian
+    from .shift_hours import jalali_month_length
+
+    length = jalali_month_length(jalali_year, jalali_month)
+    g0 = date(*jalali_to_gregorian(jalali_year, jalali_month, 1))
+    g1 = date(*jalali_to_gregorian(jalali_year, jalali_month, length))
+    total = (
+        StaffRequest.objects.filter(
+            person=person,
+            request_type__code=RequestType.CODE_PRESENCE_GAP,
+            status=StaffRequest.STATUS_REJECTED,
+            work_day__gte=g0,
+            work_day__lte=g1,
+        ).aggregate(s=Sum("requested_minutes"))["s"]
+        or 0
+    )
+    return int(total)
+
+
+def gm_pending_requests():
+    """Every submitted request awaiting a GM decision, any type — the queue
+    gm_overtime_inbox actually draws from; kept as the generalised name since
+    the inbox itself already groups rows by request_type.title generically."""
+    return (
+        StaffRequest.objects.filter(status=StaffRequest.STATUS_SUBMITTED)
+        .select_related("person", "request_type", "created_by")
+        .order_by("submitted_at", "pk")
+    )
 
 
 def _cases_by_id(case_ids: list[int]):

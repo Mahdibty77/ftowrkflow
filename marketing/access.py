@@ -561,14 +561,15 @@ def _case_money_visible(access: Access, own_user_ids) -> bool:
       over.
     * A DUAL-SEAT PERSON'S TOTAL COVERS EXACTLY THE CASES THEY ARE ALREADY
       SHOWN, because the caller computes it over exactly the scoped rows (see
-      ``marketing/views.py::_pi_money_total``) and this function does not touch
-      which rows those are.
+      ``marketing/views.py::_pi_money_by_bucket``) and this function does not
+      touch which rows those are.
     * ONE POPULATION IS NARROWED, AND VISIBLY NOTHING CHANGES FOR THEM: a login
       whose PROFILE unit is Commercial but who holds no Commercial seat and is
       not admin/GM (their ``PersonRole`` rows are all Marketing) used to answer
       True here. They also get no case rows at all, and
-      ``_pi_money_total`` returns "" for an empty row set before it looks at
-      this flag, so the figure was already blank for them and still is.
+      ``_pi_money_by_bucket`` returns an empty dict for an empty row set before
+      it looks at this flag, so the figure was already blank for them and
+      still is.
 
     Takes the values rather than the request so it cannot be computed from a
     different picture of the person than the branches beside it — see

@@ -213,9 +213,6 @@
       <h3><i class="fa-solid fa-chart-line"></i> {% trans "Monthly hours" %}</h3>
       <span class="count">{% blocktrans with year=report_year %}Year {{ year }}{% endblocktrans %}</span>
     </div>
-    <p class="muted" style="font-size:.84rem;margin:0 0 .85rem;line-height:1.45;">
-      {% trans "Click a month to open its daily cards." %}
-    </p>
     <div class="ppl-month-grid">
       {% for m in month_cards %}
         {% comment %}

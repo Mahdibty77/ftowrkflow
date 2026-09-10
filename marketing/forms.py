@@ -508,12 +508,27 @@ def _clean_jalali_datetime(raw):
 
     PARSED HERE RATHER THAN BORROWED FROM ``cases/forms.py``. That module's
     ``CaseCreateForm.clean_deadline`` reads the identical text and is the
-    obvious thing to reuse, but it is a bound method of a form about cases and
-    it carries a rule these screens must not inherit: a deadline may not be in
-    the past. A reminder legitimately may be — "remind me about this now" is a
-    coherent thing to ask for, a time that has just gone by makes a reminder DUE
-    rather than invalid, and refusing it would make the re-time control on the
-    list page reject the fastest way to bring something back.
+    obvious thing to reuse, but it is a bound method of a form about cases,
+    and this function is deliberately just the PARSE — round-trip a Jalali
+    string into an aware ``datetime`` or raise, nothing else. It used to also
+    be the reason a reminder was allowed to name the past ("remind me about
+    this now" is a coherent thing to ask for, and refusing it would have
+    broken the old "Set new time" re-time control's fastest way to bring an
+    overdue reminder back to the top of the list) — THAT REASONING IS NOW
+    STALE, LEFT HERE FOR THE HISTORY RATHER THAN QUIETLY DELETED: the re-time
+    control (``marketing/views.py::reminder_retime``) was retired in an
+    earlier round as a live bypass of the mandatory close-only-via-a-report
+    cycle, and the owner has since asked, in as many words, that a reminder
+    may never be set for a time that has already passed. That NEW rule is
+    enforced one level up, in each field's own ``clean_due_at`` — see
+    ``ReminderForm.clean_due_at``/``TaskForm.clean_due_at`` below, and
+    ``marketing/reminders.py::validate_due_at_future`` — the SAME split
+    ``validate_due_at_shift`` already uses for the work-shift-hours rule:
+    THIS function stays a pure parse (a malformed Jalali string is the only
+    thing it ever rejects), so a past-but-otherwise-valid date still returns
+    cleanly from here and is rejected by name, on the right field, by the
+    caller that actually knows it is building a brand-new reminder rather
+    than, say, re-parsing one for display.
 
     WHAT IS SHARED IS THE ARITHMETIC. ``cases.jalali`` is imported and called,
     exactly as ``people/fields.py`` and ``reports/views.py`` call it, so there
@@ -661,7 +676,56 @@ class ReminderForm(forms.Form):
             return None
 
     def clean_due_at(self):
-        return _clean_jalali_datetime(self.cleaned_data.get("due_at"))
+        due_at = _clean_jalali_datetime(self.cleaned_data.get("due_at"))
+        _reject_past_or_holiday(due_at)
+        return due_at
+
+
+def _reject_past_or_holiday(due_at) -> None:
+    """Raises ``forms.ValidationError`` when ``due_at`` is in the past, or
+    falls on a day this company does not work; a plain no-op otherwise.
+
+    THE TWO RULES EVERY REMINDER-DUE-AT FIELD SHARES, ON TOP OF THE PLAIN
+    PARSE ``_clean_jalali_datetime`` ALREADY DOES — see that function's own
+    docstring for why the past-date rule moved OUT of the parser and one
+    level up, here, rather than living inside it. ``None`` (an already-blank
+    box, or one ``_clean_jalali_datetime`` has already rejected as malformed
+    and raised on) is passed straight through with no further check: the
+    FIELD's own ``required=True`` or that function's own round-trip error
+    already reports those two cases, and stacking a second error under the
+    same box would say nothing a person filling in the screen could act on
+    that the first message did not already say.
+
+    ONE FUNCTION, CALLED BY BOTH ``ReminderForm.clean_due_at`` (the
+    company-page screen) AND ``TaskForm.clean_due_at`` (My Tasks') — the
+    identical "a reminder's due time, wherever it is set" rule, so the two
+    screens can never drift into checking the past/holiday rule two
+    different ways. ``TaskForm`` goes on to check a THIRD rule afterwards —
+    work-shift HOURS, through ``marketing/reminders.py::validate_due_at_shift``
+    — that ``ReminderForm`` does not (see ``TaskForm.clean_due_at``'s own
+    docstring for that pre-existing asymmetry, which this round does not
+    change); this function only ever owns the two rules both screens share.
+
+    THE BOOLEAN CHECKS THEMSELVES LIVE IN ``marketing/reminders.py``
+    (``validate_due_at_future``/``validate_due_at_working_day``), NOT HERE —
+    this function's only job is turning a ``False`` into the
+    ``forms.ValidationError`` a person filling in a screen can actually see,
+    exactly the split ``validate_due_at_shift``'s own docstring already
+    argues for: "the caller decides what a False means to it". Checked in
+    THIS order — future, then working day — so a date that fails both shows
+    the single most useful message first; fixing it and resubmitting is what
+    surfaces the second, exactly like every other multi-rule ``clean()`` in
+    this file that can only ever raise once per pass.
+    """
+    if due_at is None:
+        return
+    from . import reminders as _reminders
+
+    if not _reminders.validate_due_at_future(due_at):
+        raise forms.ValidationError(_("Reminder time must be in the future."))
+    if not _reminders.validate_due_at_working_day(due_at):
+        raise forms.ValidationError(
+            _("This day is a holiday or outside working days — pick a working day."))
 
 
 def _shift_window_text(user) -> str:
@@ -812,13 +876,23 @@ class TaskForm(forms.Form):
             return None
 
     def clean_due_at(self):
-        """The parsed due-at, ALSO checked against ``user``'s own shift
-        window — see the class docstring's "THE DUE-AT TIME IS VALIDATED"
-        section. Raised on THIS field (not as a non-field error) because it
-        is true of exactly one box on the screen and the person should see
-        the message right where they need to fix it, the same placement
-        ``_clean_jalali_datetime``'s own round-trip error already uses for a
-        malformed date.
+        """The parsed due-at, checked against THREE rules — the two every
+        reminder-due-at field shares (:func:`_reject_past_or_holiday`: not in
+        the past, not on a holiday/weekend) plus the one this screen alone
+        has carried since an earlier round, ``user``'s own shift window —
+        see the class docstring's "THE DUE-AT TIME IS VALIDATED" section.
+        Every one of the three is raised on THIS field (not as a non-field
+        error) because each is true of exactly one box on the screen and the
+        person should see the message right where they need to fix it, the
+        same placement ``_clean_jalali_datetime``'s own round-trip error
+        already uses for a malformed date.
+
+        CHECKED IN THIS ORDER — past/holiday, then shift-hours — so a date
+        that fails more than one rule at once shows the single most useful
+        message first; only one ``forms.ValidationError`` can surface per
+        pass here, the same one-at-a-time shape every other multi-rule
+        ``clean()`` in this file already has, so fixing the first and
+        resubmitting is what reveals the second.
 
         Skipped when ``due_at`` failed to parse at all (``None``) or when this
         form was built with no ``user`` (should never happen from a real
@@ -828,6 +902,7 @@ class TaskForm(forms.Form):
         top of it.
         """
         due_at = _clean_jalali_datetime(self.cleaned_data.get("due_at"))
+        _reject_past_or_holiday(due_at)
         if due_at is not None and self._user is not None:
             from . import reminders as _reminders
             if not _reminders.validate_due_at_shift(self._user, due_at):

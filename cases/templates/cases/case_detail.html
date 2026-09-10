@@ -679,16 +679,6 @@
       </details>
       {% endif %}
 
-      {# Said in words, the same way the company page's own Reminders tab    #}
-      {# says it — see cases/views.py::_case_marketing_reminders for why     #}
-      {# this stays owner-scoped by default, widened only for the admin/GM   #}
-      {# tier, rather than following the Marketing directory's own           #}
-      {# Supervisor widening onto this unrelated surface.                    #}
-      <div class="help" style="margin:0 0 .7rem;">
-        {% if sees_all_case_reminders %}{% trans "You see every reminder set on this case." %}
-        {% else %}{% trans "You see your own reminders on this case — a reminder is a private note to its own owner." %}{% endif %}
-      </div>
-
       {# FILTER CARD — same reasoning as the Reports panel's own, immediately    #}
       {# above: the company page's Reminders tab has a "Case" field this page    #}
       {# has no use for (already scoped to one case), so in its place a          #}

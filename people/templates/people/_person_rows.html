@@ -42,7 +42,16 @@ base_query, filtered.
         <tr class="{% if not person.is_active %}ppl-departed{% endif %}">
           <td><span class="ppl-code">{{ person.detail_code }}</span></td>
           <td>
-            <div dir="auto">{{ person.full_name_en|default:person.display_name|default:"—" }}</div>
+            {# person.display_name is language-aware (Persian while this   #}
+            {# viewer's chrome is Persian, Latin while it is English — see #}
+            {# that property's own docstring) and already falls back to    #}
+            {# full_name_en/username/detail_code on its own, so reading it #}
+            {# directly here — rather than checking full_name_en first,   #}
+            {# which used to force the Latin name even in Persian chrome —#}
+            {# is what lets this column follow the same toggle every      #}
+            {# other name on this page does. It is never blank, so no     #}
+            {# further |default is needed. #}
+            <div dir="auto">{{ person.display_name }}</div>
             {% if person.username %}
               <div class="mono muted ppl-sub">{{ person.username }}</div>
             {% endif %}

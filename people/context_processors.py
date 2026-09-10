@@ -36,10 +36,24 @@ def work_shift_banner(request):
         st = shift_status(user)
         # Admin / GM have no work shift — never show the Sign out shift dialog.
         signout_confirm = not bool(st.get("exempt"))
+        person = st.get("person")
+        # Checked before either early return below (unlike the rest of this
+        # context, which only means anything for a currently-open shift): a
+        # gap raised earlier today is still unexplained whether or not THIS
+        # request's shift happens to still be open, and an exempt person
+        # (Admin/GM) never has a ShiftDayLog row to have raised one from —
+        # person is None for them, and the query below is skipped outright.
+        gap_req = None
+        if person is not None:
+            try:
+                from .staff_requests import pending_presence_gap_for
+                gap_req = pending_presence_gap_for(person)
+            except Exception:
+                gap_req = None
         ctx = {
             "shift_warn": False,
             "shift_seconds_left": None,
-            "shift_end_name": display_first_name(user, st.get("person")),
+            "shift_end_name": display_first_name(user, person),
             "shift_goodbye": shift_ended_message(user),
             "shift_ping_url": "",
             "shift_signout_confirm": signout_confirm,
@@ -50,6 +64,7 @@ def work_shift_banner(request):
             "shift_minutes_left": None,
             "shift_timer_label": "",
             "shift_mins_word": "minutes",
+            "presence_gap_request": gap_req,
         }
         if st.get("exempt"):
             return ctx

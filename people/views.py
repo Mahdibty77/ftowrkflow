@@ -705,7 +705,22 @@ def person_shift_month(request, pk, year, month):
 @login_required
 @require_POST
 def shift_presence_ping(request):
-    """Heartbeat: credit ~1 minute of presence for the signed-in person."""
+    """Heartbeat: credit ~1 minute of presence for the signed-in person.
+
+    ``active`` (POST, "1"/"0", default "1") — did the tab report a real
+    interaction since its own last ping? See
+    shift_hours.record_presence_ping's docstring for what this changes.
+    Absent/malformed is treated as active, so an old cached page (or any
+    caller that predates this field) keeps behaving exactly as before.
+
+    The response's ``presence_gap_pending`` is only ever non-null the SAME
+    request that just closed a beyond-grace gap (see shift_hours._record_away
+    -> staff_requests.create_presence_gap_draft) — cheap because it costs
+    nothing extra: that gap-closing branch already touched this exact row.
+    A person who never triggers that branch never pays for checking it here;
+    the routine "is there anything pending" case is instead covered by
+    people.context_processors (once per page load, not per ping).
+    """
     from django.http import JsonResponse
 
     from .shift_hours import record_presence_ping
@@ -729,14 +744,42 @@ def shift_presence_ping(request):
             "shift_ended": True,
             "name": st.get("name") or "",
         })
-    minutes = record_presence_ping(person)
+    had_activity = (request.POST.get("active", "1") or "1").strip() != "0"
+    minutes, gap_request = record_presence_ping(person, had_activity=had_activity)
     return JsonResponse({
         "ok": True,
         "day_minutes": minutes,
         "allowed": True,
         "minutes_left": st.get("minutes_left"),
         "seconds_left": _seconds_left(st),
+        "presence_gap_pending": gap_request.pk if gap_request is not None else None,
     })
+
+
+@login_required
+@require_POST
+def presence_gap_explain(request, pk):
+    """The person explains their OWN unresolved presence-gap request.
+
+    AJAX-only (the banner/modal that shows this posts via fetch and hides
+    itself on success — see base.html) so nothing here ever needs a redirect
+    target: every response is JSON, success or failure alike.
+    """
+    from django.http import JsonResponse
+
+    from .models import StaffRequest
+    from .staff_requests import person_for_request_user, submit_presence_gap_reason
+
+    person = person_for_request_user(request.user)
+    if person is None:
+        return JsonResponse({"ok": False, "error": "no_person"}, status=400)
+    req = get_object_or_404(StaffRequest, pk=pk, person=person)
+    reason = (request.POST.get("reason") or "").strip()
+    try:
+        submit_presence_gap_reason(req, user=request.user, reason=reason)
+    except ValueError as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+    return JsonResponse({"ok": True})
 
 
 def shift_ended(request):

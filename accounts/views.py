@@ -1048,13 +1048,32 @@ def impersonate_start(request, pk):
         messages.error(request, _("This account is closed and cannot be impersonated."))
         return redirect(_impersonation_refusal_redirect(request))
     target_profile = getattr(target, "profile", None)
-    if target_profile is not None and (target_profile.is_admin or target_profile.is_general_manager):
-        # Also blocks impersonating yourself-as-a-second-privileged-account and
-        # any chained-privilege scenario: a Platform Administrator or General
-        # Manager identity can never be entered via impersonation, only by
-        # signing in with its own credentials — this now matters for General
-        # Manager accounts too, since they can initiate impersonation.
-        messages.error(request, _("Administrator and General Manager accounts cannot be impersonated."))
+    if target_profile is not None and target_profile.is_admin:
+        # Blocks impersonating yourself-as-a-second-privileged-account and any
+        # chained-privilege scenario for the Administrator role: a Platform
+        # Administrator identity can never be entered via impersonation, only
+        # by signing in with its own credentials.
+        #
+        # General Manager is DELIBERATELY NOT excluded here (unlike
+        # Administrator). It used to be, for exactly the chained-privilege
+        # reason above — a General Manager can also INITIATE an impersonation
+        # (see _can_impersonate), so admitting a General Manager as a TARGET
+        # opens a chain: an administrator logs in as the General Manager and,
+        # from inside that session, could press "Log in as" again to reach a
+        # third person with the General Manager identity sitting in between.
+        # The owner asked explicitly that a Platform Administrator be able to
+        # log in as ANY person regardless of role, including the General
+        # Manager, and to accept that chained-privilege consequence — so this
+        # exclusion is narrowed to Administrator only. The chain itself is
+        # still fully accounted for either way: switching from one
+        # impersonation into another closes the old ImpersonationLog row and
+        # opens a new one (see "SWITCHING FROM ONE PERSON TO ANOTHER" above),
+        # so every hop in a chain is individually audited, and every hop is
+        # still gated by the same _can_impersonate / @impersonation_actor_
+        # required checks this view already enforces — the real actor driving
+        # any switch is always re-read from the database via
+        # _impersonation_actor, never trusted from request.user.
+        messages.error(request, _("Administrator accounts cannot be impersonated."))
         return redirect(_impersonation_refusal_redirect(request))
     if target_profile is not None and target_profile.must_change_password:
         # An account that is still on its admin-issued temporary password is one
@@ -1115,11 +1134,16 @@ def impersonate_start(request, pk):
     request.session["impersonator_username"] = original_admin_username
     request.session["impersonation_log_id"] = log_entry.pk
 
-    messages.info(
-        request,
-        _("You are now viewing the platform as %(name)s.")
-        % {"name": target.get_full_name() or target.username},
-    )
+    # Deliberately NO flash message here. This used to fire a one-time
+    # messages.info() ("You are now viewing the platform as X") on every
+    # successful switch, but that duplicated information the administrator
+    # already gets from a second, PERSISTENT source: the impersonation banner
+    # in core/templates/base.html (the `is_impersonating` block), which names
+    # the person and stays on screen — with its own "Return to admin account"
+    # control — for the entire duration of the impersonation, not just the
+    # instant after clicking "Log in as". The owner asked for the one-time
+    # notice removed; the persistent banner is a distinct, ongoing indicator
+    # and stays exactly as it was.
     return redirect("core:home")
 
 

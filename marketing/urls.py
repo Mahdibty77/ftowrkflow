@@ -29,6 +29,7 @@ shaped the same way:
     tasks/                          "My Tasks" hub     -> marketing:my_tasks
     tasks/all/                      admin-wide My Tasks -> marketing:my_tasks_all
     tasks/add/                      add / next reminder -> marketing:my_tasks_add
+    tasks/day-reminders/            JSON: one day's own reminders -> marketing:my_tasks_day_reminders
     tasks/<id>/report/               close it out       -> marketing:my_tasks_report
     tasks/reports/add/               standalone report   -> marketing:my_tasks_report_add
 
@@ -163,6 +164,13 @@ urlpatterns = [
     # could set.
     path("tasks/all/", views.my_tasks, {"scope": "all"}, name="my_tasks_all"),
     path("tasks/add/", views.my_tasks_add, name="my_tasks_add"),
+    # JSON only, read by task_form.html's own due-at field on ``change`` (see
+    # marketing/static/marketing/js/task_due_preview.js and
+    # views.my_tasks_day_reminders's own docstring) — the live "what else is
+    # already due that day" preview the owner asked for this round, shown
+    # in-form before the whole "add a task" screen is even submitted.
+    path("tasks/day-reminders/",
+         views.my_tasks_day_reminders, name="my_tasks_day_reminders"),
     path("tasks/reports/add/",
          views.my_tasks_report_add, name="my_tasks_report_add"),
     path("tasks/<int:reminder_id>/report/",

@@ -217,11 +217,23 @@ msgstr "شخصی"
 #: marketing/templates/marketing/directory.html:54
 #: marketing/templates/marketing/my_tasks.html:53
 #: marketing/templates/marketing/my_tasks.html:54
-#: marketing/templates/marketing/my_tasks.html:81
+#: marketing/templates/marketing/my_tasks.html:84
 #: marketing/templates/marketing/reminder_form.html:55
 #: marketing/templates/marketing/task_report_add.html:28
+# AUDIT #134 FOLLOW-UP (this round) — the owner asked for this ONE page
+# title's own Persian translation specifically, "برنامه‌های من" ("my
+# programs/schedules") in place of the literal "کارهای من" ("my tasks/
+# chores") this msgid has carried since it was first added. Deliberately
+# narrow: every OTHER catalog entry that merely embeds the substring
+# "کارهای من" inside a longer, differently-worded English msgid ("Skip —
+# back to My Tasks", "Back to My Tasks", "View in My Tasks", and the
+# locked-next-reminder sentence on task_form.html) is left exactly as it
+# was — the owner's own instruction was to change THIS msgid's own msgstr,
+# not to chase every composite sentence that happens to contain the same
+# three words. If the owner later wants those brought into line with the
+# renamed title, that is a separate, explicit ask.
 msgid "My Tasks"
-msgstr "کارهای من"
+msgstr "برنامه‌های من"
 
 #: core/templates/base.html:459
 msgid "No roles assigned yet"
@@ -4172,3 +4184,69 @@ msgstr "مشاهده در کارهای من"
 #: cases/templates/cases/case_detail.html:117
 msgid "Current owner"
 msgstr "دارندهٔ فعلی"
+
+# ---------------------------------------------------------------------------
+# AUDIT #134 FOLLOW-UP — impersonation: admin can now "Log in as" a General
+# Manager.
+#
+# accounts/views.py::impersonate_start used to refuse a General Manager as an
+# impersonation TARGET together with a Platform Administrator, both under one
+# shared refusal message: "Administrator and General Manager accounts cannot
+# be impersonated." The owner asked for a Platform Administrator to be able
+# to log in as ANY person regardless of role, including the General Manager,
+# so that check now excludes Administrator only — the old combined message
+# would have been actively wrong for a General Manager target once that
+# exclusion no longer applies to them, so it is replaced with a narrower one
+# naming Administrator alone. The old msgid above (search this file for
+# "Administrator and General Manager accounts cannot be impersonated.") is no
+# longer referenced by any .py/.html file as of this change; left in this
+# catalog unused rather than deleted, same as every other retired string here.
+# ---------------------------------------------------------------------------
+
+#: accounts/views.py:1051
+msgid "Administrator accounts cannot be impersonated."
+msgstr "نمی‌توان به‌جای حساب مدیر سیستم وارد شد."
+
+# ---------------------------------------------------------------------------
+# AUDIT #134 FOLLOW-UP (this round) — "My Tasks": reminder due-at validation
+# widened by two new rules, and the small live "also due that day" preview.
+#
+# marketing/forms.py::_reject_past_or_holiday is the new shared check both
+# ReminderForm (company-page "Set a reminder") and TaskForm (My Tasks' own
+# "Add a task"/"Set your next reminder") now run on their due-at field,
+# beyond the existing plain-parse and (TaskForm only) work-shift-hours
+# checks — see that function's own docstring for the full reasoning and why
+# it lives one level up from marketing/forms.py::_clean_jalali_datetime
+# rather than inside it.
+#
+# The "no work-shift window" fallback line inside the always-visible hour
+# boxes is a GENUINE NEW STRING, not a re-translation of the existing
+# "...Today's reminders are shown as one list instead." msgid a few hundred
+# lines above this section — that older msgid is left exactly as it was,
+# unused now but kept per this catalog's own stated convention ("left in
+# this catalog unused rather than deleted, same as every other retired
+# string here"), because the hour-box treatment it described is no longer
+# Today-only (see marketing/views.py::_task_hour_groups_for_day) and the
+# word "Today's" would now be wrong on a Tomorrow, or further-future, day's
+# own empty-shift fallback.
+# ---------------------------------------------------------------------------
+
+#: marketing/forms.py:725
+msgid "Reminder time must be in the future."
+msgstr "زمان یادآور باید در آینده باشد."
+
+#: marketing/forms.py:728
+msgid "This day is a holiday or outside working days — pick a working day."
+msgstr "این روز تعطیل است یا خارج از روزهای کاری است — یک روز کاری انتخاب کنید."
+
+#: marketing/templates/marketing/_my_tasks_reminders.html:375
+msgid "No work-shift window is configured for you — reminders are shown as one list instead."
+msgstr "بازه شیفت کاری برای شما تنظیم نشده است — به‌جای آن، یادآوری‌ها به‌صورت یک فهرست نمایش داده می‌شوند."
+
+#: marketing/templates/marketing/task_form.html:177
+msgid "Also due that day"
+msgstr "یادآورهای دیگر همان روز"
+
+#: marketing/templates/marketing/task_form.html:178
+msgid "No other reminders of yours are due that day yet."
+msgstr "یادآور دیگری از شما هنوز برای آن روز ثبت نشده است."

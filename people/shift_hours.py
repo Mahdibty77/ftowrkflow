@@ -71,6 +71,7 @@ and Iranian official holidays removed (``people.iran_holidays``).
 """
 from __future__ import annotations
 
+import logging
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
@@ -82,8 +83,12 @@ from cases.jalali import gregorian_to_jalali, jalali_to_gregorian
 from .iran_holidays import WEEKEND_WEEKDAYS, is_official_holiday
 from .work_shift import _DEFAULT_END, _DEFAULT_START, now_local, shift_window
 
-# Accidental disconnect / closed tab: default gap that still counts (10:00).
-RECONNECT_GRACE_SECONDS = 10 * 60
+logger = logging.getLogger(__name__)
+
+# Accidental disconnect / closed tab: default gap that still counts (15:00).
+# Matches Person.reconnect_grace_seconds / PlatformConfig's own default —
+# this is only the last-resort fallback for a row that somehow has neither.
+RECONNECT_GRACE_SECONDS = 15 * 60
 DEFAULT_FLOAT_SECONDS = 15 * 60  # 15:00 → 15 minutes
 
 JMONTHS_EN = (
@@ -585,8 +590,14 @@ def _record_away(
     start: time,
     end: time,
     per_day: int,
-) -> None:
+):
     """Write a beyond-grace absence onto the day row (audit only, never a cost).
+
+    Returns the presence-gap ``StaffRequest`` this call raised (or the
+    existing one for the same gap, or ``None`` if nothing was raised) — the
+    caller already has it in hand from the SAME work this function just did,
+    so a caller that wants to tell the browser "you have something to
+    explain" never needs a second query to find out.
 
     An absence is already paid for by the minutes it did not earn: no ping
     arrives while the person is gone, so nothing is credited for that window.
@@ -629,14 +640,32 @@ def _record_away(
     column is being fixed for, and it broke the reconciliation above.
     """
     if prev is None:
-        return
+        return None
     away = _in_shift_seconds(start, end, prev, when) // 60
     if away <= 0:
-        return
+        return None
     ceiling = max(0, int(per_day))
     log.away_minutes = min(
         ceiling, int(getattr(log, "away_minutes", 0) or 0) + away,
     )
+    # This is the one place a beyond-grace gap is ever discovered — both
+    # callers (note_shift_login and record_presence_ping) funnel through
+    # here, so raising the presence-gap request once, here, covers a fresh
+    # sign-in and a same-session reconnect alike without a second copy of
+    # this logic. Local import: people.staff_requests already imports this
+    # module (decide_overtime uses freeze_past_months/refresh_worked), so a
+    # module-level import here would be circular.
+    try:
+        from .staff_requests import create_presence_gap_draft
+        return create_presence_gap_draft(
+            log.person, gap_start=prev, gap_end=when, minutes=away,
+        )
+    except Exception:
+        logger.exception(
+            "Failed to raise presence-gap request for person %s (%s -> %s)",
+            getattr(log, "person_id", None), prev, when,
+        )
+        return None
 
 
 def _apply_reconnect_gap(
@@ -1166,13 +1195,31 @@ def _credit_ot_presence(person, when: datetime) -> int:
     return int(log.minutes or 0)
 
 
-def record_presence_ping(person, *, when: datetime | None = None) -> int:
+def record_presence_ping(
+    person, *, when: datetime | None = None, had_activity: bool = True,
+) -> tuple[int, "StaffRequest | None"]:
+    """Returns ``(day_minutes, gap_request)``.
+
+    ``gap_request`` is the presence-gap StaffRequest this exact call just
+    raised — see ``_record_away`` — or ``None`` on the overwhelming majority
+    of calls that closed no gap at all. Callers that only want the minutes
+    (nothing outside this module needed anything else before this feature)
+    can keep writing ``minutes, _ = record_presence_ping(...)``.
+
+    ``had_activity`` — did the browser report a real interaction (click /
+    key / scroll / pointer move) since its PREVIOUS ping? Defaults True so
+    every existing caller that does not pass it (there is one: the login
+    path never calls this at all, and any other future caller) keeps
+    crediting exactly as before. When False, the gap since the last ping is
+    added to ``idle_seconds`` instead of silently vanishing — audit only,
+    the same rule as away_minutes; see ShiftDayLog.idle_seconds.
+    """
     from .models import ShiftDayLog
 
     when = when or now_local()
     gday = when.date()
     if gday < get_tracking_start():
-        return 0
+        return 0, None
 
     start, end = shift_window(person)
     now_t = when.time().replace(microsecond=0)
@@ -1182,18 +1229,21 @@ def record_presence_ping(person, *, when: datetime | None = None) -> int:
     )
     if not in_base:
         # Approved overtime keeps the session alive; credit actual presence
-        # into overtime_minutes (capped at approved OT for the day).
+        # into overtime_minutes (capped at approved OT for the day). Never
+        # raises a presence-gap request of its own — overtime presence is
+        # its own ledger (see _credit_ot_presence), not the base window this
+        # feature watches.
         try:
             from .staff_requests import is_within_extended_window
             if is_within_extended_window(person, when):
-                return _credit_ot_presence(person, when)
+                return _credit_ot_presence(person, when), None
         except Exception:
             pass
-        return 0
+        return 0, None
 
     jy, jm, jd = gregorian_to_jalali(when.year, when.month, when.day)
     if gday.weekday() in WEEKEND_WEEKDAYS or is_official_holiday(jy, jm, jd):
-        return 0
+        return 0, None
 
     per_day = shift_minutes(start, end)
     start_dt = _shift_start_dt(start, end, when)
@@ -1223,6 +1273,7 @@ def record_presence_ping(person, *, when: datetime | None = None) -> int:
     if log.explicit_logout:
         log.explicit_logout = False
 
+    gap_request = None
     if opened:
         # Float credit already covers late-within-grace minutes; only add the
         # current minute when nothing was credited yet (on-time or late).
@@ -1239,11 +1290,13 @@ def record_presence_ping(person, *, when: datetime | None = None) -> int:
                 add = _credit_gap_minutes(
                     log, when, per_day=per_day, grace_seconds=grace, force_skip=False,
                 )
+                if not had_activity:
+                    log.idle_seconds = int(getattr(log, "idle_seconds", 0) or 0) + secs
             else:
                 # Beyond grace → the gap is not credited, and nothing already
                 # earned is taken back either; the lost credit is the cost. Same
                 # rule as ``_apply_reconnect_gap`` on the login path.
-                _record_away(
+                gap_request = _record_away(
                     log, log.last_ping, when,
                     start=start, end=end, per_day=per_day,
                 )
@@ -1253,8 +1306,8 @@ def record_presence_ping(person, *, when: datetime | None = None) -> int:
     log.last_ping = when
     log.save(update_fields=[
         "minutes", "last_ping", "first_login", "explicit_logout",
-        "carry_seconds", "away_minutes",
+        "carry_seconds", "away_minutes", "idle_seconds",
     ])
     freeze_past_months(person)
     refresh_worked(person)
-    return log.minutes
+    return log.minutes, gap_request

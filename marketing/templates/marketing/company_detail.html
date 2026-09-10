@@ -80,7 +80,7 @@
 {% block title %}{{ client.name }} · Foolad Tabar Workflow{% endblock %}
 {% block topbar %}{{ client.name }}{% endblock %}
 {% block head_extra %}
-<link rel="stylesheet" href="{% static 'marketing/css/directory.css' %}">
+<link rel="stylesheet" href="{% static 'marketing/css/directory.css' %}?v=pi-total-removed-1">
 {% endblock %}
 {% block content %}
 
@@ -184,14 +184,17 @@
   {# A VERTICAL list with an icon per line — dl.kv-ic.compact, the exact same #}
   {# markup the case detail page's own "Offer details" sub-card uses — NOT   #}
   {# the old horizontal .infobox row of boxes. counts comes from             #}
-  {# marketing/views.py::_case_card_counts, this card's OWN four-way split   #}
-  {# (see that function's docstring for why it is a separate function from  #}
-  {# the one the relationship chart's own panel still relies on, untouched).#}
+  {# marketing/views.py::_case_card_counts, this card's OWN four-way split — #}
+  {# the SAME function the relationship chart's own "cases connected to Us"  #}
+  {# panel now calls too (see that function's docstring for why the two used #}
+  {# to read two different bucketings and no longer do).                    #}
   {# pi_totals carries that SAME four-way split's own PI money, one figure   #}
-  {# per bucket instead of the old single "Grand total (all PI)" line — see  #}
-  {# marketing/views.py::_pi_money_by_bucket, which buckets every case by    #}
-  {# the identical rule counts does, so a line's count and its money always  #}
-  {# describe the same cases.                                                #}
+  {# per bucket — see marketing/views.py::_pi_money_by_bucket, which buckets #}
+  {# every case by the identical rule counts does, so a line's count and its #}
+  {# money always describe the same cases. This is the ONLY PI-money display #}
+  {# left on this page: the separate single "Grand total (all PI)" line that #}
+  {# used to sit under the Cases TAB below is gone — see the comment left in #}
+  {# its place, further down this file.                                     #}
   <div class="card">
     <div class="card-head">
       <h3><i class="fa-solid fa-folder-open" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Cases" %}</h3>
@@ -266,16 +269,6 @@
         <i class="fa-solid fa-user-plus"></i> {% trans "Add contact" %}
       </a>
       {% endif %}
-    </div>
-
-    {# Said in words because the list is scoped and a short list would          #}
-    {# otherwise read as "this company has almost no contacts". The rule itself #}
-    {# is enforced in services.list_contacts, never here — and the flag this    #}
-    {# branches on is the viewer's SCOPE, not can_edit; see                     #}
-    {# marketing/views.py::company_detail for why those two are not the same    #}
-    {# question.                                                                #}
-    <div class="help" style="margin:-.35rem 0 .7rem;">
-      {% if sees_all_contacts %}{% trans "You see every contact recorded on this company." %}{% else %}{% trans "You see the contacts you added yourself." %}{% endif %}
     </div>
 
     {# A SINGLE SEARCH BOX, by name OR phone — new this round. Client-side,    #}
@@ -370,15 +363,21 @@
       </span>
     </div>
 
-    {# THE MONEY, WORDED AND GATED EXACTLY AS THE ARCHIVE WORDS AND GATES ITS   #}
-    {# OWN — unchanged by this round. See marketing/views.py::_pi_money_total. #}
-    {% if show_money and pi_total_display %}
-    <div class="dir-money">
-      <span class="dir-money-l"><i class="fa-solid fa-coins"></i> {% trans "Grand total (all PI)" %}</span>
-      <strong class="mono dir-money-v">{{ pi_total_display }}</strong>
-      <span class="dir-money-note">{% blocktrans count n=counts.total %}over the {{ n }} case listed below{% plural %}over the {{ n }} cases listed below{% endblocktrans %}</span>
-    </div>
-    {% endif %}
+    {# THE SINGLE "Grand total (all PI)" LINE THAT USED TO SIT HERE IS GONE —   #}
+    {# the owner's own ask this round: one lump PI figure under this tab's own  #}
+    {# header chips told a reader nothing about how much of it was approved     #}
+    {# versus closed versus still pending, which is exactly what the Cases      #}
+    {# CARD above the tabs (see its own comment, further up this file, near     #}
+    {# "_pi_money_by_bucket") already answers with the SAME per-bucket money    #}
+    {# this tab's own count chips just above already share with it. That card  #}
+    {# sits above these tabs, not inside one of them, so it stays on screen no  #}
+    {# matter which tab is open — including this one — which is why nothing    #}
+    {# replaces the removed line here: the four-way breakdown it used to        #}
+    {# summarise into one number is already visible on this exact page, and a   #}
+    {# second copy of the identical four figures, tab-scoped, would only be a   #}
+    {# duplicate of it. ``pi_total_display``/``marketing/views.py::            #}
+    {# _pi_money_total`` are both gone with it — see that view's own comment    #}
+    {# where the function used to be defined.                                  #}
 
     {% if hidden_case_count %}
     {# Honest rather than silent: the rows are scoped (see                      #}
@@ -493,13 +492,6 @@
         <i class="fa-solid fa-file-pen"></i> {% trans "Add report" %}
       </a>
       {% endif %}
-    </div>
-
-    {# Contacts' own sentence, for reports, decided by the same thing: the      #}
-    {# SCOPE, not can_edit — see marketing/views.py::company_detail on          #}
-    {# sees_all_reports.                                                        #}
-    <div class="help" style="margin:-.35rem 0 .7rem;">
-      {% if sees_all_reports %}{% trans "You see every report written on this company." %}{% else %}{% trans "You see the reports you wrote yourself." %}{% endif %}
     </div>
 
     <table class="data" id="reportsTable" data-filter-table>
@@ -626,12 +618,6 @@
         <i class="fa-solid fa-bell"></i> {% trans "Set new reminder" %}
       </a>
       {% endif %}
-    </div>
-
-    {# Reports'/contacts' own sentence, on the SAME scope this round gave       #}
-    {# Reminders — see marketing/views.py::company_detail on sees_all_reminders.#}
-    <div class="help" style="margin:-.35rem 0 .7rem;">
-      {% if sees_all_reminders %}{% trans "You see every reminder set on this company, by anyone in Marketing." %}{% else %}{% trans "You see your own reminders on this company." %}{% endif %}
     </div>
 
     <table class="data" id="remindersTable" data-filter-table>

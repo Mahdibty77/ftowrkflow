@@ -143,6 +143,42 @@
       {% trans "When this time passes, a notification appears at the top of your screen and stays until you close it out." %}
       {% if form.shift_window_text %}{% blocktrans with window=form.shift_window_text %}Pick a time inside your own work shift ({{ window }}).{% endblocktrans %}{% endif %}
     </div>
+    {% comment %}
+      THE LIVE, IN-FORM "ALSO DUE THAT DAY" PREVIEW — the owner's own ask
+      this round: the moment a date is picked (and confirmed — the picker's
+      own "Done" step, which is what actually fires this box's `change`
+      event; see static/js/jalali_picker.js's own `commit()`) this panel
+      fetches and shows this viewer's OWN other open reminders already due
+      that same calendar day, right here, before the form is even
+      submitted — so a second reminder is never set blind on top of ones
+      already sitting on that day. Entirely a client-side addition:
+      marketing/static/marketing/js/task_due_preview.js owns the fetch and
+      the render, this <div> is only the panel it fills in and the config
+      it reads (data-url/data-field-id/the two translated strings) — see
+      that file's own head comment, and
+      marketing/views.py::my_tasks_day_reminders for the small JSON
+      endpoint behind it.
+
+      STARTS HIDDEN (`hidden`) — nothing has been picked yet on a fresh
+      GET, and ``is_next_step``'s own locked display (see this file's head
+      comment) never even draws the ordinary due-at box on a step where the
+      due-at field IS still live, so this panel is equally relevant there;
+      it simply stays hidden until a date is actually confirmed either way.
+
+      data-field-id, NOT A HARD-CODED "id_due_at" — the id Django's own
+      auto-id machinery assigns this field, read the same way the <label>
+      just above already does (`form.due_at.id_for_label`), so a future
+      rename of the field never leaves this panel silently listening on a
+      name that no longer exists.
+    {% endcomment %}
+    <div class="field" id="dueDayPreview" hidden
+         data-field-id="{{ form.due_at.id_for_label }}"
+         data-url="{% url 'marketing:my_tasks_day_reminders' %}"
+         data-heading-text="{% trans "Also due that day" %}"
+         data-empty-text="{% trans "No other reminders of yours are due that day yet." %}">
+      <label id="dueDayPreviewHead"><i class="fa-regular fa-calendar-check"></i></label>
+      <div id="dueDayPreviewList" class="hour-box-rows"></div>
+    </div>
   </div>
 
   <div class="field">
@@ -205,4 +241,7 @@
     <a href="{% url 'marketing:my_tasks' %}" class="btn btn-ghost">{% if is_next_step %}{% trans "Skip" %}{% else %}{% trans "Cancel" %}{% endif %}</a>
   </div>
 </form>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'marketing/js/task_due_preview.js' %}" defer></script>
 {% endblock %}

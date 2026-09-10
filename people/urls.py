@@ -25,6 +25,7 @@ urlpatterns = [
     path("<int:pk>/shift/<int:year>/<int:month>/", views.person_shift_month, name="person_shift_month"),
     path("shift/ping/", views.shift_presence_ping, name="shift_ping"),
     path("shift/ended/", views.shift_ended, name="shift_ended"),
+    path("shift/gap/<int:pk>/explain/", views.presence_gap_explain, name="presence_gap_explain"),
     path("<int:pk>/status/", views.person_toggle_status, name="person_toggle_status"),
     path("roles/<int:role_id>/activate/", views.activate_role, name="activate_role"),
     path("<int:pk>/accounts/", views.person_seats, name="person_seats"),
@@ -51,4 +52,5 @@ urlpatterns = [
     path("requests/<int:pk>/", vreq.request_detail, name="request_detail"),
     path("requests/gm/overtime/", vreq.gm_overtime_inbox, name="gm_overtime_inbox"),
     path("requests/gm/overtime/<int:pk>/decide/", vreq.gm_overtime_decide, name="gm_overtime_decide"),
+    path("requests/gm/gap/<int:pk>/decide/", vreq.gm_presence_gap_decide, name="gm_presence_gap_decide"),
 ]
