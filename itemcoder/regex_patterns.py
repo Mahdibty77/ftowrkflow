@@ -1,7 +1,18 @@
-"""Regex and lookup helpers used while matching features.
+"""Loaders for the reference data the coding engine matches against.
 
-The functions here are intentionally low-level: they load feature value lists,
-parse CSV fields, and search special values in the original user text.
+Everything the engine treats as configuration — ``data.json`` and its siblings,
+the per-feature value CSVs, the schedule/rating lookup tables — is read through
+this module, and nowhere else. feature_extractor, rule_engine, text_processor
+and startup_warmup all come here.
+
+Every loader is mtime-aware: editing a JSON or CSV on disk and reloading the page
+picks up the new content without a server restart, which is what makes the admin
+data screens usable. The caches themselves live in constants.py so a single
+``clear_data_caches()`` can drop them all; cache_sync.py broadcasts that drop to
+the other gunicorn workers.
+
+Paths are whatever the config file spelled — resource_paths.resolve_resource_path
+maps the historical spellings onto ``itemcoder/resources/``.
 """
 
 import csv
@@ -10,8 +21,6 @@ import os
 import re
 
 import pandas as pd
-
-from django.conf import settings
 
 from .resource_paths import resolve_resource_path
 
@@ -38,6 +47,11 @@ def is_empty_variant(value):
 
 
 def load_feature_values(val):
+    # ``val`` is the path exactly as data.json spells it, and every feature CSV
+    # it names lives under ``itemcoder/resources/csv/features/<group>/``. The
+    # near-identical ``itemcoder/resources/json/csv/`` tree is an old copy that
+    # no config references — resolve_resource_path would happily read from it,
+    # but nothing ever asks it to, so edits made there are silently ignored.
     if isinstance(val, str) and val.endswith(".csv"):
         csv_path = resolve_resource_path(val)
 
@@ -52,7 +66,6 @@ def load_feature_values(val):
             _FEATURE_CSV_MTIME_CACHE[csv_path] = mtime
             return []
 
-        import csv
         values = []
         with open(csv_path, newline="", encoding="utf-8") as csvfile:
             reader = csv.reader(csvfile)

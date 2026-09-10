@@ -10,18 +10,35 @@ Nothing here changes the coding or calculation behaviour.
 """
 import json
 import logging
+import re
 from html.parser import HTMLParser
 
 import pandas as pd
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.translation import gettext as _
 
 from .calculation_customizer import get_calculation_ui_config
 
 
 PRICE_COLUMNS = {"UNIT PRICE", "SERVICE PRICE", "TOTAL PRICE"}
+
+# The renderer does not keep the supplier's raw figures in the price cells only:
+# views.dataframe_to_html_with_ids also stamps them on the <tr> itself, because
+# the pricing JS restores a row's editable base from there. Blanking just the
+# <td>s would therefore still ship those numbers to a Technical viewer in the
+# page source — the exact "visible in dev tools" leak the masking exists to
+# close — so the row attributes are removed with them. Every one of these is
+# written with a Django-escaped value inside double quotes, so a plain
+# attribute match is enough and can never swallow the rest of the tag.
+_ROW_PRICE_ATTR_RE = re.compile(
+    r'\s(?:data-row-price-source|data-row-unit-raw'
+    r'|data-service-price-raw|data-row-service-raw)="[^"]*"',
+    re.I,
+)
 
 
 def mask_price_columns(html: str, columns=PRICE_COLUMNS) -> str:
@@ -40,6 +57,10 @@ def mask_price_columns(html: str, columns=PRICE_COLUMNS) -> str:
     Technical — see tool_for_case. Every other caller of the rendering
     pipeline is completely unaffected; this is a post-processing step applied
     to the final HTML string, not a change to the rendering pipeline itself.
+
+    The same reasoning covers the price data-* attributes on each <tr> (see
+    ``_ROW_PRICE_ATTR_RE``): a figure that only the page source reveals is
+    still a figure the viewer was not meant to receive.
     """
     class _Masker(HTMLParser):
         def __init__(self):
@@ -58,6 +79,9 @@ def mask_price_columns(html: str, columns=PRICE_COLUMNS) -> str:
                 self.out.append('<td data-col-name="%s"></td>' % attrs_d.get("data-col-name"))
                 self.skip_depth = 0
                 self.td_depth = 0
+                return
+            if tag == "tr":
+                self.out.append(_ROW_PRICE_ATTR_RE.sub("", self.get_starttag_text()))
                 return
             self.out.append(self.get_starttag_text())
 
@@ -152,6 +176,31 @@ _DISPLAY_TO_CANONICAL = {
     "Size": "size",
     "Qty": "qty",
     "Unit": "unit",
+}
+
+# ---------------------------------------------------------------------------
+# Technical's Qty / Unit / Size override on the Technical Offer
+# ---------------------------------------------------------------------------
+# Qty, Unit and Size belong to the CLIENT: the inquiry owns them, and the TO
+# copies them down from the latest inquiry of the same side on every open so a
+# TO always shows what the client last asked for. That copy-down is the whole
+# reason a value typed into those cells on the TO used to disappear on the
+# next open — it is not a UI lock, it is an overwrite.
+#
+# The intent of the copy-down is preserved exactly: every row still follows the
+# inquiry. A row only stops following it for the ONE column Technical actually
+# retyped, and only from the save that retyped it. The mark is per row and per
+# column, it is recomputed from the submitted values on every TO save (see
+# ``_apply_qty_unit_rules``), and it clears itself the moment Technical puts the
+# inquiry's own value back — so nothing has to be un-stuck by hand.
+_QTY_OVERRIDE_KEY = "_qty_override"
+_UNIT_OVERRIDE_KEY = "_unit_override"
+_SIZE_OVERRIDE_KEY = "_size_override"
+# canonical grid column -> the mark that frees it from the inquiry copy-down.
+_OVERRIDE_KEY_BY_COL = {
+    "qty": _QTY_OVERRIDE_KEY,
+    "unit": _UNIT_OVERRIDE_KEY,
+    "size": _SIZE_OVERRIDE_KEY,
 }
 
 # Coding fields that must survive the form.columns filter after Edit restore.
@@ -445,10 +494,18 @@ def _to_description_rows(case, side=None):
     return rows or _inquiry_rows(case, side)
 
 
-def _seed_dataframe_html(rows):
-    """Run inquiry rows through the tool pipeline and return table-body HTML."""
+def _seed_dataframe_frame(rows):
+    """Run inquiry rows through the tool pipeline -> ``(DataFrame, json_dict)``.
+
+    The FRAME is the grid one step before it becomes HTML, split out for the
+    same reason ``_form_grid_frame`` is: the Qty / Unit guard has to compare a
+    save
+    against the values THAT PAGE WAS RENDERED WITH, and the only way to be sure
+    of those is to ask the function that renders them. ``(None, None)`` when
+    there is nothing to seed from.
+    """
     if not rows:
-        return None
+        return None, None
     def _sig(r):
         return (str(r.get("description", "")).strip(), str(r.get("size", "")).strip(),
                 str(r.get("quantity", "")).strip(), str(r.get("unit", "")).strip(),
@@ -477,7 +534,7 @@ def _seed_dataframe_html(rows):
             "unit": str(mapped.get("unit", "") or ""),
         })
     if not records:
-        return None
+        return None, None
 
     json_dict = load_json_file(json_path("data.json"))
     result_df = process_inquiry_records(records, json_dict)
@@ -491,7 +548,7 @@ def _seed_dataframe_html(rows):
             result_df.insert(0, "#", crs)
         result_df["_deleted"] = (deleted_flags + [""] * len(result_df))[:len(result_df)]
         result_df["_added"] = (added_flags + [""] * len(result_df))[:len(result_df)]
-    return dataframe_to_html_with_ids(result_df, data_json=json_dict)
+    return result_df, json_dict
 
 
 def _plain_ftco_text(html_or_text):
@@ -1054,7 +1111,7 @@ def _apply_brand_split(case, form_kind, side, table, *, mode="edit", current_for
       • No Reject/Confirm buttons on PI.
     """
     from cases.constants import FormKind
-    _ = (mode, current_form)
+    _unused = (mode, current_form)
 
     def _norm(v):
         return str(_clean_cell_value(v) if v is not None else "").strip()
@@ -1228,8 +1285,21 @@ def _apply_brand_split(case, form_kind, side, table, *, mode="edit", current_for
             r.pop("_brand_pf_text", None)
 
 
-def _form_grid_html(case, form_kind, side=None, mode="edit", *, blank_remark=False):
-    """Re-render an already-saved TO/PI grid (with its remarks/edits) so the
+def _form_grid_frame(case, form_kind, side=None, mode="edit", *, blank_remark=False):
+    """Rebuild an already-saved TO/PI grid -> ``(DataFrame, json_dict)``.
+
+    THIS is where the grid the user sees is decided: every copy-down, every
+    soft-delete, every remark split. ``_form_grid_html`` only paints what comes
+    out of here, so a caller that needs to know what the page showed — the
+    Qty / Unit guard in ``save_from_tool`` — asks this function rather than
+    working the answer out a second time. ``(None, None)`` when there is no
+    saved form of this kind on this side.
+
+    This function was ``_form_grid_html`` until the frame was split out of it
+    (cases/export_data.py still refers to it by that name); the rest of this
+    docstring is that function's, unchanged, and describes what the frame holds.
+
+    Re-render an already-saved TO/PI grid (with its remarks/edits) so the
     user can Edit it or branch a New version without losing prior work.
 
     ``blank_remark`` — wipe ``ریمارک`` on every row. Used when seeding a new
@@ -1246,7 +1316,7 @@ def _form_grid_html(case, form_kind, side=None, mode="edit", *, blank_remark=Fal
     """
     form = case.current_form(form_kind, side)
     if not form or not form.table:
-        return None
+        return None, None
     from cases.constants import FormKind, Side
     columns = form.columns or list(form.table[0].keys())
     table = [dict(r) for r in form.table]
@@ -1440,6 +1510,14 @@ def _form_grid_html(case, form_kind, side=None, mode="edit", *, blank_remark=Fal
                     for key_variants in (("Size", "size"), ("Qty", "qty"),
                                           ("Unit", "unit"),
                                           ("Description", "description")):
+                        # Technical retyped this ONE cell on this ONE row, so the
+                        # inquiry no longer owns it. Every other row and every
+                        # other column still mirrors the latest inquiry, which is
+                        # what this whole block is for. Without this the value
+                        # saved a moment ago is silently replaced on reopen.
+                        _ov = _OVERRIDE_KEY_BY_COL.get(key_variants[1])
+                        if _ov and str(r.get(_ov, "") or "") == "1":
+                            continue
                         val = None
                         for k in key_variants:
                             if k in src and str(src.get(k, "")).strip() != "":
@@ -1625,7 +1703,8 @@ def _form_grid_html(case, form_kind, side=None, mode="edit", *, blank_remark=Fal
                   "_remark_split", "_prev_remark", "_pf_ack", "_pf_pending", "_pf_text",
                   "_remark_ack",
                   "_brand_split", "_prev_brand", "_brand_ack", "_brand_pending", "_brand_pf_text",
-                  "_brand_baseline", "_ftco_user_edited"):
+                  "_brand_baseline", "_ftco_user_edited",
+                  _QTY_OVERRIDE_KEY, _UNIT_OVERRIDE_KEY, _SIZE_OVERRIDE_KEY):
         if extra in df.columns and extra not in cols:
             cols.append(extra)
     for extra in _CODING_KEEP_COLUMNS:
@@ -1633,7 +1712,47 @@ def _form_grid_html(case, form_kind, side=None, mode="edit", *, blank_remark=Fal
             cols.append(extra)
     if cols:
         df = df[cols]
-    return dataframe_to_html_with_ids(df, data_json=json_dict)
+    return df, json_dict
+
+
+def _tool_grid_frame(case, form_kind, side, mode):
+    """The grid the tool page shows, and the mode it settles in.
+
+    ONE definition with TWO callers, and that is the whole point of it.
+    ``tool_for_case`` paints this frame into the page; ``_qty_unit_baseline``
+    reads out of the same frame what Qty / Unit the user was shown. A guard
+    that refuses a POST for changing a quantity has to be answering the page
+    the quantity came from. Anything that works out "what the grid would have
+    said" a second time is a second definition of the truth, and it drifts from
+    the first the moment either copy-down changes — which is exactly what
+    happened: the Proforma page mirrors the Technical Offer's STORED Qty, while
+    the guard rebuilt the Technical Offer with the CURRENT inquiry laid over
+    it, so a Supply seat opening a Proforma it had never touched was refused
+    for changing a quantity it never typed.
+
+    ``mode`` comes in as the mode the page was rendered in and comes back out
+    because the two fallbacks below change it: a Proforma with no version yet
+    is seeded from the Technical Offer, and a form with nothing to restore is
+    seeded from the inquiry. Both land the page in "build", and the page posts
+    that back, so passing the posted mode in here reproduces the same choice.
+    """
+    from cases.constants import FormKind
+
+    df = json_dict = None
+    if mode in ("edit", "newversion"):
+        df, json_dict = _form_grid_frame(case, form_kind, side, mode=mode)
+    if df is None and form_kind == FormKind.PI:
+        # Pricing starts from the latest Technical Offer of the SAME side.
+        # TO remark must NOT seed PI remark — blank it (independent fields).
+        df, json_dict = _form_grid_frame(case, FormKind.TO, side, mode="build",
+                                         blank_remark=True)
+        mode = "build"
+    if df is None:
+        rows = (_to_description_rows(case, side) if form_kind == FormKind.PI
+                else _inquiry_rows(case, side))
+        df, json_dict = _seed_dataframe_frame(rows)
+        mode = "build"
+    return df, json_dict, mode
 
 
 @login_required
@@ -1694,6 +1813,15 @@ def tool_prices(request):
     """
     if request.method != "POST":
         return JsonResponse({"error": "POST only"}, status=405)
+    # Same rule as the Proforma's price masking in tool_for_case: a Technical
+    # user must never receive a financial figure. Masking the PI page alone left
+    # this endpoint as the way around it — Technical reads the FTCO codes off its
+    # own Technical Offer and asks here for the supplier price behind each one.
+    # Privileged accounts (Admin / General Manager) carry a blank unit by
+    # construction, so this can never catch them.
+    _profile = getattr(request.user, "profile", None)
+    if _profile is not None and _profile.unit == "TECHNICAL":
+        return JsonResponse({"error": "Not allowed"}, status=403)
     from .models import PriceList, CodePrice
     # Accept either items=[{code,qty}] (preferred) or a bare codes=[...] list.
     qty_by_code = {}
@@ -1779,6 +1907,427 @@ def tool_prices(request):
                          "comparison": comparison, "suggestion": suggestion})
 
 
+def _qu_keys(row):
+    """(client number, item number) for a grid row — the two keys the copy-down
+    in ``_form_grid_frame`` matches rows on, read exactly the same way.
+
+    Rows reach this from two places: a POST, where every value is a string, and
+    a rendered frame, where pandas has densified the record and a key missing
+    on some rows comes back as NaN. ``prepare_table_cell`` blanks those before
+    they are painted, so blank them here too — matching on the text "nan" would
+    invent a key the page never showed.
+    """
+    if not isinstance(row, dict):
+        return "", ""
+
+    def first(*names):
+        for n in names:
+            if n not in row:
+                continue
+            v = row.get(n)
+            try:
+                if v is None or pd.isna(v):
+                    continue
+            except (TypeError, ValueError):
+                pass
+            text = str(v).strip()
+            if text and text.lower() not in ("nan", "none", "<na>"):
+                return text
+        return ""
+
+    return first("#", "client_row"), first("Item", "Item Code")
+
+
+def _qu_of(row):
+    """The row's Qty / Unit under any of the key spellings a snapshot may use."""
+    def pick(*names):
+        for n in names:
+            if n in row and str(row.get(n, "") or "").strip() != "":
+                return str(row.get(n)).strip()
+        return ""
+    return pick("Qty", "qty"), pick("Unit", "unit")
+
+
+def _strip_qu_in_place(row):
+    """Trim the row's OWN Qty / Unit cells, so the value stored is the value judged.
+
+    ``_qu_of`` reads these two columns stripped, and everything downstream —
+    the comparison against the rendered baseline, ``validate_qty_unit``, the
+    override marks — therefore judges the trimmed text. The row itself was left
+    exactly as it arrived, so a direct POST of ``qty=" 12 "`` passed a rule
+    applied to "12" and then stored " 12 ": a snapshot value nothing had
+    checked. A browser cannot produce it (the cell is read back with
+    ``textContent`` and trimmed), which is precisely why it must be handled
+    here rather than there.
+
+    Each key is trimmed in its own place — never copied between the "Qty" and
+    "qty" spellings — so a row that carries one empty spelling and one filled
+    one keeps saying what it said.
+    """
+    if not isinstance(row, dict):
+        return
+    for key in ("Qty", "qty", "Unit", "unit"):
+        val = row.get(key)
+        if isinstance(val, str) and val != val.strip():
+            row[key] = val.strip()
+
+
+def _size_of(row):
+    """The row's Size under either key spelling a snapshot may use.
+
+    Same first-non-blank order the TO-from-inquiry copy-down reads Size in
+    (``key_variants = ("Size", "size")`` in ``_form_grid_frame``), so this and
+    that copy-down never disagree about which cell holds the value.
+    """
+    if not isinstance(row, dict):
+        return ""
+    for key in ("Size", "size"):
+        val = row.get(key)
+        if val is not None and str(val).strip() != "":
+            return str(val).strip()
+    return ""
+
+
+def _strip_size_in_place(row):
+    """Trim the row's OWN Size cell — same reason as ``_strip_qu_in_place``."""
+    if not isinstance(row, dict):
+        return
+    for key in ("Size", "size"):
+        val = row.get(key)
+        if isinstance(val, str) and val != val.strip():
+            row[key] = val.strip()
+
+
+def _index_qu(rows):
+    """``{client number: row}`` and ``{item number: row}`` for a stored table.
+
+    Only the inquiry is indexed this way now — the override marks below say
+    whether a row still matches the CLIENT's value, which is a question about
+    the inquiry and not about what the page showed.
+    """
+    by_cr, by_item = {}, {}
+    for r in rows or []:
+        if not isinstance(r, dict):
+            continue
+        cr, it = _qu_keys(r)
+        if cr and cr not in by_cr:
+            by_cr[cr] = r
+        if it and it not in by_item:
+            by_item[it] = r
+    return by_cr, by_item
+
+
+def _rendered_cell_text(col, val, row=None, data_json=None):
+    """The text the BROWSER reads out of this cell.
+
+    ``prepare_table_cell`` is the server's half of the paint — the very call
+    ``dataframe_to_html_with_ids`` makes for every cell — and tool_save.js's
+    collect() reads the result back with ``textContent``: tags gone, entities
+    decoded, ends trimmed. Doing both of those here is what makes a value in
+    the rendered frame and a value in the POST comparable at all, and it is
+    done by CALLING the painter rather than by guessing what it would emit.
+    """
+    import html as _html_mod
+    import re as _re
+
+    from .Initial_changes import prepare_table_cell
+
+    painted = str(prepare_table_cell(col, val, row=row, data_json=data_json) or "")
+    painted = _re.sub(r"<br\s*/?>", " ", painted, flags=_re.I)
+    return _html_mod.unescape(_re.sub(r"<[^>]+>", "", painted)).strip()
+
+
+def _rendered_qu(record, data_json=None):
+    """One frame record's Qty / Unit AS PAINTED, under any key spelling.
+
+    Same first-non-blank order as ``_qu_of`` reads the POST in, so the two
+    sides of the comparison are picked the same way.
+    """
+    def pick(*names):
+        for n in names:
+            if n in record:
+                text = _rendered_cell_text(n, record.get(n), row=record,
+                                           data_json=data_json)
+                if text:
+                    return text
+        return ""
+
+    return pick("Qty", "qty"), pick("Unit", "unit")
+
+
+def _qty_unit_baseline(case, form_kind, side, mode):
+    """What Qty / Unit the grid this save is answering WAS RENDERED WITH.
+
+    ``save_from_tool`` has to be able to say "this POST changed a quantity",
+    and the only honest way to say it is to know what the page showed. That is
+    not the stored snapshot: ``_form_grid_frame`` copies Qty / Unit down from
+    the inquiry (TO) or from the Technical Offer (PI) before the grid is
+    painted, so the saved row and the shown row routinely disagree.
+
+    So this does not work the copy-downs out again — it asks
+    ``_tool_grid_frame``, the function ``tool_for_case`` paints the page from,
+    for the same frame, using the mode the page posted back, and reads the two
+    columns out of it through the same painter the cells went through. There is
+    no second description of what the grid says, so there is nothing left to
+    drift: whatever the page showed is what a save is measured against, today
+    and after the next change to either copy-down.
+
+    Returns ``(by_client_row, by_item)``, each ``{key: (qty, unit)}``.
+    """
+    df, json_dict, _mode = _tool_grid_frame(case, form_kind, side, mode)
+    if df is None:
+        return {}, {}
+
+    by_cr, by_item = {}, {}
+    for record in df.to_dict("records"):
+        cr, it = _qu_keys(record)
+        qu = _rendered_qu(record, json_dict)
+        if cr and cr not in by_cr:
+            by_cr[cr] = qu
+        if it and it not in by_item:
+            by_item[it] = qu
+    return by_cr, by_item
+
+
+def _active_unit(request):
+    """The unit of the seat making this request (active role first, then login).
+
+    Same order ``_may_build_form`` reads it in, for the same reason: one person
+    may hold several seats and a secondary seat deliberately does not rewrite
+    the login Profile.
+    """
+    from people.role_nav import work_context
+
+    ctx = work_context(request)
+    profile = getattr(request.user, "profile", None)
+    if ctx.role is not None:
+        return (ctx.role.unit or "")
+    return (profile.unit if profile else "") or ""
+
+
+def _apply_qty_unit_rules(request, case, form_kind, side, table, mode):
+    """Authorise and validate the Qty / Unit values in a TO/PI save. -> reason or "".
+
+    Qty and Unit are the client's columns everywhere except one place: the owner
+    asked that the TECHNICAL unit be able to change them ON THE TECHNICAL OFFER,
+    "respecting the rules that exist for quantity and unit". Three things follow,
+    and all three are decided here, on the server, because the browser is only
+    ever a courtesy:
+
+      * Anybody else — Supply on a Proforma, Commercial, a Technical seat working
+        a PI, a read-only viewer who forged the POST — may not move either value.
+        Their save is refused outright rather than quietly re-writing the row,
+        so a hand-made POST is turned away and not merely hidden from.
+      * A changed value must satisfy the SAME Qty / Unit rules a case creation
+        applies (``cases.inquiry_validate``) — one definition, not a second one
+        that could drift from the inquiry grid's.
+      * A TO row whose Qty / Unit no longer matches the inquiry is marked, so the
+        inquiry copy-down in ``_form_grid_frame`` leaves that one cell alone and
+        the value survives the next open. The mark is recomputed here from the
+        submitted values on every TO save, by whoever saves, so it always states
+        the truth about the row rather than remembering a claim the client made.
+
+    ``mode`` is the mode the page posted back, and it is here for one reason:
+    ``_qty_unit_baseline`` needs it to ask for the SAME frame the page was
+    painted from. "Changed" means "differs from what this page showed", never
+    "differs from something recomputed on the side".
+
+    SIZE IS NOT GUARDED BY VALUE HERE, AND THAT IS STILL A DECISION, NOT AN
+    OMISSION — even now that Technical can click and edit it too (the owner's
+    later instruction: three columns, not two; see ``tool_for_case``, which
+    now opens "qty", "unit" AND "size" for a Technical seat on a TO). The
+    tempting next step is to refuse a SIZE that differs from the painted one
+    on the grounds that nobody but Technical could have typed it. That would
+    be wrong, because a size CAN legitimately change without anyone typing in
+    the size cell: row_processor.js paints ``Size_Override`` into that cell
+    whenever the coder finds a size token in the row's Remark / Revision text,
+    and the very next save — by WHOEVER is authorised to save this TO, not
+    only Technical — posts the new value back. Guarding SIZE against the
+    render would refuse that ordinary save — the same false refusal this
+    function was repaired for, moved one column across. Qty and Unit have no
+    such path: no script writes them, so a difference there really is either
+    the Technical editor or a forged POST. The residue is that a hand-made
+    POST can still set a SIZE string, on a form its author is already
+    authorised to write; closing that needs the override to be a value the
+    server can recompute, not a guess.
+
+    SIZE DOES still get the other half of what Qty/Unit get: the per-row
+    override mark (``_SIZE_OVERRIDE_KEY``) that frees a changed cell from the
+    inquiry copy-down in ``_form_grid_frame``, below, alongside Qty/Unit's.
+    That mark is not a value guard — it is re-derived from "does this row's
+    current Size still match the inquiry's", the same question asked of every
+    row on every TO save regardless of who saves it or why the value moved
+    (typed, or Size_Override), which is exactly why it is safe where the
+    value guard above is not.
+    """
+    from cases.constants import FormKind
+    from cases.inquiry_validate import validate_qty_unit
+
+    if not isinstance(table, list):
+        return ""
+
+    is_to = (form_kind == FormKind.TO)
+    may_change = is_to and _active_unit(request) == "TECHNICAL"
+
+    by_cr, by_item = _qty_unit_baseline(case, form_kind, side, mode)
+    inq = case.current_form(FormKind.INQUIRY, side)
+    inq_cr, inq_item = _index_qu(inq.table if inq else [])
+
+    errors = []
+    changed = []
+    for i, row in enumerate(table, start=1):
+        if not isinstance(row, dict):
+            continue
+        cr, it = _qu_keys(row)
+        label = cr or it or i
+        # Judge and store the same text — see ``_strip_qu_in_place``.
+        _strip_qu_in_place(row)
+        _strip_size_in_place(row)
+        qty, unit = _qu_of(row)
+
+        base = by_cr.get(cr) if cr in by_cr else by_item.get(it)
+        moved_qty = base is not None and qty != base[0]
+        moved_unit = base is not None and unit != base[1]
+
+        if (moved_qty or moved_unit) and not may_change:
+            changed.append(str(label))
+        elif moved_qty or moved_unit:
+            errors.extend(validate_qty_unit(qty, unit, label))
+
+        if not is_to:
+            continue
+        # Re-derive the override marks for EVERY row of a TO save. A row that
+        # matches the inquiry follows it again; a row that does not is pinned.
+        # Size rides along here too (see the docstring): it gets the mark, not
+        # the refusal-by-value the loop above applies to Qty/Unit.
+        src = inq_cr.get(cr) or inq_item.get(it)
+        inq_qty, inq_unit = _qu_of(src) if src else ("", "")
+        inq_size = _size_of(src) if src else ""
+        size = _size_of(row)
+        for key, value, inq_value in ((_QTY_OVERRIDE_KEY, qty, inq_qty),
+                                      (_UNIT_OVERRIDE_KEY, unit, inq_unit),
+                                      (_SIZE_OVERRIDE_KEY, size, inq_size)):
+            if inq_value and value != inq_value:
+                row[key] = "1"
+            else:
+                row.pop(key, None)
+
+    if changed:
+        shown = ", ".join(changed[:8]) + ("…" if len(changed) > 8 else "")
+        what = _("Technical Offer") if is_to else _("Proforma")
+        return _(
+            "Qty and Unit cannot be changed on this %(what)s. They are the "
+            "client's columns; only the Technical unit may change them, and "
+            "only on the Technical Offer. Nothing was saved. (Rows: %(rows)s.)"
+        ) % {"what": what, "rows": shown}
+    if errors:
+        # ``errors`` itself comes from ``cases.inquiry_validate.validate_qty_unit``,
+        # the one shared row validator used by the inquiry grid, case creation and
+        # this save path alike — its own message strings are left untouched here
+        # deliberately, so that translating them happens once, at that shared
+        # definition, rather than diverging into a second copy maintained only
+        # for this caller. Only the prefix this function itself writes is wrapped.
+        return _("Qty / Unit are invalid; nothing was saved:\n") + "\n".join(errors)
+    return ""
+
+
+def _own_side_refusal(case, side):
+    """The refusal shown when a seat asks for a side that is not theirs.
+
+    The first sentence is the message this refusal has always carried, word for
+    word. What is added is the reason, and it is added because the refusal on
+    its own is unanswerable: a Supply manager who had delegated the side read
+    "your own side" as a malfunction — the case is their unit's, the case page
+    had offered the button a moment earlier (it was loaded before the side was
+    delegated), and nothing told them that delegating a side is what hands it
+    over. Naming the expert turns the same refusal into an instruction.
+
+    Nothing here decides anything. It runs only after the caller has already
+    refused, it reads only columns the case page prints on the same panel, and
+    it returns text.
+    """
+    from accounts.constants import Unit
+    from cases.constants import Side
+
+    label = Side.LABELS.get(side, side) or "this"
+    # Read the assignee that belongs to the unit HOLDING this side, never a
+    # leftover column from a unit the side has since left — otherwise a side
+    # sitting with Technical would be explained by the Supply expert who priced
+    # it three handoffs ago.
+    holder = case.side_holder(side)
+    who = None
+    if holder == Unit.SUPPLY:
+        who = (case.supply_internal_assignee if side == Side.INTERNAL
+               else case.supply_external_assignee if side == Side.EXTERNAL
+               else case.supply_assignee)
+    elif holder == Unit.TECHNICAL:
+        who = case.technical_assignee
+    base = _("You can only work on your own side of this case.")
+    if who is not None:
+        name = who.get_full_name() or who.username
+        return _(
+            "%(base)s The %(side)s side is assigned to %(name)s; once a side is "
+            "assigned to an expert, only that expert can build or revise its forms."
+        ) % {"base": base, "side": label, "name": name}
+    return _(
+        "%(base)s The %(side)s side is not with your unit right now, so its "
+        "forms cannot be opened from here."
+    ) % {"base": base, "side": label}
+
+
+def _may_build_form(request, case, form_kind, side):
+    """May this request's active seat WRITE this TO/PI right now? -> (ok, reason).
+
+    ONE definition with TWO callers, and that is the whole point of extracting
+    it. ``save_from_tool`` refuses when it says no, and ``tool_for_case`` opens
+    the grid READ-ONLY when it says no. Because the page's read-only state is
+    the exact negation of the check that guards the save endpoint, a viewer's
+    hand-crafted POST is turned away by the very rule that put their page in
+    that mode — there is no second, softer copy of the rule that could drift.
+    Disabling the inputs in the browser is only a courtesy layered on top; this
+    function is what actually decides.
+
+    ``reason`` is the message to show; the two texts are kept distinct exactly
+    as they were before this was one function.
+    """
+    from cases import services
+    from cases.constants import FormKind
+    from people.role_nav import work_context
+
+    ctx = work_context(request)
+    allowed = services.allowed_actions(
+        case, request.user, role=ctx.role, work_user=ctx.seat_user,
+    )
+    needed = "build_pi" if form_kind == FormKind.PI else "build_to"
+    permitted = needed in allowed or "open_assistant" in allowed
+    # Split cases freeze the case status, so the whole-case permission above does
+    # not see per-side building; authorise it explicitly per side instead.
+    if not permitted and case.is_split:
+        holder = case.side_holder(side)
+        profile = getattr(request.user, "profile", None)
+        role = ctx.role
+        unit = (role.unit if role is not None else (profile.unit if profile else "")) or ""
+        role_name = (role.role if role is not None else (profile.role if profile else "")) or ""
+        seat_id = getattr(ctx.seat_user, "id", None)
+        if form_kind == FormKind.PI:
+            permitted = (unit == "SUPPLY"
+                         and holder == "SUPPLY"
+                         and services.can_act_on_side(
+                             case, request.user, side, role=ctx.role, work_user=ctx.seat_user))
+        else:  # TO
+            tech_owns = (unit == "TECHNICAL"
+                         and (role_name == "MANAGER"
+                              or case.technical_assignee_id == seat_id))
+            permitted = bool(tech_owns and holder == "TECHNICAL")
+    if not permitted:
+        return False, _("You are not allowed to build this form right now.")
+    # On split cases, only the side's owner may save that side.
+    if case.is_split and not services.can_act_on_side(
+            case, request.user, side, role=ctx.role, work_user=ctx.seat_user):
+        return False, _own_side_refusal(case, side)
+    return True, ""
+
+
 @login_required
 def tool_for_case(request, case_id, kind):
     """Open the coding/pricing tool.
@@ -1786,6 +2335,12 @@ def tool_for_case(request, case_id, kind):
     mode=build (default): seed a fresh grid from the latest inquiry (TO) or the
     latest TO descriptions (PI). mode=edit / mode=newversion: reload the last
     saved TO/PI grid so prior edits (e.g. remarks) are preserved.
+
+    A unit that cannot write this form right now — Technical or Supply looking
+    at their own offer after the case has moved on — gets the SAME grid in
+    READ-ONLY mode instead of being turned away: same rows, same filters, no
+    way to change a value. See ``_may_build_form`` for why that cannot be
+    written through.
     """
     from cases.models import Case
     from cases.constants import FormKind, Side, PriceType
@@ -1796,6 +2351,21 @@ def tool_for_case(request, case_id, kind):
     except Exception:
         pass
     case = get_object_or_404(Case, pk=case_id)
+    # The grid this view renders IS the case: client descriptions, FTCO codes,
+    # brands and — on a Proforma — the supplier prices. Opening it must therefore
+    # require at least what opening /cases/<id>/ requires, and that rule lives in
+    # one place (services.user_can_view_case, shared with the export routes).
+    # Without this check a user of an uninvolved unit who is turned away from the
+    # case page could still walk case ids through /tool/case/<id>/PI/ and read
+    # every row. The active role's seat is used so a substitute keeps the access
+    # the seat they are covering has — the same context save_from_tool authorises
+    # against, so nobody who may build a form can be refused here.
+    from people.role_nav import work_context
+    _ctx = work_context(request)
+    if not services.user_can_view_case(case, request.user,
+                                       role=_ctx.role, work_user=_ctx.seat_user):
+        messages.error(request, _("You do not have access to this case."))
+        return redirect("cases:inbox")
     kind = kind.upper()
     mode = request.GET.get("mode", "build")
     side = request.GET.get("side", "")
@@ -1804,11 +2374,37 @@ def tool_for_case(request, case_id, kind):
     # For split (Internal & External) cases each side is private to its owner:
     # a user may only open the tool for a side they are allowed to act on.
     if case.is_split:
-        if not services.can_act_on_side(case, request.user, side):
-            from django.contrib import messages
-            messages.error(request, "You can only work on your own side of this case.")
+        # Ask about the ACTIVE ROLE and the seat being worked, not the bare
+        # login. One person may hold several seats (people.role_nav.work_context
+        # / PersonRole / SeatTenure) and a secondary seat deliberately does not
+        # rewrite the login Profile, so ``request.user.profile`` still describes
+        # the seat they are NOT working — which turned away, for example, a
+        # Supply manager opening a Proforma through their manager seat. This is
+        # the same context ``_may_build_form`` and ``save_from_tool`` already
+        # authorise against (and the ``user_can_view_case`` check above), so the
+        # page, its read-only flag and the save endpoint now agree on who is
+        # asking. ``can_act_on_side`` itself is untouched: only the identity put
+        # to it changes, and a seat that may not act on this side is refused
+        # exactly as before.
+        if not services.can_act_on_side(case, request.user, side,
+                                        role=_ctx.role,
+                                        work_user=_ctx.seat_user):
+            # NB: no local ``from django.contrib import messages`` here. This
+            # module already imports it at the top, and re-importing it inside
+            # the function made ``messages`` a local name for the WHOLE function
+            # — so the earlier user_can_view_case refusal above raised
+            # UnboundLocalError and returned 500 instead of its redirect.
+            messages.error(request, _own_side_refusal(case, side))
             return redirect(f"/cases/{case.pk}/")
     form_kind = FormKind.PI if kind == "PI" else FormKind.TO
+
+    # READ ONLY (the "View" control on the case page). A seat that may not save
+    # this form gets to look at it and nothing else. Deriving the flag from the
+    # save endpoint's own authorisation — rather than from a ``mode=view`` in
+    # the query string, which the visitor controls — is what makes the mode
+    # honest: it is on exactly when a save would be refused, so it can never be
+    # turned off by editing the URL, and a save can never slip past it.
+    read_only = not _may_build_form(request, case, form_kind, side)[0]
 
     # Reconcile the requested mode with reality. Editing the current form is
     # allowed whenever it is at the current inquiry version (even if it was sent
@@ -1820,15 +2416,21 @@ def tool_for_case(request, case_id, kind):
     if (current is not None and services.form_is_currency_conversion_only(current)
             and not services.is_currency_conversion_only(case, side or "")):
         reals = list(
+            # ``-two_stage`` keeps the two-stage generation ahead of the
+            # same-numbered version it supersedes; without it the two rows are
+            # tied on version and the database decides which is "latest".
             case.forms.filter(kind=form_kind, side=side or "")
-            .order_by("-version", "-id")
+            .order_by("-version", "-two_stage", "-id")
         )
         current = next(
             (f for f in reals
              if not services.form_is_currency_conversion_only(f)), None)
     inq = case.current_form(FormKind.INQUIRY, side)
-    inq_v = inq.version if inq else 0
-    behind = bool(current and current.version < inq_v)
+    # "Behind" is not only a lower version NUMBER: a two-stage upgrade leaves
+    # the number alone and changes the generation, and that snapshot must be
+    # branched as a new version too, not edited in place. See
+    # services.form_behind_inquiry for the single definition.
+    behind = services.form_behind_inquiry(current, inq)
     if mode == "edit":
         if current is None:
             mode = "build"
@@ -1836,6 +2438,12 @@ def tool_for_case(request, case_id, kind):
             mode = "newversion"
     elif mode == "newversion" and current is None:
         mode = "build"
+    if read_only and current is not None:
+        # A viewer looks at what WAS saved, never at a branch of it. The
+        # newversion pass drops rows the inquiry deleted and appends freshly
+        # coded ones — a useful starting point for somebody about to save, and
+        # a misleading picture for somebody who cannot.
+        mode = "edit"
 
     # Building/loading the grid runs the vendored coding pipeline (pandas +
     # openpyxl + the schema JSON). If anything in that pipeline raises we must
@@ -1843,20 +2451,39 @@ def tool_for_case(request, case_id, kind):
     # traceback and fall back to an empty grid so the page always loads.
     seed_error = None
     table_html = None
+    # QTY, UNIT and SIZE open for the TECHNICAL unit, in the TO tool, only.
+    #
+    # Three conditions, and each is doing work. ``kind == "TO"`` keeps the
+    # Proforma exactly as locked as it is today, for Supply and everyone else.
+    # ``not read_only`` is the same authorisation the save endpoint applies, so a
+    # viewer is never handed an editor for a value they could not save. And the
+    # unit test is the owner's actual instruction — the Technical unit and no
+    # other — stated here rather than inferred from the fact that today only
+    # Technical can build a TO.
+    #
+    # SIZE joined Qty/Unit on the owner's later instruction (three columns, not
+    # two). It is still not guarded BY VALUE in ``_apply_qty_unit_rules`` — see
+    # that function's docstring for why a changed-from-render refusal would
+    # misfire against the Remark/Revision Size_Override the coding pipeline
+    # already performs on every TO save; it gets the per-row override mark
+    # instead, exactly like Qty/Unit.
+    qty_unit_editable = (
+        ("qty", "unit", "size")
+        if kind == "TO" and not read_only and _active_unit(request) == "TECHNICAL"
+        else None
+    )
     try:
-        if mode in ("edit", "newversion"):
-            table_html = _form_grid_html(case, form_kind, side, mode=mode)
-        if table_html is None and kind == "PI":
-            # Pricing starts from the latest Technical Offer of the SAME side.
-            # TO remark must NOT seed PI remark — blank it (independent fields).
-            table_html = _form_grid_html(
-                case, FormKind.TO, side, mode="build", blank_remark=True,
+        # Which rows this page shows, and which mode it ends up in, is decided
+        # in ``_tool_grid_frame`` — the same function the Qty / Unit guard reads
+        # its baseline out of, so the page and the rule that judges its POST can
+        # never describe the grid differently. Everything left to do here is
+        # paint, and the only thing painting decides is which cells are open.
+        grid_df, grid_json, mode = _tool_grid_frame(case, form_kind, side, mode)
+        if grid_df is not None:
+            table_html = dataframe_to_html_with_ids(
+                grid_df, data_json=grid_json,
+                editable_columns=qty_unit_editable,
             )
-            mode = "build"
-        if table_html is None:
-            rows = _to_description_rows(case, side) if kind == "PI" else _inquiry_rows(case, side)
-            table_html = _seed_dataframe_html(rows)
-            mode = "build"
     except Exception:
         logger.exception(
             "Failed to seed %s grid for case #%s (side=%r, mode=%r)",
@@ -1996,6 +2623,31 @@ def tool_for_case(request, case_id, kind):
             )
         table_html = mask_price_columns(table_html)
 
+    if hide_pricing:
+        # The saved calc state is the other half of the pricing, and it does not
+        # travel in the table HTML: tool_case.html emits it through json_script
+        # as #ft-saved-calc, so masking the price cells and the row price
+        # attributes above still shipped a Technical viewer the margin
+        # percentages and the FX rate this Proforma was built with — the same
+        # "only the page source shows it" leak mask_price_columns exists to
+        # close, one element further down the page.
+        #
+        # KEEP-list, not a drop-list, for the same reason the masking above
+        # replaces the whole <td> rather than its text: a key added to
+        # CalcSerializeState later must not leak by default. What is kept is
+        # only the currency IDENTITY of the document — which currency it is
+        # written in — because calculation_controls.js restores the conversion
+        # selects from it and the grid's currency labels follow those. No
+        # amount, percentage or rate rides in any of the three:
+        #   from     — the currency the prices were entered in
+        #   to       — the currency the document is shown in
+        #   currency — the unit label painted next to a figure
+        # Dropped: ``rate`` (the FX rate used), ``groupMargins`` (the per-group
+        # margin steps) and ``rowMargins`` (the per-row overrides).
+        if isinstance(saved_calc, dict):
+            saved_calc = {k: v for k, v in saved_calc.items()
+                          if k in ("from", "to", "currency")}
+
     # Give the tool the same per-unit accent the rest of the site uses.
     from core.theming import theme_for_unit
     from cases.export_data import vat_percent as _vat_percent
@@ -2020,6 +2672,7 @@ def tool_for_case(request, case_id, kind):
         "save_url": f"/tool/case/{case.pk}/{kind}/save/?side={side}",
         "new_version_default": "1" if mode == "newversion" else "0",
         "tool_mode": mode,
+        "read_only": read_only,
         # Passed as plain Python objects and rendered with Django's ``json_script``
         # (unicode-escapes </script> etc.) instead of |safe, so a stray character
         # in the data can never break out of the JSON block.
@@ -2097,6 +2750,17 @@ def tool_for_case_status(request, case_id, kind):
     })
 
 
+class _AutosaveWouldVersion(Exception):
+    """Raised to roll a refused AUTOMATIC save back out of the database.
+
+    Private to ``save_from_tool``: it is never allowed to escape that function,
+    and it carries no message because nothing reads one — it exists only so the
+    ``transaction.atomic()`` block it is raised inside unwinds. See the comment
+    at its raise site for why an automatic save is verified by its outcome
+    rather than by predicting one.
+    """
+
+
 @login_required
 def save_from_tool(request, case_id, kind):
     """Store the finished tool grid as a versioned TO/PI on the case."""
@@ -2115,40 +2779,13 @@ def save_from_tool(request, case_id, kind):
     if side not in (Side.INTERNAL, Side.EXTERNAL):
         side = case.primary_side
 
-    # Permission: the user must currently be allowed to build this form.
-    from people.role_nav import work_context
-    ctx = work_context(request)
-    allowed = services.allowed_actions(
-        case, request.user, role=ctx.role, work_user=ctx.seat_user,
-    )
-    needed = "build_pi" if form_kind == FormKind.PI else "build_to"
-    permitted = needed in allowed or "open_assistant" in allowed
-    # Split cases freeze the case status, so the whole-case permission above does
-    # not see per-side building; authorise it explicitly per side instead.
-    if not permitted and case.is_split:
-        holder = case.side_holder(side)
-        profile = getattr(request.user, "profile", None)
-        role = ctx.role
-        unit = (role.unit if role is not None else (profile.unit if profile else "")) or ""
-        role_name = (role.role if role is not None else (profile.role if profile else "")) or ""
-        seat_id = getattr(ctx.seat_user, "id", None)
-        if form_kind == FormKind.PI:
-            permitted = (unit == "SUPPLY"
-                         and holder == "SUPPLY"
-                         and services.can_act_on_side(
-                             case, request.user, side, role=ctx.role, work_user=ctx.seat_user))
-        else:  # TO
-            tech_owns = (unit == "TECHNICAL"
-                         and (role_name == "MANAGER"
-                              or case.technical_assignee_id == seat_id))
-            permitted = bool(tech_owns and holder == "TECHNICAL")
-    if not permitted:
-        messages.error(request, "You are not allowed to build this form right now.")
-        return redirect("cases:case_detail", pk=case.pk)
-    # On split cases, only the side's owner may save that side.
-    if case.is_split and not services.can_act_on_side(
-            case, request.user, side, role=ctx.role, work_user=ctx.seat_user):
-        messages.error(request, "You can only work on your own side of this case.")
+    # Permission: the user must currently be allowed to build this form. This is
+    # the SAME call tool_for_case makes to decide whether to open the grid
+    # read-only, so a viewer who forges this POST is refused by the rule that
+    # made their page read-only in the first place.
+    may_save, refusal = _may_build_form(request, case, form_kind, side)
+    if not may_save:
+        messages.error(request, refusal)
         return redirect("cases:case_detail", pk=case.pk)
 
     try:
@@ -2156,7 +2793,7 @@ def save_from_tool(request, case_id, kind):
         table = json.loads(request.POST.get("table", "[]"))
         meta = json.loads(request.POST.get("meta", "{}"))
     except json.JSONDecodeError:
-        messages.error(request, "The tool sent malformed data; nothing was saved.")
+        messages.error(request, _("The tool sent malformed data; nothing was saved."))
         return redirect("cases:case_detail", pk=case.pk)
 
     # Normalize FTCO DISCRIPTION on save: manual edits stay plain text; any
@@ -2176,12 +2813,109 @@ def save_from_tool(request, case_id, kind):
                 row["Final Arranged Text"] = _plain_ftco_text(text)
 
     mode = request.POST.get("mode", "build")
+    # WHO ASKED FOR THIS SAVE.
+    #
+    # tool_save.js stamps every POST it makes: ``manual`` for a press of the
+    # Save button, ``auto`` for the five-minute unattended timer. Anything that
+    # sends no marker at all is treated as manual, i.e. exactly as this endpoint
+    # has always behaved — and no client can reach here without the marker by
+    # accident, because tool_case.html loads tool_save.js under a ``?v=`` cache
+    # key that is bumped in the same change, so a browser holding the previous
+    # script also holds the previous (marker-less, timer-less) file that never
+    # posts by itself.
+    automatic = (request.POST.get("intent", "") == "auto")
+
+    # QTY AND UNIT ARE AUTHORISED BY VALUE, NOT ONLY BY SEAT.
+    #
+    # ``_may_build_form`` above answers "may this seat write this form at all".
+    # It has never answered "may this seat write THIS COLUMN", and it cannot: a
+    # Supply expert legitimately saves the whole Proforma grid, quantities
+    # included, on every pricing round. So a POST that rewrote every row's Qty
+    # and Unit was accepted from any seat that could save the form — the browser
+    # simply never offered a way to type one.
+    #
+    # Now that Technical is given that way on the Technical Offer, the rule has
+    # to exist somewhere that a hand-made POST cannot go around, which is here,
+    # before anything is written. This also stamps the per-row override marks
+    # that let a Technical value survive the inquiry copy-down on reopen.
+    qu_reason = _apply_qty_unit_rules(request, case, form_kind, side, table, mode)
+    if qu_reason:
+        if automatic:
+            return JsonResponse({"ok": False, "saved": False, "reason": qu_reason},
+                                status=409)
+        messages.error(request, qu_reason)
+        return redirect("cases:case_detail", pk=case.pk)
+
     current = case.current_form(form_kind, side)
     inq = case.current_form(FormKind.INQUIRY, side)
-    inq_v = inq.version if inq else 0
-    # A form left behind by a newer inquiry version must become a new version;
-    # a current form may be edited in place even after it was sent and returned.
-    if mode == "edit" and current is not None and current.version < inq_v:
+    # A form left behind by the inquiry must become a new version; a current
+    # form may be edited in place even after it was sent and returned. "Behind"
+    # covers a higher inquiry NUMBER and a two-stage generation change at the
+    # same number — the latter is a new version in every sense but its number,
+    # so saving over it would silently rewrite the offer already sent. Without
+    # this the save was logged as an EDIT of "Version 01" even though it wrote
+    # the separate "Version 01 · Two Stage" record.
+    behind = services.form_behind_inquiry(current, inq)
+
+    # A TIMER MAY NEVER PUBLISH A VERSION.
+    #
+    # Versions are a deliberate act. The arithmetic below is right and is not
+    # touched: a form built against an older inquiry genuinely needs a new
+    # version, and a person pressing Save gets exactly that, today and after
+    # this change. What must not happen is the unattended timer doing it.
+    #
+    # An automatic save is therefore only ever allowed to be an in-place
+    # overwrite of the current version, and there are three ways it could stop
+    # being one:
+    #
+    #  * ``mode`` is not "edit". tool_for_case renders the mode, so "build"
+    #    (no current form, or a fresh build over one that exists) and
+    #    "newversion" both mean this POST would mint a version. tool_save.js
+    #    already refuses to arm its timer outside edit mode; this is the same
+    #    rule on the side of the wire that cannot be lied to.
+    #  * the form has fallen BEHIND its inquiry SINCE the page was rendered.
+    #    This is the live hazard: the page was rendered mode=edit because the
+    #    form was up to date at the time, and then a new inquiry version landed
+    #    from another session while the tool tab sat open. Both the upgrade to
+    #    "newversion" below and, independently, save_form's own
+    #    ``version = inq_version`` bump would then write a NEW CaseForm row —
+    #    unattended. So the automatic save is refused BEFORE save_form is
+    #    called at all, and nothing is written.
+    #  * there is NO current version to overwrite. ``form_behind_inquiry`` is
+    #    False when ``current`` is None — nothing can be behind an inquiry it
+    #    does not exist against — so the two tests above sail straight past this
+    #    case, and ``save_form`` then resolves ``version = inq_version`` and
+    #    CREATES the first snapshot. Measured on the scratch database: a
+    #    mode=edit / intent=auto POST for a side with no Proforma took
+    #    CaseForm.objects.count() from 21 to 22 and left a brand-new "v00"
+    #    current, with nobody having pressed anything. A freshly rendered page
+    #    cannot say mode=edit here (tool_for_case rewrites it to "build" when
+    #    ``current`` is None), but a tab that has been open for hours can: the
+    #    form it was opened on may since have been re-versioned onto another
+    #    side, or dropped with a side the case no longer has
+    #    (``_apply_sides`` deletes the forms of a side that was switched off).
+    #    That is precisely the shape of hazard this whole guard exists for.
+    #
+    # The refusal is a 409 carrying its own reason, not a redirect with a queued
+    # Django message: the automatic client reads the reason directly, tells the
+    # user what happened and why, and stops its timer — and no message is left
+    # in the queue to ambush the user on their next click. Nothing is saved and
+    # nothing is lost: the grid is still in the page, Save is still enabled, and
+    # pressing it does today's thing, branching the new version deliberately.
+    if automatic and (mode != "edit" or behind or current is None):
+        if behind:
+            reason = (f"Auto-save skipped: a newer Inquiry version has arrived "
+                      f"while this tab was open, so saving now would create a "
+                      f"new {kind} version. Nothing has been saved. Press "
+                      f"Save {kind} when you want to create that version.")
+        else:
+            reason = ("Auto-save skipped: this grid has not been saved as a "
+                      "version yet, so only a deliberate Save may create one. "
+                      "Nothing has been saved.")
+        return JsonResponse({"ok": False, "saved": False, "reason": reason},
+                            status=409)
+
+    if mode == "edit" and behind:
         mode = "newversion"
     is_edit = (mode == "edit")
     if mode == "newversion":
@@ -2190,9 +2924,60 @@ def save_from_tool(request, case_id, kind):
         new_version = False
     else:  # build: start a new version only if one already exists
         new_version = current is not None
-    services.save_form(case, kind=form_kind, columns=columns, table=table,
-                       meta=meta, actor=request.user, side=side,
-                       new_version=new_version, is_edit=is_edit)
+
+    # AND THEN CHECK THAT IT REALLY DID NOT.
+    #
+    # Everything above is an ARGUMENT that this automatic save can only
+    # overwrite: it reads the same ``form_behind_inquiry`` the page's mode was
+    # rendered from and reasons that save_form's own version arithmetic will
+    # therefore land on the row that is already current. The argument is only as
+    # good as the claim that those two agree, and they are not the same code —
+    # save_form resolves ``current`` differently (it steps back past Commercial
+    # currency-only clones) and has branches for cases this view does not model
+    # (no inquiry at all, a two-stage flag with nothing to compare it to). Every
+    # one of those is a way for the reasoning to be right today and wrong after
+    # the next change to save_form.
+    #
+    # So for an automatic save the conclusion is ENFORCED rather than trusted.
+    # The save runs inside a savepoint and must come back having written the
+    # very row that was current before it — same primary key, therefore same
+    # version, same generation, same side. If it wrote anything else, whether a
+    # newly minted row or a different existing one it would then have made
+    # current, the savepoint is rolled back and the user gets the same honest
+    # 409 they would have got had the check above caught it. Nothing reaches the
+    # database, and no new definition of "would this create a version" is
+    # introduced that could itself drift: the invariant is stated in terms of
+    # the outcome, which is the thing the owner actually cares about.
+    #
+    # A MANUAL save does not go near this. It takes the identical call it has
+    # always taken, and it may still create the version — a person asked for it.
+    #
+    # Cost on the ordinary path: no extra queries (``current`` is already in
+    # hand and ``save_form`` already returns the form it wrote), and one
+    # SAVEPOINT/RELEASE pair around a block that was already opening a
+    # transaction of its own, since ``save_form`` is ``@transaction.atomic``.
+    if automatic:
+        try:
+            with transaction.atomic():
+                written = services.save_form(
+                    case, kind=form_kind, columns=columns, table=table,
+                    meta=meta, actor=request.user, side=side,
+                    new_version=new_version, is_edit=is_edit)
+                if written.pk != current.pk:
+                    raise _AutosaveWouldVersion()
+        except _AutosaveWouldVersion:
+            logger.warning(
+                "Auto-save for case #%s %s (side=%r) would have written a new "
+                "%s version; rolled back and refused.", case.pk, kind, side, kind)
+            return JsonResponse({"ok": False, "saved": False, "reason": (
+                f"Auto-save skipped: saving now would create a new {kind} "
+                f"version, and only a deliberate Save may do that. Nothing has "
+                f"been saved. Press Save {kind} when you want to create it."
+            )}, status=409)
+    else:
+        services.save_form(case, kind=form_kind, columns=columns, table=table,
+                           meta=meta, actor=request.user, side=side,
+                           new_version=new_version, is_edit=is_edit)
     label = (" (" + Side.LABELS.get(side, "") + ")") if side else ""
-    messages.success(request, f"{kind}{label} saved.")
+    messages.success(request, _("%(kind)s%(label)s saved.") % {"kind": kind, "label": label})
     return redirect("cases:case_detail", pk=case.pk)

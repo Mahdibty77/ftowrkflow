@@ -108,6 +108,12 @@ def check_csv_ref(rel_path, context):
 for k, v in pipe_features["phisic_9"].items():
     check_csv_ref(v, f"data.json phisic_9[{k}]")
 # confind_size.json: size CSVs are per-group (find_size_<group>.csv)
+# NOTE: every file above is read from the generated delivery folder
+# (``../output/json/``), NOT from the live engine tree this script happens to
+# sit in. The live ``resources/json/confind_size.json`` was deleted because no
+# lookup ever read it — find_size derives its CSV path from the group name — and
+# that deletion does not affect this check: if a delivery does not ship the
+# file, the try/except below falls back to looking for find_size_pipe.csv.
 _size_ref = None
 try:
     _size_ref = (

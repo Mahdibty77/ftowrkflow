@@ -44,7 +44,16 @@ def backfill_actor_snapshot(apps, schema_editor):
         if profile.is_admin:
             title = "Administrator"
         else:
-            parts = [Unit.LABELS.get(profile.unit, ""), Role.LABELS.get(profile.role, "")]
+            # str(...): Unit.LABELS / Role.LABELS hold gettext_lazy proxies as
+            # of the i18n round that translated accounts.constants.Unit/Role
+            # .CHOICES — the join() below needs real str instances. Resolving
+            # here (rather than leaving the proxy) reproduces this migration's
+            # own long-standing behaviour exactly: manage.py migrate runs with
+            # no request/viewer in the picture, so the active language is
+            # simply settings.LANGUAGE_CODE (English) either way — the text
+            # this backfill has always written is unchanged, only the crash
+            # from handing str.join() a non-str proxy is avoided.
+            parts = [str(Unit.LABELS.get(profile.unit, "")), str(Role.LABELS.get(profile.role, ""))]
             parts = [p for p in parts if p]
             title = " · ".join(parts) if parts else "Unassigned"
         return name, title

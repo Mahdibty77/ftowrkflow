@@ -6,3 +6,10 @@
 <link rel="shortcut icon" href="{% static 'img/favicon.ico' %}">
 <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}" sizes="180x180">
 <meta name="theme-color" content="#0a1629">
+
+{# "Install app" (desktop Chrome/Edge, Android, iOS Add to Home Screen). #}
+<link rel="manifest" href="{% static 'manifest.json' %}">
+{# iOS ignores manifest.json for standalone-window behaviour; these three meta tags are what actually make Safari's "Add to Home Screen" drop the address bar. #}
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FT Workflow">

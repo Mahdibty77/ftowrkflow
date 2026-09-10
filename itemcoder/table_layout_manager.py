@@ -12,6 +12,17 @@ Supported keys:
 - column_layout: controls display title and final column position for normal columns.
 - extra_column_layout: controls display title and final column position for extra output columns.
 - <group>: one or more file rules used to fill extra output columns from CSV files.
+
+Two jobs, both called from excel_processor and views:
+
+* ``build_extra_values`` — per row, fill the configured extra columns by matching
+  the row's features against a lookup CSV. Called for every upload row and every
+  AJAX row, so the parsing is done once into a cached plan (_get_group_lookup_plan)
+  and each row only does dict lookups.
+* ``apply_table_layout`` — once per grid, rename and reorder the DataFrame into
+  display order. It stores a ``display -> canonical`` map in ``df.attrs`` because
+  the coding logic and the tool's JS both key off the CANONICAL names; the display
+  titles in COLUMN_TITLES are the only user-facing part and may be renamed freely.
 """
 
 from __future__ import annotations
@@ -21,10 +32,9 @@ import json
 import os
 import re
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 import pandas as pd
-from django.conf import settings
 
 from .resource_paths import json_path, resolve_resource_path
 
@@ -254,52 +264,6 @@ def _parse_outputs(rule: Mapping) -> Dict[str, int]:
         if output_name and m:
             outputs[output_name] = int(m.group(1)) - 1
     return outputs
-
-
-def _feature_value(feature_name: str, feature_vars: Mapping, *, group: str, type_: str, code_value: str) -> str:
-    """Return the row value used for a factor name such as material or code."""
-    name = str(feature_name or "").strip()
-    if name.lower() == "code":
-        return str(code_value or "").strip()
-
-    # First try the same simple-name logic used by final_arrange.json templates.
-    for key, value in feature_vars.items():
-        if feature_base_name(key, group_key=group, type_key=type_) == name and is_clean_value(value):
-            return str(value).strip()
-
-    # Fallbacks for exact/raw keys.
-    if name in feature_vars and is_clean_value(feature_vars.get(name)):
-        return str(feature_vars.get(name)).strip()
-
-    lower_name = name.lower()
-    for key, value in feature_vars.items():
-        if str(key).lower().startswith(lower_name) and is_clean_value(value):
-            return str(value).strip()
-
-    return ""
-
-
-def _match_rule_row(table: CsvTable, rule: Mapping, row_index: int, feature_vars: Mapping, group: str, type_: str, code_value: str) -> Optional[int]:
-    """Return the matched CSV row index for one file rule."""
-    factors = _parse_factors(rule)
-
-    # No factors: use matching upload row number if available, otherwise first CSV row.
-    if not factors:
-        if 0 <= row_index < len(table.rows):
-            return row_index
-        return 0 if table.rows else None
-
-    candidates: Optional[set] = None
-    for feature_name, col_pos in factors:
-        search_value = normalize_lookup_value(_feature_value(feature_name, feature_vars, group=group, type_=type_, code_value=code_value))
-        if not search_value:
-            return None
-        matched = set(table.index_for_col(col_pos).get(search_value, []))
-        candidates = matched if candidates is None else candidates & matched
-        if not candidates:
-            return None
-
-    return min(candidates) if candidates else None
 
 
 def _feature_lookup_map(feature_vars: Mapping, group: str, type_: str, code_value: str) -> Dict[str, str]:

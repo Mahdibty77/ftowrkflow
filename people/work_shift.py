@@ -6,12 +6,57 @@ Person uses that person's daily start/end times (defaults 08:00–17:00).
 from __future__ import annotations
 
 from datetime import datetime, time, timedelta
+from time import monotonic
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
 
 _DEFAULT_START = time(8, 0)
 _DEFAULT_END = time(17, 0)
+
+# Per-request memo for ``shift_status`` (see the wrapper below).
+#
+# A normal page asks for the shift status twice: ``WorkShiftMiddleware`` checks
+# it before the view runs, and the work-shift banner context processor asks
+# again while the template renders. Each ask hits the database (person link,
+# platform defaults, approved overtime), so the second one is pure waste.
+#
+# The answer is parked on the ``User`` object, because that instance is the only
+# handle the two call sites share — the middleware has a request, the context
+# processor is handed one too, but the helper itself is only ever given a user.
+# Three separate things stop that memo from ever answering for the wrong request
+# or the wrong person:
+#
+#   * it lives on the ``User`` instance that ``AuthenticationMiddleware`` builds
+#     fresh out of the session on every request — never in a module global, a
+#     thread local or a ContextVar, so there is no shared container another
+#     request or another user could reach into;
+#   * it stores the primary key it was computed for and is rejected on any
+#     mismatch, so a user object swapped mid-request (impersonation) recomputes;
+#   * it stores a monotonic timestamp and is rejected once older than the TTL
+#     below, so even a ``User`` object that somehow outlived its request cannot
+#     keep an ended shift looking open.
+#
+# A rejected memo simply recomputes, which is exactly what this module did
+# before, so every fallback path is the old behaviour.
+_MEMO_ATTR = "_ft_shift_status_memo"
+_MEMO_TTL_SECONDS = 5.0
+
+# Per-request memo for ``person_for_user`` — same container, same key, same TTL
+# and therefore exactly the same isolation argument as the shift-status memo
+# spelled out above: it lives on the ``User`` instance ``AuthenticationMiddleware``
+# rebuilds from the session on every request, it stores the primary key it was
+# computed for and is rejected on a mismatch (so an impersonation that swaps
+# ``request.user`` mid-request re-reads), and it is rejected once older than the
+# TTL. A rejected memo simply runs the original query.
+#
+# It is worth having because rendering one page asks this same question three or
+# four times for the same login: ``WorkShiftMiddleware`` through
+# ``shift_status``, the sidebar badge in ``core.context_processors.theme``, and
+# ``display_first_name`` from the shift banner — each of which was a separate
+# round trip to ``people_personaccount`` for an answer that cannot change inside
+# one render.
+_PERSON_MEMO_ATTR = "_ft_person_for_user_memo"
 
 
 def _tz():
@@ -28,9 +73,34 @@ def now_local() -> datetime:
 
 
 def person_for_user(user):
-    """Primary Person linked to this login, if any."""
+    """Primary Person linked to this login, if any.
+
+    Memoised on the ``User`` instance — see ``_PERSON_MEMO_ATTR`` above for what
+    scopes that and why it cannot answer for the wrong person.
+    """
     if user is None or not getattr(user, "is_authenticated", False):
         return None
+    pk = getattr(user, "pk", None)
+    now = monotonic()
+    memo = getattr(user, _PERSON_MEMO_ATTR, None)
+    if (
+        isinstance(memo, tuple)
+        and len(memo) == 3
+        and memo[0] == pk
+        and 0 <= (now - memo[1]) < _MEMO_TTL_SECONDS
+    ):
+        return memo[2]
+    person = _person_for_user_uncached(user)
+    try:
+        setattr(user, _PERSON_MEMO_ATTR, (pk, now, person))
+    except Exception:
+        # Some user-like objects refuse attribute writes. The memo is only ever
+        # an optimisation, so losing it just means querying twice as before.
+        pass
+    return person
+
+
+def _person_for_user_uncached(user):
     try:
         from .models import PersonAccount
         link = (
@@ -95,6 +165,39 @@ def _in_window(now_t: time, start: time, end: time) -> bool:
 
 def shift_status(user, *, when: datetime | None = None) -> dict:
     """Return access status for ``user`` at ``when`` (local now by default).
+
+    Memoising front door for :func:`_shift_status_uncached`; see ``_MEMO_ATTR``
+    above for what the memo is keyed on and why it cannot outlive one request.
+    An explicit ``when`` always recomputes, since the memo only ever holds the
+    answer for "now" and callers that pass a moment want that exact moment.
+    """
+    if when is not None:
+        return _shift_status_uncached(user, when=when)
+    pk = getattr(user, "pk", None)
+    if pk is None:
+        # Anonymous or user-less callers have nothing stable to key on.
+        return _shift_status_uncached(user)
+    now = monotonic()
+    memo = getattr(user, _MEMO_ATTR, None)
+    if (
+        isinstance(memo, tuple)
+        and len(memo) == 3
+        and memo[0] == pk
+        and 0 <= (now - memo[1]) < _MEMO_TTL_SECONDS
+    ):
+        return memo[2]
+    status = _shift_status_uncached(user)
+    try:
+        setattr(user, _MEMO_ATTR, (pk, now, status))
+    except Exception:
+        # Some user-like objects refuse attribute writes. The memo is only ever
+        # an optimisation, so losing it just means computing twice as before.
+        pass
+    return status
+
+
+def _shift_status_uncached(user, *, when: datetime | None = None) -> dict:
+    """Compute access status for ``user`` at ``when`` (local now by default).
 
     When the person has approved overtime for the day, the window stays open
     until shift end + total approved overtime minutes.
@@ -191,10 +294,3 @@ def shift_ended_message(user) -> str:
         f"Dear {name}, your work shift has ended. "
         f"Hope you had a good day — see you next shift."
     )
-
-
-def countdown_message(minutes_left: int) -> str:
-    m = max(0, int(minutes_left))
-    if m == 1:
-        return "1 minute left until your cartable closes"
-    return f"{m} minutes left until your cartable closes"

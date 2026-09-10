@@ -62,12 +62,28 @@ services:
       DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:-localhost 127.0.0.1}"
       DJANGO_CSRF_TRUSTED_ORIGINS: "${DJANGO_CSRF_TRUSTED_ORIGINS:-}"
       DJANGO_TIME_ZONE: ${DJANGO_TIME_ZONE:-Asia/Tehran}
+      # There is no env_file here on purpose: every variable the app reads has
+      # to be listed in this block, because Compose only uses .env to fill in
+      # ${...} references. A setting that appears in .env but nowhere below is
+      # simply never handed to the container, which is how the three knobs
+      # further down (FTCO gate, Redis, HTTPS) used to be documented in
+      # .env.example yet do nothing when set. Each default below reproduces the
+      # value settings.py already falls back to, so nothing changes until the
+      # operator actually sets one.
+      # --- workflow policy ---
+      # 1 = Technical cannot send a TO to Supply while a row lacks an FTCO code.
+      REQUIRE_FTCO_CODE_TO_SUPPLY: "${REQUIRE_FTCO_CODE_TO_SUPPLY:-0}"
       # --- cache (optional) ---
-      # Off by default: the app falls back to the existing database-backed
-      # cache when this is unset, so adding the redis service below (already
-      # running, harmlessly idle) does not change anything until this line is
-      # uncommented too.
-      # REDIS_URL: redis://redis:6379/0
+      # Blank by default: the app falls back to the existing database-backed
+      # cache when this is empty, so the redis service below (already running,
+      # harmlessly idle) does not change anything until REDIS_URL is set in
+      # .env, e.g. REDIS_URL=redis://redis:6379/0
+      REDIS_URL: "${REDIS_URL:-}"
+      # --- HTTPS (only behind a TLS-terminating proxy; DEPLOY.md section 10) ---
+      # 1 = secure session/CSRF cookies, HTTPS redirect and HSTS. Leave 0 for a
+      # plain-HTTP internal install, where turning it on locks everyone out.
+      DJANGO_SECURE_SSL: "${DJANGO_SECURE_SSL:-0}"
+      DJANGO_HSTS_SECONDS: "${DJANGO_HSTS_SECONDS:-31536000}"
       # --- offline license ---
       # Where the sealed license state + cached machine fingerprint are stored
       # (a persisted volume, so activation survives `docker compose up --build`).
@@ -81,6 +97,21 @@ services:
       BACKUP_DIR: /backups
       # --- gunicorn ---
       GUNICORN_WORKERS: ${GUNICORN_WORKERS:-3}
+      # Threads per worker (entrypoint.sh explains the arithmetic). Total
+      # requests the site can have in flight is workers x threads, so the
+      # default is 12 rather than 3. It matters because a PDF export occupies
+      # its slot for about four seconds while a headless Chromium runs, and
+      # with only three slots three simultaneous exports stalled every other
+      # click on the site for ~6 seconds. Threads are safe here because that
+      # wait is spent in a child process and on a socket, both with the GIL
+      # released. Set to 1 to go back to the old one-request-per-worker model.
+      GUNICORN_THREADS: ${GUNICORN_THREADS:-4}
+      # Headless browsers one worker process may run at once. Each export is a
+      # whole Chromium — measured at 16 OS processes and ~1.1 GB resident for a
+      # six-sheet document — so this is what stops the extra threads above from
+      # turning a burst of exports into a memory emergency. Exports past the
+      # limit queue for a moment; they were seconds long already.
+      FT_PDF_MAX_CONCURRENCY: ${FT_PDF_MAX_CONCURRENCY:-2}
       # Large code-table imports (millions of rows) run inside one request, so
       # give gunicorn a generous worker timeout. Without this a big "Import
       # group" would be killed mid-build and surface as an Internal Server Error.
@@ -93,6 +124,11 @@ services:
       DJANGO_SUPERUSER_EMAIL: ${DJANGO_SUPERUSER_EMAIL:-}
     volumes:
       - media_data:/app/media
+      # Docker seeds a named volume from the image ONLY at the moment it is
+      # created empty; afterwards the volume shadows whatever the image ships.
+      # So a corrected reference table baked into a new image does NOT reach an
+      # existing deployment - it has to be re-imported from the admin Tool Data
+      # page. See DEPLOY.md section 7.
       - code_db_data:/app/itemcoder/resources/db
       # itemcoder JSON configs (offer_*.json, rules_*.json, data.json,
       # asign_code.json, ...) are bind-mounted from the project folder so admin
@@ -150,6 +186,10 @@ services:
       - ./scripts:/scripts:ro       # backup/restore/scheduler scripts
       - media_data:/data/media      # uploaded files (read + write for restore)
       - code_db_data:/data/code_db  # code tables (read + write for restore)
+      # license_data is deliberately NOT mounted here: sealed license state is
+      # not app data and a portable copy of it is not something to spread across
+      # backup archives. Losing that volume is recoverable by pasting the same
+      # license string again - keep it somewhere safe. See DEPLOY.md section 11.
     entrypoint: ["/bin/sh", "/scripts/backup_service.sh"]
 
 volumes:

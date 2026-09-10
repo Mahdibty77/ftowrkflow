@@ -1,0 +1,1364 @@
+/* ===========================================================================
+   Marketing — the project role chart.
+
+   KEEP THIS FILE UTF-8. It carries no Persian literal today, but the same
+   warning as static/css/app.css applies to anything added later.
+
+   Everything here is scoped under .rc-* (or the two .mc-* survivors at the
+   very bottom, which the chart's own JS still puts on its rows), so this
+   stylesheet cannot reach a single element on any other screen; it is loaded
+   only by marketing/home.html, through {% block head_extra %}.
+
+   MOSTLY NO PER-FIELD COLOUR. The first version of this chart gave every
+   field a colour family; once every field became its own clickable card too,
+   a fully coloured chart read as "خیلی رنگارنگ" (too colourful) — see
+   rolechart.py's module docstring. Most colour below is still a plain
+   neutral from the platform's own tokens (static/css/app.css), with two
+   deliberate exceptions: the query-mode highlight, which uses the viewer's
+   own --accent (see that section for why), and a per-ROW (not per-field)
+   tint — see "Per-row colour coding" below for why row, not field.
+
+   WHAT COLOUR NOW MEANS: "CONNECTED TO THE ACTIVE CARD", NOT "HOLDS VALUES".
+   This is the round's own headline change and it splits into exactly two
+   states, both defined below:
+
+     * NOTHING ACTIVE (no .is-query on .rc-chart) — unchanged from before:
+       every card that holds at least one company carries its own row's tint.
+     * A CARD IS ACTIVE — only the cards this query actually reached
+       (.is-focus / .is-lit, the ones a query line was drawn to) keep colour;
+       EVERY other card goes white, however many companies it holds and
+       whatever its badge says. See "Colour means connected" in the
+       query-mode section.
+
+   White here means WHITE, not disabled: full opacity, full-strength text,
+   still hoverable and still clickable (the reader is meant to open one and
+   add a company to it — that is the whole point of the treatment). The
+   opacity dimming an earlier round removed is NOT coming back; see the
+   query-mode section's own note.
+   =========================================================================== */
+
+/* The tab strip that used to live here is gone: the workspace has only the
+   chart on it now, and a one-entry strip is decoration, not navigation. See
+   marketing/templates/marketing/home.html. */
+
+/* ---- The top-of-page header widgets ----------------------------------------
+   Lives in home.html's own .page-head, ABOVE .rc-chart, not inside it — a
+   plain flex row holding both small cards below (Quick Inquiry, then Case
+   Mode) so .page-head itself still only ever has two children and its own
+   flex/space-between (static/css/app.css) keeps working unchanged; this row
+   is what actually places the two cards side by side, with its own gap, and
+   wraps them onto their own line together on a narrow screen. See home.html
+   for why this is .page-head's second child. */
+.rc-header-widgets{
+  display:flex; flex-wrap:wrap; gap:.7rem;
+  /* Grow to fill whatever .page-head's own space-between leaves after the
+     title block (h1 + the user's own role line) — the owner's own request:
+     these cards should start right where that breadcrumb text ends, not
+     sit pinned to the far right with a dead gap in between. flex-grow:1 is
+     what claims that leftover width instead of leaving it empty. */
+  flex:1 1 480px; min-width:280px;
+}
+
+/* ---- The "Quick Inquiry" / "Case Mode" cards --------------------------------
+   Both small header cards share this one class (home.html) rather than a
+   copy each — Case Mode's own markup just carries it alongside its own root
+   id, so both get the identical card chrome/field/dropdown look for free.
+   Every row inside either card's dropdown still reuses .rc-row / .rc-row-name
+   / .rc-row-empty / .mc-row-add exactly as the chart's own modal does —
+   chart_interact.js's createCompanyPicker() (Quick Inquiry's own company
+   field) and its case-mode search block both build identical rows, so only
+   this small floating CONTAINER around them is defined here, not the rows
+   themselves.
+
+   Sized to GROW with .rc-header-widgets rather than pinned to one narrow
+   width (the owner's own follow-up: these two cards read as small boxes —
+   they should run the length of the header and their own fields should
+   read as noticeably wider too, not just the outer card). flex-basis below
+   is only the width each card claims BEFORE growing/shrinking into
+   whatever .rc-header-widgets actually has free. */
+.rc-quick-inquiry{
+  display:flex; flex-direction:column; gap:.55rem;
+  width:auto; max-width:100%; flex:1 1 320px; min-width:260px;
+  background:var(--paper); border:1px solid var(--line); border-radius:var(--radius-sm);
+  padding:.7rem .8rem; box-shadow:var(--shadow-sm, 0 1px 2px rgba(15,23,42,.04));
+}
+/* Quick Inquiry alone (not Case Mode, which keeps its own single-field
+   shape) carries a bigger flex-grow share and basis than Case Mode below —
+   the owner's own request — since it holds two side-by-side fields rather
+   than Case Mode's one, and reads as a wide horizontal card rather than the
+   narrow stacked-card shape every other small header card still uses. */
+.rc-quick-inquiry-wide{ flex:1.6 1 420px; }
+.rc-quick-title{
+  font-size:.7rem; font-weight:800; letter-spacing:.03em; color:var(--muted);
+  text-transform:uppercase;
+}
+/* The Company/Role fields, side by side rather than stacked — each field
+   keeps its own column shape (label above its own combo), this row just
+   places the two of them next to each other with equal width. */
+.rc-quick-row{ display:flex; gap:.6rem; align-items:flex-start; }
+.rc-quick-row .rc-quick-field{ flex:1 1 0; min-width:0; }
+.rc-quick-field{ display:flex; flex-direction:column; gap:.3rem; }
+.rc-quick-label{ font-size:.72rem; font-weight:650; color:var(--muted); }
+/* The positioning context for the company dropdown below — a plain
+   floating panel anchored to this field, not the whole card, so the role
+   field underneath is never covered while it's open. */
+.rc-quick-combo{ position:relative; }
+/* .rc-quick-select doubles as the company text input's own look, so both
+   fields in this small card share one visual language (same border/radius/
+   font-size as .rc-modal-search-input, just sized for this narrower card). */
+.rc-quick-select{
+  width:100%; box-sizing:border-box; font-size:.84rem;
+  padding:.45rem .55rem; border:1px solid var(--line); border-radius:var(--radius-sm);
+  background:var(--paper); color:var(--ink);
+}
+.rc-quick-select:focus{ outline:none; border-color:var(--accent); }
+.rc-quick-select:disabled{ color:var(--muted); cursor:not-allowed; }
+/* The live company search results — a small floating panel under the input,
+   capped and scrollable rather than pushing the rest of the card down. */
+.rc-quick-dropdown{
+  position:absolute; left:0; right:0; top:calc(100% + .3rem); z-index:20;
+  max-height:220px; overflow-y:auto;
+  background:var(--paper); border:1px solid var(--line); border-radius:var(--radius-sm);
+  box-shadow:var(--shadow-lg); padding:.3rem;
+  display:flex; flex-direction:column; gap:.1rem;
+}
+.rc-quick-dropdown[hidden]{ display:none; }
+/* "+ Add a new role" — a plain text-style link/button under the role
+   select, not a full button, so it reads as a secondary affordance next to
+   the primary Confirm button below. Hidden outright for a view-only viewer
+   (CAN_EDIT gates this in chart_interact.js the same way it gates every
+   other write on this chart). */
+.rc-quick-add-role-toggle{
+  align-self:flex-start;
+  border:0; background:transparent; color:var(--accent);
+  font-size:.74rem; font-weight:650; cursor:pointer; padding:0;
+}
+.rc-quick-add-role-toggle:hover{ text-decoration:underline; }
+.rc-quick-add-role-toggle[hidden]{ display:none; }
+.rc-quick-new-role{ display:flex; gap:.4rem; align-items:center; }
+.rc-quick-new-role[hidden]{ display:none; }
+/* The field used to be a bare <select> (a direct flex child, so `flex:1` on
+   .rc-quick-select alone was enough to make it grow). It is now the same
+   .rc-quick-combo-wrapped text input every other searchable field on this
+   chart uses (see home.html's own comment on rcQuickNewRoleWrap), so the
+   flex child .rc-quick-new-role actually stretches is the COMBO now, not the
+   input directly — .rc-quick-select's own `width:100%` still fills whatever
+   width the combo claims. The old select rule is kept alongside rather than
+   replaced: it costs nothing and still matches its own selector correctly. */
+.rc-quick-new-role .rc-quick-select{ flex:1; }
+.rc-quick-new-role .rc-quick-combo{ flex:1; min-width:0; }
+.rc-quick-confirm{ width:100%; justify-content:center; }
+
+@media (max-width:640px){
+  .rc-quick-inquiry{ width:100%; flex-basis:100%; }
+  .rc-quick-row{ flex-direction:column; }
+}
+
+/* ---- THE CHART'S ONE MODE BANNER --------------------------------------------
+   ONE banner, for both kinds of "something is active" — a company activated
+   as a role, or a case. There used to be two indicators for this: this wide
+   banner for case mode, and a small floating "Active / name / role /
+   Deactivate" pill in the canvas's own top-left corner (.rc-anchor-dock /
+   .rc-anchor-bar) for a company. The owner asked for the banner treatment to
+   be the single one, so the pill is gone outright — markup, styles and JS —
+   and every state it used to describe is described here instead. They are
+   never both on screen because there is no longer a second thing to be on
+   screen: see chart_interact.js's updateModeBanner() for the one state
+   machine that fills this, and for how it still tells the truth when a plain
+   Quick Inquiry has repainted the chart for a company OTHER than the one
+   edits attach to.
+
+   Sits at the TOP of the Relationship Map panel itself (home.html, just above
+   the {% include %} that renders .rc-chart below) — the chart's own state, not
+   the search widget's, so it lives with the chart rather than up in .page-head
+   next to rcCaseModeWidget. Hidden until something is active; shown, filled
+   and cleared entirely by chart_interact.js.
+
+   FROZEN AT THE TOP, as asked: position:sticky against the page's own scroll
+   container (.main — static/css/app.css), so it stays put while the reader
+   scrolls the chart under it, and scrolls away only with the panel that
+   contains it. Its `top` is set INLINE by chart_interact.js
+   (syncBannerStickyTop) rather than hardcoded here, because what it must clear
+   is .main-sticky-head — the topbar plus, some days, the work-shift banner —
+   whose height is not a constant this stylesheet can know. z-index sits above
+   everything drawn over the canvas (the "us" panel at 6, the query lines)
+   and below both .main-sticky-head (30) and the modal overlay (200).
+   The background must be OPAQUE: the chart scrolls UNDER this now and must
+   not show through it. --accent-soft cannot be used alone for that, because
+   the dark theme redefines it as color-mix(... , transparent) - literally
+   26% alpha - so the sticky banner went see-through in dark mode while
+   looking correct in light. Mixing the token over --paper restores a solid
+   colour in BOTH themes while keeping the accent tint the banner is meant to
+   have. */
+.rc-mode-banner{
+  position:sticky; top:0; z-index:20;
+  display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;
+  background:color-mix(in srgb, var(--accent-soft) 100%, var(--paper));
+  border:1px solid var(--accent); border-radius:var(--radius-sm);
+  padding:.5rem .8rem; margin:0 0 .8rem;
+  box-shadow:var(--shadow-sm, 0 1px 2px rgba(15,23,42,.04));
+}
+.rc-mode-banner[hidden]{ display:none; }
+.rc-mode-banner-label{
+  font-size:.7rem; font-weight:800; letter-spacing:.04em; color:var(--accent-strong, var(--accent));
+  text-transform:uppercase;
+}
+/* The banner's primary fact — the case's own "case DOCNO — CLIENT" line, or,
+   for a company, that company's own name. Keeps the case banner's own text
+   treatment exactly as it was, since a company activation now uses the same
+   banner and should read the same way. */
+.rc-mode-banner-text{ min-width:0; font-size:.84rem; font-weight:700; color:var(--ink); overflow-wrap:anywhere; }
+/* The role a company was activated AS, beside its name — Persian, so it gets
+   the same plaintext/rtl treatment every other role name on this chart does.
+   Empty (and hidden) for the case-mode state, whose primary text already
+   carries everything. */
+.rc-mode-banner-role{ font-size:.76rem; color:var(--muted); direction:rtl; unicode-bidi:plaintext; }
+.rc-mode-banner-role[hidden]{ display:none; }
+/* The banner's SECOND line — the states where two facts have to be kept
+   straight at once (a plain query running over a still-active anchor, or a
+   pivot away from the case's own client while still in case mode). Same
+   subordinate treatment the old floating bar's own note had: smaller, muted,
+   set off in its own soft pill, so the primary text always reads first and
+   the two can never be confused. It takes only the width it needs — the
+   spacer below claims the leftover and keeps the button hard right — and
+   shrinks/wraps rather than pushing that button off the banner. */
+.rc-mode-banner-note{
+  flex:0 1 auto; min-width:0;
+  font-size:.7rem; font-weight:600; color:var(--muted);
+  background:var(--paper); border-radius:100px; padding:.12rem .5rem;
+  overflow-wrap:anywhere; unicode-bidi:plaintext;
+}
+.rc-mode-banner-note[hidden]{ display:none; }
+/* With no note showing, this spacer is what still pushes the single control
+   (Deactivate / Leave case mode / Clear) to the banner's right edge. */
+.rc-mode-banner-spacer{ flex:1; min-width:0; }
+
+/* ---- Chart tokens ---------------------------------------------------------
+   --rc-card leans on --paper, which already flips per theme (see
+   static/css/app.css), so nothing here needs its own dark-mode block just to
+   follow the theme. */
+.rc-chart{
+  position:relative;
+  --rc-card:var(--paper);
+  --rc-edge:var(--line);
+  --rc-ground:var(--cloud);
+}
+
+/* ---- The canvas: no frame, no scroll, no zoom — it just scales -----------
+   No border, no fixed height, no zoom controls — the owner explicitly asked
+   for the opposite of a boxed, zoomable canvas. It DOES still carry a
+   background: without one, the panel's own --paper (near-white in light
+   mode) showed straight through every gap between cards, so the whole area
+   read as one flat white expanse regardless of theme. --rc-ground is the
+   platform's own --cloud token (a step below --paper, already flips with
+   the theme), giving the space between cards a faint, theme-correct plate
+   without a border or padding making it read as a boxed frame again.
+   The chart is a plain, responsive SVG that grows and shrinks with the
+   page's own width and stays centred — `width:100%` on the SVG combined
+   with its own viewBox (never touched here or in JS) is what makes it
+   scale; `max-width` keeps it from turning into an ungainly, over-stretched
+   banner on a very wide monitor while still using "as much of the page as
+   it can" short of that. `margin:0 auto` centres it on any row wider than
+   that cap. */
+.rc-canvas{
+  position:relative;
+  max-width:1600px; margin:0 auto;
+  background:var(--rc-ground); border-radius:var(--radius-sm);
+}
+.rc-canvas svg{
+  display:block; width:100%; height:auto;
+  user-select:none;
+}
+
+/* ---- Nodes -----------------------------------------------------------------
+   Every field is a clickable card now. Two default states only, neither of
+   them a colour: an empty field is a thin, quiet solid outline that lets it
+   recede; a field with at least one entity is a solid, ink-bordered card. */
+.rc-node{ cursor:pointer; }
+.rc-node .rc-box{
+  fill:var(--rc-card); stroke-width:1.4;
+  transition:stroke .12s ease, filter .12s ease;
+}
+/* An EMPTY card must read, at a glance and across the whole chart, as "still
+   waiting to be filled" — the owner's own goal for this round: a reader
+   should instantly see which cards are still empty and want to fill them.
+   So: a plain --paper (white in light, the theme's own near-black in dark)
+   plate with NO tint of its own, plus a soft DASHED muted outline. The dash
+   is what carries "unfilled" rather than "disabled" — it is the same
+   language .mc-row-add (the "+ Add this company" row at the bottom of this
+   file) already uses for an affordance that is waiting to be acted on, and
+   it is deliberately soft (a muted colour, a thin stroke, a dash), never a
+   hard warning outline. An earlier round dropped the dash for a plain thin
+   outline; that read as "quiet", not as "empty", which is exactly what this
+   change is undoing.
+
+   TIGHTENED A NOTCH THIS ROUND (55%/1.2/4-4 to 62%/1.3/3-4), alongside the
+   richer per-row fill further down this file: once a FILLED neighbour is
+   genuinely saturated rather than pale, the old soft dash started reading
+   closer to "quiet" again by comparison rather than "waiting" — a shorter
+   dash segment (3 on, still 4 off) reads as a slightly busier, more visibly
+   dashed line at the same card size, and the small bumps to opacity/width
+   keep it legible next to a richer neighbour, while staying well short of
+   the hard/alarming outline this file has always avoided for "empty". */
+.rc-node.is-empty .rc-box{
+  fill:var(--paper);
+  stroke:color-mix(in srgb, var(--muted) 62%, transparent);
+  stroke-width:1.3; stroke-dasharray:3 4;
+}
+/* A FILLED card gets a confident border in its own row's hue (see the per-row
+   block below for the hue itself and for why it is per row) — not the neutral
+   --line an empty card used to share with it. While a card is active this is
+   overridden for every card the query did NOT reach — see "Colour means
+   connected" in the query-mode section. */
+.rc-node.has-entries .rc-box{
+  stroke:hsl(var(--rc-row-h, 220) var(--rc-row-s, 42%) 40%); stroke-width:1.8;
+}
+[data-mode="dark"] .rc-node.has-entries .rc-box,
+[data-theme="dark"] .rc-node.has-entries .rc-box{
+  stroke:hsl(var(--rc-row-h, 220) var(--rc-row-s, 42%) 68%);
+}
+
+.rc-node text{ font-family:var(--sans); }
+.rc-role{
+  font-size:12.5px; font-weight:650;
+  /* Persian role names. plaintext derives the base direction from the first
+     strong character of each line, the convention app.css sets out for mixed
+     Persian/Latin text; direction:rtl is the fallback for a renderer that
+     does not honour plaintext, and is correct for these fixed strings. */
+  direction:rtl; unicode-bidi:plaintext;
+}
+.rc-abbr{
+  font-size:9px; font-weight:700; letter-spacing:.04em;
+  direction:ltr; unicode-bidi:normal;
+}
+.rc-node.is-empty .rc-role{ fill:var(--muted); }
+.rc-node.is-empty .rc-abbr{ fill:var(--muted); }
+/* FIXED white, not --ink, and not theme-dependent. --ink is dark in light
+   theme and light in dark theme — exactly backwards for text sitting on a
+   card whose own fill is now a fixed dark colour in BOTH themes (see the
+   per-row fill rule below): var(--ink) would render as near-black text on a
+   near-black card the moment the reader is in light mode. A plain filled
+   card's own colour no longer varies with the app theme, so its text
+   shouldn't either — same fixed-white rule the "us" card's role/abbr use
+   further down this file.
+
+   THIS IS THE IDLE/is-lit CASE ONLY. Query mode's white-out and is-focus
+   states still sit on a --paper-based fill that genuinely flips with the
+   theme (plain --paper for white-out, a pale accent-into-paper mix for
+   focus) — those two restore --ink at higher specificity, in the query-mode
+   section further down, exactly as before this round. */
+.rc-node.has-entries .rc-role{ fill:#f8fafc; }
+.rc-node.has-entries .rc-abbr{ fill:#f8fafc; fill-opacity:.82; }
+
+/* ---- Per-row colour coding (has-entries cards only) ------------------------
+   The owner's own follow-up, in Persian: "هر ردیف و سطح یک رنگ جدا ولی در یک
+   رنج" (each row/level its own colour, but within a range) — PMT+MC given as
+   one example pair sharing a colour, Supervision+Design as another. Those
+   two pairs are exactly one shared ROW each in rolechart.py's own _ROWS
+   (R4: pmt/mc: R5: design/supervision) — confirming this is a per-ROW tint,
+   not a per-FIELD one: every card in the same row shares one colour, which
+   is also why this reads off data-row-index (rolechart.py's own ``row_index``,
+   now threaded onto every node's <g> in _role_chart.html) rather than the
+   field key.
+
+   Only a card that actually HAS a company (.has-entries, already the
+   chart's own "this field is filled in" class) gets tinted — an .is-empty
+   card keeps the plain dashed --paper "waiting to be filled" plate defined
+   above instead; the [data-kind="label"] guard below is what keeps "us" out
+   even though "us" can itself be has-entries, because "us" (Foolad Tabar) is
+   not one row's worth of company among twenty, it is US — it gets its own
+   distinct high-contrast black/white plate instead of a row hue, further
+   down this file.
+
+   THE PALETTE WAS REPLACED AGAIN THIS ROUND, THIS TIME ON THE OWNER'S DIRECT
+   REJECTION OF THE ONE ABOVE. The ten-hue rainbow arc that used to sit here
+   (teal, sky, indigo, violet, plum, rose, clay, amber, moss, green, each at
+   a medium 46%-64% saturation and a medium lightness mixed into --paper —
+   see the fill rule below for exactly what that produced) read, in the
+   owner's own words, as a coloured PASTEL chart, not a chart built from
+   Foolad Tabar's own card language — dark plate, white text, the same
+   idiom the "us" card has always used for itself, further down this file.
+   The instruction this time was narrow and explicit: dark colours, white
+   text, and only two hue families anywhere on the chart — dark blue and
+   dark green — nothing else, nothing pastel.
+
+   So the ten stops below are confined to one continuous arc from green
+   through teal to blue (hue ~140 through ~230) and nowhere else on the
+   wheel. Row order deliberately ALTERNATES back and forth across that arc —
+   green, blue, teal, blue, green, teal, blue, green, teal, blue — rather
+   than walking it once end to end, because two rows stacked next to each
+   other on the chart are what actually need to contrast; a monotonic walk
+   through a 90°-wide arc puts immediate neighbours only a few degrees apart
+   and they blur together. Saturation stays in a similar rich band to
+   before (56%-68%) — the owner's complaint was never that the old palette
+   was too saturated, it was that "dark" had to come from saturation alone
+   while lightness sat in the middle of the scale; saturation here is still
+   doing real work, but see the fill rule below for where "dark" actually
+   comes from now (lightness, not saturation, and no --paper in the mix).
+
+   LIGHTNESS DROPPED AGAIN THIS ROUND, FROM 26% TO 18% — the owner's direct
+   follow-up on the 26% pass just above: still not dark enough, still read as
+   "a mid-tone colour swatch" rather than unambiguously a DARK card next to
+   the "us" card's own near-black (#0a0f1a, ~8% lightness) plate further down
+   this file. 18% was picked by judging the rendered chart live, not chosen
+   blind: it reads clearly as a dark plate at a glance while the ten hues
+   stay visibly distinct from each other (checked live, both app themes — the
+   fill stays unconditional across the theme so there was nothing to
+   re-verify there). Contrast was checked, not eyeballed, once 18% was
+   settled on: the fixed white role/abbr text below (#f8fafc) against the
+   lightest-reading of the ten hues at 18% lightness (h175/s60%, this
+   palette's own lightest stop) still measures roughly 9.7:1 — comfortably
+   clear of WCAG AA's 4.5:1 floor for body text, with room to spare. That
+   headroom is structural, not a coincidence of this particular number:
+   darkening the plate can only ever help white-text contrast, never hurt
+   it, so legibility was never the constraint on how dark this could go —
+   only how well the ten rows still read apart from each other, which is
+   what was actually judged live against the rendered chart. */
+.rc-node[data-row-index="0"]{ --rc-row-h:145; --rc-row-s:62%; }  /* licensor / sponsor — green      */
+.rc-node[data-row-index="1"]{ --rc-row-h:215; --rc-row-s:66%; }  /* owner              — blue       */
+.rc-node[data-row-index="2"]{ --rc-row-h:175; --rc-row-s:60%; }  /* project / phase    — teal       */
+.rc-node[data-row-index="3"]{ --rc-row-h:230; --rc-row-s:64%; }  /* pmt / mc           — deep blue  */
+.rc-node[data-row-index="4"]{ --rc-row-h:150; --rc-row-s:58%; }  /* design / superv.   — green      */
+.rc-node[data-row-index="5"]{ --rc-row-h:190; --rc-row-s:62%; }  /* c / p / pc / epc   — teal       */
+.rc-node[data-row-index="6"]{ --rc-row-h:220; --rc-row-s:68%; }  /* the subcontractors — blue       */
+.rc-node[data-row-index="7"]{ --rc-row-h:140; --rc-row-s:56%; }  /* tpi / laboratory   — green      */
+.rc-node[data-row-index="8"]{ --rc-row-h:200; --rc-row-s:64%; }  /* us                 — teal-blue  */
+.rc-node[data-row-index="9"]{ --rc-row-h:160; --rc-row-s:60%; }  /* rival / supplier   — teal-green */
+/* TO CHANGE ONE ROW'S COLOUR LATER: edit that row's own one-line block
+   above (hue + saturation) and, if it needs to be darker/lighter than its
+   neighbours specifically, add a --rc-row-l override on that same line —
+   see the fallback in the fill rule just below. Nothing else in this file
+   needs to change; every rule that paints a row (idle fill/stroke, the
+   is-lit query highlight) reads these three custom properties rather than
+   hardcoding a colour of its own.
+
+   A filled card is deliberately saturated (the owner's own follow-up: filled
+   cards should "look rich", and an empty one should be obvious beside them at
+   a glance). The confident border that goes with it is on
+   .rc-node.has-entries .rc-box further up (it reads the same two properties),
+   so a filled card differs from an empty one in fill, stroke colour, stroke
+   weight AND dash pattern, not in a single faint tint.
+
+   THE FORMULA CHANGED THIS ROUND, NOT JUST THE NUMBERS IN IT. The old rule
+   mixed a MEDIUM-lightness hue (48% light / 58% dark) into --paper — a
+   light/near-white base — at 40%-46%. That is structurally incapable of
+   reading as "dark": even at the high end of that mix, more than half of
+   the result was still --paper, and the hue being mixed in was itself never
+   dark to start with. Raising the mix ratio further on the same formula
+   could not fix that; it would only interpolate further between "pale" and
+   "medium", never reach "dark", because the far end of the interpolation
+   was never dark. So the formula changes instead: each row's own HSL colour
+   is used DIRECTLY as the fill, at a genuinely low lightness (18% as of this
+   round — dropped again from an earlier 26% pass that the owner judged still
+   too mid-tone; see the long note above the ten row stops for why 18% and
+   why contrast still holds), with no --paper in the blend at all. --rc-row-l
+   is a per-row override for the odd row whose hue reads lighter or darker
+   than its neighbours at the same numeric lightness (a strict area/hue
+   trade-off — judged live against the rendered chart, not assumed); the 18%
+   fallback covers every row that doesn't need one, which today is all ten.
+
+   THIS IS ALSO WHAT MAKES THE FILL UNCONDITIONAL ACROSS THE LIGHT/DARK APP
+   THEME — the owner's own instruction, repeated for the "us" card further
+   down this file: "a card's own colour is the row's identity, not something
+   that should look different depending on the reader's theme preference." A
+   literal hsl() with no --paper reference cannot flip with the theme, so the
+   dark-mode restatement the old formula needed here (a second, lighter hue
+   mixed against the theme's own darker --paper) is gone outright — there is
+   nothing left for it to restate; this same fill is correct, unmodified, in
+   both [data-mode="dark"]/[data-theme="dark"] and light. */
+.rc-node.has-entries[data-kind="label"] .rc-box{
+  fill:hsl(var(--rc-row-h) var(--rc-row-s) var(--rc-row-l, 18%));
+}
+/* is-focus/is-lit/is-case-anchor (query mode, further down this file) must
+   still read clearly on TOP of a row-tinted card, not get muddied by it —
+   each of those already sets its own .rc-box fill with a selector chain of
+   four-plus classes (e.g. .rc-chart.is-query .rc-node.is-focus .rc-box),
+   strictly more specific than the two-class-plus-attribute selector above,
+   so they already win by CSS specificity alone with no !important and no
+   source-order dependency needed here. */
+
+/* The count badge — a plain neutral pill, not a status colour: how many
+   entities a viewer can see, nothing more. */
+.rc-badge{ fill:var(--cloud); stroke:var(--line); stroke-width:1; }
+.rc-badge-text{
+  font-family:var(--sans); font-size:10px; font-weight:700; fill:var(--muted);
+  direction:ltr; unicode-bidi:normal;
+}
+.rc-node.has-entries .rc-badge-text{ fill:var(--ink); }
+
+/* Hover / keyboard focus — the same "clickable option card" the rest of the
+   platform uses (people.css's .md-hub-card:hover), translated into SVG
+   terms: a stroke recolour plus a drop-shadow filter stand in for
+   border-color + box-shadow, and a small translateY stands in for the lift.
+   transform-box:fill-box makes that translate behave sanely on a <g>. */
+.rc-node{ transform-box:fill-box; transform-origin:center; }
+.rc-node:hover, .rc-node:focus-visible{
+  outline:none;
+  transform:translateY(-2px);
+}
+.rc-node:hover .rc-box, .rc-node:focus-visible .rc-box{
+  stroke:var(--accent);
+  filter:drop-shadow(0 4px 14px rgba(0,0,0,.14));
+}
+
+/* ---- Edges -----------------------------------------------------------------
+   A pale, empty channel, not a confident dark line — the owner's own words:
+   "like a place that's been carved/chiselled out" (a groove/track metaphor),
+   and explicitly light/subtle. --rc-edge is the platform's own --line
+   divider token (already pale in both themes, already flips with them, so
+   nothing here needs its own dark-mode block) rather than the old
+   ink-mix(40%); wide (3px) and flat reads as an empty pipe waiting to be
+   filled — see the query-mode fill-in animation below for what fills it —
+   rather than a thin bold rule, so the drop-shadow that used to sell "line"
+   is dropped too. */
+.rc-edge{
+  fill:none; stroke:var(--rc-edge); stroke-width:3;
+  stroke-linecap:round; stroke-linejoin:round;
+}
+
+/* ---- Query mode ------------------------------------------------------------
+   Only while an Inquiry is active. Every node dims except the focused one and
+   whatever is directly connected to it; those get the platform's own accent
+   rather than a family colour, because "this is what you selected" is a
+   state, not a category. Light and dark read differently on purpose — see
+   the dark block below. */
+/* An untouched card during an active query must NOT dim/fade — the owner
+   rejected that outright: "کارت‌های خاموش نباید حالت شیشه‌ای داشته باشند
+   باید روشن باشند ولی سفید" (untouched cards must not look glassy, they
+   should be lit/bright, staying neutral). Earlier rounds tried opacity .12,
+   then .5, on the whole card (fill + stroke + text all together, since
+   opacity applies to the <g>) — both still read as a translucent, dimmed
+   card, exactly the "شیشه‌ای" look being rejected here, not a lit neutral
+   one. So an untouched card gets NO opacity change at all now: it stays at
+   its own ordinary full-opacity has-entries/is-empty look (or its own
+   per-row tint — see the row-colour block below), distinguished from
+   is-focus/is-lit purely by NOT carrying their accent stroke/fill/glow, the
+   same way it is already distinguished from them outside query mode. */
+.rc-chart.is-query .rc-node.is-focus,
+.rc-chart.is-query .rc-node.is-lit{ opacity:1; }
+/* The chart's own default edges are unrelated to a query's own path (drawn
+   separately, in .rc-query-lines) — these may still read as a lighter,
+   quieter channel next to the highlighted path (a LINE, not a card, so the
+   "glassy card" objection above does not apply to it) without competing with
+   it visually. */
+.rc-chart.is-query .rc-edge{ opacity:.5; transition:opacity .18s ease; }
+.rc-chart.is-query .rc-node.is-focus .rc-box,
+.rc-chart.is-query .rc-node.is-lit .rc-box{
+  stroke:var(--accent); stroke-width:2;
+}
+/* Light: a solid accent border and a soft accent-tinted shadow, the same
+   weight as .md-hub-card:hover — a true neon glow does not read on a white
+   background, and the owner's own "نئونی" (neon) language is tied to dark. */
+.rc-chart.is-query .rc-node.is-focus .rc-box{
+  filter:drop-shadow(0 4px 12px color-mix(in srgb, var(--accent) 45%, transparent));
+}
+.rc-chart.is-query .rc-node.is-lit .rc-box{
+  filter:drop-shadow(0 3px 9px color-mix(in srgb, var(--accent) 32%, transparent));
+}
+/* The focus card needs to read as meaningfully different from a merely-lit
+   card, not just a heavier version of the same look — the owner's own word
+   was COLOUR specifically, beyond the stroke-width/glow above. A real
+   accent-tinted fill on is-focus's own .rc-box only — is-lit's own look is
+   untouched. */
+.rc-chart.is-query .rc-node.is-focus .rc-box{
+  fill:color-mix(in srgb, var(--accent) 12%, var(--paper));
+}
+
+/* ---- COLOUR MEANS "CONNECTED TO THE ACTIVE CARD" ---------------------------
+   The owner's own objection: with a card active, a card holding companies
+   stayed tinted whether or not the query had anything to do with it, so
+   colour read as "has values" — a fact the badge already states — instead of
+   as "is part of what you are looking at". The rule now:
+
+     * a card the query REACHED (.is-focus, and every .is-lit card a query
+       line was drawn to) keeps — and slightly deepens — its own row's colour,
+       on top of the accent ring/glow above, so the connected set reads as
+       genuinely alive;
+     * EVERY other card goes white: no row tint, whatever its badge says.
+
+   WHITE, NOT DISABLED. The intent is that a white card reads as a GAP the
+   reader wants to go and fill in — the chart should feel incomplete and
+   invite completion — so an unreached card keeps full opacity, its ordinary
+   --ink role/abbr text, its badge, its hover lift and its click handler; the
+   ONLY thing it loses is the hue. (The opacity dimming an earlier round
+   removed on the owner's explicit instruction — "کارت‌های خاموش نباید حالت
+   شیشه‌ای داشته باشند" — is emphatically not what this is; nothing here
+   touches opacity at all.)
+
+   THE LIT FILL NOW MATCHES THE IDLE DARK BASE, NOT THE OLD PALETTE'S PALE
+   TINT. It used to be its own separate color-mix, lighter than the idle
+   fill of that round (a highlighted card was meant to look brighter than a
+   plain filled one, which was itself already a pale tint) — against the new
+   dark idle base further up this file, that same "lighter" mix would have
+   read as a return to the rejected pastel look the moment a query ran,
+   exactly the regression the owner is trying to get away from. So this is
+   the same per-row hsl() the idle fill uses, just a touch brighter/more
+   saturated to still read as "this is the one that's highlighted" rather
+   than a no-op: +6 lightness and +6 saturation over the idle base (18% as of
+   this round's darker pass — see the idle fill rule further up for why)/
+   row-own-saturation, judged live against the running chart rather than
+   assumed. Being a literal hsl() with no --paper reference, it is
+   unconditional across the theme exactly like the idle fill is, so the
+   dark-mode restatement this rule used to need is gone for the same reason. */
+.rc-chart.is-query .rc-node.is-lit[data-kind="label"] .rc-box{
+  fill:hsl(var(--rc-row-h) calc(var(--rc-row-s) + 6%) calc(var(--rc-row-l, 18%) + 6%));
+}
+/* A card the query REACHED is never drawn with the empty card's dashed
+   "waiting to be filled" outline, even when it is itself .is-empty.
+   That combination is real and common: connections_of_client reports a label
+   purely because the active company is CONNECTED to somebody under it, so the
+   card lights up while its own badge is still 0 and the server still calls it
+   .is-empty. Leaving the dash there told the reader "nothing here" about the
+   one card the line they are looking at points AT. Solid from here on; the
+   dash goes back the moment the query clears. Applies to the focus card too,
+   which can be .is-empty for the same reason. */
+.rc-chart.is-query .rc-node.is-lit .rc-box,
+.rc-chart.is-query .rc-node.is-focus .rc-box{
+  stroke-dasharray:none;
+}
+/* The white-out. Scoped to .has-entries because an .is-empty card is already
+   the plain dashed --paper plate this is aiming at and must keep its own
+   "waiting to be filled" dash; [data-kind="us"] is excluded because "us" is
+   not a row-tinted card at all — it is the chart's one deliberate
+   black/white plate (see its own block below) and going "white" for it would
+   mean erasing the one card whose identity is that plate. The border drops to
+   a quiet neutral rather than vanishing: this is still a real card holding
+   real companies, just not one this query reached. */
+.rc-chart.is-query .rc-node.has-entries:not(.is-focus):not(.is-lit):not([data-kind="us"]) .rc-box{
+  fill:var(--paper);
+  stroke:color-mix(in srgb, var(--muted) 45%, transparent);
+  stroke-width:1.4;
+}
+[data-mode="dark"] .rc-chart.is-query .rc-node.has-entries:not(.is-focus):not(.is-lit):not([data-kind="us"]) .rc-box,
+[data-theme="dark"] .rc-chart.is-query .rc-node.has-entries:not(.is-focus):not(.is-lit):not([data-kind="us"]) .rc-box{
+  /* A 45% muted line disappears into a dark plate; the same border needs to
+     be carried at closer to full strength there to read as an outline at
+     all. */
+  stroke:color-mix(in srgb, var(--muted) 70%, transparent);
+}
+/* THE WHITE-OUT (AND is-focus) MUST KEEP --ink TEXT, NOT THE NEW FIXED WHITE.
+   .rc-node.has-entries .rc-role/.rc-abbr further up this file were changed to
+   a fixed white this round, for the idle and is-lit cards whose own fill is
+   now a fixed dark colour in both themes (see that rule's own comment). The
+   white-out and is-focus states are NOT that case: a white-out card's fill is
+   plain --paper above, and is-focus's own fill (further up, in the query-mode
+   section) is a pale color-mix INTO --paper — both still genuinely flip
+   between near-white (light theme) and near-black (dark theme) the way the
+   old per-row fill used to. Inheriting the new fixed white text onto either
+   would go invisible the moment a reader is in light theme: white text on a
+   white (or pale-accent-on-white) card. So both states restate --ink here,
+   at higher specificity than the plain has-entries rule, exactly the text
+   treatment they always had — nothing about THIS text changes this round,
+   only the idle/is-lit text above it does.
+
+   [data-kind="us"] IS EXCLUDED FROM THE is-focus PART OF THIS, DELIBERATELY.
+   "us" is not always merely lit — its own all-cases search runs the exact
+   same query machinery with "us" itself as ``focusField`` (see
+   chart_interact.js's own note on that), so is-focus can land on the "us"
+   card too. Unlike an ordinary label card, "us" never takes is-focus's pale
+   --paper-mix fill in the first place — its own rule further down this file
+   keeps the plate fixed black through query mode regardless of is-focus —
+   so restoring --ink text here would fight that fixed-black plate instead of
+   matching it: near-black --ink text on a near-black plate in light theme,
+   exactly the illegible pairing this whole fix is meant to prevent
+   elsewhere. "us" keeps its own fixed white text (further down this file)
+   in every state; only a genuine label card's is-focus needs --ink back. */
+.rc-chart.is-query .rc-node.is-focus:not([data-kind="us"]) .rc-role,
+.rc-chart.is-query .rc-node.is-focus:not([data-kind="us"]) .rc-abbr,
+.rc-chart.is-query .rc-node.has-entries:not(.is-focus):not(.is-lit):not([data-kind="us"]) .rc-role,
+.rc-chart.is-query .rc-node.has-entries:not(.is-focus):not(.is-lit):not([data-kind="us"]) .rc-abbr{
+  fill:var(--ink);
+}
+.rc-chart.is-query .rc-node.is-focus:not([data-kind="us"]) .rc-abbr,
+.rc-chart.is-query .rc-node.has-entries:not(.is-focus):not(.is-lit):not([data-kind="us"]) .rc-abbr{
+  fill-opacity:.72;
+}
+/* A white card is still a control, and must still SAY so on hover/keyboard
+   focus. The shared .rc-node:hover .rc-box accent stroke is far less specific
+   than the white-out above and would otherwise lose to it, leaving the one
+   set of cards the owner most wants clicked as the only ones with no hover
+   feedback. */
+.rc-chart.is-query .rc-node.has-entries:not(.is-focus):not(.is-lit):not([data-kind="us"]):hover .rc-box,
+.rc-chart.is-query .rc-node.has-entries:not(.is-focus):not(.is-lit):not([data-kind="us"]):focus-visible .rc-box{
+  stroke:var(--accent);
+}
+/* THE CROSSING-LINE HALO — a wider, canvas-floor-coloured casing painted
+   directly under every query line's own coloured stroke (chart_interact.js's
+   drawQueryLines/buildHaloPath appends one of these immediately before each
+   .rc-query-line, same "d" path, no animation of its own). There is no
+   crossing-avoidance or lane-sharing anywhere on this chart — pickLaneX only
+   keeps a lane clear of CARDS, never of other lines — so two lines active at
+   once can legitimately share a corridor (the owner's own report: a focus
+   card connected both toward a Supervision-Consultant-type card and toward
+   "us" at once), and whichever line lands in the DOM later used to paint
+   straight over the earlier one at the crossing, reading as a jagged cut
+   rather than one line passing over another. This halo is what turns that
+   into a clean "hop": solid and fully opaque (no dash, no opacity, no
+   filter), a LATER line's halo still paints over an EARLIER line's full
+   stroke at their crossing, but the result is now a same-width gap in the
+   floor's own colour — a bridge, not a cut — the same technique a road map
+   uses wherever one road passes under another. --rc-ground is this chart's
+   own canvas floor colour (.rc-canvas's own background, already flips with
+   the theme) rather than --paper, because a query line runs through the
+   empty GUTTER/lane between cards, not across a card's own fill — matching
+   the floor rather than a card is what makes this invisible away from an
+   actual crossing, so an ordinary, non-crossing line reads exactly as it did
+   before this existed. Wider than the line it sits under (roughly 2.5x) so
+   the "bridge" it creates has real clearance rather than a hairline gap. */
+.rc-query-line-halo{
+  fill:none; stroke:var(--rc-ground); stroke-width:4.6;
+  stroke-linecap:round; stroke-linejoin:round;
+  opacity:1;
+}
+/* The path shape itself (a rounded orthogonal elbow through the chart's own
+   centre lane, not a diagonal) and its one-shot "fluid filling it"
+   stroke-dashoffset animation are both built in chart_interact.js — this is
+   only the line's resting colour/weight, unchanged from before. */
+.rc-query-line{
+  fill:none; stroke:var(--accent); stroke-width:1.8;
+  stroke-linecap:round; stroke-linejoin:round;
+  opacity:.7;
+}
+/* Dark: an actual glow — "نئونی پررنگ‌تر" (a stronger neon) on the cards,
+   "نئونی کم‌رنگ" (a faint neon) on the lines, restrained enough not to
+   "چشم را بزنه" (not eye-searing): a modest blur, no saturated bloom. */
+[data-mode="dark"] .rc-chart.is-query .rc-node.is-focus .rc-box,
+[data-theme="dark"] .rc-chart.is-query .rc-node.is-focus .rc-box{
+  filter:drop-shadow(0 0 9px var(--accent));
+}
+[data-mode="dark"] .rc-chart.is-query .rc-node.is-lit .rc-box,
+[data-theme="dark"] .rc-chart.is-query .rc-node.is-lit .rc-box{
+  filter:drop-shadow(0 0 6px var(--accent));
+}
+/* Dark: the same accent-tinted fill, mixed a little stronger against the
+   theme's own darker --paper so it still reads clearly at a glance. */
+[data-mode="dark"] .rc-chart.is-query .rc-node.is-focus .rc-box,
+[data-theme="dark"] .rc-chart.is-query .rc-node.is-focus .rc-box{
+  fill:color-mix(in srgb, var(--accent) 22%, var(--paper));
+}
+[data-mode="dark"] .rc-query-line,
+[data-theme="dark"] .rc-query-line{
+  filter:drop-shadow(0 0 3px var(--accent));
+  opacity:.5;
+}
+
+/* ---- The focus card's own marked look ---------------------------------------
+   A THIRD visual state, alongside is-focus/is-lit above: the FOCUS card of
+   any active query — not only case mode's — carries this one further mark
+   (a distinctly-coloured ring/glow plus the small corner checkmark below) on
+   top of plain is-focus, so a reader can tell "this is the one card the
+   query is actually ABOUT" apart from "this card just happens to be lit
+   because something was connected to it".
+
+   THIS USED TO BE CASE-MODE-ONLY — the class is still literally named
+   ``is-case-anchor`` and every id/function behind the badge still says
+   "case anchor" (chart_interact.js's addCaseAnchorBadge, ``caseAnchorField``,
+   etc.), unrenamed on purpose: renaming every one of those is a second,
+   unrelated change this round has no other reason to make. What changed is
+   who gets it. Before, chart_interact.js's runInquiryForClient only ever set
+   it for case mode's own automatic entry Inquiry — a plain name+role
+   activation got ordinary is-focus's own --accent ring instead. The owner's
+   objection was that this made the exact same fact ("this is what the chart
+   is showing you") read as two different-coloured, different-meaning things
+   depending on HOW a card became the focus — reddish-with-a-checkmark for a
+   case, accent (green under the "teal" skin) for everything else. So this
+   mark is now unconditional for every focus card the query mechanism sets
+   (runInquiryForClient adds it for every ``focusField`` now, "us" excluded —
+   see that function's own note on why): a case activation and a plain
+   Quick-Inquiry-by-name-and-role activation now look identical. The ONLY
+   place the two still visibly differ is the mode banner's own TEXT
+   (updateModeBanner, further up chart_interact.js), which still reads
+   ``caseMeta`` to say "Case mode" vs. "Active" — that is now the one
+   remaining place this distinction shows at all.
+
+   Always paired with is-focus (chart_interact.js never sets it alone), so
+   every selector below targets both classes together rather than overriding
+   is-focus's own rules by source order alone — keeps this correct
+   regardless of where in the file it sits.
+
+   Colour, not just a badge: --warn (already theme-aware — see
+   static/css/app.css's dark block — no dark-mode override needed here just
+   to follow it) stands in for --accent on this one card's own ring/glow,
+   the same "a real colour, not a heavier version of the same look" rule the
+   owner asked for between is-focus and is-lit themselves, applied a second
+   time between an ordinary lit card and THIS one — now the single ring/glow
+   every focus card gets, regardless of how it became the focus. */
+.rc-chart.is-query .rc-node.is-focus.is-case-anchor .rc-box{
+  stroke:var(--warn);
+  fill:color-mix(in srgb, var(--warn) 14%, var(--paper));
+}
+.rc-chart.is-query .rc-node.is-focus.is-case-anchor .rc-box{
+  filter:drop-shadow(0 4px 12px color-mix(in srgb, var(--warn) 45%, transparent));
+}
+[data-mode="dark"] .rc-chart.is-query .rc-node.is-focus.is-case-anchor .rc-box,
+[data-theme="dark"] .rc-chart.is-query .rc-node.is-focus.is-case-anchor .rc-box{
+  filter:drop-shadow(0 0 9px var(--warn));
+  fill:color-mix(in srgb, var(--warn) 24%, var(--paper));
+}
+/* The small corner badge itself — a filled dot plus a check-mark glyph,
+   built as real SVG children of the anchor node's own <g> by
+   chart_interact.js's addCaseAnchorBadge()/removeCaseAnchorBadge(), not a
+   CSS pseudo-element (SVG has no ::before/::after content model to speak
+   of). A --paper ring around the dot is what keeps it legible sitting
+   directly on top of the box's own (possibly similarly-toned) fill in
+   either theme, the same reason .rc-badge already gets its own stroke. */
+.rc-case-anchor-dot{ fill:var(--warn); stroke:var(--paper); stroke-width:1.5; }
+.rc-case-anchor-glyph{
+  fill:none; stroke:var(--paper); stroke-width:1.6;
+  stroke-linecap:round; stroke-linejoin:round;
+}
+
+/* ---- "Us" (Foolad Tabar): the one card that is not a row --------------------
+   Every other card on this chart says "some company plays this role"; this
+   one says "we do". The owner asked for it to look categorically different
+   from the ten row-tinted cards around it — black/white, their own words —
+   rather than picking up row 8's hue as if it were just another slot.
+
+   UNCONDITIONALLY BLACK NOW — THIS SUPERSEDES THE EARLIER "FLIPS WITH THE
+   THEME" DECISION THAT USED TO LIVE HERE. The plate used to be var(--ink)
+   and the text var(--paper) — both platform tokens that flip with the app
+   theme — which read as a deliberate black-plate/white-text card in light
+   theme but, since --ink is near-white and --paper is near-black in dark
+   theme, silently INVERTED there to a white plate with black text. That was
+   a considered choice at the time (see prior revisions of this comment) —
+   it kept the card's own tokens internally consistent with each other. The
+   owner has now reversed it outright: this card must look like Foolad
+   Tabar's own card, full stop, and "Foolad Tabar's own card" does not
+   repaint itself when a reader flips their OWN theme preference — the exact
+   same reasoning now governing the per-row fill above (see "THIS IS ALSO
+   WHAT MAKES THE FILL UNCONDITIONAL" in that block). So the plate is a
+   literal fixed near-black and the text a literal fixed near-white below,
+   neither one a theme token, and BOTH read identically in light and in dark
+   — verified live in both, not assumed (see this round's own verification
+   notes). A near-black (#0a0f1a) rather than pure #000 is used for the same
+   reason the platform's own --navy/--ink tokens already sit just off pure
+   black: a hair of blue keeps it from reading as a flat void next to the
+   also-dark blue/green row cards now surrounding it.
+
+   PLACED AFTER the query-mode section deliberately. is-focus's own accent
+   FILL (.rc-chart.is-query .rc-node.is-focus .rc-box) is strictly more
+   specific than any [data-kind="us"] rule could be without piling on classes,
+   and letting it win here would paint a pale accent fill under white text —
+   pale-blue-on-white-ish, illegible. So the rule(s) at the bottom of this
+   block restate the plate for query mode at matching specificity, winning on
+   source order alone; the accent RING and glow is-focus/is-lit also set are
+   left entirely alone, so this card still marks itself as focused/lit
+   exactly like every other card does. UNLIKE the idle plate above, this
+   restatement still needs its own [data-mode="dark"]/[data-theme="dark"]
+   pair even though the FILL VALUE is now identical in both — the reason is
+   specificity, not colour: the dark-theme focus-fill rule this is racing
+   against (further up this file) carries its own [data-mode="dark"]
+   attribute, one selector heavier than the plain query-mode restatement
+   below, so without a matching dark-scoped rule here the focused "us" card
+   would lose to the accent fill in dark theme specifically. Checked live,
+   not assumed: dropping this pair and keeping only the unscoped restatement
+   left the focused "us" card showing the accent-tinted fill in dark theme
+   during a query, so it stays. */
+.rc-node[data-kind="us"] .rc-box{
+  fill:#0a0f1a; stroke:#0a0f1a; stroke-width:2; stroke-dasharray:none;
+}
+.rc-node[data-kind="us"] .rc-role,
+.rc-node[data-kind="us"] .rc-abbr{ fill:#f8fafc; fill-opacity:1; }
+/* The badge pill used to flip with the theme too (--paper/--ink, the same
+   pair the plate itself used to use) — now fixed for the same reason: a
+   light pill with dark text, so it stays a clearly legible "count" chip
+   sitting on top of the fixed-black plate in both themes, rather than
+   turning into a dark-on-dark pill the moment the plate stopped flipping
+   out from under it in dark theme. */
+.rc-node[data-kind="us"] .rc-badge{ fill:#eef2f7; stroke:#eef2f7; }
+.rc-node[data-kind="us"] .rc-badge-text{ fill:#0f172a; }
+/* Hover/keyboard focus must still recolour this card's own border the way it
+   does every other card's — the shared .rc-node:hover .rc-box rule sits
+   ABOVE this block and would otherwise lose to it on source order. */
+.rc-node[data-kind="us"]:hover .rc-box,
+.rc-node[data-kind="us"]:focus-visible .rc-box{ stroke:var(--accent); }
+/* See this block's own note above: keep the fixed-black plate through query
+   mode instead of taking is-focus's own accent-tinted fill. The value is the
+   same literal in both rules — only the selector's specificity differs,
+   which is the whole reason the second rule still exists (see above). */
+.rc-chart.is-query .rc-node[data-kind="us"] .rc-box{ fill:#0a0f1a; }
+[data-mode="dark"] .rc-chart.is-query .rc-node[data-kind="us"] .rc-box,
+[data-theme="dark"] .rc-chart.is-query .rc-node[data-kind="us"] .rc-box{ fill:#0a0f1a; }
+
+/* The "us" cases panel's own per-case-group branch lines (drawn in
+   drawUsCasesConnector, chart_interact.js) — one light, thin flourish per
+   group heading fanning out from the trunk .rc-query-line into the panel,
+   deliberately fainter/thinner than that trunk so it reads as a detail, not
+   a second competing line. */
+.rc-us-cases-branch{
+  fill:none; stroke:var(--accent); stroke-width:1;
+  stroke-linecap:round; opacity:.35;
+}
+[data-mode="dark"] .rc-us-cases-branch,
+[data-theme="dark"] .rc-us-cases-branch{
+  filter:drop-shadow(0 0 2px var(--accent));
+  opacity:.25;
+}
+
+/* The old floating query pill (.rc-query-pill/#rcQueryName/#rcQueryClear) used
+   to sit here, in this exact corner — a SECOND indicator overlapping the
+   floating active-anchor bar that already said the same thing. Both are gone
+   now (markup, styles and JS): .rc-mode-banner near the top of this file is
+   the chart's one indicator, and it carries the pill's own "a plain query with
+   no anchor still needs a name and a Clear control" job along with everything
+   the anchor bar used to say. */
+
+/* ---- In-card growth + the chart relayout that pays for it (query mode) ------
+   While an Inquiry is active, every TOUCHED card GROWS ITS OWN SVG BOX taller
+   (chart_interact.js's relayoutForGrowth()) — the <rect> itself, not a slab
+   drawn under it. Two earlier shapes were rejected outright by the owner: a
+   separate floating box stacked below the card (.rc-node-overlay), then an
+   HTML slab flush against the card's own bottom edge (the old .rc-card-grow)
+   — both still read as two boxes. So now:
+
+     * the box's own height attribute grows;
+     * its Persian role title moves to the TOP of the grown box;
+     * its English abbreviation is removed outright while grown (.is-grown
+       below) — there is no room for a second heading once names are listed;
+     * the connected company names are listed INSIDE the box, with room for
+       five before the list scrolls internally.
+
+   Because the box really does get taller, every row BELOW it is slid down by
+   the tallest growth in each row above (an SVG transform on that row's own
+   .rc-row-group), every edge between two moved rows is re-routed from
+   rolechart.py::build()'s own published recipe, and the svg's viewBox height
+   grows by the total — the chart genuinely gets taller, which the owner
+   explicitly accepted. Clearing the query restores every one of those to the
+   exact original values it was read from.
+
+   The name list itself is still a plain HTML element positioned over the SVG
+   (SVG has no text wrapping and no scrollable overflow to speak of), but it
+   now sits INSIDE the grown box's own interior with a transparent
+   background — the card's own fill shows through it, so it is part of the
+   card rather than a second surface. Its geometry AND its font size are set
+   inline, per card, per query: the chart is a responsive SVG, so one viewBox
+   unit is not one screen pixel and both have to be scaled by the SVG's own
+   current on-screen ratio — see placeCardNames(). */
+.rc-node.is-grown .rc-abbr{ display:none; }
+/* Whole-row vertical shift while some row above is grown — set as an SVG
+   transform attribute by relayoutForGrowth() and removed again on clear.
+   DELIBERATELY NOT TRANSITIONED: the very next thing that runs after the
+   shift measures each grown card's real on-screen rect to place its name
+   list over it, and a running transform transition would hand back the
+   position the row is animating FROM, putting every list in the wrong
+   place. */
+.rc-card-names{
+  position:absolute; z-index:4; box-sizing:border-box;
+  background:transparent; border:0;
+  overflow-y:auto; overflow-x:hidden;
+  display:flex; flex-direction:column;
+  /* The list sits over a card that is itself clickable; forwarding the click
+     (chart_interact.js) keeps the whole grown card behaving as one control,
+     while still leaving the list itself scrollable. */
+  cursor:pointer;
+}
+/* FIXED white here too, not var(--ink) — same reasoning as the has-entries
+   .rc-role/.rc-abbr fix further up this file, and the same bug that fix was
+   for: this list sits, transparent background, directly over a grown card's
+   own fill, and that fill is now a fixed dark colour in BOTH app themes (the
+   per-row hsl(), no --paper in the blend — see the fill rule above). Before
+   this round it was still var(--ink), a platform token that is near-BLACK in
+   light theme — dark text silently landing on the also-dark card the moment
+   a reader is in light mode, the exact inversion the has-entries role/abbr
+   fix already corrected for the card's own title text. A grown card is
+   .has-entries by construction (only a filled field ever grows a name list
+   in the first place), so this list is never seen sitting on anything but
+   that fixed-dark plate — there is no case where --ink was ever correct here.
+
+   DISTINCT FROM THE ROLE TITLE ON PURPOSE, NOT JUST COPIED FROM IT. The
+   owner wants a reader to tell "this is the role label" from "this is a
+   company name" at a glance, and two identical white-on-dark treatments
+   stacked on the same card would not do that no matter how legible each one
+   is on its own. So the role title (.rc-role, further up) stays the heavier
+   weight/larger-size heading it already was, and this list is deliberately
+   one step down from it: a lighter weight (500 vs the role's 650) and a
+   fractionally reduced opacity (.90, well inside the "clearly legible, not
+   faint" range the owner asked for) on the same fixed white — still reads
+   as white, unmistakably a lighter/quieter treatment than the heading sitting
+   above it. Contrast was checked at that reduced opacity against this
+   round's darkest-reading row (h175/s60% at 18% lightness, the same worst
+   case the role text was checked against above): still comfortably clear of
+   WCAG AA's 4.5:1 floor. */
+.rc-card-names-name{
+  font-weight:500; color:rgba(248,250,252,.90);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  text-align:center;
+  direction:rtl; unicode-bidi:plaintext;
+  /* flex-shrink:0 IS LOAD-BEARING, not decoration — without it this is a
+     live, reproducible visual bug rather than a hypothetical one. The
+     parent is a COLUMN FLEX container with a fixed pixel height (JS sets it
+     to exactly GROW_VISIBLE_NAMES worth of rows — see placeCardNames()) and
+     overflow-y:auto, on the assumption that a SIXTH-plus row simply pushes
+     the flex column taller than its container and the already-present
+     overflow-y:auto takes over from there. But a flex item's default
+     flex-shrink is 1, so once total content height exceeds the container's
+     fixed height, the browser's answer is not "let it overflow" — it is
+     "shrink every row proportionally until they all fit", which is exactly
+     backwards from what a scrollable list needs. Confirmed live (six-plus
+     "Project Management Team"-style entries under one field, the owner's
+     own worked example): every row's box shrinks below its own inherited
+     line-height (each ends up a couple pixels shorter than the text it has
+     to hold), while the text itself keeps rendering at that taller
+     line-height — the rows visually collide/overlap instead of the list
+     scrolling. flex-shrink:0 is the one-line fix: it tells every row to
+     keep its natural (line-height-driven) size no matter how many siblings
+     it has, so a sixth row genuinely pushes the column past the container's
+     height instead of squeezing everyone equally, and the container's own
+     overflow-y:auto (already present, doing nothing useful until this line
+     existed) finally has real overflow to scroll. */
+  flex-shrink:0;
+}
+
+/* ---- The "us" cases panel ---------------------------------------------------
+   Only appears while an Inquiry's connections include "us" (the focused
+   company has at least one case) — built, positioned and hidden entirely by
+   chart_interact.js's openUsCasesPanel()/hideUsCasesPanel(); cleared by the
+   same clearQueryMarks()/Clear flow as every other query-mode visual. Floats
+   over the canvas in the platform's own floating-panel language — --paper
+   background, a border, --shadow-lg — rather than a new visual language of
+   its own.
+
+   IT HAS A GENUINELY RESERVED PLACE NOW. It used to be anchored to the
+   canvas's right edge and merely CENTRED on a nominal y, which let it land on
+   top of real cards whenever a company had many cases — the owner sent a
+   screenshot of exactly that. chart_interact.js's reserveUsCasesArea() now
+   measures the actual bounding rect of every card sharing this panel's
+   horizontal band and starts the panel below the lowest of them, with real
+   clearance, sizing it to the room genuinely left in the chart's own
+   bottom-right corner; all four of left/top/width/height are set inline from
+   that measurement, and the list inside scrolls rather than the box growing.
+   The panel is re-measured on every open, which matters because the chart
+   relayouts (rows shift, cards grow) while an Inquiry is active. */
+.rc-us-cases-panel{
+  position:absolute; z-index:6;
+  /* left / top / width / height are ALL set inline, per open, by
+     chart_interact.js's reserveUsCasesArea(): the panel's place is measured
+     against every card's own real rect (the ones sharing its horizontal band)
+     rather than assumed from a constant, because the chart relayouts — rows
+     move and cards grow — while an Inquiry is active. The values here are
+     only the no-JS fallback. */
+  right:2rem; width:440px; max-width:calc(100% - 4rem); box-sizing:border-box;
+  display:flex; flex-direction:column;
+  background:var(--paper); border:1px solid var(--accent); border-radius:var(--radius-sm);
+  box-shadow:var(--shadow-lg); padding:.55rem .6rem;
+}
+.rc-us-cases-panel[hidden]{ display:none; }
+/* The panel's own fixed head — title, the three status counts, and the
+   archive link — all above the one scrolling region, so none of them scroll
+   away under a long case list. */
+.rc-us-cases-head{ flex:0 0 auto; }
+.rc-us-cases-title{
+  font-size:.7rem; font-weight:800; letter-spacing:.03em; color:var(--accent);
+  text-transform:uppercase; margin:0 0 .35rem;
+}
+/* Approved / Cancelled / No result for the company this query is about —
+   the same three buckets services.py::_status_fa already puts every case in
+   (see services.case_status_counts), so these can never disagree with the
+   per-case status badges in the list below them. */
+.rc-us-cases-counts{
+  display:flex; flex-wrap:wrap; gap:.3rem; margin:0 0 .35rem;
+}
+.rc-us-cases-count{
+  display:inline-flex; align-items:baseline; gap:.3rem;
+  font-size:.68rem; font-weight:650; color:var(--muted);
+  background:var(--cloud); border:1px solid var(--line-soft); border-radius:100px;
+  padding:.14rem .5rem; white-space:nowrap;
+}
+.rc-us-cases-count b{ font-size:.78rem; font-weight:800; color:var(--ink); }
+/* --ok / --rej are the platform's own status tokens and both already flip
+   with the theme (static/css/app.css's dark block), so neither needs a
+   dark-mode override here. "No result" stays the neutral --ink the other two
+   counts share: it is not an outcome, it is the absence of one. */
+.rc-us-cases-count.is-approved b{ color:var(--ok); }
+.rc-us-cases-count.is-cancelled b{ color:var(--rej); }
+/* "Open in the case archive, filtered to this company" — a plain text link,
+   not a button: it leaves the chart entirely. Only rendered for the admin/GM
+   tier (chart_interact.js), the same tier the per-case rows below are already
+   clickable for — and the only tier the archive itself will actually open for
+   (cases/views.py::archive bounces a Marketing profile straight back here). */
+.rc-us-cases-archive{
+  display:inline-block; margin:0 0 .45rem;
+  font-size:.72rem; font-weight:650; color:var(--accent); text-decoration:none;
+}
+.rc-us-cases-archive:hover{ text-decoration:underline; }
+/* "Showing 40 of 137" — rendered whenever the render cap actually bit, so a
+   long list is visibly capped rather than silently truncated. */
+.rc-us-cases-more{
+  flex:0 0 auto; margin:.4rem 0 0;
+  font-size:.68rem; color:var(--muted); text-align:center;
+}
+/* The one scrollable region — it takes whatever height the panel's own
+   measured box leaves after the fixed head above it (flex:1 + min-height:0,
+   the standard "let me actually shrink" pair), so a client with a hundred
+   cases scrolls INSIDE the reserved area instead of growing the panel out of
+   it. A plain scrollbar, no virtual scrolling or pagination; the number of
+   rows rendered at all is capped separately, in chart_interact.js
+   (US_CASES_MAX_ROWS), with a visible "showing N of M" line rather than a
+   silent truncation. */
+.rc-us-cases-list{
+  flex:1 1 auto; min-height:0; max-height:none; overflow-y:auto;
+  display:flex; flex-direction:column; gap:.5rem;
+}
+.rc-us-cases-group{ display:flex; flex-direction:column; gap:.2rem; }
+/* One small sub-heading per label ("Owner (2)", ...) — the "خوشه‌ای"
+   (clustered) grouping the owner asked for, in place of one flat list. */
+.rc-us-cases-group-heading{
+  font-size:.72rem; font-weight:700; color:var(--muted);
+  direction:rtl; unicode-bidi:plaintext;
+}
+.rc-us-cases-row{
+  display:flex; align-items:center; justify-content:space-between; gap:.4rem;
+  font-size:.78rem; color:var(--ink);
+  padding:.08rem 0 .08rem .5rem; border-left:2px solid var(--line-soft);
+  direction:ltr; unicode-bidi:normal;
+}
+/* Admin/GM only (chart_interact.js only ever adds this class for that
+   viewer, when CFG.caseDetailUrlBase is present) — the row navigates to that
+   case's own detail page; everyone else's row stays exactly as plain/inert
+   as it always was. */
+.rc-us-cases-row.is-clickable{ cursor:pointer; border-radius:6px; }
+.rc-us-cases-row.is-clickable:hover{ background:var(--cloud); }
+@media (max-width:640px){
+  .rc-us-cases-panel{ width:320px; right:1rem; max-width:calc(100% - 2rem); }
+}
+
+/* The floating active-anchor bar (.rc-anchor-dock / .rc-anchor-bar and its
+   own label/source/role/note spans) used to be defined here — a small pill in
+   the canvas's own top-left corner naming the active company. It is gone with
+   the round that made the case banner the ONE indicator for both kinds of
+   activation: see .rc-mode-banner near the top of this file. Nothing on the
+   page carries .rc-anchor-* any more, in markup or in JS. */
+
+/* ---- The modal --------------------------------------------------------------
+   One shell, reused for every field and for both of its modes — see
+   chart_interact.js. Modelled on the same overlay/dialog shape as
+   itemcoder's pipe-tools modal (static/itemcoder/js/pipe_tools.js): a
+   translucent backdrop, a centred card, no page scroll behind it. */
+.rc-modal-overlay{
+  position:fixed; inset:0; z-index:200;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(15,23,42,.45); padding:1rem;
+}
+.rc-modal-overlay[hidden]{ display:none; }
+.rc-modal{
+  width:100%; max-width:400px; max-height:82vh;
+  display:flex; flex-direction:column;
+  background:var(--paper); border:1px solid var(--line); border-radius:var(--radius);
+  box-shadow:var(--shadow-lg); overflow:hidden;
+}
+/* Widened by chart_interact.js's openAddCompanyPanel() (a plain class
+   toggle, not a second window) whenever the "+ Add company" panel is open —
+   see .rc-modal-columns/.rc-add-company-panel below. Collapses straight back
+   to the normal 400px the moment that panel closes. */
+.rc-modal.is-wide{ max-width:760px; }
+
+/* The modal's own original body — the search box, the company list, and
+   both action bars — now lives inside this one wrapper instead of as direct
+   children of .rc-modal, so the "+ Add company" panel can sit BESIDE it as a
+   second column (see .rc-modal-columns) rather than only ever stacking
+   underneath it. Built once by moving the template's own existing nodes
+   (chart_interact.js), never re-templated — this is purely a layout
+   container. */
+.rc-modal-columns{ display:flex; flex:1; min-height:0; }
+.rc-modal-main{
+  display:flex; flex-direction:column; flex:1;
+  min-width:0; min-height:0;
+}
+.rc-modal-head{
+  display:flex; align-items:center; gap:.5rem;
+  padding:.6rem .7rem; border-bottom:1px solid var(--line-soft);
+}
+.rc-modal-title{ flex:1; margin:0; font-size:.92rem; text-align:center; }
+/* .btn already sets its own `display`, at the same specificity as the
+   browser's default [hidden]{display:none} rule, so the LATER rule (the
+   author stylesheet, here) would otherwise win and the button would keep
+   rendering — these two need their own, more specific override. */
+#rcModalInquiry[hidden],
+.rc-modal-add[hidden]{ display:none; }
+.rc-modal-x{
+  border:0; background:transparent; color:var(--muted);
+  font-size:1rem; line-height:1; cursor:pointer; padding:.25rem .4rem; border-radius:6px;
+}
+.rc-modal-x:hover{ background:var(--cloud); color:var(--ink); }
+
+.rc-modal-search{ padding:.6rem .7rem 0; }
+.rc-modal-search-input{
+  width:100%; box-sizing:border-box; font-size:.84rem;
+  padding:.5rem .6rem; border:1px solid var(--line); border-radius:var(--radius-sm);
+  background:var(--paper); color:var(--ink);
+}
+
+.rc-modal-list{
+  /* Noticeably taller than before (was 140px) so several more rows are
+     comfortably visible before this same overflow-y:auto pattern kicks in —
+     the owner's own request, change 2a. Still just a floor: flex:1 lets it
+     grow further to fill whatever room .rc-modal's own max-height leaves. */
+  flex:1; min-height:420px; overflow-y:auto;
+  padding:.5rem; display:flex; flex-direction:column; gap:.1rem;
+}
+.rc-row{
+  display:flex; align-items:center; gap:.55rem;
+  padding:.45rem .55rem; border-radius:8px; cursor:pointer;
+  font-size:.84rem; color:var(--ink);
+  border:1px solid transparent;
+}
+.rc-row:hover{ background:var(--cloud); }
+.rc-row.is-selected{ background:var(--accent-soft); border-color:var(--accent); }
+/* A real row rendered inside "connect" mode with its own connection-target
+   tick (chart_interact.js's buildLabelRow, ``connectCtx``) — the same
+   accent-soft tint .rc-row.is-selected uses just above, applied here for the
+   "ticked" meaning instead, since this tick sits ON TOP OF a row that also
+   still carries its own name/× exactly as normal browsing already renders
+   it, rather than swapping the row for a fully bespoke tick-row shape. The
+   tick glyph itself is .mc-panel-check, at the bottom of this file. */
+.rc-row.is-checked{ background:var(--accent-soft); border-color:var(--accent); }
+.rc-row-name{ flex:1; }
+/* Case Mode's own result rows show the doc_no ALONE (chart_interact.js's
+   buildCaseModeRow — the owner's own complaint was the old " — client_name"
+   suffix wrapping awkwardly in this narrow floating dropdown). Scoped to
+   just this list, not .rc-row-name generally, since every OTHER use of that
+   class (company/label rows elsewhere on the chart) still wants its longer
+   name to wrap normally. min-width:0 is what lets a flex child actually
+   shrink enough for text-overflow to kick in instead of overflowing. */
+#rcCaseModeList .rc-row-name{
+  min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.rc-row-empty{ padding:1rem .5rem; text-align:center; font-size:.8rem; color:var(--muted); }
+
+/* A row's "via case <doc_no>" badge — a plain neutral tag, never
+   interactive: a case-derived fact can never be edited from the chart, so
+   this never grows a hover state or a cursor of its own. */
+.rc-row-badge{
+  flex:0 0 auto; font-size:.68rem; font-weight:600; color:var(--muted);
+  background:var(--cloud); border:1px solid var(--line-soft); border-radius:100px;
+  padding:.12rem .5rem; white-space:nowrap;
+}
+/* A manual tag's own "×" remove control — only ever rendered when this
+   viewer is actually allowed to remove THIS row (see chart_interact.js's
+   ``removable`` check), so it never needs a disabled state of its own. */
+.rc-row-remove{
+  flex:0 0 auto; border:0; background:transparent; color:var(--muted);
+  font-size:.95rem; line-height:1; cursor:pointer; padding:.1rem .35rem; border-radius:6px;
+}
+.rc-row-remove:hover{ background:var(--cloud); color:var(--ink); }
+
+/* The "Activate as this" pivot control (chart_interact.js's buildLabelRow) —
+   available on every real row, never CAN_EDIT-gated (it is a read, exactly
+   like Inquiry, never a write), so it gets the platform's own --accent
+   rather than --row-remove's neutral --muted, reading as "go here" instead
+   of "delete this". */
+.rc-row-pivot{
+  flex:0 0 auto; border:0; background:transparent; color:var(--accent);
+  font-size:.95rem; line-height:1; cursor:pointer; padding:.1rem .35rem; border-radius:6px;
+}
+.rc-row-pivot:hover{ background:var(--accent-soft); }
+
+/* "Connect" mode's rows (chart_interact.js's buildLabelRow, ``connectCtx``,
+   and the synthesized "connecting" row beside it) are a plain .rc-row plus
+   the .mc-panel-check tick glyph at the bottom of this file, tinted by
+   .rc-row.is-checked above — nothing bespoke lives here for them.
+
+   The read-only "name only" row shape — used by the mid-query contextual
+   view (renderContextualQueryRow, chart_interact.js) for a lit/focused
+   card's own read-out while an Inquiry is active. Never clickable: it is a
+   read-out of the already-running query, not a new selection. */
+.rc-row-static{ flex-direction:column; align-items:flex-start; gap:.25rem; cursor:default; }
+.rc-row-static:hover{ background:transparent; }
+
+.rc-modal-actions{
+  display:flex; gap:.4rem; padding:.6rem .7rem; border-top:1px solid var(--line-soft);
+}
+.rc-modal-actions[hidden]{ display:none; }
+.rc-modal-actions .btn{ flex:1; justify-content:center; }
+
+/* ---- The "+ Add company" panel (change 2) -----------------------------------
+   A reusable right-side sub-panel, built once and appended into
+   .rc-modal-columns (chart_interact.js), toggled hidden/visible exactly like
+   every other once-built piece of this file (the "us" cases panel). Opening it just widens the SAME modal (.rc-modal.is-wide, above) —
+   never a second window — and this panel occupies the freed width as a
+   second column beside .rc-modal-main. Available from every label card's
+   modal, in both default browsing and "connect" mode alike — see
+   chart_interact.js's updateAddCompanyButtonVisibility(). */
+.rc-add-company-panel{
+  display:flex; flex-direction:column;
+  width:320px; flex:0 0 320px; min-width:0; min-height:0;
+  border-left:1px solid var(--line-soft);
+}
+.rc-add-company-panel[hidden]{ display:none; }
+/* OPENING THIS PANEL MUST ONLY EVER ADD WIDTH. It used to add height too —
+   the columns are a plain stretch flex row, so the modal grew to whatever the
+   TALLER column demanded, and this one demanded more than the main column
+   beside it: the shared .rc-modal-list carries `min-height:420px` (the main
+   column's own deliberate floor), and here that floor stacked on top of this
+   panel's extra head row and its own action bar. The result was a right-hand
+   column taller than the left and a modal that jumped taller the moment
+   "+ Add company" was pressed. Zeroing the floor for THIS panel's list only
+   (it still takes every pixel the row gives it via flex:1, it just no longer
+   demands any) leaves the modal's height decided by the main column alone,
+   exactly as it is when this panel is closed — so both columns are the same
+   height, and opening the panel is a pure width change. */
+.rc-add-company-panel .rc-modal-list{ flex:1 1 auto; min-height:0; }
+.rc-add-company-head{
+  display:flex; align-items:center; justify-content:space-between; gap:.4rem;
+  padding:.6rem .7rem; border-bottom:1px solid var(--line-soft);
+}
+.rc-add-company-title{ font-size:.8rem; font-weight:700; color:var(--ink); }
+/* The panel's own search box and result/create list reuse .rc-modal-search /
+   .rc-modal-search-input / .rc-modal-list / .rc-row / .mc-row-add exactly as
+   the main column already does — see chart_interact.js — so nothing new is
+   defined here for either. */
+
+/* ---- Narrow screens -------------------------------------------------------- */
+@media (max-width:640px){
+  .rc-modal{ max-width:none; }
+  .rc-modal.is-wide{ max-width:none; }
+  .rc-modal-columns{ flex-direction:column; }
+  .rc-add-company-panel{
+    width:auto; flex:0 0 auto; max-height:50vh;
+    border-left:0; border-top:1px solid var(--line-soft);
+  }
+}
+
+/* ===========================================================================
+   Two survivors of the deleted Companies tab — now CHART-OWNED.
+
+   These two classes were written for marketing/_companies.html + companies.js,
+   both of which are gone. They stay because chart_interact.js deliberately
+   reuses them for rows it builds itself, so deleting them would silently
+   break the chart's own UI rather than tidy up after a removed tab:
+
+   * .mc-row-add  — the "+ Add \"foo\"" row the "+ Add company" panel and the
+     Quick Inquiry company picker append to a .rc-modal-list when a search
+     finds no exact match (chart_interact.js's buildCreateRow, which sets
+     `className = 'rc-row mc-row-add'`).
+   * .mc-panel-check — the small tick glyph prepended to a .rc-row while the
+     modal is in "connect" mode (chart_interact.js's buildLabelRow, its
+     ``connectCtx`` branch). The row-level tint that goes with it is
+     .rc-row.is-checked, further up this file.
+
+   Everything else that lived in this section (.mc-search*, .mc-tabs*,
+   .mc-list, .mc-row*, .mc-chip, .mc-panel*) went with the tab; nothing on
+   the page carries those classes any more. The .mc- prefix is kept on these
+   two only so the class names in the stylesheet still match the class names
+   in chart_interact.js — renaming them would be a second, unrelated change
+   to a file this removal has no other reason to touch.
+   =========================================================================== */
+
+/* Dashed accent-tinted variant of .rc-row for the "create this company"
+   affordance — it is an action, not one of the real results above it. */
+.mc-row-add{
+  color:var(--accent-strong, var(--accent)); font-weight:650;
+  border-style:dashed; border-color:color-mix(in srgb, var(--accent) 45%, transparent);
+  background:transparent;
+}
+.mc-row-add:hover{ background:var(--accent-soft); border-color:var(--accent); }
+
+/* The connect-mode tick glyph itself (the row's own tint is
+   .rc-row.is-checked above). Fixed width so ticked and unticked rows in the
+   same list keep their names aligned — the glyph's textContent is '' when
+   unchecked, not a second character. */
+.mc-panel-check{
+  flex:0 0 auto; width:1.1rem; text-align:center;
+  font-size:.86rem; font-weight:800; line-height:1;
+  color:var(--accent-strong, var(--accent));
+}

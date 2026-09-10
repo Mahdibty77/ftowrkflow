@@ -389,7 +389,14 @@
         activeRowRequests.set(rowId, controller);
 
         const sizeCell = getCell(row, 'size');
-        if (sizeCell && row.dataset.baseSize === undefined) {
+        // Keep the stable base size synced to whatever the cell currently shows,
+        // EXCEPT while a Remark/Revision override span is being displayed (that
+        // text is a temporary substitution, not the real size). This also means
+        // a direct Technical edit of the SIZE cell (TO only) becomes the new
+        // base immediately — clean_size below, and any later restore from an
+        // override cycle, follow the typed value instead of staying pinned to
+        // whatever the row started with.
+        if (sizeCell && row.dataset.sizeOverrideActive !== '1') {
             row.dataset.baseSize = sizeCell.textContent.trim() || '';
         }
         // Always send the stable base size. Remark/revision may temporarily

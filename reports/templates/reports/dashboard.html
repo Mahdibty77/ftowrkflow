@@ -1,12 +1,24 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Dashboard · Foolad Tabar Workflow{% endblock %}
-{% block topbar %}Dashboard{% endblock %}
+{% comment %}
+  One page, one name. An expert reaches this page from a sidebar item called
+  "My Report" and used to land on a browser tab and a topbar that both said
+  "Dashboard" over an h1 that said "My report" and an h2 that said "My work" —
+  four labels for one page. Everything an expert reads now says "My report"
+  (the sidebar keeps the nav's Title Case, as every sidebar entry does).
+
+  The privileged scopes are deliberately left saying "Dashboard": for them the
+  sidebar item, the tab and the topbar already agree on that word, and only the
+  h1 narrows it to the unit being reported on, which is a subtitle rather than a
+  competing name for the page.
+{% endcomment %}
+{% block title %}{% if scope == 'own' %}My report{% else %}Dashboard{% endif %} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% if scope == 'own' %}My report{% else %}Dashboard{% endif %}{% endblock %}
 {% block content %}
 
 <div class="page-head">
-  <div><h1>{% if scope == 'unit' %}{{ sections.0.unit_label }} report{% else %}Management report{% endif %}</h1>
-    <div class="sub">Overall summary and per-expert cards. Pick a date range, then click a card to open that person's cases.</div></div>
+  <div><h1>{% if scope == 'own' %}My report{% elif scope == 'unit' %}{{ sections.0.unit_label }} report{% else %}Management report{% endif %}</h1>
+    <div class="sub">{% if scope == 'own' %}Your own work in {{ sections.0.unit_label }}. Pick a date range, then click your card to open your cases.{% else %}Overall summary and per-expert cards. Pick a date range, then click a card to open that person's cases.{% endif %}</div></div>
 </div>
 
 {% if overview %}
@@ -68,8 +80,8 @@
 <section class="dash-unit dash-{{ sec.kind }}">
   <div class="dash-unit-head">
     <span class="dash-dot"></span>
-    <h2>{{ sec.unit_label }}</h2>
-    <span class="dash-count">{{ sec.cards|length }} expert(s)</span>
+    <h2>{% if scope == 'own' %}My report{% else %}{{ sec.unit_label }}{% endif %}</h2>
+    <span class="dash-count">{% if scope == 'own' %}{{ sec.unit_label }}{% else %}{{ sec.cards|length }} expert(s){% endif %}</span>
   </div>
 
   <form method="get" class="dash-filter" data-autosubmit>
@@ -116,9 +128,11 @@
             <div class="dc-m"><span class="dc-v">{{ c.cancelled }}</span><span class="dc-l">Cancelled</span></div>
             <div class="dc-m dc-m-money"><span class="dc-v">{{ c.grand_total_display }}</span><span class="dc-l">Grand total</span></div>
           {% elif sec.kind == 'technical' %}
+            <div class="dc-m"><span class="dc-v">{{ c.built_to }}</span><span class="dc-l">TOs built</span></div>
             <div class="dc-m"><span class="dc-v">{{ c.assigned }}</span><span class="dc-l">Assigned</span></div>
             <div class="dc-m"><span class="dc-v">{{ c.in_inbox }}</span><span class="dc-l">In inbox now</span></div>
           {% else %}
+            <div class="dc-m"><span class="dc-v">{{ c.priced_pi }}</span><span class="dc-l">PIs priced</span></div>
             <div class="dc-m"><span class="dc-v">{{ c.assigned }}</span><span class="dc-l">Assigned</span></div>
             <div class="dc-m"><span class="dc-v">{{ c.in_inbox }}</span><span class="dc-l">In inbox now</span></div>
             <div class="dc-m"><span class="dc-v">{{ c.unsuppliable }}</span><span class="dc-l">Unsuppliable</span></div>

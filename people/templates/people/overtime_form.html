@@ -24,7 +24,7 @@
     <li style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.45rem 0;border-bottom:1px solid var(--line-soft);">
       <span>
         <strong class="mono">{{ c.label }}</strong>
-        {% if c.client %}<span class="muted"> · {{ c.client }}</span>{% endif %}
+        {% if c.client %}<span class="muted" dir="auto"> · {{ c.client }}</span>{% endif %}
         {% if c.missing %}<span class="pill pill-grey">Missing</span>{% endif %}
       </span>
       <form method="post" style="margin:0;">

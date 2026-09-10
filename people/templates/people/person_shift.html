@@ -1,46 +1,57 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 {% block title %}Work shift · {{ person.display_name }}{% endblock %}
-{% block topbar %}Work shift · {{ person.display_name }}{% endblock %}
+{% block topbar %}{% trans "Work shift" %} · {{ person.display_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-22">
+  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-27">
 {% endblock %}
 
 {% block content %}
 <div class="page-head">
   <div>
-    <h1><i class="fa-solid fa-hourglass-half"></i> Work shift</h1>
+    <h1><i class="fa-solid fa-hourglass-half"></i> {% trans "Work shift" %}</h1>
     <div class="sub">
-      {{ person.display_name }} · Detail code <span class="ppl-code">{{ person.detail_code }}</span>
-      · Tracking from <span class="mono">{{ tracking_label }}</span>
+      {{ person.display_name }} · {% trans "Detail code" %} <span class="ppl-code">{{ person.detail_code }}</span>
+      · {% trans "Tracking from" %} <span class="mono">{{ tracking_label }}</span>
     </div>
   </div>
   <div class="btn-row">
     <a href="{% url 'people:person_detail' person.pk %}" class="btn btn-sm">
-      <i class="fa-solid fa-arrow-left"></i> Back to details
+      <i class="fa-solid fa-arrow-left"></i> {% trans "Back to details" %}
     </a>
   </div>
 </div>
 
+{% comment %}
+  THE ADMIN EDIT CARD — hidden ENTIRELY (not merely its controls) from a
+  non-admin self-viewer, per the owner's own instruction: this card is the
+  one thing a person is NOT meant to see about their own record, even though
+  everything past it on this page (year tiles, month cards, and the per-day
+  drill-down one level down) renders identically for them. ``is_admin`` is
+  ``people/views.py::person_shift``'s own answer to "who is looking", not a
+  re-derivation here — an administrator sees this exactly as before,
+  whichever record (their own or somebody else's) they opened it from.
+{% endcomment %}
+{% if is_admin %}
 <div class="card ppl-shift-card">
-  <div class="card-head"><h3><i class="fa-solid fa-hourglass-half"></i> Daily hours</h3></div>
+  <div class="card-head"><h3><i class="fa-solid fa-hourglass-half"></i> {% trans "Daily hours" %}</h3></div>
   <p class="muted" style="font-size:.86rem;margin:0 0 1rem;line-height:1.5;">
-    Login is allowed only between these times (Asia/Tehran). Weekends are
+    {% blocktrans %}Login is allowed only between these times (Asia/Tehran). Weekends are
     Thursday and Friday; official Jalali holidays are also excluded from planned hours.
     Hours are counted only from the tracking start date above — earlier days are not planned.
     <strong>Floating time</strong> lets a late arrival within the grace window still count from Start.
-    Changing the shift only updates the <strong>current</strong> month.
+    Changing the shift only updates the <strong>current</strong> month.{% endblocktrans %}
   </p>
 
   {% if pending_confirm %}
   <div class="ppl-confirm" data-confirm-box style="margin-bottom:1rem;">
     <span class="ppl-confirm-q">
-      Confirm shift change to
-      <strong class="mono">{{ work_start }}</strong>–<strong class="mono">{{ work_end }}</strong>
-      · Floating time <strong class="mono">{{ float_mmss }}</strong>
-      · Reconnect time <strong class="mono">{{ grace_mmss }}</strong>
-      ({{ hours_per_day }} h/day)? This recalculates only the current month.
+      {% blocktrans with start=work_start end=work_end float_t=float_mmss grace=grace_mmss hours=hours_per_day %}Confirm shift change to
+      <strong class="mono">{{ start }}</strong>–<strong class="mono">{{ end }}</strong>
+      · Floating time <strong class="mono">{{ float_t }}</strong>
+      · Reconnect time <strong class="mono">{{ grace }}</strong>
+      ({{ hours }} h/day)? This recalculates only the current month.{% endblocktrans %}
     </span>
     <span class="ppl-confirm-act">
       <form method="post" style="display:inline;">
@@ -50,9 +61,9 @@
         <input type="hidden" name="float_time" value="{{ float_mmss }}">
         <input type="hidden" name="reconnect_time" value="{{ grace_mmss }}">
         <input type="hidden" name="confirm_step" value="2">
-        <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-check"></i> Confirm save</button>
+        <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-check"></i> {% trans "Confirm save" %}</button>
       </form>
-      <a href="{% url 'people:person_shift' person.pk %}" class="btn btn-sm btn-ghost">Cancel</a>
+      <a href="{% url 'people:person_shift' person.pk %}" class="btn btn-sm btn-ghost">{% trans "Cancel" %}</a>
     </span>
   </div>
   {% else %}
@@ -61,16 +72,16 @@
     <input type="hidden" name="confirm_step" value="1">
     <div class="ppl-shift-times">
       <div class="field ppl-time-wrap">
-        <label for="id_work_start_h">Start</label>
+        <label for="id_work_start_h">{% trans "Start" %}</label>
         <div class="ppl-hm">
           <i class="fa-solid fa-hourglass-half ppl-hm-ic" aria-hidden="true"></i>
-          <select name="work_start_h" id="id_work_start_h" class="ppl-theme-select" required aria-label="Start hour">
+          <select name="work_start_h" id="id_work_start_h" class="ppl-theme-select" required aria-label="{% trans 'Start hour' %}">
             {% for h in hour_choices %}
               <option value="{{ h }}"{% if h == start_h %} selected{% endif %}>{{ h }}</option>
             {% endfor %}
           </select>
           <span class="ppl-hm-sep">:</span>
-          <select name="work_start_m" id="id_work_start_m" class="ppl-theme-select" required aria-label="Start minute">
+          <select name="work_start_m" id="id_work_start_m" class="ppl-theme-select" required aria-label="{% trans 'Start minute' %}">
             {% for m in minute_choices %}
               <option value="{{ m }}"{% if m == start_m %} selected{% endif %}>{{ m }}</option>
             {% endfor %}
@@ -78,16 +89,16 @@
         </div>
       </div>
       <div class="field ppl-time-wrap">
-        <label for="id_work_end_h">End</label>
+        <label for="id_work_end_h">{% trans "End" %}</label>
         <div class="ppl-hm">
           <i class="fa-solid fa-hourglass-half ppl-hm-ic" aria-hidden="true"></i>
-          <select name="work_end_h" id="id_work_end_h" class="ppl-theme-select" required aria-label="End hour">
+          <select name="work_end_h" id="id_work_end_h" class="ppl-theme-select" required aria-label="{% trans 'End hour' %}">
             {% for h in hour_choices %}
               <option value="{{ h }}"{% if h == end_h %} selected{% endif %}>{{ h }}</option>
             {% endfor %}
           </select>
           <span class="ppl-hm-sep">:</span>
-          <select name="work_end_m" id="id_work_end_m" class="ppl-theme-select" required aria-label="End minute">
+          <select name="work_end_m" id="id_work_end_m" class="ppl-theme-select" required aria-label="{% trans 'End minute' %}">
             {% for m in minute_choices %}
               <option value="{{ m }}"{% if m == end_m %} selected{% endif %}>{{ m }}</option>
             {% endfor %}
@@ -95,16 +106,16 @@
         </div>
       </div>
       <div class="field ppl-time-wrap">
-        <label for="id_float_m">Floating time</label>
+        <label for="id_float_m">{% trans "Floating time" %}</label>
         <div class="ppl-hm">
           <i class="fa-solid fa-clock ppl-hm-ic" aria-hidden="true"></i>
-          <select name="float_m" id="id_float_m" class="ppl-theme-select" required aria-label="Floating minutes">
+          <select name="float_m" id="id_float_m" class="ppl-theme-select" required aria-label="{% trans 'Floating minutes' %}">
             {% for m in float_minute_choices %}
               <option value="{{ m }}"{% if m == float_m %} selected{% endif %}>{{ m }}</option>
             {% endfor %}
           </select>
           <span class="ppl-hm-sep">:</span>
-          <select name="float_s" id="id_float_s" class="ppl-theme-select" required aria-label="Floating seconds">
+          <select name="float_s" id="id_float_s" class="ppl-theme-select" required aria-label="{% trans 'Floating seconds' %}">
             {% for m in minute_choices %}
               <option value="{{ m }}"{% if m == float_s %} selected{% endif %}>{{ m }}</option>
             {% endfor %}
@@ -112,16 +123,16 @@
         </div>
       </div>
       <div class="field ppl-time-wrap">
-        <label for="id_grace_m">Reconnect time</label>
+        <label for="id_grace_m">{% trans "Reconnect time" %}</label>
         <div class="ppl-hm">
           <i class="fa-solid fa-rotate-right ppl-hm-ic" aria-hidden="true"></i>
-          <select name="grace_m" id="id_grace_m" class="ppl-theme-select" required aria-label="Reconnect minutes">
+          <select name="grace_m" id="id_grace_m" class="ppl-theme-select" required aria-label="{% trans 'Reconnect minutes' %}">
             {% for m in float_minute_choices %}
               <option value="{{ m }}"{% if m == grace_m %} selected{% endif %}>{{ m }}</option>
             {% endfor %}
           </select>
           <span class="ppl-hm-sep">:</span>
-          <select name="grace_s" id="id_grace_s" class="ppl-theme-select" required aria-label="Reconnect seconds">
+          <select name="grace_s" id="id_grace_s" class="ppl-theme-select" required aria-label="{% trans 'Reconnect seconds' %}">
             {% for m in minute_choices %}
               <option value="{{ m }}"{% if m == grace_s %} selected{% endif %}>{{ m }}</option>
             {% endfor %}
@@ -130,31 +141,64 @@
       </div>
     </div>
     <p class="muted" style="font-size:.8rem;margin:.65rem 0 0;">
-      Shift length: <strong>{{ hours_per_day }}</strong> hours / working day
-      · Arrive by Start + Floating time to still count from Start
+      {% blocktrans %}Shift length: <strong>{{ hours_per_day }}</strong> hours / working day
+      · Arrive by Start + Floating time to still count from Start{% endblocktrans %}
     </p>
     <div class="btn-row" style="margin-top:1.1rem;">
-      <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save shift</button>
-      <a href="{% url 'people:person_detail' person.pk %}" class="btn btn-ghost">Cancel</a>
+      <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> {% trans "Save shift" %}</button>
+      <a href="{% url 'people:person_detail' person.pk %}" class="btn btn-ghost">{% trans "Cancel" %}</a>
     </div>
   </form>
   {% endif %}
 </div>
+{% endif %}
 
 <div class="ppl-shift-branch">
   <div class="ppl-month-grid">
     {% for y in year_cards %}
-      <div class="ppl-month-card{% if y.is_current %} is-current{% endif %}{% if y.frozen %} is-frozen{% endif %}">
+      <div class="ppl-month-card ppl-card-has-badge{% if y.is_current %} is-current{% endif %}{% if y.frozen %} is-frozen{% endif %}">
         <div class="ppl-month-head">
-          <strong>Year {{ y.jalali_year }}</strong>
-          {% if y.is_current %}<span class="pill pill-green">Current</span>
-          {% else %}<span class="pill pill-grey">Frozen</span>{% endif %}
+          <span class="ppl-month-head-title">
+            <strong>{% blocktrans with year=y.jalali_year %}Year {{ year }}{% endblocktrans %}</strong>
+            {% comment %}
+              OPEN-REMINDER BADGE — THIS PERSON'S OWN open reminders due
+              within this Jalali year (people/views.py::person_shift,
+              ``_reminder_count_for_year`` over
+              ``_reminder_day_counts_for_person`` — "open" needs no state
+              check at all, since a closed reminder no longer exists as a
+              row). HIDDEN ENTIRELY when the count is zero — the owner's own
+              instruction: a card with nothing open should show nothing
+              extra at all, not a "0" nobody needs. Clickable ONLY when the
+              viewer IS this person (``y.reminder_url`` is ``None``
+              otherwise) — see that view's own docstring for why an admin
+              looking at someone ELSE's year sees the right count but never
+              a link that would silently open the admin's OWN "My Tasks"
+              instead. Lives right beside the title, in this card's own
+              normal flow, rather than floating over it — see people.css's
+              own comment on ``.ppl-reminder-badge`` for why.
+            {% endcomment %}
+            {% if y.reminder_count %}
+              {% if y.reminder_url %}
+              <a href="{{ y.reminder_url }}" class="chip ppl-reminder-badge"
+                 title="{% blocktrans with year=y.jalali_year %}Your own open reminders due in {{ year }} — open My Tasks filtered to this year{% endblocktrans %}">
+                <i class="fa-solid fa-bell"></i> {{ y.reminder_count }}
+              </a>
+              {% else %}
+              <span class="chip ppl-reminder-badge"
+                    title="{% blocktrans with name=person.display_name year=y.jalali_year %}{{ name }}'s open reminders due in {{ year }}{% endblocktrans %}">
+                <i class="fa-solid fa-bell"></i> {{ y.reminder_count }}
+              </span>
+              {% endif %}
+            {% endif %}
+          </span>
+          {% if y.is_current %}<span class="pill pill-green">{% trans "Current" %}</span>
+          {% else %}<span class="pill pill-grey">{% trans "Frozen" %}</span>{% endif %}
         </div>
         <div class="ppl-month-stats">
-          <div><span class="muted">Plan</span><strong>{{ y.planned_hours }} h</strong></div>
-          <div><span class="muted">Done</span><strong>{{ y.worked_hours }} h{% if y.excess_hours %} <span class="ppl-ot-chip">{{ y.excess_hours }}h (OT)</span>{% endif %}</strong></div>
-          <div><span class="muted">Work days</span><strong>{{ y.working_days }}</strong></div>
-          <div><span class="muted">Off days</span><strong>{{ y.off_days }}</strong></div>
+          <div><span class="muted">{% trans "Plan" %}</span><strong>{{ y.planned_hours }} h</strong></div>
+          <div><span class="muted">{% trans "Done" %}</span><strong>{{ y.worked_hours }} h{% if y.excess_hours %} <span class="ppl-ot-chip">{{ y.excess_hours }}h (OT)</span>{% endif %}</strong></div>
+          <div><span class="muted">{% trans "Work days" %}</span><strong>{{ y.working_days }}</strong></div>
+          <div><span class="muted">{% trans "Off days" %}</span><strong>{{ y.off_days }}</strong></div>
         </div>
         <div class="ppl-month-bar ppl-bar-tall" title="{{ y.worked_hours }} / {{ y.planned_hours }} h">
           <span style="width:{{ y.bar_pct }}%;"></span>
@@ -166,43 +210,97 @@
 
   <div class="ppl-month-branch">
     <div class="ppl-month-branch-head">
-      <h3><i class="fa-solid fa-chart-line"></i> Monthly hours</h3>
-      <span class="count">Year {{ report_year }}</span>
+      <h3><i class="fa-solid fa-chart-line"></i> {% trans "Monthly hours" %}</h3>
+      <span class="count">{% blocktrans with year=report_year %}Year {{ year }}{% endblocktrans %}</span>
     </div>
     <p class="muted" style="font-size:.84rem;margin:0 0 .85rem;line-height:1.45;">
-      Click a month to open its daily cards.
+      {% trans "Click a month to open its daily cards." %}
     </p>
     <div class="ppl-month-grid">
       {% for m in month_cards %}
+        {% comment %}
+          THE SAME OPEN-REMINDER BADGE AS THE YEAR TILES ABOVE, now for one
+          Jalali month (``_reminder_count_for_month``) — reused verbatim for
+          BOTH branches below (idle and active) so a month never started
+          still shows its own true count, and HIDDEN ENTIRELY on either
+          branch when that count is zero (same instruction as the year
+          tiles — nothing extra to show is not a "0" to print). The active
+          branch's card is itself an ``<a>`` to ``person_shift_month`` — a
+          second ``<a>`` cannot nest inside it, so THAT branch keeps the
+          badge OUTSIDE the link, as a sibling of it
+          (``.ppl-month-card-badge-row``, see people.css). That sibling is
+          absolutely positioned to sit visually INSIDE the card, just below
+          its "Current"/"Frozen"/"جاری" status pill — see people.css's own
+          comment on why (a normal-flow row here used to overflow the card's
+          own box and collide with the row of cards below it in the grid).
+          Two non-nested sibling ``<a>`` elements, one drawn over the other's
+          visual area, is valid HTML: clicking the badge goes to My Tasks,
+          clicking anywhere else on the card still opens the month. The idle
+          branch has no such link to avoid, so its badge lives directly in
+          the card's own ``.ppl-month-head``, beside the title, exactly like
+          the year tiles above — unaffected by any of this.
+        {% endcomment %}
         {% if m.status == 'idle' %}
-          <div class="ppl-month-card is-idle">
+          <div class="ppl-month-card is-idle ppl-card-has-badge">
             <div class="ppl-month-head">
-              <strong>{{ m.name }}</strong>
+              <span class="ppl-month-head-title">
+                <strong>{{ m.name }}</strong>
+                {% if m.reminder_count %}
+                  {% if m.reminder_url %}
+                  <a href="{{ m.reminder_url }}" class="chip ppl-reminder-badge"
+                     title="{% blocktrans with month=m.name year=report_year %}Your own open reminders due in {{ month }} {{ year }} — open My Tasks filtered to this month{% endblocktrans %}">
+                    <i class="fa-solid fa-bell"></i> {{ m.reminder_count }}
+                  </a>
+                  {% else %}
+                  <span class="chip ppl-reminder-badge"
+                        title="{% blocktrans with name=person.display_name month=m.name year=report_year %}{{ name }}'s open reminders due in {{ month }} {{ year }}{% endblocktrans %}">
+                    <i class="fa-solid fa-bell"></i> {{ m.reminder_count }}
+                  </span>
+                  {% endif %}
+                {% endif %}
+              </span>
               <span class="pill pill-grey">—</span>
             </div>
-            <div class="ppl-month-idle muted">Not started</div>
+            <div class="ppl-month-idle muted">{% trans "Not started" %}</div>
           </div>
         {% else %}
-          <a href="{% url 'people:person_shift_month' person.pk report_year m.month %}"
-             class="ppl-month-card is-{{ m.status }} ppl-month-link">
-            <div class="ppl-month-head">
-              <strong>{{ m.name }}</strong>
-              {% if m.status == 'current' %}<span class="pill pill-green">Current</span>
-              {% elif m.status == 'frozen' %}<span class="pill pill-grey">Frozen</span>
-              {% elif m.status == 'upcoming' %}<span class="pill pill-grey">Soon</span>{% endif %}
+          <div class="ppl-month-card-outer ppl-card-has-badge">
+            {% if m.reminder_count %}
+            <div class="ppl-month-card-badge-row">
+              {% if m.reminder_url %}
+              <a href="{{ m.reminder_url }}" class="chip ppl-reminder-badge"
+                 title="{% blocktrans with month=m.name year=report_year %}Your own open reminders due in {{ month }} {{ year }} — open My Tasks filtered to this month{% endblocktrans %}">
+                <i class="fa-solid fa-bell"></i> {{ m.reminder_count }}
+              </a>
+              {% else %}
+              <span class="chip ppl-reminder-badge"
+                    title="{% blocktrans with name=person.display_name month=m.name year=report_year %}{{ name }}'s open reminders due in {{ month }} {{ year }}{% endblocktrans %}">
+                <i class="fa-solid fa-bell"></i> {{ m.reminder_count }}
+              </span>
+              {% endif %}
             </div>
-            <div class="ppl-month-stats">
-              <div><span class="muted">Plan</span><strong>{{ m.planned_hours }} h</strong></div>
-              <div><span class="muted">Done</span><strong>{{ m.worked_hours }} h{% if m.excess_hours %} <span class="ppl-ot-chip">{{ m.excess_hours }}h (OT)</span>{% endif %}</strong></div>
-              <div><span class="muted">Work days</span><strong>{{ m.working_days }}</strong></div>
-              <div><span class="muted">Off days</span><strong>{{ m.off_days }}</strong></div>
-            </div>
-            <div class="ppl-month-bar ppl-bar-tall" title="{{ m.worked_hours }} / {{ m.planned_hours }} h">
-              <span style="width:{{ m.bar_pct }}%;"></span>
-              <em class="ppl-bar-pct">{{ m.bar_pct }}%</em>
-            </div>
-            <div class="ppl-month-foot muted">{{ m.hours_per_day }} h / day · {{ m.shift_label }}</div>
-          </a>
+            {% endif %}
+            <a href="{% url 'people:person_shift_month' person.pk report_year m.month %}"
+               class="ppl-month-card is-{{ m.status }} ppl-month-link">
+              <div class="ppl-month-head">
+                <strong>{{ m.name }}</strong>
+                {% if m.status == 'current' %}<span class="pill pill-green">{% trans "Current" %}</span>
+                {% elif m.status == 'frozen' %}<span class="pill pill-grey">{% trans "Frozen" %}</span>
+                {% elif m.status == 'upcoming' %}<span class="pill pill-grey">{% trans "Soon" %}</span>{% endif %}
+              </div>
+              <div class="ppl-month-stats">
+                <div><span class="muted">{% trans "Plan" %}</span><strong>{{ m.planned_hours }} h</strong></div>
+                <div><span class="muted">{% trans "Done" %}</span><strong>{{ m.worked_hours }} h{% if m.excess_hours %} <span class="ppl-ot-chip">{{ m.excess_hours }}h (OT)</span>{% endif %}</strong></div>
+                <div><span class="muted">{% trans "Work days" %}</span><strong>{{ m.working_days }}</strong></div>
+                <div><span class="muted">{% trans "Off days" %}</span><strong>{{ m.off_days }}</strong></div>
+              </div>
+              <div class="ppl-month-bar ppl-bar-tall" title="{{ m.worked_hours }} / {{ m.planned_hours }} h">
+                <span style="width:{{ m.bar_pct }}%;"></span>
+                <em class="ppl-bar-pct">{{ m.bar_pct }}%</em>
+              </div>
+              <div class="ppl-month-foot muted">{{ m.hours_per_day }} h / day · {{ m.shift_label }}</div>
+            </a>
+          </div>
         {% endif %}
       {% endfor %}
     </div>

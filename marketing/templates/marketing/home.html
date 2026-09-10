@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+{% load static i18n %}
+{% comment %}
+  The Marketing workspace: the project role chart, and nothing else.
+
+  This page carried a .tabs / .tab strip (links to ?tab=…) for as long as it
+  had a second panel to switch to. The Companies tab that occupied that
+  second slot is gone — the company directory is its own section now — and a
+  one-entry tab strip is decoration rather than navigation, so the strip went
+  with it rather than being left rendering a single tab that links to the
+  page you are already on. The panel below is therefore unconditional, and
+  the view no longer has a ``tab`` concept to pass down.
+{% endcomment %}
+{% block title %}{% trans "Marketing" %} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% trans "Marketing" %}{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'marketing/css/rolechart.css' %}">
+{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1>{% trans "Marketing" %}</h1>
+    <div class="sub">{{ user.profile.title_line }}</div>
+  </div>
+
+  {% comment %}
+    The top-of-page header widgets — a plain flex row (.rc-header-widgets)
+    holding both small standalone cards below, so .page-head itself still
+    only ever gets TWO children (the title block above, this wrapper) and
+    keeps working with its own justify-content:space-between exactly as
+    before; the wrapper is what actually lays the two cards out side by
+    side, with its own gap, and wraps them onto their own line together on a
+    narrow screen rather than justify-content spreading three items apart
+    unevenly. Unconditional now that the chart is this page's only panel.
+  {% endcomment %}
+  <div class="rc-header-widgets">
+    {% comment %}
+      The "Quick Inquiry" card — a small, standalone shortcut that runs the
+      exact same Inquiry a reader would get by opening a role's card on the
+      chart below, picking a company there, and pressing Inquiry — without
+      first having to find the right card.
+
+      Just the static shell: two field containers plus a Confirm button, a
+      bare mount point for the script to fill in. Every bit of behaviour —
+      the company search (reusing the exact same search/create mechanism the "+ Add company"
+      panel already built), the role dropdown (marketing:client_connections,
+      unchanged), adding a brand-new role (marketing:label_toggle, unchanged),
+      and Confirm itself (runInquiryForClient(), unchanged) — is wired in
+      chart_interact.js, self-guarded on these element ids exactly the way
+      every other piece of that file already guards on its own.
+    {% endcomment %}
+    <div class="rc-quick-inquiry rc-quick-inquiry-wide" id="rcQuickInquiry">
+      <div class="rc-quick-title">{% trans "Quick Inquiry" %}</div>
+
+      {% comment %}
+        Company and Role sit side by side in one horizontal row (the owner's
+        own request) rather than stacked — .rc-quick-row is just the flex
+        row wrapper; each field inside keeps its own .rc-quick-field shape
+        unchanged. The Role field is now the SAME searchable/live-filtered
+        combo the Company field already is (chart_interact.js's
+        createRolePicker, deliberately mirroring createCompanyPicker's own
+        markup/interaction) instead of a native <select>. "+ Add a new role"
+        underneath (rcQuickNewRoleWrap) got the same treatment in a later
+        round — see its own comment just below.
+      {% endcomment %}
+      <div class="rc-quick-row">
+        <div class="rc-quick-field">
+          <label class="rc-quick-label" for="rcQuickCompanyInput">{% trans "Company" %}</label>
+          <div class="rc-quick-combo">
+            <input type="text" id="rcQuickCompanyInput" class="rc-quick-select"
+                   placeholder="{% trans "Search a company…" %}" autocomplete="off" dir="auto">
+            <div class="rc-quick-dropdown" id="rcQuickCompanyList" hidden></div>
+          </div>
+        </div>
+
+        <div class="rc-quick-field">
+          <label class="rc-quick-label" for="rcQuickRoleInput">{% trans "Role" %}</label>
+          <div class="rc-quick-combo">
+            <input type="text" id="rcQuickRoleInput" class="rc-quick-select"
+                   placeholder="{% trans "Pick a company first…" %}" autocomplete="off" dir="auto" disabled>
+            <div class="rc-quick-dropdown" id="rcQuickRoleList" hidden></div>
+          </div>
+          <button type="button" class="rc-quick-add-role-toggle" id="rcQuickAddRoleToggle" hidden>{% trans "+ Add a new role" %}</button>
+          {% comment %}
+            "Add a new role" used to be a plain native <select> — the one
+            role-picking affordance left on this whole page that did not
+            already read/behave like the searchable/live-filtered fields
+            beside it. Now the same createRolePicker() component the
+            "existing role" field above (rcQuickRoleInput/rcQuickRoleList)
+            already uses, wrapped in its own .rc-quick-combo the same way —
+            see chart_interact.js's Quick Inquiry wiring block for
+            quickNewRolePicker. The field still filters a LOCAL array (this
+            company's own roles it does NOT already hold, built fresh each
+            time "+ Add a new role" is pressed) rather than fetching, exactly
+            like the "existing role" field's own picker; nothing about the
+            registration flow below it (labelToggleUrl, no query run) changes.
+          {% endcomment %}
+          <div class="rc-quick-new-role" id="rcQuickNewRoleWrap" hidden>
+            <div class="rc-quick-combo rc-quick-new-role-combo">
+              <input type="text" id="rcQuickNewRoleInput" class="rc-quick-select"
+                     placeholder="{% trans "Choose a role to add…" %}" autocomplete="off" dir="auto">
+              <div class="rc-quick-dropdown" id="rcQuickNewRoleList" hidden></div>
+            </div>
+            <button type="button" class="btn btn-sm" id="rcQuickNewRoleAdd" disabled>{% trans "Add" %}</button>
+          </div>
+        </div>
+      </div>
+
+      <button type="button" class="btn btn-sm btn-primary rc-quick-confirm" id="rcQuickConfirm" disabled>{% trans "Run inquiry" %}</button>
+    </div>
+
+    {% comment %}
+      "Case mode" — a second, separate small card beside Quick Inquiry, one
+      field only: search cases (marketing:all_cases_search — see that view's
+      own docstring for why an ordinary Marketing Expert/Supervisor may call
+      it now, not just admin/GM). Picking a row confirms it straight away —
+      there is nothing else to configure, unlike Quick Inquiry's own two-step
+      company-then-role shape — so this widget is just the input plus its
+      live dropdown; no separate Confirm button. Reuses the exact same
+      floating-dropdown/row markup (.rc-quick-select/.rc-quick-dropdown/
+      .rc-row) Quick Inquiry's own company field already established above,
+      via the same class on this card's own root (.rc-quick-inquiry), so both
+      cards share one visual language without a second copy of that CSS.
+
+      Confirming a row here is what puts the WHOLE chart into "case mode" —
+      chart_interact.js's own ``caseMeta`` — see #rcModeBanner below for where
+      that mode is shown once active. That banner is shared with an ordinary
+      company activation now, and case mode always wins it: the two can never
+      be on screen together.
+    {% endcomment %}
+    <div class="rc-quick-inquiry" id="rcCaseModeWidget">
+      <div class="rc-quick-title">{% trans "Case Mode" %}</div>
+
+      <div class="rc-quick-field">
+        <label class="rc-quick-label" for="rcCaseModeInput">{% trans "Case" %}</label>
+        <div class="rc-quick-combo">
+          <input type="text" id="rcCaseModeInput" class="rc-quick-select"
+                 placeholder="{% trans "Search doc no. or company…" %}" autocomplete="off" dir="auto">
+          <div class="rc-quick-dropdown" id="rcCaseModeList" hidden></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-h">
+    <h3>{% trans "Relationship Map" %}</h3>
+  </div>
+
+  {% comment %}
+    THE CHART'S ONE MODE BANNER — hidden until something is active, then shown
+    at the top of THIS panel specifically (the owner's own placement for the
+    case banner it grew out of: on the Relationship Map, not the page header,
+    since it is the chart's own state, not the search widget's), and STICKY
+    there, so it stays frozen at the top while the chart scrolls under it.
+
+    ONE banner, two kinds of activation, never both on screen:
+
+      * a CASE (confirmed in rcCaseModeWidget above) — "Case mode · Editing
+        chart for case DOCNO — CLIENT · Leave case mode", exactly as before;
+      * a COMPANY activated as a role (an Inquiry, the "Activate as this"
+        pivot on any row) — the same banner, in the same place, carrying that
+        card's own company and role and its Deactivate control. This replaces
+        the small floating "Active / name / role / Deactivate" bar that used
+        to sit in the chart canvas's own top-left corner; that bar is gone
+        entirely (see marketing/_role_chart.html and rolechart.css).
+
+    Every label, every piece of text and the single button's own wording are
+    set by chart_interact.js's updateModeBanner(), which is also what keeps
+    the one case a single line cannot state — the chart repainted by a plain
+    Quick Inquiry for a company OTHER than the one edits attach to — honest,
+    in the note span. The static text below is only what the banner looks like
+    before the script ever touches it.
+  {% endcomment %}
+  <div class="rc-mode-banner" id="rcModeBanner" hidden>
+    <span class="rc-mode-banner-label" id="rcModeBannerLabel">{% trans "Active" %}</span>
+    <span class="rc-mode-banner-text" id="rcModeBannerText" dir="auto"></span>
+    <span class="rc-mode-banner-role" id="rcModeBannerRole" dir="auto" hidden></span>
+    <span class="rc-mode-banner-note" id="rcModeBannerNote" dir="auto" hidden></span>
+    {% comment %}Pure layout, no id: nothing in the JS touches it - it only
+    claims the leftover width so the button below stays hard right in every
+    state. This is a comment TAG rather than the short comment syntax on
+    purpose: the short one is single-line only, so a newline inside one stops
+    it being a comment at all and the whole block renders into the banner as
+    visible text - which is exactly the bug this replaced.{% endcomment %}
+    <span class="rc-mode-banner-spacer"></span>
+    <button type="button" class="btn btn-sm btn-ghost" id="rcModeBannerBtn">{% trans "Deactivate" %}</button>
+  </div>
+
+  {% include "marketing/_role_chart.html" %}
+</div>
+
+{% endblock %}
+{% block scripts %}
+<div hidden>{% csrf_token %}</div>
+{% comment %}
+  chart_interact.js sets a substantial amount of this page's own text
+  dynamically (the mode banner's every state, empty-list placeholders, the
+  "us" panel's heading/count line, the "+ Add company" panel, a couple of
+  tooltips/aria-labels) — none of it reachable by Django's own {% trans %},
+  since it never passes through a template render at all once the page has
+  loaded. FT_MARKETING_CHART.i18n below is the same bridge this page's own
+  config object already builds for every OTHER thing only the browser knows
+  (URLs, flags) — each string translated server-side, in the viewer's own
+  language, and handed to the script to read instead of a hard-coded English
+  literal. The dict itself is built in Python — marketing/views.py's own
+  ``home`` view, context["chart_i18n"] — and NOT as a run of {% trans %}
+  tags here, because Django's {% trans %} tag, given a literal string,
+  doubles every '%' in it before the lookup ever reaches gettext() (see that
+  context entry's own comment for the full story); half these strings carry
+  a %(name)s-style placeholder for chart_interact.js's own fmt() to fill in
+  later, and a doubled '%' would have missed the catalog silently, reverting
+  to English. ``|json_script`` is what gets the already-translated dict from
+  Python to here without a SECOND escaping mechanism of its own to get
+  wrong — no manual quoting, no |escapejs per key, and a value containing a
+  double quote or an apostrophe (an "Activate %(name)s as this card's
+  anchor", say) needs no special care because json.dumps handles all of it.
+  A handful of keys intentionally reuse a msgid this same page already
+  carries as static chrome ("Active", "Deactivate", "Pick a company first…",
+  "Choose a role to add…", "Add") — same gettext() call, same catalog entry,
+  so the banner and the static markup it overwrites can never drift into two
+  different translations of the same word. See chart_interact.js's own
+  updateModeBanner()/quickResetRoleField()/etc. for where each key is read,
+  and locale/fa/LC_MESSAGES/django.po's own AUDIT #134 FOLLOW-UP section for
+  the full catalog entries.
+{% endcomment %}
+{{ chart_i18n|json_script:"ft-marketing-chart-i18n" }}
+<script>
+  window.FT_MARKETING_CHART = {
+    labelCompaniesUrl: "{% url 'marketing:label_companies' %}",
+    labelToggleUrl: "{% url 'marketing:label_toggle' %}",
+    clientConnectionsUrl: "{% url 'marketing:client_connections' %}",
+    {# There was a usConnectionsUrl key here, and no line of chart_interact.js #}
+    {# ever read it — the "us" card is served by clientConnectionsUrl and      #}
+    {# allCasesSearchUrl. It went out with the route and view behind it; see   #}
+    {# marketing/urls.py.                                                      #}
+    // The attach wizard's "connect X to Y" staging (chart_interact.js, change
+    // 1) commits through this instead of labelToggleUrl whenever the target
+    // is a REAL OTHER company, not the wizard's own source — see
+    // marketing:connection_toggle / services.create_connection/remove_connection.
+    connectionToggleUrl: "{% url 'marketing:connection_toggle' %}",
+    // The "+ Add company" panel (chart_interact.js) live-searches the shared
+    // client directory and can register a brand-new client from it. These two
+    // endpoints were once shared with the Companies tab's own config object;
+    // that tab is gone and the chart is their only caller now.
+    clientSearchUrl: "{% url 'marketing:client_search' %}",
+    clientCreateUrl: "{% url 'marketing:client_create' %}",
+    canEdit: {{ can_edit|yesno:"true,false" }},
+    isAdminTier: {{ is_admin_tier|yesno:"true,false" }},
+    allCasesSearchUrl: "{% url 'marketing:all_cases_search' %}",
+    // The "cases connected to Us" panel's own head (chart_interact.js's
+    // renderUsCasesCounts / renderUsCasesArchiveLink): the three status counts
+    // for the company an Inquiry is about, and the admin/GM click-through into
+    // the case archive filtered to that same company. The archive filter is
+    // matched by the "Name (CODE)" option text cases/views.py::archive builds
+    // for its own dropdown, not by client id — see the JS.
+    caseStatusCountsUrl: "{% url 'marketing:client_case_counts' %}",
+    archiveUrl: "{% url 'cases:archive' %}",
+    deepLinkCaseId: {% if deep_link_case_id %}{{ deep_link_case_id }}{% else %}null{% endif %},
+    // Click-through on the "cases connected to Us" panel
+    // (chart_interact.js's renderUsCasesPanelContent) needs a real case
+    // detail URL built from a plain numeric id it only has client-side.
+    // cases:case_detail is "<int:pk>/", so reversing it with a placeholder
+    // pk and stripping the placeholder AND the trailing slash it carries
+    // leaves the base "/cases/" for the JS to append `<case_id>/` onto —
+    // stripping the digits alone would leave a stray double slash.
+    caseDetailUrlBase: "{% url 'cases:case_detail' 999999999 %}".replace("999999999/", ""),
+    // WHO may follow a case row, and HOW. Not isAdminTier any more: every row
+    // the panel is given is now one this viewer may actually open (the
+    // endpoints behind it are scoped by marketing/access.py::case_access_for),
+    // so the rows are clickable for the admin/GM tier AND for a Marketing
+    // expert who also holds a Commercial seat — looking at their own cases.
+    canOpenCases: {{ can_open_cases|yesno:"true,false" }},
+    // Empty for a viewer who may open a case straight from where they sit.
+    // Otherwise the people:activate_role "?next=" prefix that switches the
+    // dual-seat viewer into their Commercial seat on the way to the case —
+    // without it the case page would bounce them, since it resolves "did you
+    // participate" against the seat being worked. See views._case_open_prefix.
+    caseOpenPrefix: "{{ case_open_prefix|escapejs }}",
+    // See this "scripts" block's own opening comment, just above the
+    // csrf_token div near the top of the file, for why this dict is parsed
+    // out of the json_script tag above rather than built as a JS object
+    // literal the way every other key on this config object is.
+    i18n: JSON.parse(document.getElementById('ft-marketing-chart-i18n').textContent)
+  };
+  // A live read of the CSRF cookie rather than a baked template value — the
+  // same reasoning as itemcoder/templates/itemcoder/tool_case.html: it stays
+  // correct even if the session is rotated (e.g. "Log in as") while this page
+  // is open.
+  Object.defineProperty(window.FT_MARKETING_CHART, "csrfToken", {
+    get: function () {
+      var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+      if (m) return decodeURIComponent(m[1]);
+      var inp = document.querySelector('input[name=csrfmiddlewaretoken]');
+      return (inp && inp.value) || "";
+    },
+    enumerable: true
+  });
+</script>
+{# chart_interact.js still self-guards on `getElementById('rcChart')` and #}
+{# no-ops if the chart is absent — see its own top-of-file comment. That #}
+{# guard predates the tab strip and is kept as-is; it costs nothing and #}
+{# keeps the script safe to load from anywhere. #}
+<script src="{% static 'marketing/js/chart_interact.js' %}"></script>
+{% endblock %}

@@ -1,37 +1,31 @@
-import json
+"""First-paint HTML for one grid cell — the server's half of the table render.
+
+``prepare_table_cell`` is the only entry point, and a single caller reaches it:
+``views.dataframe_to_html_with_ids``, once per cell as it walks the DataFrame.
+That renderer is shared by both ways into the grid — ``views.upload_excel`` for a
+standalone upload, and bridge.py for a case-seeded or saved case form — so a
+decision made here lands identically on both. Every transformation the browser
+would otherwise have to do after paint (wrapping a value in its textarea, cutting
+Alarm_Features into chips, highlighting the parentheses in a size) is done here
+instead, so the first painted row already looks like the settled one and the
+virtual scroller never has to reflow it.
+
+Escaping is decided per column and the reasoning is written at each branch, but
+the rule behind all of them is the same: a cell that holds DATA (a customer's
+description, a typed size) leaves here escaped, because the templates render the
+grid with ``|safe`` and the scroller re-parses it into live nodes; a cell that
+holds markup THIS SERVER built (Filled_Features, a coloured FTCO string) is
+passed through, because it was already neutralised at its source in
+final_feature_display.colored_display. The JS reads cells with ``textContent``,
+which decodes the entities back, so saved values are byte-identical either way.
+
+Despite the file name this module does not change any value — it only decides
+how a value is displayed the first time.
+"""
+
 import re
 from html import escape
 
-
-def colored_display(value, color=None):
-    color = color or "black"
-    return f"<span style='color:{color}'>{value}</span>"
-
-
-def join_filled_features(feature_items):
-    """
-    Render Filled_Features exactly the same way for initial page load and AJAX updates.
-    Keeping this in backend prevents the first JavaScript update from replacing a
-    <br>-based cell with a comma-based cell, which was causing row-height jumps.
-    """
-    return "<br>".join(feature_items)
-
-
-def _extract_order(key):
-    try:
-        return int(str(key).split("_")[-1])
-    except Exception:
-        return 999
-
-
-def _clean(v):
-    return v is not None and str(v).strip() and str(v).strip().lower() != "null"
-
-
-# Final arranged text is now built from final_arrange_builder.py so the
-# arrangement can be customized from final_arrange.json without keeping
-# hard-coded material/grade or separator rules in this initial-render module.
-from .final_arrange_builder import build_final_arrange_and_features
 
 def highlight_parentheses(text):
     return re.sub(r"\([^)]+\)", r'<span class="highlight-red">\g<0></span>', str(text or ""))
@@ -107,7 +101,12 @@ def prepare_table_cell(col, val, row=None, data_json=None):
 
     # Size/display column: keep initial red parentheses without JS doing it after paint.
     if col_s == "size":
-        return highlight_parentheses(val_s)
+        # The size text is DATA (typed in the grid or read from the client's
+        # workbook); only the parenthesis highlight is markup we add. Escape
+        # first and wrap second — the other order would escape our own <span>
+        # into visible text. Every JS reader of this cell uses textContent,
+        # which decodes the entities back, so nothing downstream sees a change.
+        return highlight_parentheses(escape(val_s))
 
     if col_s == "Final Arranged Text":
         # Manual FTCO edits must never paint colour markup (or escaped markup
@@ -121,4 +120,19 @@ def prepare_table_cell(col, val, row=None, data_json=None):
             return val_s
         return escape(val_s) if val_s else val_s
 
-    return val_s
+    if col_s == "Filled_Features":
+        # This diagnostic column is markup the server itself built
+        # (final_arrange_builder joins coloured <span>s with <br>), and the tool
+        # saves the cell back with innerHTML — escaping it here would store the
+        # escaped form and escape it again on every reload. Its *values* are
+        # neutralised at the source, in final_feature_display.colored_display.
+        return val_s
+
+    # Everything else — CLIENT DISCRIPTION, qty, unit, the FTCO code and any
+    # extra/calculation column — is plain data that ends up inside a <td> which
+    # the templates render with |safe and the virtual scroller re-parses into
+    # live nodes. A description arrives from a customer-supplied workbook, so it
+    # has to leave here already escaped or an <img onerror=…> in it becomes a
+    # real element. The JS reads these cells with textContent, which decodes the
+    # entities, so the saved values and the coder's input are unchanged.
+    return escape(val_s)

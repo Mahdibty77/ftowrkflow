@@ -1,12 +1,30 @@
-{% load static %}
+{% load static ft_extras i18n %}
+{# ft_extras is loaded for the |jalali filter used by the reminder banner       #}
+{# below. It is the same filter every date on every other screen goes through,  #}
+{# so a reminder's due time prints the same calendar in the same shape as the   #}
+{# stamp on the reminders list it links to.                                     #}
 <!DOCTYPE html>
-<html lang="en">
+{# The active request language decides both attributes here, not a hardcoded  #}
+{# "en": get_current_language reads the language django.utils.translation     #}
+{# activated for THIS request (LocaleMiddleware, from the account's saved     #}
+{# preference — see accounts/views.py's language setting and core/settings   #}
+{# LANGUAGE_CODE), and get_current_language_bidi is Django's own test for     #}
+{# whether that language is right-to-left (True for "fa", exactly the same    #}
+{# test django.utils.translation.get_language_bidi() runs) rather than a      #}
+{# hand-maintained "is it fa" check that would silently miss any other RTL    #}
+{# language this project ever adds. dir="rtl" is what actually flips native   #}
+{# CSS mirroring (flexbox row direction, table-cell text-align, form control  #}
+{# alignment) for free across the app; lang="fa" alone only affects font      #}
+{# selection/hyphenation and screen-reader pronunciation, never layout.       #}
+{% get_current_language as LANGUAGE_CODE %}
+{% get_current_language_bidi as LANGUAGE_BIDI %}
+<html lang="{{ LANGUAGE_CODE }}" dir="{% if LANGUAGE_BIDI %}rtl{% else %}ltr{% endif %}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Foolad Tabar Workflow{% endblock %}</title>
   {% include "includes/favicon.html" %}
-  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=shift-end-15">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=merge-main-1">
   <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-17">
   <link rel="stylesheet" href="{% static 'css/icons-offline.css' %}?v=shift-icons-4">
   <script>
@@ -24,6 +42,136 @@
       if (mode === 'dark') r.setAttribute('data-theme', 'dark'); // keep app.css dark rules in sync
     })();
   </script>
+  <script>
+    /*
+      One CSRF token source for every script on the site.
+
+      Django rotates the CSRF secret on sign-in (deliberately, against session
+      fixation), which invalidates the token baked into every page rendered
+      before it. Any page left open across a re-sign-in, a "Log in as", or a
+      shift-end/expiry followed by a fresh sign-in therefore carries a hidden
+      token the server will reject:
+
+          Forbidden (403) - CSRF verification failed. Request aborted.
+
+      Measured, with django.test.Client(enforce_csrf_checks=True): posting the
+      old page's rendered token after a second sign-in returns 403, and — this
+      is the part that catches people — sending a CORRECT X-CSRFToken header
+      alongside the stale POST field is ALSO 403, because Django reads the
+      csrfmiddlewaretoken field first and never looks at the header when the
+      field is present. So a script that posts `new FormData(form)` cannot be
+      rescued by adding a header; the field itself has to be refreshed.
+
+      token()    the value the browser will actually be judged against (the
+                 cookie), falling back to a rendered field only when there is
+                 no cookie to read (CSRF_USE_SESSIONS, or a first request that
+                 has not been given one yet).
+      apply()    rewrite a form's hidden field from the cookie.
+      formData() FormData for a form, with the hidden field refreshed.
+
+      This weakens nothing: the token still comes from the CSRF cookie, which
+      is the whole basis of the protection — only same-origin script can read
+      it, and a cross-site form post cannot run this code at all. It is exactly
+      the value Django's own documentation tells AJAX callers to send.
+    */
+    window.FTCsrf = (function () {
+      function token() {
+        var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+        if (m) return decodeURIComponent(m[1]);
+        var inp = document.querySelector('input[name=csrfmiddlewaretoken]');
+        return (inp && inp.value) || '';
+      }
+      function apply(form) {
+        var t = token();
+        if (!form || !t) return t;
+        var fields = form.querySelectorAll('input[name="csrfmiddlewaretoken"]');
+        if (!fields.length) {
+          var el = document.createElement('input');
+          el.type = 'hidden';
+          el.name = 'csrfmiddlewaretoken';
+          form.appendChild(el);
+          fields = [el];
+        }
+        Array.prototype.forEach.call(fields, function (f) { f.value = t; });
+        return t;
+      }
+      function formData(form) {
+        apply(form);
+        var fd = new FormData(form);
+        var t = token();
+        if (t) fd.set('csrfmiddlewaretoken', t);
+        return fd;
+      }
+      return { token: token, apply: apply, formData: formData };
+    })();
+
+    /*
+      Turn a fetch() Response into JSON, or into an error a human can act on.
+
+      Every JSON endpoint on this site sits behind @login_required, and Django's
+      login_required answers an unauthenticated request with a 302 to the HTML
+      sign-in page — measured: /cases/<pk>/transition/, /cases/preview-excel/
+      and /cases/fx-rates/api/ all return "302 -> /accounts/login/?next=…" once
+      the session is gone. fetch() follows that redirect silently, so the caller
+      gets status 200 with an HTML body and res.json() throws a SyntaxError. The
+      user sees "request failed", a red cell, or nothing at all, and no amount of
+      retrying will ever help: the session ended (a shift close, an expiry, or a
+      sign-in elsewhere) and the page has to be signed in again.
+
+      FTJson names those two cases so callers can say so.
+        err.ftSessionEnded  the answer was the sign-in page
+        err.ftCsrf          403 — this page's security token is stale
+    */
+    window.FTJson = function (res) {
+      var ct = (res.headers.get('Content-Type') || '').toLowerCase();
+      // Two different levels of certainty, kept apart on purpose.
+      //
+      // A redirect that landed on the sign-in page is PROOF: the server said so.
+      // "Answered 200 with something that is not JSON" is only a strong guess —
+      // it is what a signed-out session usually looks like from here, but an
+      // HTML error page, a proxy notice or a misconfigured endpoint look the
+      // same. Anything that merely tells the user something may act on the
+      // guess; anything that ENDS THE SESSION must not, because a wrong guess
+      // there signs somebody out in the middle of their work.
+      var provedSignedOut = res.redirected && /\/accounts\/login\//.test(res.url || '');
+      var looksSignedOut = res.ok && ct.indexOf('json') === -1;
+      if (provedSignedOut || looksSignedOut) {
+        var e1 = new Error('Your session has ended. Please sign in again — this page is no longer connected.');
+        e1.ftSessionEnded = true;          // safe to report
+        e1.ftSessionEndedProven = provedSignedOut;  // safe to act on
+        throw e1;
+      }
+      if (res.status === 403) {
+        var e2 = new Error('This page’s security token has expired. Refresh the page and try again.');
+        e2.ftCsrf = true;
+        throw e2;
+      }
+      if (!res.ok && ct.indexOf('json') === -1) {
+        throw new Error('The server could not complete that request (' + res.status + '). Refresh the page and try again.');
+      }
+      return res.json();
+    };
+  </script>
+  <script>
+    // Registers the PWA service worker (core.views.service_worker, served at
+    // "/" — see that view's own docstring for why it lives at the site root
+    // rather than under /static/). On window "load" rather than immediately,
+    // so registration never competes with the page's own first paint for
+    // bandwidth/priority; feature-detected so a browser with no Service
+    // Worker support (nothing recent lacks it, but this costs nothing) just
+    // skips the whole block instead of throwing.
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/sw.js').catch(function () {
+          // Installing the PWA / the static-asset cache is a nice-to-have,
+          // never a requirement — every page already works with no service
+          // worker at all, so a failed registration (an ad blocker, a
+          // locked-down browser policy, offline on first load) is silently
+          // ignored rather than surfaced to the user.
+        });
+      });
+    }
+  </script>
   {% block head_extra %}{% endblock %}
 </head>
 <body class="unit-{{ active_unit_code|lower }}">
@@ -39,31 +187,94 @@
     </div>
 
     <nav class="sb-nav">
-      {% with p=user.profile %}
-        {% if p.is_admin %}
-          <div class="sb-group">Administration</div>
-          <a href="{% url 'accounts:admin_console' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-gauge-high"></i></span>Console</a>
-          <a href="{% url 'accounts:user_list' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-sitemap"></i></span>Seats</a>
+      {% comment %}
+        report_units: the units reports.views.dashboard will actually serve an
+        expert's own report for — the same three _own_report tests. It is a real
+        TUPLE, built in core.context_processors as _OWN_REPORT_UNITS, and that
+        matters: written here as a string, "unit in report_units" would be a
+        SUBSTRING test, and "" is a substring of every string — so a seat with
+        no unit passed the guard and was offered a link the view bounces
+        straight back. A tuple makes it membership again, which also makes the
+        empty unit fail on its own without a separate term for it.
+
+        The "My Report" entry is drawn in three places below (active accordion
+        role, inactive accordion role, and the no-accordion fallback); all three
+        ask this one question, so the three guards say the same thing and a seat
+        whose unit is not one of these is never offered a link the view bounces
+        back. Add a unit to Unit.CHOICES and it has to be added to
+        _OWN_REPORT_UNITS and _own_report together.
+
+        Note {% templatetag openbrace %}# … #{% templatetag closebrace %} cannot
+        be used for a note this long: that comment form is single-line only, so
+        a multi-line one is emitted into the page as visible text.
+      {% endcomment %}{% with p=user.profile report_units=nav_report_units %}
+        {% if p.must_change_password %}
+          {% comment %}
+            An account with must_change_password set can reach exactly one page —
+            accounts.middleware.MustChangePasswordMiddleware redirects everything
+            else back to the change-password screen. That screen extends this
+            template, so the full navigation used to be drawn on it and every
+            single entry bounced straight back: measured 5 of 5 links (My
+            profile, Settings, Inbox, Archive, New Case) returning 302 to
+            /accounts/force-password-change/. Offering a control the server will
+            not honour is the bug; the answer is not to widen the gate but to
+            stop drawing what the gate refuses. Sign out stays reachable (the
+            middleware allow-lists it) and is rendered in the profile menu below.
+
+            Note {% templatetag openbrace %}# … #{% templatetag closebrace %}
+            cannot be used here: that form of comment is single-line only, so a
+            multi-line one is emitted into the page as visible text.
+          {% endcomment %}
+          <div class="sb-group">{% trans "Account" %}</div>
+          <div class="sb-item" style="opacity:.7;cursor:default">
+            <span class="ic"><i class="fa-solid fa-key"></i></span>
+            {% trans "Set a new password to continue" %}
+          </div>
+        {% elif p.is_admin %}
+          <div class="sb-group">{% trans "Administration" %}</div>
+          <a href="{% url 'accounts:admin_console' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-gauge-high"></i></span>{% trans "Console" %}</a>
+          <a href="{% url 'accounts:user_list' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-sitemap"></i></span>{% trans "Seats" %}</a>
           {% include "people/_nav.html" %}
-          <a href="{% url 'dm_home' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-database"></i></span>Tool Data</a>
-          <a href="{% url 'reports:dashboard' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-chart-line"></i></span>Dashboard</a>
-          <a href="{% url 'cases:archive' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-box-archive"></i></span>Case Archive</a>
-          <a href="{% url 'accounts:backup_console' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-floppy-disk"></i></span>Backups</a>
-          <div class="sb-group">Master Data</div>
+          <a href="{% url 'dm_home' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-database"></i></span>{% trans "Tool Data" %}</a>
+          <a href="{% url 'reports:dashboard' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-chart-line"></i></span>{% trans "Dashboard" %}</a>
+          <a href="{% url 'cases:archive' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-box-archive"></i></span>{% trans "Case Archive" %}</a>
+          <a href="{% url 'accounts:backup_console' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-floppy-disk"></i></span>{% trans "Backups" %}</a>
+          <div class="sb-group">{% trans "Master Data" %}</div>
           <a href="{% url 'cases:master_data_hub' %}" class="sb-item">
-            <span class="ic"><i class="fa-solid fa-building"></i></span>Clients &amp; FX
-            {% if nav_fx_stale %}<span class="nav-badge" title="FX rates need updating"><i class="fa-solid fa-triangle-exclamation"></i></span>{% endif %}
+            <span class="ic"><i class="fa-solid fa-building"></i></span>{% trans "Clients & FX" %}
+            {% if nav_fx_stale %}<span class="nav-badge" title="{% trans 'FX rates need updating' %}"><i class="fa-solid fa-triangle-exclamation"></i></span>{% endif %}
           </a>
         {% else %}
           {% if nav_is_general_manager %}
-          <div class="sb-group">General Management</div>
-          <a href="{% url 'reports:dashboard' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-chart-line"></i></span>Dashboard</a>
-          <a href="{% url 'cases:archive' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-box-archive"></i></span>Case Archive</a>
-          <a href="{% url 'accounts:user_list' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-sitemap"></i></span>Seats</a>
+          <div class="sb-group">{% trans "General Management" %}</div>
+          <a href="{% url 'reports:dashboard' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-chart-line"></i></span>{% trans "Dashboard" %}</a>
+          <a href="{% url 'cases:archive' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-box-archive"></i></span>{% trans "Case Archive" %}</a>
+          <a href="{% url 'accounts:user_list' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-sitemap"></i></span>{% trans "Seats" %}</a>
           <a href="{% url 'people:gm_overtime_inbox' %}" class="sb-item">
-            <span class="ic"><i class="fa-solid fa-clipboard-check"></i></span>Requests
+            <span class="ic"><i class="fa-solid fa-clipboard-check"></i></span>{% trans "Requests" %}
             {% if nav_staff_request_count %}<span class="nav-badge">{{ nav_staff_request_count }}</span>{% endif %}
           </a>
+          {% comment %}
+            Marketing holds no case and has no dashboard card of its own, so
+            the GM's landing page stays reports.dashboard (core.views.home is
+            unchanged) — this is only an extra door into marketing:home, not a
+            new destination after login. marketing.access.access_for grants
+            the GM can_view and NOT can_edit there: this link opens the same
+            union-of-everyone's-directory a Marketing Supervisor sees, with
+            every add/link/unlink control the template would otherwise draw
+            left off because can_edit is False.
+          {% endcomment %}
+          <a href="{% url 'marketing:home' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-diagram-project"></i></span>{% trans "Marketing (read-only)" %}</a>
+          {% comment %}
+            The company directory, beside the chart it belongs with, under the
+            same grant and no wider: marketing.access.access_for gives the GM
+            can_view there exactly as it does on the chart, and can_edit False,
+            so the directory's own "Add contact" control is not drawn and every
+            mutating URL in that section refuses them on its own. The
+            (read-only) suffix is repeated for the same reason the entry above
+            carries it — this block is the GM's, and both entries are.
+          {% endcomment %}
+          <a href="{% url 'marketing:directory' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-building"></i></span>{% trans "Company Directory (read-only)" %}</a>
           {% endif %}
           {% if nav_roles %}
             {% for nr in nav_roles %}
@@ -75,71 +286,131 @@
                   <i class="fa-solid fa-chevron-down sb-role-chev"></i>
                 </summary>
                 <div class="sb-role-body">
-                  {% if nr.is_active %}
+                  {% if nr.unit == 'MARKETING' %}{% comment %}
+                    The accordion's counterpart of the no-accordion Marketing
+                    branch further down: a Marketing seat held as a PersonRole
+                    gets the same one real destination, and none of the case
+                    entries that would bounce. Written as the FIRST branch of
+                    the existing if/else so it adds no whitespace to any other
+                    seat's sidebar. Inactive roles keep the accordion's own
+                    idiom of routing through activate_role with ?next=.
+
+                    THE ICON FOR marketing:home IS fa-diagram-project IN
+                    EVERY BRANCH THAT DRAWS IT — here for an active seat, in
+                    the activate_role branch just below, in the single-seat
+                    Marketing branch further down, AND in the platform-admin
+                    and General-Manager sidebars far above, where the same
+                    destination is labelled "Marketing (read-only)". Those
+                    last two were missed when the icon first changed and kept
+                    the old one, which is exactly the drift the paragraph
+                    below warns about. It was
+                    fa-bullhorn, which says "announcements" and not what that
+                    screen is: marketing:home is the relationship chart and
+                    nothing else (see marketing/views.py::home), and
+                    fa-diagram-project is Font Awesome 6 free solid's own
+                    node-and-edge glyph — the same one the company detail
+                    page already uses on its "Relationship chart" button. The
+                    copies must stay identical: they are one destination
+                    rendered in several branches, and a reader who switches
+                    seats must not see it change its icon.
+                    Company Directory keeps fa-building; it is a different
+                    destination.
+                  {% endcomment %}
+                    {% if nr.is_active %}
+                    <a href="{% url 'marketing:home' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-diagram-project"></i></span>{% trans "Workspace" %}
+                    </a>
+                    {# The company directory is a second REAL destination for a #}
+                    {# Marketing seat (marketing:directory), not a tab of the   #}
+                    {# workspace, so it earns its own entry beside it — under   #}
+                    {# the same access_for gate, which is what decides whether  #}
+                    {# the page opens at all. Inactive seats keep the           #}
+                    {# accordion's own activate_role?next= idiom, exactly as    #}
+                    {# the Workspace entry does.                                #}
+                    <a href="{% url 'marketing:directory' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-building"></i></span>{% trans "Company Directory" %}
+                    </a>
+                    {% else %}
+                    <a href="{% url 'people:activate_role' nr.id %}?next={% url 'marketing:home' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-diagram-project"></i></span>{% trans "Workspace" %}
+                    </a>
+                    <a href="{% url 'people:activate_role' nr.id %}?next={% url 'marketing:directory' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-building"></i></span>{% trans "Company Directory" %}
+                    </a>
+                    {% endif %}
+                  {% elif nr.is_active %}
                   <a href="{% url 'cases:inbox' %}" class="sb-item">
-                    <span class="ic"><i class="fa-solid fa-inbox"></i></span>Inbox
+                    <span class="ic"><i class="fa-solid fa-inbox"></i></span>{% trans "Inbox" %}
                     {% if nav_inbox_count %}<span class="nav-badge">{{ nav_inbox_count }}</span>{% elif nr.inbox_count %}<span class="nav-badge">{{ nr.inbox_count }}</span>{% endif %}
                   </a>
                   {% if nr.can_create_case %}
                     <a href="{% url 'cases:case_create' %}" class="sb-item">
-                      <span class="ic"><i class="fa-solid fa-folder-plus"></i></span>New Case
+                      <span class="ic"><i class="fa-solid fa-folder-plus"></i></span>{% trans "New Case" %}
                     </a>
                   {% endif %}
                   <a href="{% url 'cases:archive' %}" class="sb-item">
-                    <span class="ic"><i class="fa-solid fa-box-archive"></i></span>Archive
+                    <span class="ic"><i class="fa-solid fa-box-archive"></i></span>{% trans "Archive" %}
                   </a>
                   {% if nr.show_dashboard %}
                     <a href="{% url 'reports:dashboard' %}" class="sb-item">
-                      <span class="ic"><i class="fa-solid fa-chart-pie"></i></span>Dashboard
+                      <span class="ic"><i class="fa-solid fa-chart-pie"></i></span>{% trans "Dashboard" %}
+                    </a>
+                  {% elif nr.role == 'EXPERT' and nr.unit in report_units and not nr.is_substitute %}
+                    <a href="{% url 'reports:dashboard' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-chart-pie"></i></span>{% trans "My Report" %}
                     </a>
                   {% endif %}
                   {% if nr.show_pricing %}
                     <a href="{% url 'dm_price_lists' %}" class="sb-item">
-                      <span class="ic"><i class="fa-solid fa-tags"></i></span>Pricing Management
+                      <span class="ic"><i class="fa-solid fa-tags"></i></span>{% trans "Pricing Management" %}
                     </a>
                   {% endif %}
                   {% if nr.show_coding %}
                     <a href="{% url 'dm_technical_home' %}" class="sb-item">
-                      <span class="ic"><i class="fa-solid fa-database"></i></span>Coding Reference
+                      <span class="ic"><i class="fa-solid fa-database"></i></span>{% trans "Coding Reference" %}
                     </a>
                   {% endif %}
                   {% if nr.show_clients %}
                     <a href="{% url 'cases:master_data_hub' %}" class="sb-item">
-                      <span class="ic"><i class="fa-solid fa-building"></i></span>Clients &amp; FX
-                      {% if nav_fx_stale %}<span class="nav-badge" title="FX rates need updating"><i class="fa-solid fa-triangle-exclamation"></i></span>{% endif %}
+                      <span class="ic"><i class="fa-solid fa-building"></i></span>{% trans "Clients & FX" %}
+                      {% if nav_fx_stale %}<span class="nav-badge" title="{% trans 'FX rates need updating' %}"><i class="fa-solid fa-triangle-exclamation"></i></span>{% endif %}
                     </a>
                   {% endif %}
                   {% else %}
                   <a href="{% url 'people:activate_role' nr.id %}?next={% url 'cases:inbox' %}" class="sb-item">
-                    <span class="ic"><i class="fa-solid fa-inbox"></i></span>Inbox
+                    <span class="ic"><i class="fa-solid fa-inbox"></i></span>{% trans "Inbox" %}
                     {% if nr.inbox_count %}<span class="nav-badge">{{ nr.inbox_count }}</span>{% endif %}
                   </a>
                   {% if nr.can_create_case %}
                     <a href="{% url 'people:activate_role' nr.id %}?next={% url 'cases:case_create' %}" class="sb-item">
-                      <span class="ic"><i class="fa-solid fa-folder-plus"></i></span>New Case
+                      <span class="ic"><i class="fa-solid fa-folder-plus"></i></span>{% trans "New Case" %}
                     </a>
                   {% endif %}
                   <a href="{% url 'people:activate_role' nr.id %}?next={% url 'cases:archive' %}" class="sb-item">
-                    <span class="ic"><i class="fa-solid fa-box-archive"></i></span>Archive
+                    <span class="ic"><i class="fa-solid fa-box-archive"></i></span>{% trans "Archive" %}
                   </a>
                   {% if nr.show_dashboard %}
                     <a href="{% url 'people:activate_role' nr.id %}?next={% url 'reports:dashboard' %}" class="sb-item">
-                      <span class="ic"><i class="fa-solid fa-chart-pie"></i></span>Dashboard
+                      <span class="ic"><i class="fa-solid fa-chart-pie"></i></span>{% trans "Dashboard" %}
+                    </a>
+                  {% elif nr.role == 'EXPERT' and nr.unit in report_units and not nr.is_substitute %}
+                    <a href="{% url 'people:activate_role' nr.id %}?next={% url 'reports:dashboard' %}" class="sb-item">
+                      <span class="ic"><i class="fa-solid fa-chart-pie"></i></span>{% trans "My Report" %}
                     </a>
                   {% endif %}
                   {% if nr.show_pricing %}
                     <a href="{% url 'people:activate_role' nr.id %}?next={% url 'dm_price_lists' %}" class="sb-item">
-                      <span class="ic"><i class="fa-solid fa-tags"></i></span>Pricing Management
+                      <span class="ic"><i class="fa-solid fa-tags"></i></span>{% trans "Pricing Management" %}
                     </a>
                   {% endif %}
                   {% if nr.show_coding %}
                     <a href="{% url 'people:activate_role' nr.id %}?next={% url 'dm_technical_home' %}" class="sb-item">
-                      <span class="ic"><i class="fa-solid fa-database"></i></span>Coding Reference
+                      <span class="ic"><i class="fa-solid fa-database"></i></span>{% trans "Coding Reference" %}
                     </a>
                   {% endif %}
                   {% if nr.show_clients %}
                     <a href="{% url 'people:activate_role' nr.id %}?next={% url 'cases:master_data_hub' %}" class="sb-item">
-                      <span class="ic"><i class="fa-solid fa-building"></i></span>Clients &amp; FX
+                      <span class="ic"><i class="fa-solid fa-building"></i></span>{% trans "Clients & FX" %}
                     </a>
                   {% endif %}
                   {% endif %}
@@ -147,42 +418,97 @@
               </details>
             {% endfor %}
           {% elif not nav_is_general_manager %}
-            {% if p.unit %}
+            {% if p.unit == 'MARKETING' %}{% comment %}
+              Marketing sits outside the TO/PI workflow, so none of the entries
+              the branch below draws would work for it: inbox_filter_q gives a
+              Marketing seat no inbox, archive_scope gives it no archive, and
+              reports.dashboard bounces it. Drawing them anyway would be the
+              same bug the must-change-password branch above documents —
+              offering a control the server will not honour — so this branch
+              draws the one destination that IS real for them instead.
+
+              This is a THIRD branch on the existing if/else rather than an
+              extra block beside it, deliberately: an added block would emit
+              its own whitespace into every other seat's sidebar, and these
+              renders are diffed byte for byte. As a branch it contributes
+              nothing at all unless it is the one taken.
+
+              The url is marketing:home, the Marketing app's own workspace —
+              the tabbed screen in marketing/views.py. It is one entry and not
+              one per tab: the tabs are ?tab= on that screen, and the sidebar
+              names sections, not the panels inside them.
+            {% endcomment %}
             <div class="sb-group">{{ p.unit_label }}</div>
-            <a href="{% url 'cases:inbox' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-inbox"></i></span>Inbox{% if nav_inbox_count %}<span class="nav-badge">{{ nav_inbox_count }}</span>{% endif %}</a>
+            <a href="{% url 'marketing:home' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-diagram-project"></i></span>{% trans "Workspace" %}</a>
+            {% comment %}
+              The second real destination a Marketing seat has: the company
+              directory (marketing:directory). It is a section of its own, not
+              a panel of the workspace — which is exactly why the comment above
+              could say "one entry and not one per tab" and this is still not a
+              contradiction: the tabs it was refusing to list were panels of
+              one screen, and this is a different screen with its own URLs.
+              Same access_for gate as the entry above, so this widens nothing:
+              a seat that may not open the workspace may not open this either,
+              and neither entry is drawn for anyone outside this branch.
+            {% endcomment %}
+            <a href="{% url 'marketing:directory' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-building"></i></span>{% trans "Company Directory" %}</a>
+            {% elif p.unit %}
+            <div class="sb-group">{{ p.unit_label }}</div>
+            <a href="{% url 'cases:inbox' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-inbox"></i></span>{% trans "Inbox" %}{% if nav_inbox_count %}<span class="nav-badge">{{ nav_inbox_count }}</span>{% endif %}</a>
             {% if p.can_create_case %}
-              <a href="{% url 'cases:case_create' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-folder-plus"></i></span>New Case</a>
+              <a href="{% url 'cases:case_create' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-folder-plus"></i></span>{% trans "New Case" %}</a>
             {% endif %}
-            <a href="{% url 'cases:archive' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-box-archive"></i></span>Archive</a>
+            <a href="{% url 'cases:archive' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-box-archive"></i></span>{% trans "Archive" %}</a>
             {% if p.role == 'MANAGER' or p.role == 'SUPERVISOR' %}
-            <a href="{% url 'reports:dashboard' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-chart-pie"></i></span>Dashboard</a>
+            <a href="{% url 'reports:dashboard' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-chart-pie"></i></span>{% trans "Dashboard" %}</a>
+            {% elif p.role == 'EXPERT' and p.unit in report_units %}{% comment %}
+              Same question the two accordion branches ask, in this branch's own
+              vocabulary — the accordion reads a PersonRole (nr), this reads the
+              login's own Profile (p), exactly as the Dashboard entry above it
+              does. The accordion's third term, "not nr.is_substitute", has no
+              counterpart to write here and needs none: this branch only draws
+              when the person holds no PersonRole at all, and a Substitute
+              tenure is opened against a seat that carries one.
+            {% endcomment %}
+            <a href="{% url 'reports:dashboard' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-chart-pie"></i></span>{% trans "My Report" %}</a>
             {% endif %}
             {% if p.unit == 'SUPPLY' and p.role == 'MANAGER' %}
-              <div class="sb-group">Master Data</div>
-              <a href="{% url 'dm_price_lists' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-tags"></i></span>Pricing Management</a>
+              <div class="sb-group">{% trans "Master Data" %}</div>
+              <a href="{% url 'dm_price_lists' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-tags"></i></span>{% trans "Pricing Management" %}</a>
             {% elif p.unit == 'TECHNICAL' and p.role == 'MANAGER' %}
-              <div class="sb-group">Master Data</div>
-              <a href="{% url 'dm_technical_home' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-database"></i></span>Coding Reference</a>
+              <div class="sb-group">{% trans "Master Data" %}</div>
+              <a href="{% url 'dm_technical_home' %}" class="sb-item"><span class="ic"><i class="fa-solid fa-database"></i></span>{% trans "Coding Reference" %}</a>
             {% endif %}
             {% if p.unit == 'COMMERCIAL' and p.role == 'MANAGER' %}
-              <div class="sb-group">Master Data</div>
+              <div class="sb-group">{% trans "Master Data" %}</div>
               <a href="{% url 'cases:master_data_hub' %}" class="sb-item">
-                <span class="ic"><i class="fa-solid fa-building"></i></span>Clients &amp; FX
-                {% if nav_fx_stale %}<span class="nav-badge" title="FX rates need updating"><i class="fa-solid fa-triangle-exclamation"></i></span>{% endif %}
+                <span class="ic"><i class="fa-solid fa-building"></i></span>{% trans "Clients & FX" %}
+                {% if nav_fx_stale %}<span class="nav-badge" title="{% trans 'FX rates need updating' %}"><i class="fa-solid fa-triangle-exclamation"></i></span>{% endif %}
               </a>
             {% endif %}
             {% else %}
-            <div class="sb-group">Account</div>
+            <div class="sb-group">{% trans "Account" %}</div>
             <div class="sb-item" style="opacity:.7;cursor:default">
               <span class="ic"><i class="fa-solid fa-circle-info"></i></span>
-              No roles assigned yet
+              {% trans "No roles assigned yet" %}
             </div>
             {% endif %}
           {% endif %}
           {% if nav_show_person_requests %}
-          <div class="sb-group">Personal</div>
+          <div class="sb-group">{% trans "Personal" %}</div>
+          {# SAME GATE AS "Requests" BELOW — nav_show_person_requests, a      #}
+          {# linked Person record and nothing role/seat-specific (see        #}
+          {# core/context_processors.py::theme). The owner's own words: My   #}
+          {# Tasks exists for every person, "even with no seat at all", so   #}
+          {# it sits in this exact group rather than under any unit's own    #}
+          {# accordion. See marketing/views.py::my_tasks for the page this   #}
+          {# opens and marketing/urls.py for why the URL itself is not under #}
+          {# that app's "directory/" prefix.                                 #}
+          <a href="{% url 'marketing:my_tasks' %}" class="sb-item">
+            <span class="ic"><i class="fa-solid fa-list-check"></i></span>{% trans "My Tasks" %}
+          </a>
           <a href="{% url 'people:my_requests' %}" class="sb-item">
-            <span class="ic"><i class="fa-solid fa-clipboard-check"></i></span>Requests
+            <span class="ic"><i class="fa-solid fa-clipboard-check"></i></span>{% trans "Requests" %}
             {% if nav_person_request_answers %}<span class="nav-badge">{{ nav_person_request_answers }}</span>{% endif %}
           </a>
           {% endif %}
@@ -200,6 +526,108 @@
     <div class="main-sticky-head">
     <header class="topbar">
       <h1 class="page-title">{% block topbar %}{% endblock %}</h1>
+
+      {# .topbar-end groups everything that lives at the OTHER end of the bar #}
+      {# from the page title into one flex row, so a second item (the        #}
+      {# reminder bell below) can sit snugly next to the profile widget      #}
+      {# instead of splitting .topbar's own justify-content:space-between    #}
+      {# three ways. Nothing inside sets a physical left/right of its own —  #}
+      {# the wrapper is a plain flex row riding the SAME <html dir> the rest #}
+      {# of the app now mirrors under (see this file's own <html> line, and  #}
+      {# static/css/app.css's "Reminder due notification" section for why    #}
+      {# that is enough, with no [dir=rtl] override needed, to put the bell  #}
+      {# on the correct side of the profile widget in both languages. #}
+      <div class="topbar-end">
+
+      {% comment %}
+        "ONE OF YOUR REMINDERS IS DUE" — the Marketing reminders notification,
+        now a compact bell widget living IN the topbar rather than a banner
+        below it.
+
+        Fed by marketing/context_processors.py::reminder_notice (unchanged —
+        see that module for the per-person, fails-closed gate this relies
+        on) exactly as before this round; only the PRESENTATION moved. It is
+        present ONLY for a person who can hold a reminder, and only when one
+        of THEIR OWN is due — nobody ever sees anybody else's here.
+
+        REDESIGNED AGAIN THIS ROUND — the owner's ask this time was purely
+        layout, not data: the previous round's redesign turned this into a
+        full-width `.flash-warning` strip sitting in the normal scrolling
+        content just under the fixed topbar (see static/css/app.css's own
+        "Reminder due notification" comment for that shape's own reasoning,
+        now superseded), and in practice that banner sat close enough to the
+        topbar's bottom edge to visually overlap/collide with it, and — being
+        a multi-line box sized to its own content (headline, chips, note) —
+        it ate real page height on every screen it appeared on, which the
+        owner did not want from something that is a persistent status
+        indicator, not page content.
+
+        The fix moves it INTO the topbar itself, as a small icon button (this
+        widget) that toggles a dropdown, using the exact same open/close
+        mechanism the profile widget two doors down already uses (id
+        toggled by a plain button; see #reminderBellWidget/#reminderBellPanel
+        and the outside-click handler paired with them further down this
+        file, both copied from #whoWidget/#profileMenu's own pattern rather
+        than inventing a second one). Being inside <header class="topbar">
+        means it inherits the topbar's place in .main-sticky-head's
+        position:sticky stack for free — no position:fixed of its own to get
+        wrong — and being a button sized to the icon rather than a banner
+        sized to its content, it can never grow taller than the 3.6rem the
+        topbar already reserves (.topbar's own min-height).
+
+        DATA UNCHANGED — every field the old banner read (client_name /
+        case_doc_no / due_at / note / others — see marketing/reminders.py's
+        own _payload) is read here too, all of it now inside the dropdown
+        panel rather than inline in a banner. The one thing that changed
+        PRESENTATION rather than just location is `others`: the old banner
+        spelled it out as its own "+N more due" pill; here it becomes the
+        small numeric badge on the trigger button instead (others + 1, i.e.
+        the TOTAL open-and-due count, so the badge answers "how many" the
+        instant you see the icon rather than after you open the panel — with
+        no badge at all when there is exactly one due reminder, since a
+        badge reading "1" on a bell that is already the whole notification
+        would just be visual noise for a fact the icon alone already states).
+      {% endcomment %}
+      {% if reminder_notice %}
+      <div class="reminder-bell" id="reminderBellWidget">
+        <button class="reminder-bell-btn" type="button"
+                onclick="document.getElementById('reminderBellPanel').classList.toggle('open')"
+                aria-haspopup="true" aria-label="{% trans "Reminder due" %}">
+          <i class="fa-solid fa-bell"></i>
+          {% if reminder_notice.others %}
+          <span class="reminder-bell-badge">{{ reminder_notice.others|add:1 }}</span>
+          {% endif %}
+        </button>
+        <div class="reminder-bell-panel" id="reminderBellPanel">
+          <div class="reminder-bell-head">
+            <strong class="reminder-bell-time">{{ reminder_notice.due_at|jalali:"Y.m.d H:i" }}</strong>
+            <span class="reminder-bell-label">{% trans "Reminder due" %}</span>
+          </div>
+          {% if reminder_notice.client_name or reminder_notice.case_doc_no %}
+          <div class="reminder-bell-facts">
+            {% if reminder_notice.client_name %}
+            <span class="chip c-warn"><i class="fa-solid fa-building"></i><span dir="auto">{{ reminder_notice.client_name }}</span></span>
+            {% endif %}
+            {% if reminder_notice.case_doc_no %}
+            <span class="chip c-warn"><i class="fa-solid fa-folder-open"></i><span class="mono">{{ reminder_notice.case_doc_no }}</span></span>
+            {% endif %}
+          </div>
+          {% endif %}
+          {% if reminder_notice.note %}
+          <div class="reminder-bell-note" dir="auto">{{ reminder_notice.note|truncatechars:120 }}</div>
+          {% endif %}
+          {# Points at "My Tasks" now, not the retired standalone reminders   #}
+          {# page — see marketing/views.py::my_tasks/::reminder_list. That   #}
+          {# URL name still exists (it 302s here), so this could still       #}
+          {# resolve through it, but linking straight at the real            #}
+          {# destination is one hop fewer for every click this gets.        #}
+          <a class="reminder-bell-link" href="{% url 'marketing:my_tasks' %}">
+            {% trans "View in My Tasks" %} <i class="fa-solid fa-arrow-right-long"></i>
+          </a>
+        </div>
+      </div>
+      {% endif %}
+
       <div class="who" id="whoWidget">
         {% with p=user.profile %}
         <button class="who-btn" type="button" onclick="document.getElementById('profileMenu').classList.toggle('open')">
@@ -225,24 +653,26 @@
             </div>
           </div>
           <dl class="pm-kv">
-            <dt>Username</dt><dd>{{ user.username }}</dd>
-            {% if p.internal_code %}<dt>Internal code</dt><dd class="mono">{{ p.internal_code }}</dd>{% endif %}
+            <dt>{% trans "Username" %}</dt><dd>{{ user.username }}</dd>
+            {% if p.internal_code %}<dt>{% trans "Internal code" %}</dt><dd class="mono">{{ p.internal_code }}</dd>{% endif %}
           </dl>
-          <a href="{% url 'accounts:my_profile' %}" class="pm-link"><i class="fa-solid fa-id-badge"></i> My profile</a>
+          {% if not p.must_change_password %}
+            <a href="{% url 'accounts:my_profile' %}" class="pm-link"><i class="fa-solid fa-id-badge"></i> {% trans "My profile" %}</a>
+          {% endif %}
           <div class="pm-theme">
             <div class="pm-theme-row">
-              <span class="pm-theme-label">Colour</span>
+              <span class="pm-theme-label">{% trans "Colour" %}</span>
               <div class="pm-skins">
-                <button type="button" class="pm-skin" data-skin="blue" title="Blue" aria-label="Blue theme"></button>
-                <button type="button" class="pm-skin" data-skin="rose" title="Rose" aria-label="Rose theme"></button>
-                <button type="button" class="pm-skin" data-skin="teal" title="Teal" aria-label="Teal theme"></button>
+                <button type="button" class="pm-skin" data-skin="blue" title="{% trans 'Blue' %}" aria-label="{% trans 'Blue theme' %}"></button>
+                <button type="button" class="pm-skin" data-skin="rose" title="{% trans 'Rose' %}" aria-label="{% trans 'Rose theme' %}"></button>
+                <button type="button" class="pm-skin" data-skin="teal" title="{% trans 'Teal' %}" aria-label="{% trans 'Teal theme' %}"></button>
               </div>
             </div>
             <div class="pm-theme-row">
-              <span class="pm-theme-label">Mode</span>
+              <span class="pm-theme-label">{% trans "Mode" %}</span>
               <div class="pm-modes">
-                <button type="button" class="pm-mode" data-mode="light" title="Light"><i class="fa-solid fa-sun"></i></button>
-                <button type="button" class="pm-mode" data-mode="dark" title="Dark"><i class="fa-solid fa-moon"></i></button>
+                <button type="button" class="pm-mode" data-mode="light" title="{% trans 'Light' %}"><i class="fa-solid fa-sun"></i></button>
+                <button type="button" class="pm-mode" data-mode="dark" title="{% trans 'Dark' %}"><i class="fa-solid fa-moon"></i></button>
               </div>
             </div>
           </div>
@@ -250,15 +680,18 @@
             <form method="post" action="{% url 'accounts:logout' %}" class="pm-logout" id="pmLogoutForm">
               {% csrf_token %}
               <input type="hidden" name="explicit_shift_end" value="0" id="explicitShiftEnd">
-              <button type="submit" id="pmSignOutBtn"><i class="fa-solid fa-right-from-bracket"></i> Sign out</button>
+              <button type="submit" id="pmSignOutBtn"><i class="fa-solid fa-right-from-bracket"></i> {% trans "Sign out" %}</button>
             </form>
-            <a href="{% url 'accounts:settings' %}" class="pm-settings" title="Settings" aria-label="Settings">
-              <i class="fa-solid fa-gear"></i>
-            </a>
+            {% if not p.must_change_password %}
+              <a href="{% url 'accounts:settings' %}" class="pm-settings" title="{% trans 'Settings' %}" aria-label="{% trans 'Settings' %}">
+                <i class="fa-solid fa-gear"></i>
+              </a>
+            {% endif %}
           </div>
         </div>
         {% endwith %}
       </div>
+      </div>{# /.topbar-end #}
     </header>
 
     {% if shift_seconds_left is not None %}
@@ -304,8 +737,29 @@
         <i class="fa-solid fa-user-shield"></i>
         <span>You're viewing the platform as <strong>{{ user.get_full_name|default:user.username }}</strong>
           — signed in as {{ impersonator_username }}.</span>
-        <a href="{% url 'accounts:impersonate_stop' %}" style="margin-left:auto;background:#3730a3;color:#fff;
-          text-decoration:none;padding:7px 14px;border-radius:8px;font-size:13px;">Return to admin account</a>
+        {% comment %}
+          Ending an impersonation changes who you are signed in as, so it goes through a
+          CSRF-protected POST instead of a plain link — see accounts.views.impersonate_stop.
+          This is a form dressed up as the button-shaped link it replaces: the form itself
+          carries the margin-inline-start:auto that pushes the control to the END of the
+          flex row — not margin-left, because "end" is the RIGHT edge under this page's
+          own <html dir="rtl"> (Persian), and a physical margin-left:auto would instead
+          shove the button toward the row's START there, off toward the wrong corner of
+          the banner. inline-start/end read the same active <html dir> this whole app now
+          mirrors under (see base.html's own <html> line) with nothing else to keep in
+          sync. The button repeats the font properties a button element does not inherit
+          from the banner (family and the 600 weight) so nothing about it looks different.
+
+          Note {% templatetag openbrace %}# … #{% templatetag closebrace %} cannot be used
+          here: that form of comment is single-line only, so a multi-line one is emitted into
+          the page as visible text.
+        {% endcomment %}
+        <form method="post" action="{% url 'accounts:impersonate_stop' %}" style="margin-inline-start:auto;">
+          {% csrf_token %}
+          <button type="submit" style="background:#3730a3;color:#fff;border:0;appearance:none;
+            -webkit-appearance:none;padding:7px 14px;border-radius:8px;font-family:inherit;
+            font-size:13px;font-weight:600;cursor:pointer;">Return to admin account</button>
+        </form>
       </div>
     {% endif %}
 
@@ -315,7 +769,11 @@
         font-size:14px;font-weight:600;">
         <i class="fa-solid fa-triangle-exclamation"></i>
         <span>{{ license_status.days_remaining }} day(s) remaining until the software license expires (expires {{ license_status.expiry_iso }}). Please renew soon to avoid interruption.</span>
-        <a href="{% url 'licensing:activate' %}" style="margin-left:auto;background:#9a6700;color:#fff;
+        {# margin-inline-start:auto, not margin-left — same reason as the      #}
+        {# impersonation banner's form just above: this needs to push toward  #}
+        {# the END of the flex row under both directions, and "end" is the    #}
+        {# LEFT edge, not the right one, once <html dir="rtl"> is active.     #}
+        <a href="{% url 'licensing:activate' %}" style="margin-inline-start:auto;background:#9a6700;color:#fff;
           text-decoration:none;padding:7px 14px;border-radius:8px;font-size:13px;">Enter new license</a>
       </div>
     {% endif %}
@@ -339,21 +797,106 @@
 {% if shift_signout_confirm %}
 <div id="signOutConfirm" class="shift-end-overlay so-confirm" hidden>
   <div class="shift-end-welcome so-confirm-card">
-    <span class="se-hi">End your shift session?</span>
-    <span class="se-msg so-confirm-msg">Time away will not count as work hours until you sign in again.</span>
+    <span class="se-hi">{% trans "End your shift session?" %}</span>
+    <span class="se-msg so-confirm-msg">{% trans "Time away will not count as work hours until you sign in again." %}</span>
     <div class="so-confirm-actions">
-      <button type="button" class="btn btn-ghost so-cancel" id="signOutCancel">Cancel</button>
-      <button type="button" class="btn btn-primary so-ok" id="signOutOk">Confirm Sign out</button>
+      <button type="button" class="btn btn-ghost so-cancel" id="signOutCancel">{% trans "Cancel" %}</button>
+      <button type="button" class="btn btn-primary so-ok" id="signOutOk">{% trans "Confirm Sign out" %}</button>
     </div>
   </div>
 </div>
 {% endif %}
 
 <script>
+  /*
+    Keep every same-origin POST form's CSRF token in step with the cookie the
+    browser will actually send with it.
+
+    Signing a user in rotates the CSRF secret (Django does it deliberately,
+    against session fixation), which invalidates the token baked into every page
+    rendered before it. Submit such a page afterwards and Django answers with its
+    own bare error page, which has no navigation and no way back:
+
+        Forbidden (403) - CSRF verification failed. Request aborted.
+
+    Resyncing at submit time fixes that, because the cookie read here is the very
+    one being sent with this request.
+
+    WHY THIS IS NOT NARROWED TO THE IMPERSONATION FORMS. It used to be, on the
+    reasoning that "Log in as" is the only rotation a user drives while still
+    browsing pages rendered before it. That reasoning is wrong, and the ordinary
+    daily path proves it. Measured, with django.test.Client(enforce_csrf_checks=
+    True) and no impersonation anywhere:
+
+        sign in as a commercial expert, open a case page,
+        WorkShiftMiddleware ends the shift and logs them out,
+        the same person signs in again in the same browser,
+        the still-open tab presses "Submit to Technical"
+            -> 403, Django's bare CSRF error page
+        the identical POST with the field refreshed from the cookie
+            -> 302, the transition runs normally
+
+    Every account on this platform is logged out by WorkShiftMiddleware at the
+    end of its shift, and a forced password change or an admin password reset
+    does the same, so "sign in again with a tab still open" is the common case
+    rather than an exotic one. Narrowing to two forms left roughly a hundred
+    others — every workflow button on the case page among them — answering that
+    ordinary sequence with an unrecoverable 403.
+
+    A form that genuinely wants to post something other than the current cookie's
+    token can opt out with ``data-csrf-keep``; nothing in this project does today.
+    Only forms that already carry a rendered ``csrfmiddlewaretoken`` are touched,
+    and only when a cookie exists to read, so a page with no token field and the
+    ``CSRF_USE_SESSIONS`` configuration are both left exactly as they were.
+
+    This weakens nothing. The token still has to come from the CSRF cookie,
+    which is the whole basis of the protection: only same-origin script can read
+    it (a cross-site page cannot), and a cross-site form post cannot run this
+    handler at all. It is the same value the AJAX helpers on this page already
+    send as X-CSRFToken, which is what Django's own documentation prescribes.
+    The rendered token stays masked in the HTML, so the BREACH mitigation
+    masking exists for is untouched — only the outgoing field is refreshed.
+    It also grants nobody anything: the CSRF token never carries identity, so the
+    request is still executed as whoever the session cookie says, and every
+    permission gate in the view runs exactly as before. The only difference is
+    that a POST the user was always allowed to make now reaches that gate instead
+    of dying in front of it.
+  */
+  document.addEventListener('submit', function (e) {
+    var form = e.target;
+    if (!form || form.tagName !== 'FORM') return;
+    /* GET forms carry no token and must not gain one (it would leak into the
+       query string); an explicit opt-out wins over everything. */
+    if ((form.getAttribute('method') || 'get').toLowerCase() !== 'post') return;
+    if (form.hasAttribute('data-csrf-keep')) return;
+    /* Same-origin only. An empty/relative action posts back to this page. */
+    var action = form.getAttribute('action') || '';
+    if (action && !/^[/?#]/.test(action)) {
+      try {
+        if (new URL(action, window.location.href).origin !== window.location.origin) return;
+      } catch (err) { return; }
+    }
+    var fields = form.querySelectorAll('input[name="csrfmiddlewaretoken"]');
+    if (!fields.length) return;
+    var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    if (!m) return;
+    var token = decodeURIComponent(m[1]);
+    Array.prototype.forEach.call(fields, function (input) { input.value = token; });
+  }, true);  /* capture: run before any handler that submits or cancels */
+
   document.addEventListener('click', function (e) {
     var w = document.getElementById('whoWidget');
     var m = document.getElementById('profileMenu');
     if (m && w && !w.contains(e.target)) m.classList.remove('open');
+    /* Same outside-click-closes contract as the profile widget just above,
+       copied rather than shared because the two toggle buttons already live
+       as separate inline onclick="" handlers (see the reminder bell's own
+       button in the topbar) — one shared helper would mean introducing a
+       first generalised widget-toggle function this file does not have yet,
+       which is more change than a second three-line listener justifies. */
+    var rw = document.getElementById('reminderBellWidget');
+    var rp = document.getElementById('reminderBellPanel');
+    if (rp && rw && !rw.contains(e.target)) rp.classList.remove('open');
   });
   (function () {
     var here = window.location.pathname;
@@ -446,7 +989,22 @@
   // Display countdown is local & monotonic; server ping only ends the shift
   // or re-anchors when drift is large (avoids second-jumps every ping).
   (function () {
-    var secondsLeft = {{ shift_seconds_left|default_if_none:'null' }};
+    {% comment %}
+      NOT |default_if_none. During an impersonated session
+      people.context_processors.work_shift_banner deliberately returns an
+      EMPTY context (the countdown belongs to the person really at the
+      keyboard) — so shift_seconds_left is not merely None, it is ABSENT.
+      {{ }} interpolation of a missing variable renders '' (Django's
+      string_if_invalid), and default_if_none only substitutes on an actual
+      None, so it let that '' straight through: "var secondsLeft = ;", a
+      syntax error that aborted every statement AFTER it in this shared inline
+      script — including the profile menu's light/dark buttons further down,
+      which is why switching theme while impersonating silently did nothing.
+      {% if %} resolves a missing variable to None (ignore_failures=True),
+      unlike {{ }} interpolation, so this reads the same variable safely in
+      both the normal case and the missing-context impersonation case.
+    {% endcomment %}
+    var secondsLeft = {% if shift_seconds_left is not None %}{{ shift_seconds_left }}{% else %}null{% endif %};
     var pingUrl = "{{ shift_ping_url|default:'' }}";
     var endName = "{% filter escapejs %}{{ shift_end_name|default:'colleague' }}{% endfilter %}";
     var loginUrl = "{% url 'accounts:login' %}";
@@ -587,9 +1145,26 @@
           'Accept': 'application/json'
         },
         credentials: 'same-origin'
-      }).then(function (r) {
-        return r.json().then(function (data) { return data; });
-      }).then(syncFromServer).catch(function () {});
+      }).then(window.FTJson).then(syncFromServer).catch(function (err) {
+        // A ping that cannot be read as JSON almost always means the session is
+        // gone: WorkShiftMiddleware only answers this endpoint with the
+        // shift_ended JSON while the session still exists, and once it does not
+        // @login_required redirects to the sign-in page instead. Measured, with
+        // no session: POST /people/shift/ping/ -> 302 -> text/html, which
+        // fetch() follows and returns as 200 HTML.
+        //
+        // The old handler was r.json() with an empty .catch(), so that HTML
+        // threw a SyntaxError that was swallowed whole: the tab went on pinging
+        // every ten seconds indefinitely, the shift banner kept counting down,
+        // and the end-of-shift overlay this code exists to show never appeared.
+        // The person was signed out and the page did not say so. showEnd() is
+        // what says so — but it also signs them out and navigates away, so it
+        // runs only on PROOF (the request was redirected to the sign-in page),
+        // never on the "200 but not JSON" guess. A wrong guess here would end a
+        // working session, which is far worse than a ping that quietly fails
+        // and gets retried a few seconds later.
+        if (err && err.ftSessionEndedProven) showEnd();
+      });
     }
 
     function pingIntervalMs() {
@@ -640,11 +1215,12 @@
     }
   })();
 </script>
+<script src="{% static 'js/autogrow.js' %}?v=autogrow-1"></script>
 <script src="{% static 'js/ui.js' %}?v=copy-check-1"></script>
 {% else %}
   {% block anon_content %}{% endblock %}
 {% endif %}
 {% block scripts %}{% endblock %}
-  <script src="{% static 'js/jalali_picker.js' %}?v=7"></script>
+  <script src="{% static 'js/jalali_picker.js' %}?v=8"></script>
 </body>
 </html>

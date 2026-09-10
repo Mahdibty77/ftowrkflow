@@ -1,68 +1,72 @@
 {% extends "base.html" %}
-{% load ft_extras %}
+{% load ft_extras i18n %}
 {% block title %}{{ case.doc_no }} · Foolad Tabar Workflow{% endblock %}
-{% block topbar %}Case {{ case.doc_no }}{% endblock %}
+{% block topbar %}{% blocktrans with doc_no=case.doc_no %}Case {{ doc_no }}{% endblocktrans %}{% endblock %}
 {% block content %}
 
 <div class="page-head">
   <div>
     <h1 style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">
       <span class="docno-line">
-        <span class="docno"><span>{{ case.doc_no }}</span></span>{% if case.is_delegated %} <span class="pill pill-delegated">Delegated</span>{% endif %}
+        <span class="docno"><span>{{ case.doc_no }}</span></span>{% if case.is_delegated %} <span class="pill pill-delegated">{% trans "Delegated" %}</span>{% endif %}
       </span>
-      {% if is_split %}
+      {% if status_per_side %}
         {% for s_label, s_status, s_color in status_rows %}
           <span class="status-tag" style="--sc:{{ s_color }}">{% if s_label %}{{ s_label }}: {% endif %}{{ s_status }}</span>
         {% endfor %}
       {% else %}
-        <span class="status-tag" style="--sc:{{ case.status_color }}">{{ case.status_label }}</span>
+        {% for s_label, s_status, s_color in status_rows %}<span class="status-tag" style="--sc:{{ s_color }}">{{ s_status }}</span>{% endfor %}
       {% endif %}
     </h1>
-    {% if viewer_unit != 'SUPPLY' %}<div class="sub">{{ case.client.name }} <span class="mono">({{ case.client.code }})</span></div>{% endif %}
+    {# dir="auto" wraps only the client's own name. A Persian name mixed with a #}
+    {# Latin word is reordered on screen without it — see the note at the end   #}
+    {# of static/css/app.css. The code beside it stays outside the wrapper: it  #}
+    {# is generated, always Latin, and must keep the paragraph's LTR direction. #}
+    {% if viewer_unit != 'SUPPLY' %}<div class="sub"><span dir="auto">{{ case.client.name }}</span> <span class="mono">({{ case.client.code }})</span></div>{% endif %}
   </div>
 </div>
 
 <div class="grid grid-3">
   <div class="card" style="grid-column:span 2;">
     <div class="card-head">
-      <h3><i class="fa-solid fa-circle-info" style="color:var(--accent-strong);margin-right:.4rem;"></i>Case information</h3>
+      <h3><i class="fa-solid fa-circle-info" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Case information" %}</h3>
       {% if 'edit_info' in actions and is_fresh_draft %}
-        <a href="{% url 'cases:edit_items' case.pk %}" class="btn btn-sm"><i class="fa-solid fa-pen"></i> Edit information</a>
+        <a href="{% url 'cases:edit_items' case.pk %}" class="btn btn-sm"><i class="fa-solid fa-pen"></i> {% trans "Edit information" %}</a>
       {% elif 'edit_contacts' in actions %}
-        <a href="{% url 'cases:edit_items' case.pk %}?contacts=1" class="btn btn-sm"><i class="fa-solid fa-pen"></i> Edit information</a>
+        <a href="{% url 'cases:edit_items' case.pk %}?contacts=1" class="btn btn-sm"><i class="fa-solid fa-pen"></i> {% trans "Edit information" %}</a>
       {% endif %}
     </div>
 
     <div class="infobox">
       <div class="box hot">
         <span class="bi"><i class="fa-solid fa-file-invoice-dollar"></i></span>
-        <div><div class="bl">Offer type</div>
+        <div><div class="bl">{% trans "Offer type" %}</div>
           <div class="bv">
-            {% if case.needs_pricing %}TO &amp; PI (Technical Offer + Proforma){% if case.upgraded_two_stage %} <span class="stage-chip">Two&nbsp;Stage</span>{% endif %}
-            {% else %}TO (Technical Offer){% endif %}
+            {% if case.needs_pricing %}{% trans "TO & PI (Technical Offer + Proforma)" %}{% if case.upgraded_two_stage %} <span class="stage-chip">{% trans "Two Stage" %}</span>{% endif %}
+            {% else %}{% trans "TO (Technical Offer)" %}{% endif %}
           </div>
         </div>
       </div>
       <div class="box">
         <span class="bi"><i class="fa-solid fa-tag"></i></span>
-        <div><div class="bl">Document kind</div><div class="bv">{{ case.get_kind_display }}</div></div>
+        <div><div class="bl">{% trans "Document kind" %}</div><div class="bv">{{ case.get_kind_display }}</div></div>
       </div>
       <div class="box">
         <span class="bi"><i class="fa-solid fa-flag"></i></span>
-        <div><div class="bl">Status</div><div class="bv">
-          {% if is_split %}
+        <div><div class="bl">{% trans "Status" %}</div><div class="bv">
+          {% if status_per_side %}
             {% for s_label, s_status, s_color in status_rows %}
               <div style="margin-bottom:.25rem;"><span class="status-tag" style="--sc:{{ s_color }}">{% if s_label %}{{ s_label }}: {% endif %}{{ s_status }}</span></div>
             {% endfor %}
           {% else %}
-            <span class="status-tag" style="--sc:{{ case.status_color }}">{{ case.status_label }}</span>
+            {% for s_label, s_status, s_color in status_rows %}<span class="status-tag" style="--sc:{{ s_color }}">{{ s_status }}</span>{% endfor %}
           {% endif %}
         </div></div>
       </div>
       <div class="box hot">
         <span class="bi"><i class="fa-solid fa-layer-group"></i></span>
-        <div><div class="bl">Price type</div><div class="bv">
-          {{ case.price_type_label }}{% if case.price_upgraded_two_stage %} <span class="stage-chip">Two&nbsp;Stage</span>{% endif %}
+        <div><div class="bl">{% trans "Price type" %}</div><div class="bv">
+          {{ case.price_type_label }}{% if case.price_upgraded_two_stage %} <span class="stage-chip">{% trans "Two Stage" %}</span>{% endif %}
         </div></div>
       </div>
     </div>
@@ -70,58 +74,69 @@
     <div class="grid grid-2 info-split">
       {% if viewer_unit != 'SUPPLY' %}
       <div class="subcard">
-        <div class="sc-head"><i class="fa-solid fa-building"></i> Client information</div>
+        <div class="sc-head"><i class="fa-solid fa-building"></i> {% trans "Client information" %}</div>
         <dl class="kv-ic compact">
-          <dt><i class="fa-solid fa-building"></i>Client</dt><dd>{{ case.client.name }} <span class="mono muted">({{ case.client.code }})</span></dd>
-          {% if case.order_no %}<dt><i class="fa-solid fa-file-lines"></i>Order No. / Project Name</dt><dd>{{ case.order_no }}</dd>{% endif %}
-          {% if case.client_commercial_expert %}<dt><i class="fa-solid fa-user"></i>Client commercial contact</dt><dd>{{ case.client_commercial_expert }}</dd>{% endif %}
-          {% if case.client_commercial_phone %}<dt><i class="fa-solid fa-phone"></i>Client commercial phone</dt><dd class="mono">{{ case.client_commercial_phone }}</dd>{% endif %}
-          {% if case.client_technical_expert %}<dt><i class="fa-solid fa-user-gear"></i>Client technical contact</dt><dd>{{ case.client_technical_expert }}</dd>{% endif %}
-          {% if case.client_technical_phone %}<dt><i class="fa-solid fa-phone"></i>Client technical phone</dt><dd class="mono">{{ case.client_technical_phone }}</dd>{% endif %}
+          <dt><i class="fa-solid fa-building"></i>{% trans "Client" %}</dt><dd><span dir="auto">{{ case.client.name }}</span> <span class="mono muted">({{ case.client.code }})</span></dd>
+          {% if case.order_no %}<dt><i class="fa-solid fa-file-lines"></i>{% trans "Order No. / Project Name" %}</dt><dd dir="auto">{{ case.order_no }}</dd>{% endif %}
+          {% if case.client_commercial_expert %}<dt><i class="fa-solid fa-user"></i>{% trans "Client commercial contact" %}</dt><dd dir="auto">{{ case.client_commercial_expert }}</dd>{% endif %}
+          {% if case.client_commercial_phone %}<dt><i class="fa-solid fa-phone"></i>{% trans "Client commercial phone" %}</dt><dd class="mono">{{ case.client_commercial_phone }}</dd>{% endif %}
+          {% if case.client_technical_expert %}<dt><i class="fa-solid fa-user-gear"></i>{% trans "Client technical contact" %}</dt><dd dir="auto">{{ case.client_technical_expert }}</dd>{% endif %}
+          {% if case.client_technical_phone %}<dt><i class="fa-solid fa-phone"></i>{% trans "Client technical phone" %}</dt><dd class="mono">{{ case.client_technical_phone }}</dd>{% endif %}
         </dl>
       </div>
       {% endif %}
       <div class="subcard">
-        <div class="sc-head"><i class="fa-solid fa-sliders"></i> Offer details</div>
+        <div class="sc-head"><i class="fa-solid fa-sliders"></i> {% trans "Offer details" %}</div>
         <dl class="kv-ic compact">
-          <dt><i class="fa-solid fa-hashtag"></i>Document No.</dt>
+          <dt><i class="fa-solid fa-hashtag"></i>{% trans "Document No." %}</dt>
           <dd>
             <span class="docno-line">
-              <span class="mono">{{ case.doc_no }}</span>{% if case.is_delegated %} <span class="pill pill-delegated">Delegated</span>{% endif %}
+              <span class="mono">{{ case.doc_no }}</span>{% if case.is_delegated %} <span class="pill pill-delegated">{% trans "Delegated" %}</span>{% endif %}
             </span>
           </dd>
-          <dt><i class="fa-solid fa-folder"></i>Attach No.</dt><dd class="mono">{% if case.attach_no %}<span id="attach-no-val">{{ case.attach_no }}</span> <i class="fa-regular fa-copy copy-btn" data-copy-target="attach-no-val" role="button" tabindex="0" aria-label="Copy attach number"></i>{% else %}—{% endif %}</dd>
-          <dt><i class="fa-solid fa-user-tie"></i>Commercial Expert</dt>
+          <dt><i class="fa-solid fa-folder"></i>{% trans "Attach No." %}</dt><dd class="mono">{% if case.attach_no %}<span id="attach-no-val">{{ case.attach_no }}</span> <i class="fa-regular fa-copy copy-btn" data-copy-target="attach-no-val" role="button" tabindex="0" aria-label="{% trans 'Copy attach number' %}"></i>{% else %}—{% endif %}</dd>
+          <dt><i class="fa-solid fa-user-tie"></i>{% trans "Commercial Expert" %}</dt>
           <dd>
             {% if case.commercial_expert_display %}
-              {{ case.commercial_expert_display }}
+              <span dir="auto">{{ case.commercial_expert_display }}</span>
             {% else %}
-              {{ case.created_by.get_full_name|default:case.created_by.username }}
+              <span dir="auto">{{ case.created_by.get_full_name|default:case.created_by.username }}</span>
               <span class="mono muted">({{ case.created_by.profile.internal_code|default:case.expert_code }})</span>
             {% endif %}
           </dd>
           {% if case.technical_expert_display or to_author %}
-          <dt><i class="fa-solid fa-screwdriver-wrench"></i>Technical expert</dt>
+          <dt><i class="fa-solid fa-screwdriver-wrench"></i>{% trans "Technical expert" %}</dt>
           <dd>
             {% if case.technical_expert_display %}
-              {{ case.technical_expert_display }}
+              <span dir="auto">{{ case.technical_expert_display }}</span>
             {% elif to_author %}
-              {{ to_author.get_full_name|default:to_author.username }}{% if to_author.profile.internal_code %} <span class="mono muted">({{ to_author.profile.internal_code }})</span>{% endif %}
+              <span dir="auto">{{ to_author.get_full_name|default:to_author.username }}</span>{% if to_author.profile.internal_code %} <span class="mono muted">({{ to_author.profile.internal_code }})</span>{% endif %}
             {% endif %}
           </dd>
           {% endif %}
-          <dt><i class="fa-solid fa-sitemap"></i>Holder unit</dt><dd>{{ case.holder_unit|default:"—" }}</dd>
-          <dt><i class="fa-solid fa-calendar-plus"></i>Created</dt><dd>{{ case.created_at|jalali:"Y.m.d H:i" }}</dd>
-          {% if case.deadline %}<dt><i class="fa-solid fa-clock"></i>Deadline</dt><dd>{{ case.deadline|jalali:"Y.m.d H:i" }}</dd>{% endif %}
+          <dt><i class="fa-solid fa-sitemap"></i>{% trans "Current owner" %}</dt>
+          <dd>
+            {% with owner=case.current_owner %}
+              {% if owner %}
+                <span dir="auto">{{ owner.get_full_name|default:owner.username }}</span>
+              {% else %}
+                {# holder_unit_label, not the raw holder_unit code — see that #}
+                {# property's own comment on cases/models.py::Case. #}
+                {{ case.holder_unit_label|default:"—" }}
+              {% endif %}
+            {% endwith %}
+          </dd>
+          <dt><i class="fa-solid fa-calendar-plus"></i>{% trans "Created" %}</dt><dd>{{ case.created_at|jalali:"Y.m.d H:i" }}</dd>
+          {% if case.deadline %}<dt><i class="fa-solid fa-clock"></i>{% trans "Deadline" %}</dt><dd>{{ case.deadline|jalali:"Y.m.d H:i" }}</dd>{% endif %}
         </dl>
       </div>
     </div>
   </div>
 
   <div class="card">
-    <div class="card-head"><h3>Actions</h3></div>
+    <div class="card-head"><h3>{% trans "Actions" %}</h3></div>
     {% if case.awaiting_approval %}
-      <div class="flash flash-warning">An expert has requested to send this case ({{ case.get_proposed_action_display|default:case.proposed_action }}). Manager approval required.</div>
+      <div class="flash flash-warning">{% blocktrans with proposed=case.get_proposed_action_display|default:case.proposed_action %}An expert has requested to send this case ({{ proposed }}). Manager approval required.{% endblocktrans %}</div>
     {% endif %}
 
     {% if 'assign' in actions and case.holder_unit == 'SUPPLY' %}
@@ -132,12 +147,12 @@
             {% csrf_token %}
             <input type="hidden" name="action" value="assign">
             <input type="hidden" name="side" value="{{ sd.code }}">
-            <label><i class="fa-solid fa-user-plus"></i> Assign {{ sd.label }} to expert</label>
+            <label><i class="fa-solid fa-user-plus"></i> {% blocktrans with side=sd.label %}Assign {{ side }} to expert{% endblocktrans %}</label>
             <div class="row-flex">
-              <select name="assignee" data-combo data-placeholder="Search {{ sd.label|lower }} expert…" style="flex:1">
+              <select name="assignee" data-combo data-placeholder="{% blocktrans with side=sd.label|lower %}Search {{ side }} expert…{% endblocktrans %}" style="flex:1">
                 {% for u in sd.pool %}<option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }} ({{ u.profile.internal_code }})</option>{% endfor %}
               </select>
-              <button type="button" data-confirm-trigger class="btn btn-sm btn-primary">Assign</button>
+              <button type="button" data-confirm-trigger class="btn btn-sm btn-primary">{% trans "Assign" %}</button>
             </div>
           </form>
         {% endif %}
@@ -146,12 +161,12 @@
       <form method="post" action="{% url 'cases:transition' case.pk %}" class="field confirm-action" data-comment>
         {% csrf_token %}
         <input type="hidden" name="action" value="assign">
-        <label><i class="fa-solid fa-user-plus"></i> Assign to expert</label>
+        <label><i class="fa-solid fa-user-plus"></i> {% trans "Assign to expert" %}</label>
         <div class="row-flex">
-          <select name="assignee" data-combo data-placeholder="Search expert…" style="flex:1">
+          <select name="assignee" data-combo data-placeholder="{% trans 'Search expert…' %}" style="flex:1">
             {% for u in assignees %}<option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}</option>{% endfor %}
           </select>
-          <button type="button" data-confirm-trigger class="btn btn-sm btn-primary">Assign</button>
+          <button type="button" data-confirm-trigger class="btn btn-sm btn-primary">{% trans "Assign" %}</button>
         </div>
       </form>
     {% endif %}
@@ -160,12 +175,12 @@
       <form method="post" action="{% url 'cases:transition' case.pk %}" class="field confirm-action" data-comment>
         {% csrf_token %}
         <input type="hidden" name="action" value="assign">
-        <label><i class="fa-solid fa-user-plus"></i> Assign to expert (both sides)</label>
+        <label><i class="fa-solid fa-user-plus"></i> {% trans "Assign to expert (both sides)" %}</label>
         <div class="row-flex">
-          <select name="assignee" data-combo data-placeholder="Search technical expert…" style="flex:1">
+          <select name="assignee" data-combo data-placeholder="{% trans 'Search technical expert…' %}" style="flex:1">
             {% for u in tech_pool %}<option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}{% if u.profile.internal_code %} ({{ u.profile.internal_code }}){% endif %}</option>{% endfor %}
           </select>
-          <button type="button" data-confirm-trigger class="btn btn-sm btn-primary">Assign</button>
+          <button type="button" data-confirm-trigger class="btn btn-sm btn-primary">{% trans "Assign" %}</button>
         </div>
       </form>
     {% endif %}
@@ -179,55 +194,63 @@
     {% if 'submit_to_technical' in actions and not is_split %}
       <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment style="margin-bottom:.4rem;">
         {% csrf_token %}<input type="hidden" name="action" value="submit_to_technical">
-        <button type="button" data-confirm-trigger class="btn btn-sm btn-primary"><i class="fa-solid fa-paper-plane"></i> Submit to Technical</button>
+        <button type="button" data-confirm-trigger class="btn btn-sm btn-primary"><i class="fa-solid fa-paper-plane"></i> {% trans "Submit to Technical" %}</button>
       </form>
     {% endif %}
     {% if 'send_to_supply' in actions and not is_split %}
       <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment style="margin-bottom:.4rem;">
         {% csrf_token %}<input type="hidden" name="action" value="send_to_supply">
-        <button type="button" data-confirm-trigger class="btn btn-sm btn-primary"><i class="fa-solid fa-paper-plane"></i> Submit to Supply</button>
+        <button type="button" data-confirm-trigger class="btn btn-sm btn-primary"><i class="fa-solid fa-paper-plane"></i> {% trans "Submit to Supply" %}</button>
       </form>
     {% elif to_blocked_by_issues %}
       <div class="alert-inline alert-warn" style="margin-bottom:.5rem;">
         <i class="fa-solid fa-circle-exclamation"></i>
-        <span><strong>Cannot submit to Supply</strong> — the Technical Offer has rows flagged as <em>Technical Problem</em>.
-        Resolve all flags in the TO tool before forwarding.</span>
+        <span>{% blocktrans %}<strong>Cannot submit to Supply</strong> — the Technical Offer has rows flagged as <em>Technical Problem</em>.
+        Resolve all flags in the TO tool before forwarding.{% endblocktrans %}</span>
       </div>
     {% elif to_blocked_by_brand %}
       <div class="alert-inline alert-warn" style="margin-bottom:.5rem;">
         <i class="fa-solid fa-circle-exclamation"></i>
-        <span><strong>Cannot submit to Supply</strong> — one or more rows still have an empty <em>BRAND</em>.
-        Fill BRAND on every active row in the TO tool before forwarding.</span>
+        <span>{% blocktrans %}<strong>Cannot submit to Supply</strong> — one or more rows still have an empty <em>BRAND</em>.
+        Fill BRAND on every active row in the TO tool before forwarding.{% endblocktrans %}</span>
       </div>
     {% endif %}
     {% if 'send_to_commercial' in actions and not is_split %}
       <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment style="margin-bottom:.4rem;">
         {% csrf_token %}<input type="hidden" name="action" value="send_to_commercial">
-        <button type="button" data-confirm-trigger class="btn btn-sm btn-primary"><i class="fa-solid fa-paper-plane"></i> Submitted to Commercial</button>
+        <button type="button" data-confirm-trigger class="btn btn-sm btn-primary"><i class="fa-solid fa-paper-plane"></i> {% trans "Submitted to Commercial" %}</button>
       </form>
     {% elif pi_blocked_by_remark %}
       <div class="alert-inline alert-warn" style="margin-bottom:.5rem;">
         <i class="fa-solid fa-circle-exclamation"></i>
-        <span><strong>Can't submit to Commercial</strong> — some items still miss a required field ({% if require_ftco_code %}FTCO code, {% endif %}price, brand or time). Complete them, or mark the row not-suppliable, first.</span>
+        {# blocktrans cannot contain a nested {% if %} — split into the two whole #}
+        {# sentences the toggle actually produces, rather than translating the   #}
+        {# fragment "FTCO code, " on its own (which would leave a translator     #}
+        {# guessing how it stitches into the surrounding Persian sentence).      #}
+        {% if require_ftco_code %}
+        <span>{% blocktrans %}<strong>Can't submit to Commercial</strong> — some items still miss a required field (FTCO code, price, brand or time). Complete them, or mark the row not-suppliable, first.{% endblocktrans %}</span>
+        {% else %}
+        <span>{% blocktrans %}<strong>Can't submit to Commercial</strong> — some items still miss a required field (price, brand or time). Complete them, or mark the row not-suppliable, first.{% endblocktrans %}</span>
+        {% endif %}
       </div>
     {% endif %}
 
     {% if 'approve_send' in actions %}
       <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment style="margin-bottom:.4rem;">
         {% csrf_token %}<input type="hidden" name="action" value="approve_send">
-        <button type="button" data-confirm-trigger class="btn btn-sm btn-primary">Approve & send</button>
+        <button type="button" data-confirm-trigger class="btn btn-sm btn-primary">{% trans "Approve & send" %}</button>
       </form>
     {% endif %}
 
     {% if 'propose_send' in actions %}
       <form method="post" action="{% url 'cases:transition' case.pk %}" class="field" style="margin-top:.5rem;">
         {% csrf_token %}<input type="hidden" name="action" value="propose_send">
-        <label>Request manager to send</label>
+        <label>{% trans "Request manager to send" %}</label>
         <select name="proposed_action">
-          {% if case.needs_pricing %}<option value="send_to_supply">Submit to Supply</option>{% endif %}
-          <option value="send_to_commercial">Submitted to Commercial</option>
+          {% if case.needs_pricing %}<option value="send_to_supply">{% trans "Submit to Supply" %}</option>{% endif %}
+          <option value="send_to_commercial">{% trans "Submitted to Commercial" %}</option>
         </select>
-        <button class="btn btn-sm" style="margin-top:.4rem;">Request approval</button>
+        <button class="btn btn-sm" style="margin-top:.4rem;">{% trans "Request approval" %}</button>
       </form>
     {% endif %}
 
@@ -235,19 +258,19 @@
       <hr class="sep">
       <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment style="margin-bottom:.4rem;">
         {% csrf_token %}<input type="hidden" name="action" value="return_to_commercial">
-        <button type="button" data-confirm-trigger class="btn btn-sm"><i class="fa-solid fa-rotate-left"></i> Return to Commercial</button>
+        <button type="button" data-confirm-trigger class="btn btn-sm"><i class="fa-solid fa-rotate-left"></i> {% trans "Return to Commercial" %}</button>
       </form>
     {% endif %}
     {% if 'return_to_technical' in actions and not is_split %}
       <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment style="margin-bottom:.4rem;">
         {% csrf_token %}<input type="hidden" name="action" value="return_to_technical">
-        <button type="button" data-confirm-trigger class="btn btn-sm"><i class="fa-solid fa-rotate-left"></i> Return to Technical</button>
+        <button type="button" data-confirm-trigger class="btn btn-sm"><i class="fa-solid fa-rotate-left"></i> {% trans "Return to Technical" %}</button>
       </form>
     {% endif %}
     {% if 'return_to_supply' in actions and not is_split and not to_blocked_by_issues and not to_blocked_by_brand %}
       <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment style="margin-bottom:.4rem;">
         {% csrf_token %}<input type="hidden" name="action" value="return_to_supply">
-        <button type="button" data-confirm-trigger class="btn btn-sm"><i class="fa-solid fa-rotate-left"></i> Return to Supply</button>
+        <button type="button" data-confirm-trigger class="btn btn-sm"><i class="fa-solid fa-rotate-left"></i> {% trans "Return to Supply" %}</button>
       </form>
     {% endif %}
 
@@ -255,7 +278,7 @@
       <hr class="sep">
       <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment data-required>
         {% csrf_token %}<input type="hidden" name="action" value="cannot_supply">
-        <button type="button" data-confirm-trigger class="btn btn-sm btn-danger"><i class="fa-solid fa-ban"></i> Mark cannot supply</button>
+        <button type="button" data-confirm-trigger class="btn btn-sm btn-danger"><i class="fa-solid fa-ban"></i> {% trans "Mark cannot supply" %}</button>
       </form>
     {% endif %}
 
@@ -265,13 +288,13 @@
         {% if 'close' in actions %}
           <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment>
             {% csrf_token %}<input type="hidden" name="action" value="close">
-            <button type="button" data-confirm-trigger class="btn btn-sm btn-primary"><i class="fa-solid fa-paper-plane"></i> Close — sent to client</button>
+            <button type="button" data-confirm-trigger class="btn btn-sm btn-primary"><i class="fa-solid fa-paper-plane"></i> {% trans "Close — sent to client" %}</button>
           </form>
         {% endif %}
         {% if 'request_cancel' in actions %}
           <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment data-required>
             {% csrf_token %}<input type="hidden" name="action" value="request_cancel">
-            <button type="button" data-confirm-trigger class="btn btn-sm btn-danger"><i class="fa-solid fa-xmark"></i> Request cancel</button>
+            <button type="button" data-confirm-trigger class="btn btn-sm btn-danger"><i class="fa-solid fa-xmark"></i> {% trans "Request cancel" %}</button>
           </form>
         {% endif %}
       </div>
@@ -279,40 +302,33 @@
 
     {% if 'approve_cancel' in actions %}
       <hr class="sep">
-      <div class="flash flash-warning" style="margin-bottom:.5rem;"><i class="fa-solid fa-triangle-exclamation"></i><span>{% if case.proposed_action|slice:":4" == "burn" %}A burn was requested. Manager approval required.{% else %}A cancellation was requested. Manager approval required.{% endif %}</span></div>
+      <div class="flash flash-warning" style="margin-bottom:.5rem;"><i class="fa-solid fa-triangle-exclamation"></i><span>{% if case.proposed_action|slice:":4" == "burn" %}{% trans "A burn was requested. Manager approval required." %}{% else %}{% trans "A cancellation was requested. Manager approval required." %}{% endif %}</span></div>
       <form method="post" action="{% url 'cases:transition' case.pk %}" class="field">
         {% csrf_token %}
-        <textarea name="comment" rows="2" placeholder="Approval / rejection note…"></textarea>
+        <textarea name="comment" rows="2" placeholder="{% trans 'Approval / rejection note…' %}"></textarea>
         <div class="btn-row" style="margin-top:.4rem;">
-          <button class="btn btn-sm btn-danger" name="action" value="approve_cancel">{% if case.proposed_action|slice:":4" == "burn" %}Approve burn{% else %}Approve cancellation{% endif %}</button>
-          <button class="btn btn-sm" name="action" value="reject_cancel">Reject</button>
+          <button class="btn btn-sm btn-danger" name="action" value="approve_cancel">{% if case.proposed_action|slice:":4" == "burn" %}{% trans "Approve burn" %}{% else %}{% trans "Approve cancellation" %}{% endif %}</button>
+          <button class="btn btn-sm" name="action" value="reject_cancel">{% trans "Reject" %}</button>
         </div>
       </form>
     {% endif %}
 
-    {% if 'approve_unsuppliable' in actions %}
-      <hr class="sep">
-      <div class="flash flash-warning" style="margin-bottom:.5rem;"><i class="fa-solid fa-triangle-exclamation"></i><span>A “cannot supply” request needs your approval.</span></div>
-      <form method="post" action="{% url 'cases:transition' case.pk %}" class="field">
-        {% csrf_token %}
-        <textarea name="comment" rows="2" placeholder="Approval / rejection note…"></textarea>
-        <div class="btn-row" style="margin-top:.4rem;">
-          <button class="btn btn-sm btn-danger" name="action" value="approve_unsuppliable">Approve — cannot supply</button>
-          <button class="btn btn-sm" name="action" value="reject_unsuppliable">Reject</button>
-        </div>
-      </form>
-    {% endif %}
+    {# An "approve / reject cannot-supply" panel used to sit here. Marking a case #}
+    {# cannot-supply needs no approval: it takes effect at once and goes straight #}
+    {# back to the commercial expert, so 'approve_unsuppliable' was never in the #}
+    {# actions set and the panel could never draw. Removed together with the two #}
+    {# service functions and the transition branches behind it. #}
 
     {% if 'finalize' in actions and not is_split %}
       <hr class="sep">
       <div class="btn-row" style="margin-bottom:.5rem;">
         <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment>
           {% csrf_token %}<input type="hidden" name="action" value="finalize">
-          <button type="button" data-confirm-trigger class="btn btn-sm btn-primary"><i class="fa-solid fa-circle-check"></i> Final Approved</button>
+          <button type="button" data-confirm-trigger class="btn btn-sm btn-primary"><i class="fa-solid fa-circle-check"></i> {% trans "Final Approved" %}</button>
         </form>
         <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment data-required>
           {% csrf_token %}<input type="hidden" name="action" value="burn">
-          <button type="button" data-confirm-trigger class="btn btn-sm btn-dark"><i class="fa-solid fa-fire"></i> Burned</button>
+          <button type="button" data-confirm-trigger class="btn btn-sm btn-dark"><i class="fa-solid fa-fire"></i> {% trans "Burned" %}</button>
         </form>
       </div>
     {% endif %}
@@ -322,27 +338,33 @@
       <div class="btn-row" style="margin-bottom:.5rem;">
         <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment data-required>
           {% csrf_token %}<input type="hidden" name="action" value="final_close">
-          <button type="button" data-confirm-trigger class="btn btn-sm btn-dark"><i class="fa-solid fa-lock"></i> Final Closed</button>
+          <button type="button" data-confirm-trigger class="btn btn-sm btn-dark"><i class="fa-solid fa-lock"></i> {% trans "Final Closed" %}</button>
         </form>
+        {% if 'burn' in actions %}
+          <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment data-required>
+            {% csrf_token %}<input type="hidden" name="action" value="burn">
+            <button type="button" data-confirm-trigger class="btn btn-sm btn-dark"><i class="fa-solid fa-fire"></i> {% trans "Burned" %}</button>
+          </form>
+        {% endif %}
       </div>
     {% endif %}
 
     {% if 'margin' in actions %}
       <hr class="sep">
-      <div class="muted" style="font-size:.78rem;">Commercial margin can be applied on the priced PI before export.</div>
+      <div class="muted" style="font-size:.78rem;">{% trans "Commercial margin can be applied on the priced PI before export." %}</div>
     {% endif %}
 
     {% if arrival_comment and not is_split %}
       <div class="arrival-note unit-note u-{{ arrival_comment.from_unit }}">
-        <div class="an-head"><i class="fa-solid fa-comment-dots"></i> Note from {{ arrival_comment.from_unit }} — {{ arrival_comment.actor_display_name }}</div>
-        <div class="an-body">{{ arrival_comment.comment }}</div>
+        <div class="an-head"><i class="fa-solid fa-comment-dots"></i> {% blocktrans with unit=arrival_comment.from_unit %}Note from {{ unit }}{% endblocktrans %} — <span dir="auto">{{ arrival_comment.actor_display_name }}</span></div>
+        <div class="an-body" dir="auto">{{ arrival_comment.comment }}</div>
         <div class="an-time">{{ arrival_comment.created_at|jalali:"Y.m.d H:i" }}</div>
       </div>
     {% endif %}
     {% if assign_comment and not is_split %}
       <div class="arrival-note unit-note u-{{ assign_comment.to_unit }}">
-        <div class="an-head"><i class="fa-solid fa-user-plus"></i> Assignment note — {{ assign_comment.actor_display_name }}</div>
-        <div class="an-body">{{ assign_comment.comment }}</div>
+        <div class="an-head"><i class="fa-solid fa-user-plus"></i> {% trans "Assignment note" %} — <span dir="auto">{{ assign_comment.actor_display_name }}</span></div>
+        <div class="an-body" dir="auto">{{ assign_comment.comment }}</div>
         <div class="an-time">{{ assign_comment.created_at|jalali:"Y.m.d H:i" }}</div>
       </div>
     {% endif %}
@@ -354,11 +376,11 @@
 {% for lc in lifecycle_report.cards %}
 <div class="card lifecycle-card">
   <div class="lc-bar">
-    <h3><i class="fa-solid fa-stopwatch"></i> Case lifecycle{% if lc.side_label %} · {{ lc.side_label }}{% endif %}</h3>
-    <span class="lc-chip"><b>{{ lc.item_count }}</b> items</span>
+    <h3><i class="fa-solid fa-stopwatch"></i> {% trans "Case lifecycle" %}{% if lc.side_label %} · {{ lc.side_label }}{% endif %}</h3>
+    <span class="lc-chip"><b>{{ lc.item_count }}</b> {% trans "items" %}</span>
     <span class="lc-chip"><i class="fa-regular fa-calendar"></i> {{ lc.created_at|jalali:"Y.m.d H:i" }}</span>
-    <span class="lc-chip lc-total"><i class="fa-solid fa-hourglass-half"></i> {{ lc.total }} {% if lc.is_terminal %}total{% else %}so far{% endif %}</span>
-    {% if forloop.first %}<span class="lc-badge">Managers</span>{% endif %}
+    <span class="lc-chip lc-total"><i class="fa-solid fa-hourglass-half"></i> {{ lc.total }} {% if lc.is_terminal %}{% trans "total" %}{% else %}{% trans "so far" %}{% endif %}</span>
+    {% if forloop.first %}<span class="lc-badge">{% trans "Managers" %}</span>{% endif %}
   </div>
   <div class="lc-flow">
     {% for r in lc.rows %}
@@ -366,7 +388,7 @@
         <div class="lc-cell-unit">{{ r.label }}</div>
         <div class="lc-entry">
           <span class="lc-time">{{ r.duration }}</span>
-          <span class="lc-person">{{ r.person }}</span>
+          <span class="lc-person" dir="auto">{{ r.person }}</span>
         </div>
       </div>
     {% endfor %}
@@ -382,7 +404,28 @@
       <i class="fa-solid fa-layer-group"></i> {{ sd.label }}
     </button>
   {% endfor %}
-  {% if not hide_combined %}<button type="button" class="side-tab" data-side-tab="ALL"><i class="fa-solid fa-list-ul"></i> Combined timeline</button>{% endif %}
+  {# REPORTS AND REMINDERS — case-wide facts (a report is not "the Internal    #}
+  {# side's report"), so on a multi-side case they live ONCE, here at the      #}
+  {# outer switch, rather than once per side inside each side's own tab bar    #}
+  {# (see _side_section.html's own comment: that per-side pair is gated       #}
+  {# `{% if not multi_side %}` for exactly this reason, so the two homes never #}
+  {# both render at once). Placed BEFORE "Combined timeline" in the DOM,       #}
+  {# unconditional on `hide_combined` (that flag only hides ONE button, not    #}
+  {# this pair) — DELIBERATELY THE OPPOSITE of a first guess. The obvious      #}
+  {# reasoning ("this page is RTL, so DOM order runs right-to-left, so         #}
+  {# appending AFTER Combined timeline puts these two on its left") turned out #}
+  {# to be wrong when checked against the actual rendered page: this row is    #}
+  {# `direction:ltr` / `flex-direction:row` like the rest of this app (see     #}
+  {# static/css/app.css — nothing here overrides it to RTL), so it lays out    #}
+  {# in plain left-to-right DOM order, and appending after Combined timeline    #}
+  {# put these two to its RIGHT, not its left. Measured live (each button's    #}
+  {# own `getBoundingClientRect().x`) before settling on this order, per the   #}
+  {# owner's own words ("در کنار تب combined timeline سمت چپ این تب" — next    #}
+  {# to the Combined timeline tab, on its left) rather than trusting the RTL   #}
+  {# assumption blind.                                                        #}
+  <button type="button" class="side-tab" data-side-tab="reports"><i class="fa-solid fa-file-lines"></i> {% trans "Reports" %}</button>
+  <button type="button" class="side-tab" data-side-tab="reminders"><i class="fa-solid fa-bell"></i> {% trans "Reminders" %}</button>
+  {% if not hide_combined %}<button type="button" class="side-tab" data-side-tab="ALL"><i class="fa-solid fa-list-ul"></i> {% trans "Combined timeline" %}</button>{% endif %}
 </div>
 {% endif %}
 
@@ -396,29 +439,327 @@
 <div class="side-section" data-side-panel="ALL" style="display:none;">
   <div class="tab-panel active" id="panel-combined">
     <div class="card">
-      <div class="card-head"><h3>Audit timeline{% if multi_side %} · all sub-streams{% endif %}</h3></div>
+      <div class="card-head">
+        <h3>{% trans "Audit timeline" %}{% if multi_side %} · {% trans "all sub-streams" %}{% endif %}</h3>
+        {# Widened from is_admin_view: a viewer who also holds a Marketing seat #}
+        {# gets it too — cases/views.py::_can_open_marketing_chart. The chart    #}
+        {# runs its own access_for on arrival, so this is an offer, not a grant. #}
+        {% if can_open_marketing_chart %}
+        <a href="{% url 'marketing:home' %}?case={{ case.pk }}" class="btn btn-sm"><i class="fa-solid fa-share-nodes"></i> {% trans "View in marketing chart" %}</a>
+        {% endif %}
+      </div>
       <ul class="timeline">
         {% for ev in combined_events %}
           <li>
             <div class="tl-action">
-              {% if ev.action == 'EDIT' and ev.form_kind %}Edited {{ ev.form_kind }} form
-              {% elif ev.action == 'NEW_VERSION' and ev.form_kind == 'INQUIRY' %}New inquiry form
-              {% elif ev.action == 'NEW_VERSION' and ev.form_kind %}New {{ ev.form_kind }} form
+              {% if ev.action == 'EDIT' and ev.form_kind %}{% blocktrans with kind=ev.form_kind %}Edited {{ kind }} form{% endblocktrans %}
+              {% elif ev.action == 'NEW_VERSION' and ev.form_kind == 'INQUIRY' %}{% trans "New inquiry form" %}
+              {% elif ev.action == 'NEW_VERSION' and ev.form_kind %}{% blocktrans with kind=ev.form_kind %}New {{ kind }} form{% endblocktrans %}
               {% else %}{{ ev.action_label }}{% endif %}
-              {% if ev.form_version is not None %}<span class="tl-ver">Version {{ ev.form_version|stringformat:"02d" }}</span>{% endif %}
-              {% if ev.two_stage %}<span class="stage-chip">Two&nbsp;Stage</span>{% endif %}
+              {% if ev.form_version is not None %}<span class="tl-ver">{% blocktrans with ver=ev.form_version|stringformat:"02d" %}Version {{ ver }}{% endblocktrans %}</span>{% endif %}
+              {% if ev.two_stage %}<span class="stage-chip">{% trans "Two Stage" %}</span>{% endif %}
               {% if ev.side and case.has_internal and case.has_external %}<span class="side-chip u-side-{{ ev.side }}">{{ ev.side_label }}</span>{% endif %}
               {% if ev.from_unit and ev.to_unit and ev.from_unit != ev.to_unit %}
                 · <span class="tl-route"><span class="unit u-{{ ev.from_unit }}">{{ ev.from_unit }}</span><i class="fa-solid fa-arrow-right-long arrow"></i><span class="unit u-{{ ev.to_unit }}">{{ ev.to_unit }}</span></span>
               {% endif %}
             </div>
-            <div class="tl-meta">{{ ev.actor_display_name }}{% if ev.actor_is_substitute %} <span class="tl-sub-tag">Substitute</span>{% endif %} · {{ ev.created_at|jalali:"Y.m.d H:i" }}</div>
-            {% if ev.comment %}<div class="tl-comment">{{ ev.comment }}</div>{% endif %}
+            <div class="tl-meta">{% if ev.actor_is_substitute %}<span class="tl-sub-tag">{% trans "Substitute" %}</span> {% endif %}<span dir="auto">{{ ev.actor_display_name }}</span> · {{ ev.created_at|jalali:"Y.m.d H:i" }}</div>
+            {% if ev.comment %}<div class="tl-comment" dir="auto">{{ ev.comment }}</div>{% endif %}
           </li>
         {% empty %}
-          <li class="muted">No activity yet.</li>
+          <li class="muted">{% trans "No activity yet." %}</li>
         {% endfor %}
       </ul>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if multi_side %}
+{# --------------------------------------------------------------- marketing #}
+{# Reports and Reminders for THIS case — case-wide facts, so on a multi-side #}
+{# case they live here, once, at the OUTER side-switch level (see the        #}
+{# `.side-switch` block above: two `.side-tab` buttons, `data-side-tab=      #}
+{# "reports"`/`"reminders"`, appended after "Combined timeline") rather than  #}
+{# inside either side's own tab bar — a report is not "the Internal side's   #}
+{# report", it is the case's. THIS USED TO BE A SEPARATE STANDALONE          #}
+{# "Marketing" CARD WITH ITS OWN INDEPENDENT TAB SWITCHER (#caseMktTabs /     #}
+{# [data-mkt-tab] / #caseMktPanels, plus a dedicated <script> block); it is   #}
+{# gone, and no new JavaScript replaces it — the SAME two switcher scripts    #}
+{# already on this page (the `.side-switch .side-tab` click handler and the   #}
+{# generic `.side-tabs .tab` → `#panel-<name>` handler, both further down)    #}
+{# already handle these two `.side-section`s generically, exactly as they     #}
+{# already handle "ALL"/Combined timeline above and every per-side panel      #}
+{# below — confirmed live rather than assumed (see this round's verification  #}
+{# notes).                                                                    #}
+{#                                                                            #}
+{# THE OLD THIRD TAB — a small marketing-style "Timeline" of REPORT_ADDED /   #}
+{# CASE_ROLE_CHANGED events (cases/views.py::_case_marketing_timeline,        #}
+{# `case_mkt_timeline`) — IS DELIBERATELY DROPPED, NOT RELOCATED. The owner   #}
+{# asked only to move Reports and Reminders; folding that content into the    #}
+{# audit timeline above would contradict this file's own established         #}
+{# reasoning (that timeline is this case's workflow history, the marketing    #}
+{# one is Marketing's record of it, "and the two are different kinds of row   #}
+{# that should never be merged into one list"); and `case_mkt_timeline` is    #}
+{# not read anywhere else on this page, so dropping it leaves no dangling     #}
+{# reference — the same fact this file's own view (cases/views.py::           #}
+{# case_detail) still computes and hands to the template unused, left alone   #}
+{# rather than removed, since this round touches templates only.             #}
+{#                                                                            #}
+{# VIEWING is open to anyone who reached this page at all (the owner's own   #}
+{# words: whoever has access to the case, per their role, may see these      #}
+{# reports) — there is no extra gate here beyond the one case_detail already #}
+{# enforced before rendering anything. WRITING is the narrow rule:           #}
+{# is_case_owner is true only for THIS case's own commercial owner (a        #}
+{# COMMERCIAL role AND this case's own creator — services.                  #}
+{# is_case_commercial_owner), and the two inline forms below only ever       #}
+{# render for that one person; case_report_add/case_reminder_add re-check    #}
+{# the same rule server-side regardless.                                     #}
+<div class="side-section" data-side-panel="reports" style="display:none;">
+  <div class="tab-panel active" id="panel-reports">
+    <div class="card">
+      <div class="card-head">
+        <h3><i class="fa-solid fa-file-lines" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Reports" %}</h3>
+      </div>
+
+      {% if is_case_owner %}
+      {# A native <details> disclosure — no JavaScript needed to show/hide  #}
+      {# it, and it starts closed so the reports table above it is the      #}
+      {# first thing a reader sees. Posts to case_report_add, which re-runs #}
+      {# the exact same ownership check this {% if %} only predicts.        #}
+      <details class="card" style="margin-bottom:.8rem;">
+        <summary class="btn btn-sm btn-primary" style="display:inline-flex;width:auto;cursor:pointer;">
+          <i class="fa-solid fa-file-pen"></i> {% trans "Write a report" %}
+        </summary>
+        <form method="post" action="{% url 'cases:case_report_add' case.pk %}" style="margin-top:.8rem;" autocomplete="off">
+          {% csrf_token %}
+          {% if case_report_form.non_field_errors %}
+          <div class="flash flash-error">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>{% for e in case_report_form.non_field_errors %}{{ e }}{% endfor %}</span>
+          </div>
+          {% endif %}
+          <div class="field">
+            <label><i class="fa-solid fa-list-check"></i> {{ case_report_form.options.label }}</label>
+            {{ case_report_form.options }}
+            {% if not case_report_form.options_available %}
+            <div class="help">{% trans "No report options exist yet — write the report in the box below instead." %}</div>
+            {% endif %}
+          </div>
+          <div class="field">
+            <label for="{{ case_report_form.text.id_for_label }}"><i class="fa-solid fa-file-lines"></i> {{ case_report_form.text.label }}</label>
+            {{ case_report_form.text }}
+            <div class="help">{% trans "Tick at least one option above, write the report here, or do both." %}</div>
+          </div>
+          <div class="btn-row">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-check"></i> {% trans "Confirm report" %}</button>
+          </div>
+        </form>
+      </details>
+      {% endif %}
+
+      {# FILTER CARD — new this round, the exact same reusable mechanism         #}
+      {# marketing/templates/marketing/company_detail.html's own Reports tab     #}
+      {# uses (static/js/ui.js's data-filter-table pass; no JavaScript of this   #}
+      {# page's own). That page's version also carries a "Case" field, because   #}
+      {# ITS list spans every case on a company; this page needs no such field — #}
+      {# a case detail page is already scoped to the one case whose reports      #}
+      {# these are — so the field it has in its place is the equivalent          #}
+      {# free-text search this list actually wants: over the report text         #}
+      {# itself. The date range targets "Date", the column this table already    #}
+      {# sorts/displays by.                                                      #}
+      <div class="card" style="margin-bottom:.8rem;">
+        <div class="card-head">
+          <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Filters" %}</h3>
+          <button type="button" class="btn btn-sm" data-filter-clear="caseReportsTable" title="{% trans 'Reset all filters' %}">
+            <i class="fa-solid fa-eraser"></i> {% trans "Clear filters" %}
+          </button>
+        </div>
+        {# COMPACT, ONE-ROW LAYOUT — `.filters-row`, the same modifier         #}
+        {# marketing/templates/marketing/company_detail.html's own Reports/   #}
+        {# Reminders filter cards carry this round (static/css/app.css's own  #}
+        {# comment on that class explains the flex/wrap mechanics); layered   #}
+        {# onto this card's existing `.grid.grid-3`, never a replacement.     #}
+        <div class="grid grid-3 filters-row">
+          <div class="field">
+            <label><i class="fa-solid fa-magnifying-glass"></i> {% trans "Search" %}</label>
+            <input type="text" data-filter-for="caseReportsTable" data-filter-colname="{% trans "Report" %}"
+                   data-filter-mode="contains" placeholder="{% trans 'Search report text…' %}" autocomplete="off">
+          </div>
+          <div class="field">
+            <label><i class="fa-solid fa-calendar-day"></i> {% trans "From date (Jalali)" %}</label>
+            {# data-filter-colname wrapped in the same {% trans %} tag as the  #}
+            {# "Date" <th> below — see static/js/ui.js's nameToCol, which     #}
+            {# matches this attribute against the header cell's OWN rendered  #}
+            {# text at runtime, so both sides have to translate together.     #}
+            <input type="text" data-jalali-datetime data-filter-for="caseReportsTable"
+                   data-filter-colname="{% trans "Date" %}" data-filter-mode="gte" placeholder="{% trans "From date" %}" autocomplete="off">
+          </div>
+          <div class="field">
+            <label><i class="fa-solid fa-calendar-day"></i> {% trans "To date (Jalali)" %}</label>
+            <input type="text" data-jalali-datetime data-filter-for="caseReportsTable"
+                   data-filter-colname="{% trans "Date" %}" data-filter-mode="lte" placeholder="{% trans "To date" %}" autocomplete="off">
+          </div>
+        </div>
+      </div>
+
+      <table class="data" id="caseReportsTable" data-filter-table>
+        <thead>
+          <tr>
+            <th>{% trans "Date" %}</th>
+            <th>{% trans "Author" %}</th>
+            <th>{% trans "What it's about" %}</th>
+            <th>{% trans "Report" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in case_reports %}
+          <tr>
+            <td class="mono muted">{{ r.created_at|jalali:"Y.m.d H:i" }}</td>
+            <td dir="auto">{{ r.author|default:"—" }}</td>
+            <td>
+              {% if r.options %}
+              <div class="chips-row">
+                {% for opt in r.options %}
+                <span class="chip c-draft" dir="auto"><i class="fa-solid fa-check"></i>{{ opt }}</span>
+                {% endfor %}
+              </div>
+              {% else %}<span class="muted">—</span>{% endif %}
+            </td>
+            <td dir="auto" style="white-space:pre-line;max-width:32ch;overflow-wrap:anywhere;">{{ r.text|default:"—" }}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4" class="empty">
+              {% if is_case_owner %}{% blocktrans %}No reports have been written on this case yet — use “Write a report” to add the first one.{% endblocktrans %}
+              {% else %}{% trans "No reports have been written on this case yet." %}{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# ---------------------------------------------------------------- reminders #}
+{# Relocated wholesale, same reasoning as Reports above. #}
+<div class="side-section" data-side-panel="reminders" style="display:none;">
+  <div class="tab-panel active" id="panel-reminders">
+    <div class="card">
+      <div class="card-head">
+        <h3><i class="fa-solid fa-bell" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Reminders" %}</h3>
+      </div>
+
+      {% if is_case_owner %}
+      <details class="card" style="margin-bottom:.8rem;">
+        <summary class="btn btn-sm btn-primary" style="display:inline-flex;width:auto;cursor:pointer;">
+          <i class="fa-solid fa-bell"></i> {% trans "Set a reminder" %}
+        </summary>
+        <form method="post" action="{% url 'cases:case_reminder_add' case.pk %}" style="margin-top:.8rem;" autocomplete="off">
+          {% csrf_token %}
+          {% if case_reminder_form.non_field_errors %}
+          <div class="flash flash-error">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>{% for e in case_reminder_form.non_field_errors %}{{ e }}{% endfor %}</span>
+          </div>
+          {% endif %}
+          <div class="field">
+            <label for="{{ case_reminder_form.due_at.id_for_label }}"><i class="fa-regular fa-clock"></i> {{ case_reminder_form.due_at.label }}</label>
+            {{ case_reminder_form.due_at }}
+          </div>
+          <div class="field">
+            <label for="{{ case_reminder_form.note.id_for_label }}"><i class="fa-solid fa-pen"></i> {{ case_reminder_form.note.label }}</label>
+            {{ case_reminder_form.note }}
+          </div>
+          <div class="btn-row">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-bell"></i> {% trans "Set reminder" %}</button>
+          </div>
+        </form>
+      </details>
+      {% endif %}
+
+      {# Said in words, the same way the company page's own Reminders tab    #}
+      {# says it — see cases/views.py::_case_marketing_reminders for why     #}
+      {# this stays owner-scoped by default, widened only for the admin/GM   #}
+      {# tier, rather than following the Marketing directory's own           #}
+      {# Supervisor widening onto this unrelated surface.                    #}
+      <div class="help" style="margin:0 0 .7rem;">
+        {% if sees_all_case_reminders %}{% trans "You see every reminder set on this case." %}
+        {% else %}{% trans "You see your own reminders on this case — a reminder is a private note to its own owner." %}{% endif %}
+      </div>
+
+      {# FILTER CARD — same reasoning as the Reports panel's own, immediately    #}
+      {# above: the company page's Reminders tab has a "Case" field this page    #}
+      {# has no use for (already scoped to one case), so in its place a          #}
+      {# free-text search over the note itself; the date range targets "Due",    #}
+      {# the column this table already sorts by and shows the overdue colour on. #}
+      <div class="card" style="margin-bottom:.8rem;">
+        <div class="card-head">
+          <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Filters" %}</h3>
+          <button type="button" class="btn btn-sm" data-filter-clear="caseRemindersTable" title="{% trans 'Reset all filters' %}">
+            <i class="fa-solid fa-eraser"></i> {% trans "Clear filters" %}
+          </button>
+        </div>
+        {# COMPACT, ONE-ROW LAYOUT — the identical `.filters-row` modifier the #}
+        {# Reports panel's own filter card above carries (see that card's own #}
+        {# comment, and static/css/app.css's own comment on the class).       #}
+        <div class="grid grid-3 filters-row">
+          <div class="field">
+            <label><i class="fa-solid fa-magnifying-glass"></i> {% trans "Search" %}</label>
+            <input type="text" data-filter-for="caseRemindersTable" data-filter-colname="{% trans "Note" %}"
+                   data-filter-mode="contains" placeholder="{% trans 'Search reminder text…' %}" autocomplete="off">
+          </div>
+          <div class="field">
+            <label><i class="fa-solid fa-calendar-day"></i> {% trans "From date (Jalali)" %}</label>
+            <input type="text" data-jalali-datetime data-filter-for="caseRemindersTable"
+                   data-filter-colname="{% trans "Due" %}" data-filter-mode="gte" placeholder="{% trans "From date" %}" autocomplete="off">
+          </div>
+          <div class="field">
+            <label><i class="fa-solid fa-calendar-day"></i> {% trans "To date (Jalali)" %}</label>
+            <input type="text" data-jalali-datetime data-filter-for="caseRemindersTable"
+                   data-filter-colname="{% trans "Due" %}" data-filter-mode="lte" placeholder="{% trans "To date" %}" autocomplete="off">
+          </div>
+        </div>
+      </div>
+
+      <table class="data" id="caseRemindersTable" data-filter-table>
+        <thead>
+          <tr>
+            <th>{% trans "Due" %}</th>
+            <th>{% trans "Note" %}</th>
+            <th>{% trans "State" %}</th>
+            {% if sees_all_case_reminders %}<th>{% trans "Set by" %}</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in case_reminders %}
+          <tr>
+            <td class="mono{% if r.is_due and not r.is_done %} c-rej{% endif %}">{{ r.due_at|jalali:"Y.m.d H:i" }}</td>
+            <td dir="auto" style="white-space:pre-line;max-width:32ch;overflow-wrap:anywhere;">{{ r.note }}</td>
+            <td>
+              {% if r.is_done %}
+              <span class="chip c-ok"><i class="fa-solid fa-check"></i>{% trans "Dealt with" %}</span>
+              {% elif r.is_due %}
+              <span class="chip c-rej"><i class="fa-solid fa-bell"></i>{% trans "Due" %}</span>
+              {% else %}
+              <span class="chip c-draft"><i class="fa-regular fa-clock"></i>{% trans "Waiting" %}</span>
+              {% endif %}
+            </td>
+            {% if sees_all_case_reminders %}
+            <td dir="auto">{{ r.owner.get_full_name|default:r.owner.username }}</td>
+            {% endif %}
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="{% if sees_all_case_reminders %}4{% else %}3{% endif %}" class="empty">
+              {% if is_case_owner %}{% blocktrans %}No reminders set on this case yet — use “Set a reminder” to add one.{% endblocktrans %}
+              {% else %}{% trans "No reminders on this case are visible to you." %}{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -463,6 +804,35 @@
       t.addEventListener('click', function () { activateTab(t); });
     });
 
+    // Reopens the tab a Report/Reminder write just redirected back to
+    // (?opentab=reports|reminders — cases/views.py's case_report_add and
+    // case_reminder_add). Tries the outer side-switch button first (a multi-
+    // side case has Reports/Reminders there, not per-side); falls back to the
+    // per-side tab (a single-side case has them in its own .side-tabs, with a
+    // side-code suffix on data-tab, e.g. "reports-INTERNAL") since there is
+    // exactly one such tab on a single-side page. Simply clicking the real
+    // element reuses the two handlers above rather than duplicating their
+    // active/panel-swap logic a third time.
+    var wanted = new URLSearchParams(window.location.search).get('opentab');
+    if (wanted) {
+      var outer = document.querySelector('.side-switch .side-tab[data-side-tab="' + wanted + '"]');
+      var inner = document.querySelector('.side-tabs .tab[data-tab^="' + wanted + '-"]');
+      if (outer) { outer.click(); } else if (inner) { inner.click(); }
+    }
+
+    // Words the AJAX comment handler below drops into the DOM/alert() itself,
+    // rather than getting them from the server response — translated here,
+    // once, through Django's own trans template tag (autoescaped HTML-safe,
+    // which is fine: none of these five words/phrases contain characters
+    // escaping would mangle) instead of hardcoding the English literal four
+    // separate times below.
+    var i18nComment = {
+      comment: "{% trans 'Comment' %}",
+      substitute: "{% trans 'Substitute' %}",
+      justNow: "{% trans '· just now' %}",
+      you: "{% trans 'You' %}",
+      postError: "{% trans 'Could not post the comment. Please try again.' %}"
+    };
     // AJAX comment posting: keep the user on the same tab, just update the list.
     document.querySelectorAll('.ajax-comment-form').forEach(function (form) {
       form.addEventListener('submit', function (e) {
@@ -472,40 +842,78 @@
         if (!text) return;
         var btn = form.querySelector('button[type="submit"]');
         btn.disabled = true;
+        // The token rendered into this form is stale the moment anyone signs in
+        // again in this browser (Django rotates the CSRF secret on login), and
+        // Django reads the POST field before the header — so posting the form as
+        // rendered comes back 403 and the retry the alert asked for could never
+        // work. FTCsrf.formData refreshes the field from the cookie the browser
+        // is actually sending. FTJson names a dead session instead of failing
+        // with a generic "try again" the user cannot act on.
         fetch(form.dataset.actionUrl, {
           method: 'POST',
-          body: new FormData(form),
-          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          body: window.FTCsrf.formData(form),
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': window.FTCsrf.token()
+          },
           credentials: 'same-origin'
-        }).then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+        }).then(window.FTJson)
           .then(function (data) {
             var ul = document.getElementById(form.dataset.target);
             if (ul) {
               var empty = ul.querySelector('li.muted');
               if (empty) empty.remove();
               var li = document.createElement('li');
-              li.innerHTML = '<div class="tl-action">Comment</div>'
+              // dir="auto" on the same two elements the server-rendered
+              // timeline above already carries. A comment posted this way is
+              // shown without a page reload, so without it the note the user
+              // just typed in Persian would appear re-ordered until they
+              // refreshed and then silently "fix itself" — the most confusing
+              // possible version of the bug.
+              li.innerHTML = '<div class="tl-action">' + i18nComment.comment + '</div>'
                 + '<div class="tl-meta"></div>'
-                + '<div class="tl-comment"></div>';
+                + '<div class="tl-comment" dir="auto"></div>';
               var meta = li.querySelector('.tl-meta');
-              var actorLabel = (data.actor || form.dataset.userName || 'You');
-              meta.appendChild(document.createTextNode(actorLabel + ' '));
+              var actorLabel = (data.actor || form.dataset.userName || i18nComment.you);
+              // Tag before name, name before the timestamp — the same order
+              // the server-rendered .tl-meta above uses, so a comment posted
+              // live and the same row after a reload never disagree.
               if (data.substitute) {
                 var tag = document.createElement('span');
                 tag.className = 'tl-sub-tag';
-                tag.textContent = 'Substitute';
+                tag.textContent = i18nComment.substitute;
                 meta.appendChild(tag);
                 meta.appendChild(document.createTextNode(' '));
               }
-              meta.appendChild(document.createTextNode('· just now'));
+              // Only the name gets its own direction — the "· just now" that
+              // follows is ours and stays left-to-right.
+              var actorEl = document.createElement('span');
+              actorEl.setAttribute('dir', 'auto');
+              actorEl.textContent = actorLabel;
+              meta.appendChild(actorEl);
+              meta.appendChild(document.createTextNode(' '));
+              meta.appendChild(document.createTextNode(i18nComment.justNow));
               li.querySelector('.tl-comment').textContent = data.comment || text;
               ul.insertBefore(li, ul.firstChild);
             }
             ta.value = '';
+            // The box had grown to fit the comment that was just posted. Clearing
+            // it from script fires no `input` event, so the auto-grow module at the
+            // end of static/js/ui.js never hears about it and an empty box would sit
+            // there a whole screen tall. Tell it directly, through the hook it
+            // exposes for exactly this.
+            if (window.FTAutoGrow) window.FTAutoGrow(ta);
             btn.disabled = false;
-          }).catch(function () {
+          }).catch(function (err) {
             btn.disabled = false;
-            alert('Could not post the comment. Please try again.');
+            // Keep what the user typed — the comment exists nowhere but this
+            // textarea, so it is the one thing that must survive a failure.
+            // Deliberately no reload, not even when the session has clearly
+            // ended: reloading a signed-out page lands on the sign-in screen and
+            // takes the comment with it, which is the loss this branch exists to
+            // avoid. The message already says what happened; signing back in is
+            // the user's move to make, once they have their text somewhere safe.
+            alert((err && err.message) || i18nComment.postError);
           });
       });
     });

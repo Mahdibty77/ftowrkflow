@@ -1,45 +1,108 @@
-"""Feature extraction logic.
+"""Turn one cleaned description into a group, a type and feature variables.
 
-This module finds the item group/type and extracts all feature variables from the
-original text. The code is separated from views and Excel handling so it can be
-maintained and tested independently.
+This is the stage that decides WHAT a row is. text_processor drives it and owns
+everything around it (remark/revision merging, colours, alarms); nothing here
+reads a request, a DataFrame or the database.
+
+Entry points, in the order text_processor calls them:
+
+    find_group(clean_text, json_dict)          → which product family (data.json)
+    find_type(clean_text, group_dict)          → which type inside that family
+    confind_size(group, type, row_size)        → delegate to find_size.resolve_size
+    find_group_features(...)                   → every remaining feature value
+    apply_type_dependency_metadata(...)        → alarm markers the TYPE turns on
+    refresh_alarm_dependency_metadata(...)     → the same markers, recomputed
+                                                 after a remark changed a value
+
+The vocabulary comes entirely from ``resources/json/data.json``, read through
+regex_patterns.load_feature_values, and its key grammar is what makes the
+matching order deterministic:
+
+    M<n>_<L>_<name>   priority tier <n>, tie-break letter <L>, stored name <name>
+    name ^(dep)       when this value matched, ``dep`` may stay empty (no alarm)
+    name ^[dep]       when this value matched, ``dep`` is required (alarm if empty)
+    a||b              one name written several ways. Only ``find_type`` splits
+                      it here: the values under the key are matched as usual,
+                      and the type that comes back is whichever spelling the
+                      description actually contains (the first listed one wins a
+                      tie) — the whole ``a||b`` key when it contains none of
+                      them. A FEATURE key is never split, so ``||`` inside one
+                      is stored verbatim. This file's other alias handling is
+                      ``composite_keys.alias_key_matches`` (used when applying
+                      type dependencies); the lookup-side helper
+                      ``composite_keys.get_by_alias`` is called from rule_engine,
+                      code_assigner, constants and composite_features, not here
+    "null"            this feature is allowed to end up empty
+    phisic_*          a physical/numeric feature (schedule, thickness, diameter),
+                      matched against the punctuation-stripped ORIGINAL text
+                      rather than the cleaned one, because a prefix such as
+                      ``sch`` must stay attached to its number
+
+Matching rule inside a feature: the lowest M tier that matches anything wins and
+higher tiers are not consulted; within a tier the LONGEST cleaned token wins
+(``gr.304l`` beats ``gr.304``), letter order only breaks a tie. Every matched
+token is removed from the remainder, so one word can only be consumed once. The
+value stored for an ordinary feature is the canonical JSON key name, never the
+text token that matched it. Two things do not follow that rule: the type, per
+the ``||`` note above, and every ``phisic_*`` feature — ``find_phisic_feature``
+stores the matched value itself (and, for a diameter pair, a synthesised
+``(OD: 8 - ID: 6)``), because for a physical quantity the number IS the answer
+and there is no canonical key to fall back to.
+
+Variables are named ``<feature>_<group>_<type>``, with two deliberate
+exceptions: the type itself is ``<group>_type``, and a physical feature also
+emits ``display_<core>`` holding the human string (``sch: 40``). code_assigner
+resolves exactly these names against asign_code.json, so the naming here is a
+contract, not a convention.
 """
 
-import json
-import os
 import re
 
-import pandas as pd
-from django.conf import settings
-
-from .resource_paths import json_path, resolve_resource_path
-from .composite_keys import alias_key_matches, get_by_alias, split_alias_key
-
-from .constants import SIZE_DF_CACHE
-from . import constants as _processor_constants
+from .composite_keys import alias_key_matches, split_alias_key
 from .normalizers import (
-    _prepare_pattern_list,
     clean_for_group_and_features,
     parse_feature_pattern_key,
     parse_feature_dependency_markers,
-    preserve_original,
     remove_first_occurrence,
 )
-from .regex_patterns import (
-    load_feature_values,
-    load_json_file,
-    parse_csv_for_field,
-    search_special_feature_in_original,
-)
+from .regex_patterns import load_feature_values
 
 # Alias-set / short-token regex caches (same outputs; avoid rebuild per row).
 _ALIAS_CLEANS_CACHE = {}
 _SHORT_ALIAS_RE_CACHE = {}
+# ``feature_1`` / ``feature_2`` share one variable name; compiled once.
+_TRAILING_INDEX_RE = re.compile(r'_\d+$')
+# Alias-vocabulary lookup index and per-text alias coverage. Both are
+# content-addressed, so a changed vocabulary is simply a different key and a
+# stale answer cannot be served — but they are keyed on DIFFERENT things, which
+# is what decides how many entries each holds:
+#   _ALIAS_LENGTH_INDEX_CACHE — the alias frozenset alone. One entry per
+#     vocabulary, so a handful in practice.
+#   _ALIAS_COVER_CACHE — the pair (rest_clean, alias frozenset). Coverage is a
+#     fact about one TEXT under one vocabulary, so the text has to be in the key,
+#     and the entry count follows the number of distinct texts seen rather than
+#     the six group vocabularies. Both are capped and cleared wholesale.
+# Same outputs either way; they only stop the same scan being redone once per
+# candidate value per row.
+_ALIAS_LENGTH_INDEX_CACHE = {}
+_ALIAS_COVER_CACHE = {}
+# Cleaned tokens derived from one feature values list, keyed by that list's
+# identity with a strong reference held alongside it. load_feature_values hands
+# back a NEW list whenever a feature CSV changes on disk, so a stale entry can
+# never be reached, and the strong reference stops the id being recycled.
+_PATTERN_TOKENS_CACHE = {}
+# Same idea one level up: everything a single feature contributes to the
+# matcher (guard aliases + parsed, sorted match plan).
+_FEATURE_DERIVED_CACHE = {}
 
 
 def clear_feature_extractor_caches():
     _ALIAS_CLEANS_CACHE.clear()
     _SHORT_ALIAS_RE_CACHE.clear()
+    _ALIAS_LENGTH_INDEX_CACHE.clear()
+    _ALIAS_COVER_CACHE.clear()
+    _PATTERN_TOKENS_CACHE.clear()
+    _FEATURE_DERIVED_CACHE.clear()
     try:
         from .find_size import clear_find_size_cache
         clear_find_size_cache()
@@ -460,6 +523,100 @@ def refresh_alarm_dependency_metadata(feature_vars, feature_group_dict, group_ke
         feature_vars["__alarm_required__"] = sorted(required)
     return feature_vars
 
+def _pattern_tokens(values):
+    """The three cleaned views of one feature's values list, computed once.
+
+    ``alias_tokens``     non-empty ``clean(str(v or ""))`` — what guards matches
+    ``match_tokens``     ``clean(str(v).strip())`` for every value that is not
+                         blank and not ``null`` — the candidates, IN ORDER
+    ``max_clean_len``    longest ``len(clean(str(v)))`` over ALL values, 0 if none
+
+    Every caller used to recompute these per row. ``values`` is the list object
+    ``load_feature_values`` returns: the same object for as long as the feature
+    CSV (or data.json) behind it is unchanged, and a brand-new list the moment
+    it changes — so caching on its identity keeps today's freshness exactly,
+    unlike caching on group/type would. The list is kept alive by the cache
+    entry, which is what makes the identity key safe.
+    """
+    key = id(values)
+    hit = _PATTERN_TOKENS_CACHE.get(key)
+    if hit is not None and hit[0] is values:
+        return hit[1]
+    alias_tokens = []
+    match_tokens = []
+    max_clean_len = 0
+    for raw_val in values:
+        tc = clean_for_group_and_features(str(raw_val or ""))
+        if tc:
+            alias_tokens.append(tc)
+        val_clean = str(raw_val).strip()
+        n = len(clean_for_group_and_features(str(raw_val)))
+        if n > max_clean_len:
+            max_clean_len = n
+        if not val_clean or val_clean.lower() == "null":
+            continue
+        match_tokens.append(clean_for_group_and_features(val_clean))
+    out = (tuple(alias_tokens), tuple(match_tokens), max_clean_len)
+    if len(_PATTERN_TOKENS_CACHE) >= 8192:
+        _PATTERN_TOKENS_CACHE.clear()
+    _PATTERN_TOKENS_CACHE[key] = (values, out)
+    return out
+
+
+def _feature_derived(feature_val):
+    """Everything one feature contributes that does not depend on the row.
+
+    Returns ``(aliases, parsed, null_present)``:
+
+    ``aliases``      frozenset of cleaned base-names and values — the guard
+                     vocabulary ``_collect_feature_alias_cleans`` unions up
+    ``parsed``       one tuple per pattern key, already M-tier sorted, holding
+                     ``(Mnum, letter, -max_clean_len, clean_pat_key, tokens,
+                     base_name, suppress_deps, require_deps)``
+    ``null_present`` whether any pattern key allows this feature to stay empty
+
+    All of it is data.json plus the feature CSVs, so it used to be rebuilt for
+    every feature of every row for no reason. The cache key pairs the feature
+    dict's identity with the identity of every values list
+    ``load_feature_values`` handed back: that call still performs its mtime
+    check every row, and it returns a NEW list whenever a CSV changed on disk,
+    so an edited CSV misses the cache exactly as it does today. The dict and the
+    lists are held by the entry, so their ids can never be recycled underneath
+    it. ``clear_feature_extractor_caches`` drops the lot on a data reload.
+    """
+    values_lists = tuple(load_feature_values(pv) for pv in feature_val.values())
+    key = (id(feature_val), tuple(id(v) for v in values_lists))
+    hit = _FEATURE_DERIVED_CACHE.get(key)
+    if hit is not None and hit[0] is feature_val:
+        return hit[2]
+
+    aliases = set()
+    parsed = []
+    null_present = False
+    for (pat_key, _pat_values), pv in zip(feature_val.items(), values_lists):
+        clean_pat_key, suppress_deps, require_deps = parse_feature_dependency_markers(pat_key)
+        Mnum, letter, base_name = parse_feature_pattern_key(clean_pat_key)
+        alias_tokens, tokens, max_len = _pattern_tokens(pv)
+        if "null" in str(clean_pat_key).lower():
+            # A "null" key is a permission to stay empty, never a guard alias.
+            null_present = True
+        else:
+            if base_name:
+                bc = clean_for_group_and_features(str(base_name))
+                if bc:
+                    aliases.add(bc)
+            aliases.update(alias_tokens)
+        parsed.append((Mnum or 9999, letter or 'Z', -max_len, clean_pat_key, tokens,
+                       str(base_name or "").strip(), suppress_deps, require_deps))
+    parsed.sort(key=lambda x: (x[0], x[1], x[2]))
+
+    out = (frozenset(aliases), tuple(parsed), null_present)
+    if len(_FEATURE_DERIVED_CACHE) >= 4096:
+        _FEATURE_DERIVED_CACHE.clear()
+    _FEATURE_DERIVED_CACHE[key] = (feature_val, values_lists, out)
+    return out
+
+
 def _collect_feature_alias_cleans(feature_group_dict, cache_key=None):
     """All cleaned aliases/base-names for longest-match guarding across features."""
     if cache_key is not None:
@@ -472,22 +629,104 @@ def _collect_feature_alias_cleans(feature_group_dict, cache_key=None):
     for feature_key, feature_val in feature_group_dict.items():
         if str(feature_key).startswith("phisic") or not isinstance(feature_val, dict):
             continue
-        for pat_key, pat_values in feature_val.items():
-            clean_pat_key, _suppress, _require = parse_feature_dependency_markers(pat_key)
-            if "null" in str(clean_pat_key).lower():
-                continue
-            _mnum, _letter, base_name = parse_feature_pattern_key(clean_pat_key)
-            if base_name:
-                bc = clean_for_group_and_features(str(base_name))
-                if bc:
-                    aliases.add(bc)
-            for raw_val in load_feature_values(pat_values):
-                tc = clean_for_group_and_features(str(raw_val or ""))
-                if tc:
-                    aliases.add(tc)
+        aliases.update(_feature_derived(feature_val)[0])
     if cache_key is not None:
         _ALIAS_CLEANS_CACHE[cache_key] = frozenset(aliases)
     return aliases
+
+
+def _feature_alias_frozenset(feature_group_dict, cache_key=None):
+    """``_collect_feature_alias_cleans`` without the defensive copy.
+
+    The matcher only ever iterates and tests membership, and a frozenset is
+    hashable — which is what lets ``_alias_cover_ends`` key its per-text arrays
+    on the vocabulary itself. Same members as ``_collect_feature_alias_cleans``.
+    """
+    if cache_key is not None:
+        hit = _ALIAS_CLEANS_CACHE.get(cache_key)
+        if hit is not None:
+            return hit
+    return frozenset(_collect_feature_alias_cleans(feature_group_dict, cache_key=cache_key))
+
+
+def _alias_length_index(all_aliases):
+    """``{first two chars: lengths, longest first}`` plus the 1-char aliases.
+
+    Lets ``_alias_cover_ends`` ask "is there an alias starting HERE, and how
+    long is the longest one?" with about two membership tests per position
+    instead of walking all ~1700 aliases. Keyed by the alias frozenset itself,
+    so a changed vocabulary is a different key and can never be answered from a
+    stale entry.
+    """
+    hit = _ALIAS_LENGTH_INDEX_CACHE.get(all_aliases)
+    if hit is not None:
+        return hit
+    by_prefix = {}
+    ones = set()
+    for alias in all_aliases:
+        n = len(alias)
+        if n <= 0:
+            continue
+        if n == 1:
+            ones.add(alias)
+            continue
+        bucket = by_prefix.get(alias[:2])
+        if bucket is None:
+            by_prefix[alias[:2]] = bucket = set()
+        bucket.add(n)
+    index = (
+        {p: tuple(sorted(lens, reverse=True)) for p, lens in by_prefix.items()},
+        ones,
+    )
+    if len(_ALIAS_LENGTH_INDEX_CACHE) >= 64:
+        _ALIAS_LENGTH_INDEX_CACHE.clear()
+    _ALIAS_LENGTH_INDEX_CACHE[all_aliases] = index
+    return index
+
+
+def _alias_cover_ends(rest_clean, all_aliases):
+    """Where aliases sit in ``rest_clean``, as two arrays indexed by position.
+
+    ``own[p]``   end offset of the LONGEST alias starting exactly at ``p`` (-1 none)
+    ``before[p]``the largest such end offset over every start strictly before ``p``
+
+    An occurrence ``[i, i+t)`` of a token is covered by a LONGER alias exactly
+    when ``before[i] >= i + t`` (a longer alias started earlier and reaches at
+    least this far) or ``own[i] > i + t`` (one starts here and reaches further).
+    Both facts depend only on (text, vocabulary), never on the token, which is
+    why they are computed once per text instead of once per candidate.
+    """
+    key = (rest_clean, all_aliases)
+    hit = _ALIAS_COVER_CACHE.get(key)
+    if hit is not None:
+        return hit
+    by_prefix, ones = _alias_length_index(all_aliases)
+    n = len(rest_clean)
+    own = [-1] * n
+    before = [-1] * n
+    reach = -1
+    for p in range(n):
+        before[p] = reach
+        end = -1
+        lens = by_prefix.get(rest_clean[p:p + 2])
+        if lens is not None:
+            room = n - p
+            for ln in lens:
+                if ln > room:
+                    continue
+                if rest_clean[p:p + ln] in all_aliases:
+                    end = p + ln
+                    break
+        if end < 0 and ones and rest_clean[p] in ones:
+            end = p + 1
+        own[p] = end
+        if end > reach:
+            reach = end
+    out = (before, own)
+    if len(_ALIAS_COVER_CACHE) >= 4096:
+        _ALIAS_COVER_CACHE.clear()
+    _ALIAS_COVER_CACHE[key] = out
+    return out
 
 
 def _find_unblocked_alias_index(token_clean, rest_clean, all_aliases):
@@ -498,38 +737,35 @@ def _find_unblocked_alias_index(token_clean, rest_clean, all_aliases):
 
     Also: ``globe`` must not match inside ``forgedglobe`` when Forged Globe is a
     known feature alias (Revision/EA group picks on Globe Valve rows).
+
+    The answer is the FIRST unblocked occurrence, scanning left to right.
+
+    "Blocked" used to be re-derived for every occurrence by walking the whole
+    alias set and re-scanning the text for each alias. It is now read off the
+    per-text coverage arrays built by ``_alias_cover_ends``. The two are the
+    same predicate: the old code blocked an occurrence ``[i, i+t)`` when some
+    alias with ``len > t`` had an occurrence ``[q, q+L)`` with ``q <= i`` and
+    ``i + t <= q + L`` (its first, same-start rule is the ``q == i`` case of
+    that one). Containment already forces ``L >= t``, and ``L == t`` can only
+    happen when the alias IS the token at that very spot — so "longer" is
+    exactly "not the token's own occurrence", which is what the strict ``>``
+    on ``own[i]`` and the non-strict ``>=`` on ``before[i]`` encode.
     """
     if not token_clean or not rest_clean:
         return -1
-    start = 0
-    while True:
-        idx = rest_clean.find(token_clean, start)
-        if idx < 0:
-            return -1
-        blocked = False
-        end = idx + len(token_clean)
-        for other in all_aliases:
-            if len(other) <= len(token_clean):
-                continue
-            # Longer alias begins at the same index (class1 ⊂ class150).
-            if rest_clean[idx:idx + len(other)] == other:
-                blocked = True
-                break
-            # Longer alias fully covers this occurrence (globe ⊂ forgedglobe).
-            ostart = 0
-            while True:
-                oidx = rest_clean.find(other, ostart)
-                if oidx < 0:
-                    break
-                if oidx <= idx and end <= oidx + len(other):
-                    blocked = True
-                    break
-                ostart = oidx + 1
-            if blocked:
-                break
-        if not blocked:
+    idx = rest_clean.find(token_clean)
+    if idx < 0:
+        return -1
+    if not isinstance(all_aliases, frozenset):
+        all_aliases = frozenset(all_aliases)
+    before, own = _alias_cover_ends(rest_clean, all_aliases)
+    tlen = len(token_clean)
+    while idx >= 0:
+        end = idx + tlen
+        if before[idx] < end and own[idx] <= end:
             return idx
-        start = idx + 1
+        idx = rest_clean.find(token_clean, idx + 1)
+    return -1
 
 
 def _short_alias_whole_token_in_original(token_clean, original_text):
@@ -607,32 +843,17 @@ def find_group_features(original_text, clean_text, feature_group_dict, type_key,
             str(group_key or "").strip().lower(),
             str(type_key or "").strip().lower(),
         )
-    all_aliases = _collect_feature_alias_cleans(feature_group_dict, cache_key=alias_key)
+    all_aliases = _feature_alias_frozenset(feature_group_dict, cache_key=alias_key)
 
     for feature_key, feature_val in feature_group_dict.items():
         if str(feature_key).startswith('phisic'):
             continue  # phisic‌ها در انتها جدا بررسی می‌شوند
 
-        var_base = re.sub(r'_\d+$', '', feature_key) if re.search(r'_\d+$', feature_key) else feature_key
+        var_base = _TRAILING_INDEX_RE.sub('', feature_key) if _TRAILING_INDEX_RE.search(feature_key) else feature_key
 
-        parsed = []
-        null_present = False
-
-        # 🔹 آماده‌سازی و استخراج Mnum، Letter، و طول cleaned مقدار
-        for pat_key, pat_values in feature_val.items():
-            clean_pat_key, suppress_deps, require_deps = parse_feature_dependency_markers(pat_key)
-            if "null" in clean_pat_key.lower():
-                null_present = True
-            Mnum, letter, base_name = parse_feature_pattern_key(clean_pat_key)
-            pv = load_feature_values(pat_values)
-            max_len = max(
-                (len(clean_for_group_and_features(str(s))) for s in pv),
-                default=0,
-            )
-            parsed.append((Mnum or 9999, letter or 'Z', -max_len, clean_pat_key, pv, base_name, suppress_deps, require_deps))
-
-        # 🔹 مرتب‌سازی اولیه بر اساس Mnum (گروه‌بندی سطح M)
-        parsed.sort(key=lambda x: (x[0], x[1], x[2]))
+        # 🔹 آماده‌سازی و استخراج Mnum، Letter، و طول cleaned مقدار،
+        #    سپس مرتب‌سازی بر اساس Mnum (گروه‌بندی سطح M)
+        _aliases, parsed, null_present = _feature_derived(feature_val)
 
         found = []
         found_M = False
@@ -650,21 +871,21 @@ def find_group_features(original_text, clean_text, feature_group_dict, type_key,
 
             rest_clean = clean_for_group_and_features(rest)
             candidates = []
-            for _m, letter, _neg, _pat_key, pv, base_name, suppress_deps, require_deps in tier:
-                for raw_val in pv:
-                    val_clean = str(raw_val).strip()
-                    if not val_clean or val_clean.lower() == "null":
+            for _m, letter, _neg, _pat_key, tokens, base_name, suppress_deps, require_deps in tier:
+                for token_clean in tokens:
+                    # Cheap reject first: a token that is not in the remainder at
+                    # all cannot match, and that is the overwhelming majority.
+                    if not token_clean or token_clean not in rest_clean:
                         continue
-                    token_clean = clean_for_group_and_features(val_clean)
                     if not _alias_token_matches(
                         token_clean, rest_clean, all_aliases, original_text=original_text
                     ):
                         continue
                     candidates.append((
                         -len(token_clean),  # longer cleaned token first
-                        letter or 'Z',
+                        letter,
                         token_clean,
-                        str(base_name or "").strip(),  # always store JSON key name
+                        base_name,  # always store JSON key name
                         suppress_deps,
                         require_deps,
                     ))

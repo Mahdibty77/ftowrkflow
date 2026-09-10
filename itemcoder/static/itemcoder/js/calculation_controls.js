@@ -39,7 +39,11 @@
     // Saved per-group margins: { groupKeyLower: [percent, ...] }. "__all__" is a
     // valid key meaning every row. Rebuilt from saved state on load.
     const groupMarginStore = {};
-    const fxBoard = { stale: false, loading: false, units: null };
+    // rateResolved records whether the LAST lookup actually put a live rate in
+    // the field. A blank rate field means "no rate" to every guard downstream,
+    // but the board blanks it for several different reasons, and only some of
+    // them may be papered over with a remembered rate (see bootstrap).
+    const fxBoard = { stale: false, loading: false, units: null, rateResolved: false };
     let refreshAllFrame = null;
     let refreshAllToken = 0;
     const REFRESH_BATCH_SIZE = 180;
@@ -399,6 +403,7 @@
         if (!to || from === to) {
             setRateInputValue(rateInput, '');
             fxBoard.stale = false;
+            fxBoard.rateResolved = false;
             syncRateDisplay(from, to);
             if (typeof done === 'function') done();
             return;
@@ -411,7 +416,8 @@
                 fxBoard.stale = !!data.stale;
                 fxBoard.units = data.units || fxBoard.units;
                 if (data.units) fillToSelect(data.units, to);
-                if (data.convertible && data.rate != null && !data.stale) {
+                fxBoard.rateResolved = !!(data.convertible && data.rate != null && !data.stale);
+                if (fxBoard.rateResolved) {
                     setRateInputValue(rateInput, data.rate);
                 } else {
                     setRateInputValue(rateInput, '');
@@ -421,6 +427,7 @@
             })
             .catch(function () {
                 fxBoard.stale = true;
+                fxBoard.rateResolved = false;
                 setRateInputValue(rateInput, '');
                 syncRateDisplay(from, to);
                 if (typeof done === 'function') done();
@@ -1058,7 +1065,7 @@
         if (!saved) {
             try { saved = (window.FT_TOOL_SAVE && window.FT_TOOL_SAVE.savedCalc) || null; } catch (_e2) { saved = null; }
         }
-        if (!saved || typeof saved !== 'object') return;
+        if (!saved || typeof saved !== 'object') return null;
         const fromSel = document.getElementById('calc-convert-from');
         const toSel = document.getElementById('calc-convert-to');
         const rateInp = document.getElementById('calc-convert-rate');
@@ -1085,6 +1092,9 @@
             pendingRowMargins = saved.rowMargins;
             applyPendingRowMargins();
         }
+        // Handed back so bootstrap() can put it back after the managed-rate
+        // lookup, which always overwrites the rate field (see bootstrap).
+        return (saved.rate != null && Number(saved.rate) !== 1) ? saved.rate : null;
     }
 
     let pendingRowMargins = null;
@@ -1427,8 +1437,29 @@
             config = { view: {}, calculate: [], currency_units: [], columns: [] };
         }
         initBaseValues();
-        restoreSavedCalcState();
+        const savedRate = restoreSavedCalcState();
+        // syncManagedFxRate() -> fetchRateFor() always writes TODAY's managed
+        // rate into the rate field, which used to land after the restore and win.
+        // What gets persisted on save is the painted price (base x FX x margins),
+        // so merely reopening a proforma to correct one cell repriced the whole
+        // document at the current rate. An EXISTING version is therefore put back
+        // on the rate it was agreed at; a new version (build / newversion) is
+        // deliberately left on the live rate, which is the point of raising one.
+        const keepSavedRate = savedRate != null
+            && String((window.FT_TOOL_SAVE || {}).mode || 'build').toLowerCase() === 'edit';
         syncManagedFxRate(() => {
+            // Only put the agreed rate back where a rate in that field still
+            // means what it used to. When the board is stale every consumer
+            // (conversionFactor / hasActiveConversion / conversionNeedsRate)
+            // short-circuits on fxBoard.stale, so the restored figure is inert
+            // and Save stays blocked. When the board instead reports the pair as
+            // no longer convertible nothing short-circuits: re-filling the field
+            // would price the whole document at a rate the board has withdrawn
+            // AND quietly satisfy the "confirm a valid To currency" Save guard.
+            // In that case the pair must be re-chosen by hand, so leave it blank.
+            if (keepSavedRate && (fxBoard.stale || fxBoard.rateResolved)) {
+                setRateInputValue(document.getElementById('calc-convert-rate'), savedRate);
+            }
             syncConversionUi();
             scheduleRefreshAll();
         });
@@ -1479,7 +1510,11 @@
             q = (q || '').toLowerCase();
             const list = items().filter((it) => it.label.toLowerCase().indexOf(q) >= 0);
             menu.innerHTML = list.length
-                ? list.map((it) => `<div data-val="${encodeURIComponent(it.value)}">${it.label}</div>`).join('')
+                // Escaped for the same reason as the hidden <select> above: the
+                // label is row data, and the menu is built as an HTML string.
+                // The picker reads it back with textContent, so the committed
+                // value is unchanged.
+                ? list.map((it) => `<div data-val="${encodeURIComponent(it.value)}">${escapeHtml(it.label)}</div>`).join('')
                 : '<div class="gm-combo-empty">No groups</div>';
         }
         function commit(val, label) {

@@ -34,12 +34,26 @@
 
 <div class="table-wrap">
   <table class="data">
-    <thead><tr><th style="width:120px">Code</th><th>Name</th><th style="width:160px"></th></tr></thead>
+    <thead><tr><th style="width:120px">Code</th><th style="width:260px">Name</th><th style="width:auto">Labels</th><th style="width:160px"></th></tr></thead>
     <tbody id="clientRows">
       {% for c in clients %}
         <tr data-search="{{ c.name|lower }} {{ c.code|lower }}">
           <td class="mono">{{ c.code }}</td>
-          <td>{{ c.name }}</td>
+          {# The client name is typed by a user; the code beside it is generated. #}
+          {# Only the name takes its own base direction — see the note at the end #}
+          {# of static/css/app.css.                                               #}
+          <td dir="auto">{{ c.name }}</td>
+          <td>
+            {% if c.labels %}
+              <span class="chips-row">
+                {% for l in c.labels %}
+                  <span class="chip" dir="auto">{{ l.label_fa }}</span>
+                {% endfor %}
+              </span>
+            {% else %}
+              <span class="muted">—</span>
+            {% endif %}
+          </td>
           <td style="white-space:nowrap;text-align:right;">
             {% if can_add %}<a href="{% url 'cases:client_rename' c.pk %}" class="btn btn-sm">Rename</a>{% endif %}
             {% if can_wipe_clients %}
@@ -55,9 +69,9 @@
           </td>
         </tr>
       {% empty %}
-        <tr><td colspan="3" class="empty">No clients yet.</td></tr>
+        <tr><td colspan="4" class="empty">No clients yet.</td></tr>
       {% endfor %}
-      <tr id="clientNoMatch" style="display:none;"><td colspan="3" class="empty">No client matches your search.</td></tr>
+      <tr id="clientNoMatch" style="display:none;"><td colspan="4" class="empty">No client matches your search.</td></tr>
     </tbody>
   </table>
 </div>

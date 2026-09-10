@@ -1,23 +1,41 @@
 """
 Django settings for the Foolad Tabar Workflow platform.
 
-This single project hosts several cooperating apps:
-    core      - shared base templates, theming and dashboards entry point
+This single project hosts several cooperating apps. Start here, then open the
+app you need:
+    core      - shared base templates, theming, the landing router and the
+                authenticated /media/ server
     accounts  - users, profiles, units, roles, signatures, admin user creation
     cases     - the heart: cases (files), clients, expert codes, forms, workflow
     itemcoder - item coding / pricing engine (Tool Data + Build TO/PI)
-    reports   - management dashboards and reporting
+    reports   - management dashboards and reporting (read-only over `cases`)
+    people    - personnel records, work shifts and staff requests
+    marketing - the Marketing unit's own section, outside the case workflow
+    licensing - offline RSA licence activation and the request gate
 
-Environment variables (all optional in development):
-    DJANGO_SECRET_KEY   - production secret key
-    DJANGO_DEBUG        - "1"/"0"
-    DJANGO_ALLOWED_HOSTS- comma separated host list
-    DJANGO_DB_ENGINE    - "sqlite" (default) or "postgres"
-    POSTGRES_*          - connection details when DJANGO_DB_ENGINE=postgres
+The URL map that mounts them all is ftworkflow/urls.py; it is the other half of
+this front door and documents why a few paths are aliased at site root.
+
+Environment variables this file reads. All but one have a working default, and
+the exception is the one that catches people out: with nothing set at all,
+DJANGO_DEBUG is False, and a False DEBUG makes DJANGO_SECRET_KEY mandatory — so
+a bare checkout does not start. Export DJANGO_DEBUG=1 for local work, or a real
+DJANGO_SECRET_KEY for anything else. (Nothing here reads a .env file.)
+    DJANGO_SECRET_KEY            - production secret key; required when DEBUG=0
+    DJANGO_DEBUG                 - "1"/"0" (default "0")
+    DJANGO_CSRF_TRUSTED_ORIGINS  - comma separated origins for CSRF
+    DJANGO_DB_ENGINE             - "sqlite" (default) or "postgres"
+    POSTGRES_*                   - connection details when DJANGO_DB_ENGINE=postgres
+    DJANGO_TIME_ZONE             - default "Asia/Tehran"
+    REQUIRE_FTCO_CODE_TO_SUPPLY  - workflow policy switch, see below
+    REDIS_URL                    - opt-in cache backend; falls back to the DB cache
+    DJANGO_SECURE_SSL            - turn on HTTPS-only cookies/redirects/HSTS
+    DJANGO_HSTS_SECONDS          - HSTS max-age when DJANGO_SECURE_SSL is on
+
+DJANGO_ALLOWED_HOSTS is deliberately NOT in that list - see ALLOWED_HOSTS below.
 """
 
 import os
-import re
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -55,10 +73,13 @@ if not SECRET_KEY or SECRET_KEY == _INSECURE_KEY:
             "running with DJANGO_DEBUG=0."
         )
 
-# Intentionally open to any host. DJANGO_ALLOWED_HOSTS is documented for
-# operators and used by Compose, but the app keeps ["*"] so existing
-# deployments are not broken by an incomplete host list.
-
+# Open to any host, permanently, by the owner's decision. This is not an
+# oversight and it is not a TODO: these installs are reached by bare IP on an
+# internal network, and an incomplete host list has broken a deployment before.
+#
+# Consequently DJANGO_ALLOWED_HOSTS is NOT read anywhere in this project. It may
+# still appear in docker-compose.yml / .env for operators, where it is inert.
+# Setting it changes nothing — please do not spend an afternoon wiring it up.
 ALLOWED_HOSTS = ["*"]
 
 CSRF_TRUSTED_ORIGINS = [
@@ -83,12 +104,62 @@ INSTALLED_APPS = [
     "cases.apps.CasesConfig",
     "reports.apps.ReportsConfig",
     "people.apps.PeopleConfig",
+    # The Marketing unit's own section. Outside the TO/PI case workflow by
+    # design (see the accounts.constants docstring): it holds no case and
+    # touches no routing rule.
+    "marketing.apps.MarketingConfig",
     # Item-coding / pricing engine (Build TO/PI + Tool Data)
     "itemcoder.apps.ItemcoderConfig",
     # Offline RSA license enforcement.
     "licensing.apps.LicensingConfig",
 ]
 
+# This order is load-bearing; please read it before moving anything.
+#
+# The first eight entries are Django's own stack, in Django's own order, plus
+# WhiteNoise (which serves static files efficiently in production and must sit
+# high enough to answer before anything else looks at the request).
+#
+# Immediately after AuthenticationMiddleware sits LanguageMiddleware. It reads
+# request.user.profile.language and activates that translation for the request
+# - exactly the "small per-request middleware reading request.user.profile
+# cheaply" shape people.middleware.WorkShiftMiddleware already established in
+# this codebase, not a new convention. It has to be this late because it needs
+# request.user resolved first, and it has to run before literally everything
+# else below (the three gates included) so that whatever they render - a
+# message, a redirect target's page - already comes out in the right language.
+# It is deliberately NOT Django's own django.middleware.locale.LocaleMiddleware:
+# that one decides the active language from a session key / cookie / browser
+# Accept-Language header, which is exactly the per-device, cookie-based shape
+# the owner asked this to NOT be. The per-person source of truth here is the
+# Profile row, which already follows a person across devices and sessions, so
+# reading it directly is both simpler and the actual requirement, not a cookie
+# this middleware would then have to keep in sync with it.
+#
+# The last three are this project's gates. Each one inspects the request and may
+# redirect it somewhere else instead of letting it through, so their relative
+# order decides who wins when more than one of them is unhappy at the same time.
+# Two constraints fix that order:
+#
+#   * all three read ``request.user``, so all three must stay BELOW
+#     AuthenticationMiddleware. That is the only hard requirement any of them
+#     has; none of the three uses the messages framework, so sitting under
+#     MessageMiddleware is simply where the end of Django's own stack puts them,
+#     not a constraint of their own;
+#   * the shift gate goes first, not because it is the widest rule but because
+#     it is the only one that does more than redirect: it logs the session out,
+#     and there is no sense asking a session that is about to end for a licence
+#     or a new password. Widest it is not — ``work_shift.shift_exempt`` lets
+#     superusers, administrators and general managers straight through, and
+#     ``shift_window`` reads each ``Person``'s own work_start / work_end, so it
+#     is a per-person schedule, not an install-wide switch. The remaining two do
+#     go widest first: an unlicensed install is locked for everybody, and only
+#     then is a single account asked to change its password. Put the password
+#     gate first and a locked-out install would hide behind a password prompt.
+#
+# Each gate keeps its own allow-list of paths that stay reachable while it is
+# closed — the activation page, the password-change screen, static files — so a
+# closed gate can still be opened. See the three middleware modules for those.
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     # WhiteNoise serves static files efficiently in production.
@@ -97,19 +168,21 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # Activates the signed-in person's own saved interface language (English
+    # or Persian) for this request. See the long comment above this list for
+    # why this is a small custom middleware rather than Django's own
+    # LocaleMiddleware, and accounts/middleware.py for the implementation.
+    "accounts.middleware.LanguageMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    # Daily work-shift gate (after auth so request.user is set).
+    # Ends a session when the user's daily work shift is over.
     "people.middleware.WorkShiftMiddleware",
-    # License gate runs last: session, auth and messages are available, and it
-    # redirects every non-allowlisted request to the activation page when the
+    # Sends every non-allowlisted request to the activation page while the
     # software is not validly licensed.
     "licensing.middleware.LicenseGateMiddleware",
-    # Password-change gate runs after the license gate (an invalid license
-    # still takes priority for everyone), and redirects every non-allowlisted
-    # request to the forced password-change screen for an account that has
-    # must_change_password set — a freshly created account or one an admin
-    # just reset. See accounts/middleware.py.
+    # Sends every non-allowlisted request to the forced password-change screen
+    # for an account with must_change_password set — a freshly created account,
+    # or one an admin just reset.
     "accounts.middleware.MustChangePasswordMiddleware",
 ]
 
@@ -135,6 +208,10 @@ TEMPLATES = [
                 "people.context_processors.work_shift_banner",
                 # Adds license_status (+ kartabl warning flag) to every template.
                 "licensing.context_processors.license_status",
+                # The "one of your reminders is due" banner. Gated on the
+                # Marketing seat test before it looks at anything, and served
+                # from the shared cache when it can be — see that module.
+                "marketing.context_processors.reminder_notice",
             ],
         },
     },
@@ -185,9 +262,35 @@ LOGOUT_REDIRECT_URL = "accounts:login"
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 # ---------------------------------------------------------------------------
-# Internationalization - the UI is English; timezone is local Iran time.
+# Internationalization - the UI is English by default; timezone is local Iran
+# time. A signed-in person may switch the platform CHROME (sidebar, tabs,
+# buttons, field labels, status labels, page titles - never a company's own
+# name, a person's own comment/report/reminder text, or anything else someone
+# typed) to Persian from Settings - see accounts.middleware.LanguageMiddleware
+# for how that per-person choice is picked up on every request, and
+# accounts.models.Profile.language for where it is stored.
 # ---------------------------------------------------------------------------
+# LANGUAGE_CODE stays the platform DEFAULT for anyone with no preference yet
+# (an anonymous visitor, or an account whose Profile.language is blank/unset) -
+# it is not itself the per-person setting and this feature does not change it.
 LANGUAGE_CODE = "en-us"
+
+# The only two interface languages this platform offers. Codes are lowercase
+# ("en"/"fa") because that is what Django's own translation machinery
+# (django.utils.translation.activate, the gettext catalog lookup, and the
+# LC_MESSAGES directory names below) expects - unlike the uppercase codes this
+# project uses for its own Unit/Role/etc. choices in accounts.constants.
+LANGUAGES = [
+    ("en", "English"),
+    ("fa", "فارسی"),
+]
+
+# Where the compiled Persian catalog (locale/fa/LC_MESSAGES/django.mo, built
+# from django.po by `manage.py compilemessages` - see that directory's own
+# notes if the toolchain isn't installed) lives. A single top-level directory
+# is enough: this project has no per-app catalogs to merge.
+LOCALE_PATHS = [BASE_DIR / "locale"]
+
 TIME_ZONE = os.environ.get("DJANGO_TIME_ZONE", "Asia/Tehran")
 USE_I18N = True
 USE_TZ = True
@@ -263,6 +366,49 @@ if _redis_url:
             "LOCATION": _redis_url,
             "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
         }
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+# Without an explicit LOGGING dict Django installs its own default, in which the
+# console handler is filtered by require_debug_true and the only other handler
+# mails ADMINS. Production always runs DEBUG=False (docker-compose pins
+# DJANGO_DEBUG=0) and ADMINS is empty and there is no mail server, so every
+# unhandled 500 traceback was routed to two handlers that both discarded it —
+# and because handlers *were* found, logging's last-resort fallback never fired
+# either. All the operator saw was gunicorn's access line with a 500 on it.
+#
+# This sends records to the stream gunicorn already forwards, so tracebacks show
+# up in `docker compose logs web` with no mail server and no extra package. No
+# ADMINS/email backend is configured on purpose: there is no SMTP relay on these
+# installs, and a half-configured one would fail silently in the same way.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[{asctime}] {levelname} {name}: {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "root": {"handlers": ["console"], "level": "WARNING"},
+    "loggers": {
+        # Same level Django's own default uses, minus the DEBUG-only filter.
+        "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        # This is the logger that carries the traceback of an unhandled 500.
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+    },
+}
 
 # ---------------------------------------------------------------------------
 # Transport / cookie hardening

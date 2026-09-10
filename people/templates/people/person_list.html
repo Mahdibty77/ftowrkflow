@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 {% block title %}People · Foolad Tabar Workflow{% endblock %}
-{% block topbar %}People{% endblock %}
+{% block topbar %}{% trans "People" %}{% endblock %}
 
 {% block head_extra %}
   <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-2">
@@ -10,15 +10,30 @@
 {% block content %}
 <div class="page-head">
   <div>
-    <h1>People</h1>
+    <h1>{% trans "People" %}</h1>
     <div class="sub">
-      Everyone on the organisation's books. A person is recorded here whether or
-      not they use the platform; the accounts they hold are assigned separately.
+      {% blocktrans %}Everyone on the organisation's books. A person is recorded here whether or
+      not they use the platform; the accounts they hold are assigned separately.{% endblocktrans %}
     </div>
   </div>
   <div class="btn-row">
+    {% comment %}
+      Formerly its own permanent sidebar entry ("All Reports & Reminders" in
+      people/_nav.html, removed alongside this button being added) — the
+      owner's own call: an admin already lands on this People page for
+      almost everything else admin-shaped, so the admin-wide My Tasks view
+      (every person's reports and reminders, one more filter than the
+      ordinary personal "My Tasks" page — see marketing:my_tasks_all /
+      marketing/views.py::my_tasks and ::_my_tasks_is_admin) belongs as an
+      action reachable FROM here rather than a standing line in the sidebar
+      that was always going to the same destination. Nothing about the
+      destination or its access gate changed, only where the door is.
+    {% endcomment %}
+    <a href="{% url 'marketing:my_tasks_all' %}" class="btn">
+      <i class="fa-solid fa-list-check"></i> {% trans "Tasks" %}
+    </a>
     <a href="{% url 'people:person_create' %}" class="btn btn-primary">
-      <i class="fa-solid fa-user-plus"></i> New person
+      <i class="fa-solid fa-user-plus"></i> {% trans "New person" %}
     </a>
   </div>
 </div>
@@ -27,16 +42,16 @@
   <div class="cred-reveal">
     <div class="cred-reveal-head"><i class="fa-solid fa-circle-check"></i> {{ reveal_credential.label }}</div>
     <p class="cred-reveal-text">
-      This password is shown once. The person must set their own password at first sign-in.
+      {% trans "This password is shown once. The person must set their own password at first sign-in." %}
     </p>
     <div class="cred-row">
-      <span class="cred-label">Username</span>
+      <span class="cred-label">{% trans "Username" %}</span>
       <span class="cred-value mono">{{ reveal_credential.username }}</span>
     </div>
     <div class="cred-row">
-      <span class="cred-label">Temporary password</span>
+      <span class="cred-label">{% trans "Temporary password" %}</span>
       <span class="cred-value mono" id="credPwValue">{{ reveal_credential.password }}</span>
-      <button type="button" class="btn btn-sm" id="credCopyBtn"><i class="fa-solid fa-copy"></i> Copy</button>
+      <button type="button" class="btn btn-sm" id="credCopyBtn"><i class="fa-solid fa-copy"></i> {% trans "Copy" %}</button>
     </div>
   </div>
 {% endif %}
@@ -60,8 +75,8 @@
       <label for="{{ form.seats.id_for_label }}">{{ form.seats.label }}</label>{{ form.seats }}
     </div>
     <div class="btn-row ppl-filter-actions">
-      <span class="ppl-filter-busy" data-filter-busy hidden>Filtering…</span>
-      <a href="{% url 'people:person_list' %}" class="btn btn-sm btn-ghost" data-filter-reset>Reset</a>
+      <span class="ppl-filter-busy" data-filter-busy hidden>{% trans "Filtering…" %}</span>
+      <a href="{% url 'people:person_list' %}" class="btn btn-sm btn-ghost" data-filter-reset>{% trans "Reset" %}</a>
     </div>
   </form>
 </div>
@@ -83,7 +98,7 @@
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(function () {
           var original = btn.innerHTML;
-          btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied';
+          btn.innerHTML = '<i class="fa-solid fa-check"></i> {% trans "Copied" %}';
           setTimeout(function () { btn.innerHTML = original; }, 1500);
         });
       }

@@ -1,0 +1,541 @@
+{% load ft_extras i18n %}
+{% comment %}
+  MY TASKS — REMINDERS TAB. Included by my_tasks.html's own #panel-reminders;
+  split into its own file for the identical reason company_detail.html's
+  tabs are documented as staying inline while THIS page's are not — the
+  Reports tab beside it (built in a later stage; see
+  `_my_tasks_reports.html`) gets its own sibling partial rather than this
+  one growing to hold both.
+
+  EVERY REMINDER THIS VIEWER OWNS, NEVER SCOPE-WIDENED HERE — see
+  marketing/views.py::my_tasks's own docstring for why this stage stays the
+  ordinary "own" view even though Reminders can now answer "all" for a
+  Supervisor/GM/admin elsewhere in this app.
+
+  THE TABLE (#myTasksTable) IS THE ONE SOURCE OF TRUTH FOR BOTH THE FILTER
+  CARD AND THE DAY PILL ABOVE IT — static/js/ui.js's own
+  `data-filter-table` pass, the exact mechanism company_detail.html's
+  Reports/Reminders tabs and cases/templates/cases/archive.html already use,
+  reads EVERY control on this page carrying `data-filter-for="myTasksTable"`
+  and hides whichever rows do not match ALL of them at once (an AND across
+  every active control — see ui.js's own `apply()`). The table carries TWO
+  columns no reader ever sees, existing purely so that engine has something
+  to match a pill's/switch's value against:
+
+    Day    — this row's own LOCAL calendar day, "YYYY-MM-DD"
+             (marketing/views.py::_task_rows's ``day_key``)
+    State  — the exact word the visible State chip prints ("Due" / "Waiting"
+             / "Dealt with" — ``state_text``)
+
+  AN HOUR-KEYED THIRD COLUMN USED TO SIT HERE TOO, matched against a
+  click-filter hour-pill row — see the hour-boxes section further down
+  (`#taskHourBoxes`) for what replaced it this round and why that column
+  went with it: `row.hour_key` (marketing/views.py::_task_rows) still
+  exists, but is now read only server-side, by `_task_hour_groups`, never
+  by this table or this table's own filter pass at all.
+
+  marketing/static/marketing/js/my_tasks.js is what turns the day pill, or
+  the missed-only switch, into a value on one of the TWO HIDDEN <input>s
+  wrapped in the `hidden` <div> just above the table (out of any reader's
+  way — see that div's own comment), then re-runs ui.js's filter pass
+  through the public hook it already exposes on the table
+  (`table.ftApplyFilters`) — no second filtering engine, no page-specific
+  row-hiding logic of this file's own for THIS table. The hour boxes further
+  down are a SEPARATE case — plain `<div>`s, not this table's `<tr>`s — see
+  that section's own head comment and my_tasks.js's own for the small,
+  page-owned second filter pass that keeps THEM in step with the SAME
+  filter card instead.
+
+  THE VISIBLE CASE/COMPANY/DATE-RANGE FILTERS ARE THE SAME CONTROLS EVERY
+  OTHER LIST IN THIS APP ALREADY USES: `data-combo` on the two <select>s
+  (marketing/forms.py's own note on why this needs zero new JavaScript), and
+  `data-jalali-datetime`/`data-filter-mode="gte"`/`"lte"` on the two date
+  boxes — the exact From/To pair cases/templates/cases/archive.html and
+  company_detail.html's own Reports/Reminders tabs already carry. Laid out
+  in one compact, horizontal `.filters-row` (static/css/app.css's own
+  comment on that class) rather than the four-wide grid these fields
+  started in — a card this many fields deep used to stack each one's own
+  label above its control and wrap well past one row; flex-wrap now grows
+  each field to fill the row and only drops to a second line once it
+  genuinely has to.
+
+  THE PERSON FILTER (`scope_all` ONLY) IS THE IDENTICAL `data-combo`
+  EQUALS PATTERN, ONE MORE FIELD IN THE SAME `.filters-row` — a flex row
+  simply grows to fit one more item, wrapping it onto a second line only if
+  the row is already full (see static/css/app.css's own comment on that
+  class), so this needed no new CSS of its own. Matched against `person_key`
+  (marketing/views.py::_task_rows), THIS PERSON's linked `Person.detail_code`
+  — a stable, unique identity — rather than their display name, so two
+  people who happen to share a name can never be conflated by an
+  equals-filter the way a name-keyed picker could risk; the visible "Person"
+  column still prints the friendly NAME (`data-fval` carries the key the
+  filter actually matches, the exact mechanism static/js/ui.js's own
+  `data-filter-table` pass already prefers over a cell's plain text — see
+  that pass's own comment). `person_choices` is built by the view from
+  THESE SAME ROWS, the identical "reuse the rows, not a second query"
+  reasoning `client_names` already uses for the Company picker beside it.
+  Entirely absent outside `scope_all`: `person_key` is never set on a
+  `scope="own"` row (every row is this exact viewer regardless, so a Person
+  filter would filter nothing), and the column/field below simply do not
+  render.
+
+  THE "Created" COLUMN — WHEN the reminder was SET, never confused with
+  "Due" (WHEN it falls due) beside it — is the owner's own addition to this
+  table, ``r.created_at`` (``auto_now_add=True`` on ``Reminder`` itself —
+  see ``marketing/views.py::_task_rows``'s own docstring for why no new
+  server-side computation was needed for it, the model field was simply not
+  being read into this template before). Shown "به آن شخص و ادمین" (to that
+  person, and to admin) in the owner's own words — i.e. in BOTH this table's
+  variants, never gated behind `scope_all` the way Person is. THE COLUMN
+  ORDER BELOW IS THE OWNER'S OWN STATED SEQUENCE for the admin-wide table —
+  Person, Created, Due, Company, Case, Note, State — with Due and Person
+  having swapped places from the table's ORIGINAL order (Due first, no
+  Person at all) once Person was added in an earlier round; the "own" table
+  never carries a Person column at all (every row is this exact viewer, so
+  naming "the person who set it" first would be redundant — see the Person
+  section above), so THAT table simply gains Created in front of Due,
+  keeping its own pre-existing order for every column after it. THE FILTER
+  CARD ABOVE MATCHES BY `data-filter-colname`, NOT BY POSITION — reordering
+  the <th>/<td> pairs below changes nothing about which filter narrows which
+  column, since static/js/ui.js's own `data-filter-table` pass locates a
+  column by walking the header row for the <th> whose text equals the
+  filter's own `data-filter-colname` ONCE, at setup, rather than by a fixed
+  index — but "Due"'s own filter fields two sections up still say
+  `data-filter-colname="Due"`, which after this reorder is a DIFFERENT
+  <th>'s position than before; a colname is the contract, not the position,
+  so nothing there needed to change, but the reasoning matters enough to
+  spell out rather than trust silently.
+{% endcomment %}
+
+<div class="card" style="margin-bottom:1rem;">
+  <div class="card-head">
+    <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Filters" %}</h3>
+    <button type="button" class="btn btn-sm" data-filter-clear="myTasksTable" title="{% trans "Reset all filters" %}">
+      <i class="fa-solid fa-eraser"></i> {% trans "Clear filters" %}
+    </button>
+  </div>
+  <div class="grid grid-4 filters-row">
+    <div class="field">
+      <label><i class="fa-solid fa-magnifying-glass"></i> {% trans "Search" %}</label>
+      {# LIVE, FREE-TEXT, AGAINST THE NOTE ITSELF — the identical               #}
+      {# `data-filter-colname`/`data-filter-mode="contains"` plain-<input>      #}
+      {# mechanism cases/templates/cases/case_detail.html's own Reminders tab   #}
+      {# already carries (see that file's own "FILTER CARD" comment) and       #}
+      {# company_detail.html's Reminders tab gains alongside this one — no new  #}
+      {# JavaScript, static/js/ui.js's own `data-filter-table` pass already     #}
+      {# defaults an omitted `data-filter-mode` to "contains" and re-filters on #}
+      {# every keystroke. Targets "Note" (the <td> a few sections down holding  #}
+      {# r.note) — this table's own free-text column, distinct from the        #}
+      {# reports table's "Report" column beside it in `_my_tasks_reports.html`. #}
+      {# data-hb-target — see this file's own head comment's "THE HOUR       #}
+      {# BOXES' OWN FILTER MIRROR" section: a second, small, plain-English   #}
+      {# key my_tasks.js reads for the SAME control, since the hour boxes'   #}
+      {# own rows are <div>s, not this table's <td>s, and so cannot be      #}
+      {# reached by column NAME (data-filter-colname) the way ui.js's own   #}
+      {# pass reaches this table.                                          #}
+      <input type="text" data-filter-for="myTasksTable" data-filter-colname="{% trans "Note" %}"
+             data-hb-target="note"
+             data-filter-mode="contains" placeholder="{% trans "Search note text…" %}" autocomplete="off">
+    </div>
+    <div class="field">
+      <label><i class="fa-solid fa-folder-open"></i> {% trans "Case" %}</label>
+      {# EQUALS, not contains — options are exact document numbers, and a    #}
+      {# document number could otherwise sit inside another one as a        #}
+      {# substring. Never offers a case case_access_for/scope_case_rows     #}
+      {# would refuse this viewer — see marketing/views.py::my_tasks's own  #}
+      {# docstring and _my_tasks_case_access.                               #}
+      <select data-combo data-placeholder="{% trans "Search a case…" %}"
+              data-filter-for="myTasksTable" data-filter-colname="{% trans "Case" %}" data-filter-mode="equals"
+              data-hb-target="case">
+        <option value=""></option>
+        {% for row in case_choices %}
+        <option value="{{ row.doc_no }}">{{ row.doc_no }} · {{ row.client_name }} · {{ row.label_fa|default:row.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label><i class="fa-solid fa-building"></i> {% trans "Company" %}</label>
+      <select data-combo data-placeholder="{% trans "Search a company…" %}"
+              data-filter-for="myTasksTable" data-filter-colname="{% trans "Company" %}" data-filter-mode="equals"
+              data-hb-target="company">
+        <option value=""></option>
+        {% for name in client_names %}
+        <option value="{{ name }}" dir="auto">{{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label><i class="fa-solid fa-calendar-day"></i> {% trans "From date (Jalali)" %}</label>
+      {# value= PRE-FILLS FROM ?from= — see marketing/views.py::my_tasks's   #}
+      {# own "?from=/?to=" docstring section: the shift page's own          #}
+      {# open-reminder badges link here this way. Blank on every ordinary   #}
+      {# visit, exactly as before this addition.                           #}
+      <input type="text" data-jalali-datetime data-filter-for="myTasksTable"
+             data-filter-colname="{% trans "Due" %}" data-filter-mode="gte" data-hb-target="due"
+             placeholder="{% trans "From date" %}"
+             autocomplete="off" value="{{ due_from }}">
+    </div>
+    <div class="field">
+      <label><i class="fa-solid fa-calendar-day"></i> {% trans "To date (Jalali)" %}</label>
+      <input type="text" data-jalali-datetime data-filter-for="myTasksTable"
+             data-filter-colname="{% trans "Due" %}" data-filter-mode="lte" data-hb-target="due"
+             placeholder="{% trans "To date" %}"
+             autocomplete="off" value="{{ due_to }}">
+    </div>
+    {% if scope_all %}
+    <div class="field">
+      <label><i class="fa-solid fa-user"></i> {% trans "Person" %}</label>
+      {# See this file's own head comment's "THE PERSON FILTER" section —   #}
+      {# equals against person_key (a stable Person.detail_code), not the   #}
+      {# printed name.                                                      #}
+      <select data-combo data-placeholder="{% trans "Search a person…" %}"
+              data-filter-for="myTasksTable" data-filter-colname="{% trans "Person" %}" data-filter-mode="equals"
+              data-hb-target="person">
+        <option value=""></option>
+        {% for name, key in person_choices %}
+        <option value="{{ key }}" dir="auto">{{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ON/OFF, default OFF — see marketing/views.py::my_tasks's own docstring. #}
+  {# Reuses the archive's own "Manager view" switch component               #}
+  {# (.nv-toggle-row/.nv-switch), no new CSS; the switch itself sets no      #}
+  {# filter on its own — my_tasks.js is what turns it into the hidden State #}
+  {# control's value (see this file's own head comment).                    #}
+  <label class="nv-toggle-row" style="margin-top:.7rem;cursor:pointer;" title="{% trans "Show only reminders that are already overdue and still open" %}">
+    <span class="nv-switch">
+      <input type="checkbox" id="taskMissedToggle">
+      <span class="nv-switch-slider"></span>
+    </span>
+    <span class="nv-toggle-text">
+      <span class="nv-toggle-label">{% trans "Missed only" %}</span>
+      <span class="help" style="margin:0;">{% trans "Reminders already due, still open — the same set the top-of-page banner counts." %}</span>
+    </span>
+  </label>
+</div>
+
+{# ------------------------------------------------------------- day/hour --- #}
+{# Today and Tomorrow always appear (even carrying nothing, so Today's own   #}
+{# hour boxes are still reachable on a quiet day); further days only when    #}
+{# they actually carry one of THIS viewer's own reminders — see             #}
+{# marketing/views.py::_task_day_groups. "All" resets the day filter (and,   #}
+{# since the hour boxes below only ever show for Today, hides them again    #}
+{# too) and is the page's own default (nothing narrowed on load).           #}
+<nav class="archive-status-tabs" id="taskDayTabs" aria-label="{% trans "Filter by day" %}">
+  <button type="button" class="archive-status-tab archive-status-tab-all is-active"
+          data-day-key="" data-is-today="0" aria-selected="true">
+    <span class="ast-label"><span class="ast-w">{% trans "All" %}</span></span>
+    <span class="ast-count">{{ rows|length }}</span>
+  </button>
+  {% for g in day_groups %}
+  <button type="button" class="archive-status-tab" data-day-key="{{ g.key }}"
+          data-is-today="{% if g.is_today %}1{% else %}0{% endif %}" aria-selected="false">
+    <span class="ast-label"><span class="ast-w">{% if g.label %}{{ g.label }}{% else %}{{ g.date|jalali:"Y.m.d" }}{% endif %}</span></span>
+    <span class="ast-count">{{ g.count }}</span>
+  </button>
+  {% endfor %}
+</nav>
+
+{# HOUR BOXES FOR TODAY ONLY — spanning THIS person's own shift window      #}
+{# (marketing/views.py::_task_hour_blocks/_task_hour_groups), never a flat  #}
+{# 0–23 grid. Hidden until the Today pill above is active; my_tasks.js      #}
+{# toggles it — the SAME inline-style mechanism the click-filter nav this   #}
+{# section replaced used, simply moved onto this section's own id now that  #}
+{# the nav itself is gone (see my_tasks.js's own head comment for why an    #}
+{# inline style, not the `hidden` attribute, is what actually makes it      #}
+{# disappear — .archive-status-tabs' own `display:flex` would otherwise tie #}
+{# a plain `hidden` attribute at equal specificity).                        #}
+{#                                                                          #}
+{# NO LONGER A CLICK-FILTER NAV — the owner's own instruction, "کلا تب       #}
+{# های ساعت‌ها ... را خالی بزار" (empty the hour-tabs concept out            #}
+{# entirely): every one of today's own shift hours is its own always-       #}
+{# visible box now, reached by scrolling rather than a click, each one      #}
+{# showing its own reminders directly inside it (h.has_reminder true) or,   #}
+{# when it holds nothing (h.has_reminder false), a short, muted, mostly-    #}
+{# empty box, so a quiet hour reads as quiet at a glance instead of         #}
+{# looking identical to one worth reading closely. `hour_groups`            #}
+{# (marketing/views.py::_task_hour_groups) is `hour_blocks` with TODAY's    #}
+{# own rows already grouped onto their matching block, one pass server-     #}
+{# side, so this template loops the result flat instead of filtering       #}
+{# `rows` itself once per hour.                                            #}
+{#                                                                          #}
+{# EACH BOX ROW BELOW IS A DELIBERATE, CONDENSED COPY OF A REMINDERS-TABLE  #}
+{# ROW BELOW, NOT A LINK TO ONE — the owner's own ask was to see enough     #}
+{# right here to act without also scrolling down to the table, so nothing   #}
+{# about "act" (Submit report) or "open" (the company/case chips) here is   #}
+{# any different from the identical control on the real row further down.  #}
+{#                                                                          #}
+{# THE HOUR BOXES' OWN FILTER MIRROR — the filter card above STILL has to   #}
+{# reach these rows too: a search/case/company/date narrowing the table    #}
+{# below and leaving these boxes showing the same, now-filtered-out         #}
+{# reminder anyway would read as broken. But these are `<div>`s, not the    #}
+{# `<table data-filter-table>` `<tr>`s static/js/ui.js's own filter pass    #}
+{# already knows how to hide, so each row instead carries small, plain-     #}
+{# English `data-hb-*` attributes (the exact same "never translated, never  #}
+{# shown, only ever compared" idiom this file's own Day/State columns       #}
+{# already use — see this file's own head comment) that                    #}
+{# marketing/static/marketing/js/my_tasks.js's own small, page-owned mirror #}
+{# of ui.js's filter pass reads instead — see that file's own head comment  #}
+{# for why a second pass over a handful of DIVs lives there rather than in  #}
+{# the SHARED, every-page ui.js, which would have to be taught a row shape  #}
+{# that is not a `<tr>` at all for the sake of this one page.               #}
+<div class="task-hour-boxes" id="taskHourBoxes" style="display:none;">
+  {% for h in hour_groups %}
+  <div class="hour-box{% if not h.has_reminder %} hour-box-empty{% endif %}">
+    <div class="hour-box-head">
+      {% if h.has_reminder %}<span class="hour-box-dot" aria-hidden="true"></span>{% endif %}
+      <span>{{ h.label }}</span>
+    </div>
+    {% if h.has_reminder %}
+    <div class="hour-box-rows">
+      {% for r in h.rows %}
+      {# See this section's own head comment's "THE HOUR BOXES' OWN FILTER  #}
+      {# MIRROR" paragraph for what reads these data-hb-* attributes and    #}
+      {# why. Lower-cased at render time (|lower) so my_tasks.js's own      #}
+      {# comparison — already .toLowerCase() on the control's side, the     #}
+      {# identical case-folding ui.js's own data-filter-table pass applies  #}
+      {# — never has to redo it per row on every keystroke.                #}
+      <div class="hb-row" data-hb-row
+           data-hb-note="{{ r.note|lower }}"
+           data-hb-case="{{ r.case.doc_no|default:""|lower }}"
+           data-hb-company="{{ r.client.name|default:""|lower }}"
+           data-hb-due="{{ r.due_at|jalali:"Y.m.d" }}"
+           {% if scope_all %}data-hb-person="{{ r.person_key|lower }}"{% endif %}
+           data-hb-state="{{ r.state_text|lower }}">
+        <span class="mono{% if r.is_due and not r.is_done %} c-rej{% endif %}">{{ r.due_at|jalali:"H:i" }}</span>
+        {% if scope_all %}<span class="muted" dir="auto">{{ r.person_name }}</span>{% endif %}
+        {% if r.client_id %}
+        <a class="chip" href="{% url 'marketing:company_detail' r.client_id %}">
+          <i class="fa-solid fa-building"></i><span dir="auto">{{ r.client.name }}</span>
+        </a>
+        {% endif %}
+        {% if r.case_id %}
+          {% if r.show_case_no %}
+          <a class="chip" href="{{ r.case_open_url }}">
+            <i class="fa-solid fa-folder-open"></i><span class="mono">{{ r.case.doc_no }}</span>
+          </a>
+          {% else %}
+          <span class="chip c-draft"><i class="fa-solid fa-folder-open"></i>{% trans "On a case" %}</span>
+          {% endif %}
+        {% endif %}
+        {% if r.note %}<span dir="auto" class="hb-note">{{ r.note }}</span>{% endif %}
+        {% if r.is_done %}
+        <span class="chip c-ok"><i class="fa-solid fa-check"></i>{% trans "Dealt with" %}</span>
+        {% elif r.is_due %}
+        <span class="chip c-rej"><i class="fa-solid fa-bell"></i>{% trans "Due" %}</span>
+        {% else %}
+        <span class="chip c-draft"><i class="fa-regular fa-clock"></i>{% trans "Waiting" %}</span>
+        {% endif %}
+        {% if r.is_own and not r.is_done %}
+        {# ONE CONTROL, THE SAME "Submit report" GATE AS THE REAL ROW BELOW #}
+        {# — see this table's own row markup a few sections down for the    #}
+        {# full is_own/is_done reasoning; duplicated here rather than       #}
+        {# factored out only because Django templates have no partial-      #}
+        {# within-a-partial mechanism cheap enough to justify one for a     #}
+        {# five-line block used in exactly two places on one page.          #}
+        <a href="{% url 'marketing:my_tasks_report' r.pk %}" class="btn btn-sm btn-primary">
+          <i class="fa-solid fa-file-circle-check"></i> {% trans "Submit report" %}
+        </a>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% if not hour_groups %}
+  <span class="help" style="padding:.4rem .6rem;">{% trans "No work-shift window is configured for you — Today's reminders are shown as one list instead." %}</span>
+  {% endif %}
+</div>
+
+{# The two hidden controls the day pill/toggle above write into — wrapped   #}
+{# in a `hidden` ancestor so whatever static/js/ui.js's own                 #}
+{# data-filter-table pass does to them (it wraps every plain <input>        #}
+{# control in a small clear-button wrapper) stays invisible regardless:     #}
+{# see this file's own head comment for why these exist and what reads      #}
+{# them. A THIRD, #taskHourFilter, used to sit here for the hour-pill       #}
+{# click-filter this round retired (see the section just above) — removed   #}
+{# outright rather than left as dead plumbing nothing ever sets again.      #}
+<div hidden>
+  <input type="text" id="taskDayFilter" data-filter-for="myTasksTable" data-filter-colname="Day" data-filter-mode="equals">
+  {# data-hb-target="state" — the SAME hour-box filter mirror the visible   #}
+  {# filter-card controls above carry (see the hour-boxes section's own     #}
+  {# head comment); the Missed-only toggle is the one control that sets     #}
+  {# this hidden input rather than being typed into directly, but the       #}
+  {# mirror does not care how a control's value changed, only that it did. #}
+  <input type="text" id="taskMissedFilter" data-filter-for="myTasksTable" data-filter-colname="State" data-filter-mode="equals" data-hb-target="state">
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h3><i class="fa-solid fa-bell" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Reminders" %}
+      <span class="count" data-filter-count="myTasksTable">{{ rows|length }}</span>
+    </h3>
+  </div>
+
+  <div class="help" style="margin:-.35rem 0 .7rem;">
+    {% if scope_all %}
+    {% trans "Soonest first. Every reminder anyone has set, on any company, any case, or nothing at all." %}
+    {% else %}
+    {% trans "Soonest first. Nobody else can see these — your own private notes to yourself, on any company, any case, or nothing at all." %}
+    {% endif %}
+  </div>
+
+  <div class="vscroll">
+  <table class="data" id="myTasksTable" data-filter-table>
+    <thead>
+      <tr>
+        {# See this file's own head comment's "THE 'Created' COLUMN"        #}
+        {# section for the owner's own stated order — Person (scope_all     #}
+        {# only), Created, Due, Company, Case, Note, State — and why Person #}
+        {# never appears at all on the "own" table.                        #}
+        {% if scope_all %}<th>{% trans "Person" %}</th>{% endif %}
+        <th>{% trans "Created" %}</th>
+        <th>{% trans "Due" %}</th>
+        <th>{% trans "Company" %}</th>
+        <th>{% trans "Case" %}</th>
+        <th>{% trans "Note" %}</th>
+        <th>{% trans "State" %}</th>
+        {# Day is a hidden column nobody ever sees — the filter machinery    #}
+        {# that reads it (my_tasks.js's day pill, and the hidden            #}
+        {# #taskDayFilter above) matches on this exact English text         #}
+        {# regardless of interface language, so it is deliberately left     #}
+        {# untranslated here — see this file's own head comment's "THE      #}
+        {# COLUMN ORDER" note and marketing/views.py's day_key, itself a    #}
+        {# plain machine key, never shown to a reader in any language. Hour #}
+        {# USED to be a matching hidden column for the click-filter hour-   #}
+        {# pill row this round retired (see the hour-boxes section's own    #}
+        {# head comment); removed along with it — row.hour_key still exists #}
+        {# (marketing/views.py::_task_rows), now read only server-side, by  #}
+        {# _task_hour_groups, so this table itself no longer needs to carry #}
+        {# it at all.                                                       #}
+        <th hidden>Day</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        {% if scope_all %}
+        <td data-fval="{{ r.person_key }}" dir="auto">{{ r.person_name }}</td>
+        {% endif %}
+        {# WHEN the reminder was SET — see this file's own head comment's   #}
+        {# "THE 'Created' COLUMN" section. r.created_at is the plain        #}
+        {# Reminder.created_at field (auto_now_add=True); never confused    #}
+        {# with r.due_at beside it, which is WHEN it falls due.             #}
+        <td class="mono">{{ r.created_at|jalali:"Y.m.d H:i" }}</td>
+        <td class="mono{% if r.is_due and not r.is_done %} c-rej{% endif %}">{{ r.due_at|jalali:"Y.m.d H:i" }}</td>
+        <td>
+          {% comment %}
+            A BARE REMINDER — no company and no case at all (see
+            marketing/models.py::Reminder.client) — has no company page to
+            link to; r.client_id (a plain column read) guards it rather than
+            r.client, the same guard the old, now-removed
+            reminder_list.html used to use.
+          {% endcomment %}
+          {% if r.client_id %}
+          <a class="chip" href="{% url 'marketing:company_detail' r.client_id %}">
+            <i class="fa-solid fa-building"></i><span dir="auto">{{ r.client.name }}</span>
+          </a>
+          {% else %}<span class="muted">—</span>{% endif %}
+        </td>
+        <td>
+          {% comment %}
+            THE CASE DOCUMENT NUMBER IS ALSO A LINK NOW — the owner's own
+            ask for this page — going to r.case_open_url
+            (marketing/views.py::_task_rows, built through
+            access.case_open_url over THIS page's own case_access) exactly
+            the way the company chip beside it already links. r.show_case_no
+            is the SAME redaction rule company_detail.html's own Reminders
+            tab already enforces: a case this viewer's access no longer
+            covers still shows that the row IS about a case, but never its
+            identity — and a redacted case therefore carries no link either,
+            since a link is itself an assertion that the case may be opened.
+          {% endcomment %}
+          {% if r.case_id %}
+            {% if r.show_case_no %}
+            <a class="chip" href="{{ r.case_open_url }}">
+              <i class="fa-solid fa-folder-open"></i><span class="mono">{{ r.case.doc_no }}</span>
+            </a>
+            {% else %}
+            <span class="chip c-draft"><i class="fa-solid fa-folder-open"></i>{% trans "On a case" %}</span>
+            {% endif %}
+          {% else %}<span class="muted">—</span>{% endif %}
+        </td>
+        <td dir="auto" style="white-space:pre-line;max-width:32ch;overflow-wrap:anywhere;">{{ r.note }}</td>
+        {# data-fval carries the RAW, untranslated state key (r.state_text —  #}
+        {# always "Due"/"Waiting"/"Dealt with" in English) because it is what #}
+        {# my_tasks.js's Missed-only toggle and #taskMissedFilter compare     #}
+        {# against (see this file's own head comment and marketing/static/   #}
+        {# marketing/js/my_tasks.js) — machine plumbing, never shown to a     #}
+        {# reader, so it stays in English regardless of interface language;  #}
+        {# only the VISIBLE chip text below is translated.                   #}
+        <td data-fval="{{ r.state_text }}">
+          {% if r.is_done %}
+          <span class="chip c-ok"><i class="fa-solid fa-check"></i>{% trans "Dealt with" %}</span>
+          {% elif r.is_due %}
+          <span class="chip c-rej"><i class="fa-solid fa-bell"></i>{% trans "Due" %}</span>
+          {% else %}
+          <span class="chip c-draft"><i class="fa-regular fa-clock"></i>{% trans "Waiting" %}</span>
+          {% endif %}
+        </td>
+        <td hidden>{{ r.day_key }}</td>
+        <td style="white-space:nowrap;">
+          {% comment %}
+            ONE CONTROL, REPLACING BOTH "Set new time" AND "Mark dealt with"
+            — the owner's explicit instruction for THIS page (see
+            marketing/views.py::my_tasks_report). Gated on `not r.is_done`
+            the same way the old "Mark dealt with" button was: a reminder
+            already left "Dealt with" by the OLD flow, before it was retired,
+            has nothing left here to close — and nothing can put a row back
+            into that state any more, since marketing/views.py
+            ::reminder_retime/::reminder_done (and the "Set new time"/"Mark
+            dealt with" pair on company_detail.html's own Reminders tab that
+            used to post to them) have since been removed for being a live
+            bypass of this exact close-only-via-a-report cycle. That tab now
+            carries this SAME "Submit report" control, linking to the SAME
+            view — see its own head comment's "THE REMINDERS TAB'S OWN CLOSE
+            CONTROL" section.
+
+            ALSO GATED ON `r.is_own` — this page's scope="all" variant (the
+            admin-wide view) can render somebody else's row (see
+            marketing/views.py::_task_rows's own docstring); closing one is
+            still, and only ever, its owner's action, exactly like
+            company_detail.html's own Reminders tab already restricts this
+            same control. my_tasks_report's own server-side ownership check
+            (reminders.get_own) already refused a non-owner's attempt, so
+            nothing was ever exposed by drawing this without the check — but
+            a control the server will refuse is still a bug, per this same
+            comment's own principle a few lines up.
+          {% endcomment %}
+          {% if r.is_own and not r.is_done %}
+          <a href="{% url 'marketing:my_tasks_report' r.pk %}" class="btn btn-sm btn-primary">
+            <i class="fa-solid fa-file-circle-check"></i> {% trans "Submit report" %}
+          </a>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        {# One column fewer than before this round — the hidden Hour column #}
+        {# just above went away with the hour-pill click-filter it existed #}
+        {# for (see this file's own head comment on the hour-boxes         #}
+        {# section); this colspan must keep counting every <th> above,     #}
+        {# hidden ones included, or the empty-state message would render   #}
+        {# narrower than the table itself.                                 #}
+        <td colspan="{% if scope_all %}9{% else %}8{% endif %}" class="empty">
+          {% if scope_all %}
+          {% trans "Nobody has set any reminders yet." %}
+          {% else %}
+          {% blocktrans %}You have not set any tasks yet — use "Add Task" above to set the first one.{% endblocktrans %}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>

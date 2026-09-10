@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% load static i18n %}
+{% comment %}
+  WRITE A REPORT — STEP 2 OF 2: what it says, then confirm.
+
+  The owner's second screen: "pick one or more preset options AND/OR type free
+  text, then confirm". Both halves are on one page because they are one answer —
+  ticking two boxes and adding a sentence of context is the normal case, not two
+  competing ways of doing the same thing.
+
+  Same shape as marketing/contact_form.html: a method="post" form in a .card,
+  each control in a .field with its label, field errors in a <ul class="errorlist">
+  underneath (app.css turns the surrounding .field red on its own via
+  :has(.errorlist)), and form-level errors in a .flash.flash-error above them.
+
+  THE FORM-LEVEL RULE — at least one option or some text — is enforced in
+  marketing/forms.py::ReportForm.clean(), on the server, and is shown here as
+  that .flash.flash-error. There is deliberately NO JavaScript copy of it: a rule
+  that only exists in the browser is not a rule, and the submit below is a plain
+  submit, so an empty report really does travel to the server and really is
+  rejected there.
+
+  The case picked in step 1 rides along in form.case_id, a hidden field, so a
+  rejected submit re-renders here with the case still attached instead of
+  sending the writer back through the wizard. The VIEW re-checks that id against
+  this viewer's own visible cases — a hidden field is a value the browser sends,
+  never a permission.
+{% endcomment %}
+{% block title %}{% trans "Add report" %} · {{ client.name }} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% trans "Add report" %}{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1>{% trans "Add a report" %}</h1>
+    <div class="sub">{% blocktrans with name=client.name code=client.code %}on <span dir="auto">{{ name }}</span> <span class="mono">({{ code }})</span>{% endblocktrans %}</div>
+  </div>
+  <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-sm">
+    <i class="fa-solid fa-arrow-left"></i> {% trans "Back to company" %}
+  </a>
+</div>
+
+<form method="post" action="{% url 'marketing:report_create' client.pk %}"
+      class="card form-narrow" autocomplete="off">
+  {% csrf_token %}
+  {{ form.case_id }}
+
+  {% if form.non_field_errors %}
+  <div class="flash flash-error">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <span>{% for e in form.non_field_errors %}{{ e }}{% endfor %}</span>
+  </div>
+  {% endif %}
+
+  {# What step 1 attached, stated plainly. The hidden field above is what the  #}
+  {# server reads; this line is so the writer can see what they are about to   #}
+  {# file the report against, and change their mind before confirming.         #}
+  <div class="help" style="margin-bottom:.8rem;">
+    <i class="fa-solid fa-circle-info"></i>
+    {% trans "Step 2 of 2 —" %}
+    {% if case_row %}
+      {% blocktrans with doc=case_row.doc_no %}this report will be filed against case <span class="mono">{{ doc }}</span>.{% endblocktrans %}
+    {% else %}
+      {% trans "this report is not attached to any case." %}
+    {% endif %}
+    <a href="{% url 'marketing:report_add' client.pk %}">{% trans "Change" %}</a>
+  </div>
+
+  <div class="field">
+    <label><i class="fa-solid fa-list-check"></i> {{ form.options.label }}</label>
+    {{ form.options }}
+    {% if form.options.errors %}<ul class="errorlist">{% for e in form.options.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    {% if not form.options_available %}
+      {# The preset list is a managed vocabulary and is legitimately empty on a #}
+      {# fresh install (see marketing/models.py::ReportOption) — unlike the     #}
+      {# contact form's role list this is not a dead end, because the free text #}
+      {# below is a complete report on its own. Whoever may extend the list is  #}
+      {# told so; whoever may not is told who can. can_manage_options is        #}
+      {# Access.can_manage_config, the same capability that governs ContactRole.#}
+      {#                                                                        #}
+      {# THIS SENTENCE USED TO SEND THE READER TO "the admin's Report options   #}
+      {# list", which is a screen the very population it was addressed to       #}
+      {# cannot open: a Marketing Supervisor holds can_manage_config but is not #}
+      {# is_staff, so the Django admin bounces them to its login. It now points #}
+      {# at the field directly below — the same wording, and the same route,    #}
+      {# contact_form.html has always given for a missing ContactRole.          #}
+      <div class="help">
+        {% if can_manage_options %}{% trans "No report options exist yet — add the first one in the field below." %}
+        {% else %}{% trans "No report options exist yet. A Marketing Supervisor or the platform admin can add them; until then, write the report below." %}{% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  {% if can_manage_options %}
+  {# Only rendered for a seat that may manage the shared vocabulary — and the  #}
+  {# field does not exist on the form object at all for anyone else, so this   #}
+  {# is presentation, not the gate. Exactly contact_form.html's block for      #}
+  {# new_role. See marketing/views.py::_can_manage_options.                    #}
+  <div class="field">
+    <label for="{{ form.new_option.id_for_label }}"><i class="fa-solid fa-plus"></i> {{ form.new_option.label }}</label>
+    {{ form.new_option }}
+    {% if form.new_option.errors %}<ul class="errorlist">{% for e in form.new_option.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    <div class="help">{% trans "Adds the option to the shared list for everyone in Marketing, and ticks it on this report. Leave it blank if the options above are enough." %}</div>
+  </div>
+  {% endif %}
+
+  <div class="field">
+    <label for="{{ form.text.id_for_label }}"><i class="fa-solid fa-file-lines"></i> {{ form.text.label }}</label>
+    {{ form.text }}
+    {% if form.text.errors %}<ul class="errorlist">{% for e in form.text.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    <div class="help">{% trans "Tick at least one option above, write the report here, or do both." %}</div>
+  </div>
+
+  <div class="btn-row">
+    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> {% trans "Confirm report" %}</button>
+    <a href="{% url 'marketing:company_detail' client.pk %}" class="btn btn-ghost">{% trans "Cancel" %}</a>
+  </div>
+</form>
+{% endblock %}

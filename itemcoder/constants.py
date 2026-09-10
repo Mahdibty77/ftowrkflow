@@ -15,8 +15,6 @@ import json
 import os
 import re
 
-from django.conf import settings
-
 from .resource_paths import JSON_DIR
 from .composite_keys import iter_alias_items
 
@@ -84,6 +82,13 @@ def _load_offer_rules_merged():
     Each group now has its own offer file (offer_<group>.json) so data stays
     tidy and one group can be replaced independently. The legacy shared
     offer.json is still read as a fallback / for un-migrated groups.
+
+    The merge key comes from the FILE NAME, and ``apply_rules`` looks the block
+    up by the row's group name, so a file named after something that is not a
+    live group merges under a key nothing can ever ask for and is silently
+    inert. ``offer_nut&bolt.json`` and ``offer_nut-bolt.json`` are exactly that:
+    the live group is ``studbolt`` (see data.json / asign_code.json), so editing
+    either of them has no effect — ``offer_studbolt.json`` is the one consulted.
     """
     import glob
     merged = {}
@@ -278,6 +283,30 @@ def clear_data_caches():
         from . import feature_extractor as _fe
         if hasattr(_fe, "clear_feature_extractor_caches"):
             _fe.clear_feature_extractor_caches()
+    except Exception:
+        pass
+
+    # The item builder's rules/schema caches and the calculation engine's
+    # lru_caches hold the same reference data as the dicts above, only in other
+    # modules. cache_sync drops all three together, but only on the workers that
+    # notice the epoch bump — the worker that performed the import marks itself
+    # as already in sync (bump_epoch), so it never runs that path and would be
+    # the ONE worker still answering from pre-import weights, prices and rules.
+    # Clearing here is what makes "no restart needed" true for the importer too.
+    try:
+        from . import item_builder as _ib
+        _ib.clear_builder_caches()
+    except Exception:
+        pass
+    try:
+        from . import calculation_engine as _ce
+        for _name in dir(_ce):
+            _fn = getattr(_ce, _name, None)
+            if callable(_fn) and hasattr(_fn, "cache_clear"):
+                try:
+                    _fn.cache_clear()
+                except Exception:
+                    pass
     except Exception:
         pass
 

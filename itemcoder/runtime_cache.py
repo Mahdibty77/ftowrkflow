@@ -50,4 +50,10 @@ def get_row_base_cache(row_index: int, *, original_text: Any, clean_size: Any) -
     cached_size = normalize_cache_text(cached.get("clean_size"))
     if req_size and cached_size and req_size != cached_size:
         return None
+    # Clearing the SIZE cell must still miss, though. The cached features carry a
+    # size_<group>_<type> value and text_processor only overwrites that key when
+    # the cached one is empty or "null", so accepting the entry here would keep
+    # re-coding the row with the size the user has just deleted.
+    if cached_size and not req_size:
+        return None
     return cached

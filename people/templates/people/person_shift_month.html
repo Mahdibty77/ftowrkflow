@@ -1,57 +1,57 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 {% block title %}{{ month_name }} {{ jalali_year }} · Work shift · {{ person.display_name }}{% endblock %}
 {% block topbar %}{{ month_name }} {{ jalali_year }} · {{ person.display_name }}{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-22">
+  <link rel="stylesheet" href="{% static 'people/css/people.css' %}?v=ppl-27">
 {% endblock %}
 
 {% block content %}
 <div class="page-head">
   <div>
     <h1>{{ month_name }} {{ jalali_year }}</h1>
-    <div class="sub">Daily attendance cards</div>
+    <div class="sub">{% trans "Daily attendance cards" %}</div>
   </div>
   <div class="btn-row">
     <a href="{% url 'people:person_shift' person.pk %}" class="btn btn-sm">
-      <i class="fa-solid fa-arrow-left"></i> Back to work shift
+      <i class="fa-solid fa-arrow-left"></i> {% trans "Back to work shift" %}
     </a>
   </div>
 </div>
 
 <div class="ppl-day-summary">
   <div class="ppl-day-field">
-    <span class="ppl-day-field-label">Person</span>
+    <span class="ppl-day-field-label">{% trans "Person" %}</span>
     <strong class="ppl-day-field-value">{{ person.display_name }}</strong>
   </div>
   <div class="ppl-day-field">
-    <span class="ppl-day-field-label">Month</span>
+    <span class="ppl-day-field-label">{% trans "Month" %}</span>
     <strong class="ppl-day-field-value">{{ month_name }} {{ jalali_year }}</strong>
   </div>
   {% if month_card %}
   <div class="ppl-day-field">
-    <span class="ppl-day-field-label">Plan</span>
+    <span class="ppl-day-field-label">{% trans "Plan" %}</span>
     <strong class="ppl-day-field-value mono">{{ month_card.planned_hours }} h</strong>
   </div>
   <div class="ppl-day-field">
-    <span class="ppl-day-field-label">Done</span>
+    <span class="ppl-day-field-label">{% trans "Done" %}</span>
     <strong class="ppl-day-field-value mono">{{ month_card.worked_hours }} h{% if month_card.excess_hours %} <span class="ppl-ot-chip">{{ month_card.excess_hours }}h (OT)</span>{% endif %}</strong>
   </div>
   <div class="ppl-day-field">
-    <span class="ppl-day-field-label">Work days</span>
+    <span class="ppl-day-field-label">{% trans "Work days" %}</span>
     <strong class="ppl-day-field-value mono">{{ month_card.working_days }}</strong>
   </div>
   <div class="ppl-day-field">
-    <span class="ppl-day-field-label">Off days</span>
+    <span class="ppl-day-field-label">{% trans "Off days" %}</span>
     <strong class="ppl-day-field-value mono">{{ month_card.off_days }}</strong>
   </div>
   <div class="ppl-day-field">
-    <span class="ppl-day-field-label">Hours / day</span>
+    <span class="ppl-day-field-label">{% trans "Hours / day" %}</span>
     <strong class="ppl-day-field-value mono">{{ month_card.hours_per_day }} h</strong>
   </div>
   <div class="ppl-day-field">
-    <span class="ppl-day-field-label">Shift</span>
+    <span class="ppl-day-field-label">{% trans "Shift" %}</span>
     <strong class="ppl-day-field-value mono">{{ month_card.shift_label }}</strong>
   </div>
   {% endif %}
@@ -63,48 +63,97 @@
          role="listitem">
       <div class="ppl-day-card-top">
         <div class="ppl-day-card-day">
-          <strong>Day {{ d.jalali_day }}</strong>
+          <strong>{% blocktrans with day=d.jalali_day %}Day {{ day }}{% endblocktrans %}</strong>
           <span class="ppl-day-weekday">{{ d.weekday_short }}</span>
         </div>
         <div class="ppl-day-card-tags">
-          {% if d.ot_request_url %}
-          <a href="{{ d.ot_request_url }}" class="ppl-ot-tag" title="{{ d.ot_request_code|default:'Overtime request' }}">OT</a>
+          {% comment %}
+            THIS DAY'S OWN STATUS PILL COMES FIRST, ON ITS OWN ROW —
+            ``.ppl-day-card-tags`` is a column (see people.css), so whatever
+            renders first here occupies the top row and everything after it
+            stacks below. The owner's explicit instruction was that the
+            open-reminder badge below must sit BELOW this pill, never beside
+            or (as the old absolutely-positioned badge could) on top of it —
+            confirmed on a genuinely-``today`` card (where the pill reads
+            "Today") and on every other status, so the layout holds for both.
+          {% endcomment %}
+          {% if d.status == 'today' %}<span class="pill pill-green">{% trans "Today" %}</span>
+          {% elif d.status == 'ended' %}<span class="pill pill-grey">{% trans "Ended" %}</span>
+          {% elif d.status == 'soon' %}<span class="pill pill-grey">{% trans "Soon" %}</span>
+          {# Deliberately "Day off", not the bare "Off" the Unit-conversion/     #}
+          {# Manager-view toggles elsewhere use for their OWN off state          #}
+          {# (_side_section.html, archive.html) — the English word is identical  #}
+          {# but the meaning is not (a non-working day vs. a switch being off),  #}
+          {# and this hand-maintained .po catalog has no msgctxt support (its    #}
+          {# own header explains why: no real msgfmt on this machine, so a      #}
+          {# minimal stand-in compiler built the .mo instead — see build_mo.py, #}
+          {# not shipped with the app). Two different English source strings is #}
+          {# what keeps the two meanings from colliding into one Persian word.  #}
+          {% elif d.status == 'off' %}<span class="pill pill-red">{% trans "Day off" %}</span>
+          {% elif d.status == 'complete' %}<span class="pill pill-green"><i class="fa-solid fa-check"></i> {% trans "Done" %}</span>
           {% endif %}
-          {% if d.status == 'today' %}<span class="pill pill-green">Today</span>
-          {% elif d.status == 'ended' %}<span class="pill pill-grey">Ended</span>
-          {% elif d.status == 'soon' %}<span class="pill pill-grey">Soon</span>
-          {% elif d.status == 'off' %}<span class="pill pill-red">Off</span>
-          {% elif d.status == 'complete' %}<span class="pill pill-green"><i class="fa-solid fa-check"></i> Done</span>
+          {% if d.ot_request_url or d.reminder_count %}
+          <div class="ppl-day-card-tags-extra">
+            {% if d.ot_request_url %}
+            {% trans "Overtime request" as ot_request_default_text %}
+            <a href="{{ d.ot_request_url }}" class="ppl-ot-tag" title="{{ d.ot_request_code|default:ot_request_default_text }}">OT</a>
+            {% endif %}
+            {% comment %}
+              OPEN-REMINDER BADGE — THIS PERSON'S OWN open reminders due on
+              THIS single Jalali day (people/views.py::person_shift_month,
+              the per-day lookup into ``_reminder_day_counts_for_person``'s
+              own ``Counter``). HIDDEN ENTIRELY when the count is zero — the
+              owner's own instruction, same as the year/month cards one
+              level up. Same link-or-count-only rule as those cards too:
+              only ever a link when the viewer IS this person
+              (``d.reminder_url``), so an admin reading someone else's day
+              never lands on their OWN My Tasks by mistake.
+            {% endcomment %}
+            {% if d.reminder_count %}
+              {% if d.reminder_url %}
+              <a href="{{ d.reminder_url }}" class="chip ppl-reminder-badge"
+                 title="{% blocktrans with day=d.jalali_day %}Your own open reminders due on Day {{ day }} — open My Tasks filtered to this day{% endblocktrans %}">
+                <i class="fa-solid fa-bell"></i> {{ d.reminder_count }}
+              </a>
+              {% else %}
+              <span class="chip ppl-reminder-badge"
+                    title="{% blocktrans with name=person.display_name day=d.jalali_day %}{{ name }}'s open reminders due on Day {{ day }}{% endblocktrans %}">
+                <i class="fa-solid fa-bell"></i> {{ d.reminder_count }}
+              </span>
+              {% endif %}
+            {% endif %}
+          </div>
           {% endif %}
         </div>
       </div>
 
       <div class="ppl-day-card-body">
         {% if d.status == 'ended' %}
-          <div class="ppl-day-card-note muted">Ended · before tracking</div>
+          <div class="ppl-day-card-note muted">{% trans "Ended · before tracking" %}</div>
         {% elif d.status == 'soon' %}
-          <div class="ppl-day-card-note muted">Upcoming</div>
+          <div class="ppl-day-card-note muted">{% trans "Upcoming" %}</div>
         {% elif d.status == 'off' %}
-          <div class="ppl-day-card-note ppl-day-off-label">{{ d.off_reason|default:"Off" }}</div>
+          {% trans "Day off" as off_default_text %}
+          <div class="ppl-day-card-note ppl-day-off-label">{{ d.off_reason|default:off_default_text }}</div>
         {% else %}
           <div class="ppl-day-hours-line">
             <span class="mono">{{ d.worked_hours }}</span>
-            <span class="muted">of</span>
+            <span class="muted">{% trans "of" %}</span>
             <span class="mono">{{ d.planned_hours }} h</span>
             {% if d.excess_hours %}
-              <span class="ppl-ot-chip" title="Hours beyond plan">
+              <span class="ppl-ot-chip" title="{% trans 'Hours beyond plan' %}">
                 <i class="fa-solid fa-stopwatch"></i> +{{ d.excess_hours }} h (OT)
               </span>
             {% endif %}
           </div>
           <div class="ppl-day-io">
             <div class="ppl-day-io-cell">
-              <span class="ppl-day-io-label">In</span>
+              <span class="ppl-day-io-label">{% trans "In" %}</span>
               <span class="ppl-day-io-time mono">{{ d.login }}</span>
             </div>
             <div class="ppl-day-io-sep" aria-hidden="true">–</div>
             <div class="ppl-day-io-cell">
-              <span class="ppl-day-io-label">Out</span>
+              <span class="ppl-day-io-label">{% trans "Out" %}</span>
               <span class="ppl-day-io-time mono">{{ d.logout }}</span>
             </div>
           </div>
@@ -112,7 +161,7 @@
       </div>
     </div>
   {% empty %}
-    <p class="muted">No days for this month.</p>
+    <p class="muted">{% trans "No days for this month." %}</p>
   {% endfor %}
 </div>
 {% endblock %}

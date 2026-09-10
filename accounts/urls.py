@@ -1,3 +1,10 @@
+"""URL map for the accounts app: sign-in, the admin Users console, the seat
+actions, impersonation, self-service and backups.
+
+Note that ``users/<pk>/…`` addresses a SEAT, not a human — the pk is a Django
+``User`` id. The seat model is explained in the ``people.models`` module
+docstring under "SEAT, PERSON, ROLE".
+"""
 from django.contrib.auth import views as auth_views
 from django.urls import path
 

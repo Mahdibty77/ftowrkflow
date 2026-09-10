@@ -1,9 +1,43 @@
 """Per-group SQLite code database (fast lookup / filter / pagination).
 
-This module stores each product group's coding-data table in its own on-disk
-SQLite file under ``itemcoder/resources/db/<group>.sqlite3``.  Compared with
-holding the whole table as an in-RAM pandas DataFrame, this scales to millions
-of rows with tiny memory use and O(log n) indexed lookups.
+===========================================================================
+THIS MODULE DOES NOT USE THE DJANGO ORM. Read that again before changing it.
+===========================================================================
+Everything below is hand-written SQL over ``sqlite3`` connections this module
+opens, caches and closes itself. There is no model, no migration, no
+``objects.filter``, no connection from ``django.db``, and no transaction that
+Django knows about. ``itemcoder/models.py`` does define CodeTable/CodeTableRow,
+but those are a DIFFERENT, ORM-managed copy used only as a fallback source when
+a group has no SQLite file — changing a model there changes nothing here.
+
+The files
+---------
+Each product group's coding-data table lives in its own file:
+
+    itemcoder/resources/db/<group>.sqlite3        e.g. pipe.sqlite3, flange.sqlite3
+
+They are DATA, not source: they are built from a group's uploaded workbook/CSV by
+``build_db_from_rows``, which two importers call — the admin screen in data_admin,
+and ``importer.import_code_table`` behind ``manage.py import_codes`` / seed_demo.
+Both then delete that group's ORM ``CodeTableRow`` mirror, because once the SQLite
+file exists the fallback copy is only a way for the two to drift apart. A fresh
+checkout has none of these files, so the directory may legitimately be missing or
+empty. Every read path here returns an empty/None result when the file is
+absent, and code_assigner then falls back to the CSV/pandas path — which is why
+the tool still runs on a machine that has never imported anything.
+
+One file holds three tables:
+
+    items         row_no INTEGER PRIMARY KEY, then c0..cN (the raw cell text)
+                  and n0..nN (the same cells normalized for matching)
+    meta          k/v strings: ``columns`` (JSON header list), ``ncols``,
+                  ``row_count``
+    col_distinct  (col, value) pairs precomputed at build time so a browse
+                  dropdown on a multi-million-row group is instant
+
+The doubled c/n columns are the whole trick: the code lookup compares against
+n{i} (indexed, normalized), while everything a human sees comes from c{i}, so
+matching never has to normalize at query time and display never loses spelling.
 
 The matching algorithm is intentionally identical to the previous pandas /
 inverted-index implementation in ``code_assigner.assign_code_from_csv``:
@@ -17,6 +51,46 @@ inverted-index implementation in ``code_assigner.assign_code_from_csv``:
 This was verified row-for-row against the pandas path on the full pipe table
 (37,153 rows, 0 mismatches), so switching a group to SQLite does not change any
 output.  Groups without a SQLite file keep using the original CSV/pandas path.
+
+The build / claim / publish protocol
+------------------------------------
+``build_db_from_rows`` never writes the live file. It writes a temporary
+``<group>.sqlite3.building`` and only swaps it in at the very end. Three
+mechanisms around that are not guessable from the code, so they are spelled out
+here:
+
+1. CLAIM. The temp name depends only on the group, so two imports of the same
+   group would otherwise share it — and the second one's cleanup would unlink
+   the file the first was still writing. The name is therefore claimed
+   atomically with ``O_CREAT | O_EXCL``: the loser fails fast with a clear
+   message and the live file is never touched.
+
+2. STALE CLAIM. A process killed mid-import leaves its ``.building`` behind,
+   and that leftover IS the claim — so it would lock the group out forever.
+   A claim is reclaimable once it has not been touched for
+   ``STALE_BUILD_SECONDS`` (30 min). A live build writes rows and indexes
+   continuously and so is never that stale. Every failure path from the claim
+   onward — including the publish step — deletes the temp file, because the
+   ordinary Windows failure (another worker still holding the live file open)
+   is instantly retryable and must not turn into a half-hour outage.
+
+3. PUBLISH. ``_replace_db_file`` does ``os.replace`` (atomic) with retries,
+   because on Windows another gunicorn worker's open read handle makes the
+   replace fail with PermissionError; after ten tries it falls back to
+   delete-then-rename. ``verify_group_db`` then re-opens the published file and
+   refuses the import unless COUNT(*) and the stored ``row_count`` both match
+   what was written.
+
+Cached connections and why they are re-checked
+----------------------------------------------
+``_open`` keeps one read-only connection per group, but remembers the
+(mtime, size) it was opened against. After an import replaces the file, a stale
+handle would keep reading the old inode (Linux keeps a deleted file alive until
+close), so a changed signature reopens. ``cache_sync.bump_epoch`` additionally
+tells the OTHER gunicorn workers to drop theirs. This is also why
+``lookup_code`` retries once on ``sqlite3.ProgrammingError``: the shared handle
+can be closed by an import between ``_open`` and the query, and silently
+returning "" there would ship a row with a blank FTCO code.
 """
 from __future__ import annotations
 
@@ -48,6 +122,12 @@ _CONN_META: Dict[str, Tuple[float, int]] = {}
 
 # column_names() is hit on every code lookup during Build TO; cache by mtime.
 _COLUMNS_CACHE: Dict[str, Tuple[float, List[str]]] = {}
+
+# How long a "<group>.sqlite3.building" file must sit untouched before another
+# import may assume its builder died and take the name over. A live build writes
+# rows and indexes continuously, so its file is never this stale; only a process
+# killed mid-import leaves one behind.
+STALE_BUILD_SECONDS = 30 * 60
 
 
 # Bounded memo for the regex path only. Code tables have highly repetitive
@@ -332,8 +412,30 @@ def build_db_from_rows(group: str, columns: List[str], rows: Iterable[List[str]]
     reset_connection(g)
     path = group_db_path(g)
     tmp = path + ".building"
-    if os.path.exists(tmp):
-        os.remove(tmp)
+    # The temp name depends only on the group, so two imports of the same group
+    # (a double-clicked Confirm) used to share it: the second one's os.remove
+    # unlinked the file the first was still writing, and the first then published
+    # its half-populated result over the live database. Claim the name atomically
+    # instead — the loser fails fast and the live file is never touched. A temp
+    # left behind by a hard-killed build is only reclaimed once it has stopped
+    # growing for STALE_BUILD_SECONDS, so a crash cannot block imports forever.
+    try:
+        os.close(os.open(tmp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+    except FileExistsError:
+        try:
+            age = time.time() - os.path.getmtime(tmp)
+        except OSError:
+            age = STALE_BUILD_SECONDS  # vanished meanwhile — nothing to protect
+        if age < STALE_BUILD_SECONDS:
+            raise RuntimeError(
+                f"Another import for group '{g}' is still building its database "
+                f"({tmp}). Wait for it to finish, then try again."
+            )
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        os.close(os.open(tmp, os.O_CREAT | os.O_WRONLY, 0o600))
 
     def _status(msg: str) -> None:
         if on_status is None:
@@ -343,12 +445,25 @@ def build_db_from_rows(group: str, columns: List[str], rows: Iterable[List[str]]
         except Exception:
             pass
 
-    ncols = len(columns)
-    craw = ", ".join(f"c{i} TEXT" for i in range(ncols))
-    cnorm = ", ".join(f"n{i} TEXT" for i in range(ncols))
+    # Everything from here to the build's own cleanup has to release the claim
+    # too: if connect() fails because DB_DIR is full or read-only there is no
+    # connection to close, but an empty .building file would still be sitting
+    # there locking every import of this group out for STALE_BUILD_SECONDS.
+    try:
+        ncols = len(columns)
+        craw = ", ".join(f"c{i} TEXT" for i in range(ncols))
+        cnorm = ", ".join(f"n{i} TEXT" for i in range(ncols))
 
-    _status("Writing rows into temporary database…")
-    con = sqlite3.connect(tmp)
+        _status("Writing rows into temporary database…")
+        con = sqlite3.connect(tmp)
+    except Exception:
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except Exception:
+            pass
+        raise
+
     try:
         con.execute("PRAGMA journal_mode=OFF")
         con.execute("PRAGMA synchronous=OFF")
@@ -449,21 +564,47 @@ def build_db_from_rows(group: str, columns: List[str], rows: Iterable[List[str]]
     else:
         con.close()
 
-    _status("Replacing database file on disk…")
-    _replace_db_file(tmp, path, g)
-    reset_connection(g)
-    # Tell every gunicorn worker immediately: the on-disk DB changed.
+    # The publish step needs the same claim-releasing guard as the build above,
+    # and for a reason that is not hypothetical: _replace_db_file raises when
+    # os.replace has failed ten times and the delete-and-rename fallback failed
+    # too, which is the ordinary Windows outcome when another gunicorn worker
+    # still holds a read-only handle on the live .sqlite3. Before the claim
+    # existed that leftover was harmless — the next import simply deleted the
+    # stale temp and carried on. Now the leftover IS the claim, so without this
+    # every retry would be refused for STALE_BUILD_SECONDS, turning a transient,
+    # instantly-retryable failure into a half-hour outage for that group.
+    #
+    # On the success path _replace_db_file has already renamed tmp away, so the
+    # cleanup finds nothing and does nothing.
     try:
-        from . import cache_sync
-        cache_sync.bump_epoch()
-    except Exception:
-        pass
+        _status("Replacing database file on disk…")
+        _replace_db_file(tmp, path, g)
+        reset_connection(g)
+        # Tell every gunicorn worker immediately: the on-disk DB changed.
+        try:
+            from . import cache_sync
+            cache_sync.bump_epoch()
+        except Exception:
+            pass
 
-    _status("Verifying replaced database…")
-    verify_group_db(g, expected_rows=n)
+        _status("Verifying replaced database…")
+        verify_group_db(g, expected_rows=n)
+    except Exception:
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except Exception:
+            pass
+        raise
     return n
 
 def build_db_from_dataframe(group: str, df) -> int:
+    """Pandas convenience wrapper around :func:`build_db_from_rows`.
+
+    NOTE: nothing calls it today (repo-wide grep finds only this definition) —
+    the admin import streams rows straight from the workbook rather than
+    materialising a DataFrame.
+    """
     columns = [str(c) for c in df.columns.tolist()]
 
     def _row_iter():
@@ -573,6 +714,21 @@ def lookup_code(group: str, search_by_pos: Dict[int, str],
     sql = "SELECT c1 FROM items WHERE " + " AND ".join(where) + " ORDER BY row_no LIMIT 1"
     try:
         row = con.execute(sql, params).fetchone()
+    except sqlite3.ProgrammingError:
+        # The connection is shared between threads and reset_connection closes it
+        # (an import, a single cell edit) — so the handle this call just got from
+        # _open can be dead by the time it is used. That is not "no code for this
+        # row": returning "" here silently ships a row with a blank FTCO code and
+        # no trace. Drop the dead handle and run the identical query once on a
+        # fresh one; a genuinely malformed query fails again and still returns "".
+        reset_connection(group)
+        con = _open(group)
+        if con is None:
+            return None
+        try:
+            row = con.execute(sql, params).fetchone()
+        except Exception:
+            return ""
     except Exception:
         return ""
     if row is None:
@@ -666,9 +822,15 @@ def _is_nullable_col(name) -> bool:
 def delete_rows_with_empty_columns(group: str, col_indices) -> int:
     """Delete rows where ANY of the given (required) feature columns is empty.
 
-    Used after an import to drop junk rows — e.g. a pipe row missing its
-    material_type. Coating/schedule are NOT passed here because they may be
-    legitimately empty. Returns the number of rows removed.
+    Written as a post-import cleanup for junk rows — e.g. a pipe row missing its
+    material_type. Coating/schedule must NOT be passed here because they may be
+    legitimately empty (see ``NULLABLE_COLUMN_HINTS``). Returns the number of
+    rows removed.
+
+    NOTE: nothing calls it today (repo-wide grep finds only this definition), so
+    no import currently prunes anything. It is kept rather than deleted because
+    it destroys rows — reintroducing it wrongly is far worse than leaving it
+    unused — but treat it as unproven until a caller exercises it.
     """
     g = str(group).strip().lower()
     cols = [int(i) for i in (col_indices or []) if int(i) >= 0]
@@ -856,7 +1018,13 @@ def distinct_values_filtered(group: str, col_pos: int,
 
 
 def distinct_values(group: str, col_pos: int, limit: int = 500) -> List[str]:
-    """Distinct non-empty raw values of a column (for filter dropdowns)."""
+    """Distinct non-empty raw values of a column, ignoring all other filters.
+
+    NOTE: nothing calls it today (repo-wide grep finds only this definition) —
+    the filter dropdowns go through ``distinct_values_filtered`` directly, via
+    data_admin.dm_code_distinct_api, so each field only offers still-reachable
+    values.
+    """
     return distinct_values_filtered(group, col_pos, filters=None, limit=limit)
 
 
@@ -997,11 +1165,30 @@ def wipe_group(group: str) -> bool:
         return False
 
 
+class DuplicateItemCode(Exception):
+    """A row was appended carrying an Item_Code that is already in use.
+
+    Only ``insert_item`` raises this, and only when two creations raced: the
+    sequence each of them was given by ``next_sequence`` was correct when it was
+    read, but the other one committed that same number first. The caller is
+    expected to build its codes again from the now-current table and retry — the
+    second attempt reads the winner's row and therefore gets the next number.
+    """
+
+
 def next_sequence(group: str, prefix: str, *, code_col: int = 1) -> int:
     """Next sequence number for Item_Codes starting with ``prefix``.
 
     Reads the max numeric suffix already stored for that prefix and returns +1,
     so each prefix keeps an independent counter exactly like the generator.
+
+    This is a plain read, NOT a reservation: nothing stops a second caller from
+    reading the same maximum before the first one has written its row (and it
+    must stay a plain read, because the item builder's preview screens call it
+    just to display the code a save *would* produce — reserving here would burn
+    a number every time somebody looked). The number is only made exclusive at
+    the moment it is written: ``insert_item`` re-checks it inside the same write
+    transaction as the INSERT and raises ``DuplicateItemCode`` at the loser.
     """
     con = _open(group)
     if con is None:
@@ -1023,11 +1210,14 @@ def next_sequence(group: str, prefix: str, *, code_col: int = 1) -> int:
     return mx + 1
 
 
-def insert_item(group: str, cells: List[str]) -> int:
+def insert_item(group: str, cells: List[str], *, code_col: int = 1) -> int:
     """Append one row (row_no = max+1). Returns the new row_no.
 
     Opens its own read/write connection (the cached one is read-only) and resets
     the cache afterwards so later reads see the new row.
+
+    Raises ``DuplicateItemCode`` if the Item_Code the row carries is already in
+    the table — see the transaction comment below for why that check lives here.
     """
     g = str(group).strip().lower()
     path = group_db_path(g)
@@ -1044,6 +1234,36 @@ def insert_item(group: str, cells: List[str]) -> int:
     reset_connection(g)
     con = sqlite3.connect(path)
     try:
+        # One explicit write transaction for the whole append. SQLite allows a
+        # single writer at a time, so BEGIN IMMEDIATE claims that writer slot up
+        # front, and everything below — the duplicate check, the row_no read and
+        # the INSERT — happens with no other writer able to slip in between.
+        #
+        # That is what makes the item-code allocation safe. The sequence number
+        # inside the code was worked out earlier (next_sequence, then
+        # item_builder.build_codes), outside any lock, so two creations running
+        # at the same time can genuinely arrive here holding the same number.
+        # Whichever one gets the writer slot first commits its row; the other
+        # then finds its own code already present and is refused instead of
+        # silently creating a second item with an identical code. It is left to
+        # the caller to rebuild its codes and retry, because the caller is the
+        # one that shows the code to the user and records it in the audit log —
+        # renumbering the row here would leave those reporting a code that is
+        # not the one stored.
+        con.execute("BEGIN IMMEDIATE")
+        existing_code = craw[int(code_col)] if 0 <= int(code_col) < len(craw) else ""
+        if existing_code:
+            clash = con.execute(
+                f"SELECT 1 FROM items WHERE c{int(code_col)}=? LIMIT 1",
+                (existing_code,)).fetchone()
+            if clash is not None:
+                # Cannot happen without a concurrent create: next_sequence
+                # returns one more than the highest number already stored under
+                # this prefix, so on a quiet table the code being written is by
+                # construction absent.
+                raise DuplicateItemCode(
+                    f"Item code '{existing_code}' was just taken by another "
+                    f"creation; rebuild the codes and try again.")
         row = con.execute("SELECT COALESCE(MAX(row_no),-1)+1 FROM items").fetchone()
         new_no = int(row[0])
         placeholders = ",".join(["?"] * (1 + 2 * ncols))

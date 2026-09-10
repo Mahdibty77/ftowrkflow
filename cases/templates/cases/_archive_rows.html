@@ -1,0 +1,55 @@
+{% load ft_extras i18n %}
+{# THE archive row. The page renders the first window of these and the slice   #}
+{# endpoint (cases:archive_slice) renders every later one, both from this file #}
+{# with the same context keys, so a scrolled-in row is the same row as a       #}
+{# first-screen row. Nothing else in the codebase may emit an archive <tr>:    #}
+{# this markup carries the conditional columns, the per-side status pills and  #}
+{# their "Per side" caption, the Delegated pill, the dir="auto" wrappers that  #}
+{# keep Persian readable and the money column, and a second copy of it is      #}
+{# exactly how the two colored_display functions drifted until one stopped     #}
+{# escaping.                                                                   #}
+{# Context: cases, unit, is_admin, show_money, select_mode, show_empty.        #}
+{% for c in cases %}
+        {% if select_mode %}
+        <tr class="row-link archive-select-row" data-case-id="{{ c.pk }}" tabindex="0" role="button" aria-pressed="false">
+        {% else %}
+        <tr class="row-link" onclick="window.location='{% url 'cases:case_detail' c.pk %}'">
+        {% endif %}
+          <td>
+            {% if select_mode %}<span class="archive-select-bar" aria-hidden="true"></span>{% endif %}
+            <span class="docno-line">
+              <span class="docno"><span>{{ c.doc_no }}</span></span>{% if c.is_delegated %} <span class="pill pill-delegated">{% trans "Delegated" %}</span>{% endif %}
+            </span>
+          </td>
+          {# Order No., client name and expert name are typed by people; they get #}
+          {# their own base direction so Persian mixed with a Latin word reads as #}
+          {# typed (see the note at the end of static/css/app.css). The bracketed #}
+          {# codes stay outside the wrapper — they are generated and always LTR,  #}
+          {# and the surrounding text stays LTR too so the filter columns to the  #}
+          {# right (status, dates, totals) are untouched.                         #}
+          <td dir="auto">{{ c.order_no|default:"—" }}</td>
+          {% if unit != 'SUPPLY' %}<td><span dir="auto">{{ c.client.name }}</span> <span class="muted mono">({{ c.client.code }})</span></td>{% endif %}
+          {% if is_admin or unit == 'TECHNICAL' or unit == 'SUPPLY' %}<td>{% if c.commercial_expert_display %}<span dir="auto">{{ c.commercial_expert_display }}</span>{% else %}<span dir="auto">{{ c.created_by.get_full_name|default:c.created_by.username }}</span> <span class="muted mono">({{ c.expert_code }})</span>{% endif %}</td>{% endif %}
+          <td>{{ c.price_type_label }}</td>
+          {# One pill when there is one status to report; one pill per side, each #}
+          {# named, only when the two sides of a combined case are genuinely in   #}
+          {# different places — with a caption saying so, because otherwise a     #}
+          {# reader takes the first pill for the status of the whole case. The    #}
+          {# rows and the data-fval both come from services.archive_status_rows.  #}
+          <td data-fval="{{ c.status_fval }}">{% if c.status_sides_differ %}<div class="muted" style="font-size:.66rem;text-transform:uppercase;letter-spacing:.4px;margin-bottom:.2rem;">{% trans "Per side" %}</div>{% endif %}{% for s_label, s_status, s_color in c.status_rows %}<div{% if not forloop.last %} style="margin-bottom:.2rem;"{% endif %}><span class="status-tag" style="--sc:{{ s_color }}">{% if s_label %}{{ s_label }}: {% endif %}{{ s_status }}</span></div>{% endfor %}</td>
+          <td>{{ c.offer_stage_label }}</td>
+          <td>{{ c.kind_label }}</td>
+          {% if show_money %}<td class="mono">{{ c.grand_total_display|default:"—" }}</td>{% endif %}
+          {# dir="ltr": a Jalali stamp is generated, never mirrored — same reason  #}
+          {# the document number two columns back stays LTR (see app.css's own    #}
+          {# [dir=rtl] section, "Deliberate LTR islands"). This cell has no .mono  #}
+          {# class to pick that up automatically (it is plain, muted text, not a  #}
+          {# code box), so the attribute is spelled out here instead.             #}
+          <td class="muted" dir="ltr">{{ c.created_at|jalali:"Y.m.d H:i" }}</td>
+        </tr>
+{% empty %}
+{# Only the first window may say "nothing here". A later slice that comes back #}
+{# empty means the reader has reached the end, not that the archive is empty.  #}
+{% if show_empty %}        <tr><td colspan="12" class="empty">{% trans "No cases in the archive yet." %}</td></tr>
+{% endif %}
+{% endfor %}

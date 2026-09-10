@@ -17,9 +17,23 @@ them.
 *Then every Person is deleted*, and the detail-code counter is wound back to
 the start so the next person entered is 100000001 again.
 
-What it never touches: passwords, is_active, profiles (unit, role, title,
-signature, stamp), permissions, cases, documents, timelines. Nothing outside
-this app is deleted, and no account is created or removed.
+Deleting a person takes with it everything the database hangs off that person,
+which is more than the paragraph above suggests and is worth reading before
+typing --yes: their seat links and organisational roles, their worked-hours
+ledger (every day log and month snapshot), every staff request they filed or
+had approved, their request-type access, and their seat tenures. Seat history
+rows (who held which seat until when) survive, because those point at the
+person weakly and keep a copy of the name and code as text.
+
+Which is also why the counter rewind deserves a warning: those surviving seat
+history rows still read "100000001", and after a rewind that same code is handed
+to a different human. Pass --keep-counter to let codes carry on rising instead.
+
+What it never touches: is_active, profiles (unit, role, title, signature,
+stamp), permissions, cases, documents, case timelines. Nothing outside this app
+is deleted, and no account is created or removed. Releasing a seat does clear
+that account's password, so an account freed here needs a new one from "Reset
+password" before anybody can sign into it again.
 
 Requires --yes, because it cannot be undone::
 

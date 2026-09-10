@@ -5,7 +5,15 @@ tell at a glance which unit a screen, card or case currently belongs to. The
 palette is intentionally muted and engineering-flavoured (no neon), and every
 theme stays light enough to keep long tables readable.
 
-Keys match accounts.constants.Unit values plus an "admin" fallback.
+Keys match accounts.constants.Unit values plus an "admin" fallback. A unit with
+no entry here silently borrows the administration indigo, which is why every
+Unit value needs one: two units sharing an accent is precisely the "which unit
+am I looking at" question this file exists to answer.
+
+The five accents are chosen to stay apart from each other by hue as well as by
+name - bronze 38deg, teal-green 160deg, engineer blue 205deg, slate indigo
+244deg, mulberry 330deg - so they are still distinguishable side by side in the
+sidebar dot, and each keeps white text above 4.5:1.
 """
 
 UNIT_THEMES = {
@@ -28,6 +36,13 @@ UNIT_THEMES = {
         "accent": "#1f7a5a",        # procurement teal-green
         "accent_strong": "#155c43",
         "accent_soft": "#e6f3ee",
+        "on_accent": "#ffffff",
+    },
+    "MARKETING": {
+        "label": "Marketing",
+        "accent": "#8c3f63",        # muted mulberry
+        "accent_strong": "#6b2e4c",
+        "accent_soft": "#f6ebf1",
         "on_accent": "#ffffff",
     },
     "ADMIN": {

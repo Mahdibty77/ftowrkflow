@@ -11,6 +11,13 @@ JSON-driven word placement and template rendering.
 import re
 
 
+# A "<" only opens a tag when the next character is a letter, "/", "!" or "?";
+# anywhere else the HTML parser keeps it as text. Matching exactly that lets a
+# vocabulary value like ``UNC coarse (inch, <=1")`` keep its literal text while
+# still making tag injection impossible.
+_TAG_OPEN_RE = re.compile(r"<(?=[A-Za-z/!?])")
+
+
 def colored_display(value, color=None):
     """Wrap a displayed value with its current color style.
 
@@ -18,7 +25,16 @@ def colored_display(value, color=None):
     (only Latin letters change; numbers/Persian are unaffected).
     """
     color = color or "black"
-    return f"<span style='color:{color}'>{str(value).upper()}</span>"
+    # The <span> is markup we generate, but ``value`` is data: it can come from
+    # a customer's workbook or from a typed SIZE cell, and both Final_Text and
+    # Filled_Features are handed to innerHTML by the grid's JS. Neutralise the
+    # tag opener so such a value can never become an element — and do it AFTER
+    # ``.upper()``, because upper-casing an already escaped "&lt;" back into
+    # "&LT;" would revive it. "&" and ">" are deliberately left alone: neither
+    # can start markup on its own (a character reference always decodes to
+    # text), so values such as the flange face "T&G" stay byte-identical here
+    # and in the exported document.
+    return f"<span style='color:{color}'>{_TAG_OPEN_RE.sub('&lt;', str(value).upper())}</span>"
 
 
 def join_filled_features(feature_items):

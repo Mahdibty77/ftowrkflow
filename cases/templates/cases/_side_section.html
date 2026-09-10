@@ -1,30 +1,51 @@
-{% load ft_extras %}
+{% load ft_extras i18n %}
 <div class="tabs side-tabs">
-  <div class="tab active" data-tab="inq-{{ sd.code }}">Inquiry</div>
-  <div class="tab" data-tab="to-{{ sd.code }}">Technical Offer</div>
-  <div class="tab" data-tab="pi-{{ sd.code }}">Proforma</div>
-  <div class="tab" data-tab="tl-{{ sd.code }}">Timeline</div>
+  <div class="tab active" data-tab="inq-{{ sd.code }}">{% trans "Inquiry" %}</div>
+  <div class="tab" data-tab="to-{{ sd.code }}">{% trans "Technical Offer" %}</div>
+  <div class="tab" data-tab="pi-{{ sd.code }}">{% trans "Proforma" %}</div>
+  {# REPORTS AND REMINDERS — moved here this round from what used to be a       #}
+  {# separate standalone "Marketing" card with its own independent tab          #}
+  {# switcher (see case_detail.html's own long comment on why that card is      #}
+  {# gone). Seated right before this side's own Timeline tab, per the owner's   #}
+  {# own words for where Reminders belongs on the company page too ("قبل از تب  #}
+  {# تایم لاین") — applied here identically.                                    #}
+  {#                                                                            #}
+  {# GATED ON `{% if not multi_side %}` — REPORTS AND REMINDERS ARE CASE-WIDE   #}
+  {# FACTS, NOT PER-SIDE ONES (a report is not "the Internal side's report",    #}
+  {# it is the case's), so on a case that actually HAS two sides they live      #}
+  {# ONCE, at the OUTER side-switch level (case_detail.html's own              #}
+  {# `.side-switch`, next to "Combined timeline" — see that block), never       #}
+  {# duplicated into each side's own tab bar as well. This include only reaches #}
+  {# `multi_side` because case_detail.html hands its whole context down to it   #}
+  {# (no `only` on the `{% include %}`) — the SAME variable that block's own    #}
+  {# `{% if multi_side %} · {{ sd.label }}{% endif %}` a few lines below        #}
+  {# already reads, confirming it really is in scope here.                     #}
+  {% if not multi_side %}
+  <div class="tab" data-tab="reports-{{ sd.code }}">{% trans "Reports" %}</div>
+  <div class="tab" data-tab="reminders-{{ sd.code }}">{% trans "Reminders" %}</div>
+  {% endif %}
+  <div class="tab" data-tab="tl-{{ sd.code }}">{% trans "Timeline" %}</div>
   {% if export_logs is not None %}
-  <div class="tab" data-tab="export-tl-{{ sd.code }}">Export Timeline</div>
+  <div class="tab" data-tab="export-tl-{{ sd.code }}">{% trans "Export Timeline" %}</div>
   {% endif %}
   {% if currency_logs is not None %}
-  <div class="tab" data-tab="fx-tl-{{ sd.code }}">Conversion Timeline</div>
+  <div class="tab" data-tab="fx-tl-{{ sd.code }}">{% trans "Conversion Timeline" %}</div>
   {% endif %}
 </div>
 
 <div class="tab-panel active" id="panel-inq-{{ sd.code }}">
   <div class="row-flex" style="margin-bottom:.6rem;flex-wrap:wrap;gap:.4rem;">
-    <span class="muted" style="font-size:.8rem;">Inquiry versions{% if multi_side %} · {{ sd.label }}{% endif %}</span>
+    <span class="muted" style="font-size:.8rem;">{% trans "Inquiry versions" %}{% if multi_side %} · {{ sd.label }}{% endif %}</span>
     <span class="spacer"></span>
     {% if is_split %}
-      {% if sd.can_edit_inq %}<a href="{% url 'cases:edit_items' case.pk %}?side={{ sd.code }}" class="btn btn-sm"><i class="fa-solid fa-pen"></i> Edit current</a>{% endif %}
+      {% if sd.can_edit_inq %}<a href="{% url 'cases:edit_items' case.pk %}?side={{ sd.code }}" class="btn btn-sm"><i class="fa-solid fa-pen"></i> {% trans "Edit current" %}</a>{% endif %}
       {% if sd.can_new_inq %}
-        <button type="button" class="btn btn-sm btn-primary" data-newver-toggle="{{ sd.code }}"><i class="fa-solid fa-code-branch"></i> New version</button>
+        <button type="button" class="btn btn-sm btn-primary" data-newver-toggle="{{ sd.code }}"><i class="fa-solid fa-code-branch"></i> {% trans "New version" %}</button>
       {% endif %}
     {% elif primary %}
-      {% if 'edit' in actions %}<a href="{% url 'cases:edit_items' case.pk %}" class="btn btn-sm"><i class="fa-solid fa-pen"></i> Edit current</a>{% endif %}
+      {% if 'edit' in actions %}<a href="{% url 'cases:edit_items' case.pk %}" class="btn btn-sm"><i class="fa-solid fa-pen"></i> {% trans "Edit current" %}</a>{% endif %}
       {% if 'new_inquiry_version' in actions %}
-        <button type="button" class="btn btn-sm btn-primary" id="newver-btn"><i class="fa-solid fa-code-branch"></i> New version</button>
+        <button type="button" class="btn btn-sm btn-primary" id="newver-btn"><i class="fa-solid fa-code-branch"></i> {% trans "New version" %}</button>
       {% endif %}
     {% endif %}
   </div>
@@ -39,12 +60,23 @@
             <span class="nv-switch-slider"></span>
           </label>
           <div class="nv-toggle-text">
-            <span class="nv-toggle-label">Offer type</span>
-            <span class="nv-toggle-state" data-off="{{ case.offer_type_label }}" data-on="Upgrade to TO &amp; PI (two-stage)">{{ case.offer_type_label }}</span>
+            <span class="nv-toggle-label">{% trans "Offer type" %}</span>
+            <span class="nv-toggle-state" data-off="{{ case.offer_type_label }}" data-on="{% trans 'Upgrade to TO & PI (two-stage)' %}">{{ case.offer_type_label }}</span>
           </div>
         </div>
       {% else %}
-        <div class="help" style="margin-bottom:.5rem;">TO &amp; PI case — the offer type can’t change. You’ll edit the items next; a new version is saved only if you change the table{% if case.offer_type == 'TO_PI' %} or turn on Unit conversion / Update price{% endif %}.</div>
+        {# The original markup here nested a second, redundant                #}
+        {# {% if case.offer_type == 'TO_PI' %} inside this {% else %} branch  #}
+        {# of the OUTER {% if case.offer_type != 'TO_PI' %} — since {% else %} #}
+        {# only ever runs when offer_type IS 'TO_PI', that inner check was    #}
+        {# always true and the "or turn on Unit conversion / Update price"    #}
+        {# clause always rendered (matching the second copy of this form      #}
+        {# below, for the non-split case, which has no such conditional at    #}
+        {# all and always includes the clause). blocktrans cannot contain a   #}
+        {# nested {% if %}, so the always-true check is dropped here rather   #}
+        {# than translating a branch that could never actually render —      #}
+        {# behaviour is identical, this only removes dead template logic.    #}
+        <div class="help" style="margin-bottom:.5rem;">{% blocktrans %}TO & PI case — the offer type can’t change. You’ll edit the items next; a new version is saved only if you change the table or turn on Unit conversion / Update price.{% endblocktrans %}</div>
       {% endif %}
       {% if case.offer_type == 'TO_PI' %}
       <div class="nv-toggle-row">
@@ -53,26 +85,26 @@
           <span class="nv-switch-slider"></span>
         </label>
         <div class="nv-toggle-text">
-          <span class="nv-toggle-label">Unit conversion</span>
-          <span class="nv-toggle-state" data-off="Off" data-on="New version for Proforma currency conversion">Off</span>
+          <span class="nv-toggle-label">{% trans "Unit conversion" %}</span>
+          <span class="nv-toggle-state" data-off="{% trans 'Off' %}" data-on="{% trans 'New version for Proforma currency conversion' %}">{% trans "Off" %}</span>
         </div>
       </div>
-      <div class="help" style="margin:.35rem 0 .5rem;font-size:.78rem;">If you turn Unit conversion on and leave the table unchanged (and do not upgrade TO&amp;PI / Update price), a new version is created only for currency conversion — Cancel / Send to client only.</div>
+      <div class="help" style="margin:.35rem 0 .5rem;font-size:.78rem;">{% blocktrans %}If you turn Unit conversion on and leave the table unchanged (and do not upgrade TO&PI / Update price), a new version is created only for currency conversion — Cancel / Send to client only.{% endblocktrans %}</div>
       <div class="nv-toggle-row">
         <label class="nv-switch">
           <input type="checkbox" name="update_price" value="1" data-nv-update-price-toggle>
           <span class="nv-switch-slider"></span>
         </label>
         <div class="nv-toggle-text">
-          <span class="nv-toggle-label">Update price</span>
-          <span class="nv-toggle-state" data-off="Off" data-on="New version labelled Update price">Off</span>
+          <span class="nv-toggle-label">{% trans "Update price" %}</span>
+          <span class="nv-toggle-state" data-off="{% trans 'Off' %}" data-on="{% trans 'New version labelled Update price' %}">{% trans "Off" %}</span>
         </div>
       </div>
-      <div class="help" style="margin:.35rem 0 .5rem;font-size:.78rem;">If Update price is on and the table is unchanged, the new version is labelled “Update price”. If you also edit / add / delete rows, the version chip stays plain but Update price still appears in the timeline and Technical notes.</div>
+      <div class="help" style="margin:.35rem 0 .5rem;font-size:.78rem;">{% blocktrans %}If Update price is on and the table is unchanged, the new version is labelled “Update price”. If you also edit / add / delete rows, the version chip stays plain but Update price still appears in the timeline and Technical notes.{% endblocktrans %}</div>
       {% endif %}
       <div class="btn-row" style="margin-top:.6rem;">
-        <button class="btn btn-sm btn-primary" type="submit"><i class="fa-solid fa-code-branch"></i> Open editor</button>
-        <button class="btn btn-sm btn-ghost" type="button" data-newver-cancel="{{ sd.code }}">Cancel</button>
+        <button class="btn btn-sm btn-primary" type="submit"><i class="fa-solid fa-code-branch"></i> {% trans "Open editor" %}</button>
+        <button class="btn btn-sm btn-ghost" type="button" data-newver-cancel="{{ sd.code }}">{% trans "Cancel" %}</button>
       </div>
     </form>
   {% endif %}
@@ -87,12 +119,12 @@
             <span class="nv-switch-slider"></span>
           </label>
           <div class="nv-toggle-text">
-            <span class="nv-toggle-label">Offer type</span>
-            <span class="nv-toggle-state" data-off="{{ case.offer_type_label }}" data-on="Upgrade to TO &amp; PI (two-stage)">{{ case.offer_type_label }}</span>
+            <span class="nv-toggle-label">{% trans "Offer type" %}</span>
+            <span class="nv-toggle-state" data-off="{{ case.offer_type_label }}" data-on="{% trans 'Upgrade to TO & PI (two-stage)' %}">{{ case.offer_type_label }}</span>
           </div>
         </div>
       {% else %}
-        <div class="help" style="margin-bottom:.5rem;">TO &amp; PI case — the offer type can’t change. You’ll edit the items next; a new version is saved only if you change the table or turn on Unit conversion / Update price.</div>
+        <div class="help" style="margin-bottom:.5rem;">{% blocktrans %}TO & PI case — the offer type can’t change. You’ll edit the items next; a new version is saved only if you change the table or turn on Unit conversion / Update price.{% endblocktrans %}</div>
       {% endif %}
       {% if case.offer_type == 'TO_PI' %}
       <div class="nv-toggle-row">
@@ -101,26 +133,26 @@
           <span class="nv-switch-slider"></span>
         </label>
         <div class="nv-toggle-text">
-          <span class="nv-toggle-label">Unit conversion</span>
-          <span class="nv-toggle-state" data-off="Off" data-on="New version for Proforma currency conversion">Off</span>
+          <span class="nv-toggle-label">{% trans "Unit conversion" %}</span>
+          <span class="nv-toggle-state" data-off="{% trans 'Off' %}" data-on="{% trans 'New version for Proforma currency conversion' %}">{% trans "Off" %}</span>
         </div>
       </div>
-      <div class="help" style="margin:.35rem 0 .5rem;font-size:.78rem;">If you turn Unit conversion on and leave the table unchanged (and do not upgrade TO&amp;PI / Update price), a new version is created only for currency conversion — Cancel / Send to client only.</div>
+      <div class="help" style="margin:.35rem 0 .5rem;font-size:.78rem;">{% blocktrans %}If you turn Unit conversion on and leave the table unchanged (and do not upgrade TO&PI / Update price), a new version is created only for currency conversion — Cancel / Send to client only.{% endblocktrans %}</div>
       <div class="nv-toggle-row">
         <label class="nv-switch">
           <input type="checkbox" name="update_price" value="1" data-nv-update-price-toggle>
           <span class="nv-switch-slider"></span>
         </label>
         <div class="nv-toggle-text">
-          <span class="nv-toggle-label">Update price</span>
-          <span class="nv-toggle-state" data-off="Off" data-on="New version labelled Update price">Off</span>
+          <span class="nv-toggle-label">{% trans "Update price" %}</span>
+          <span class="nv-toggle-state" data-off="{% trans 'Off' %}" data-on="{% trans 'New version labelled Update price' %}">{% trans "Off" %}</span>
         </div>
       </div>
-      <div class="help" style="margin:.35rem 0 .5rem;font-size:.78rem;">If Update price is on and the table is unchanged, the new version is labelled “Update price”. If you also edit / add / delete rows, the version chip stays plain but Update price still appears in the timeline and Technical notes.</div>
+      <div class="help" style="margin:.35rem 0 .5rem;font-size:.78rem;">{% blocktrans %}If Update price is on and the table is unchanged, the new version is labelled “Update price”. If you also edit / add / delete rows, the version chip stays plain but Update price still appears in the timeline and Technical notes.{% endblocktrans %}</div>
       {% endif %}
       <div class="btn-row" style="margin-top:.6rem;">
-        <button class="btn btn-sm btn-primary" type="submit"><i class="fa-solid fa-code-branch"></i> Open editor</button>
-        <button class="btn btn-sm btn-ghost" type="button" id="newver-cancel">Cancel</button>
+        <button class="btn btn-sm btn-primary" type="submit"><i class="fa-solid fa-code-branch"></i> {% trans "Open editor" %}</button>
+        <button class="btn btn-sm btn-ghost" type="button" id="newver-cancel">{% trans "Cancel" %}</button>
       </div>
     </form>
   {% endif %}
@@ -133,19 +165,24 @@
           <span class="nv-switch-slider"></span>
         </label>
         <div class="nv-toggle-text">
-          <span class="nv-toggle-label">Price type</span>
-          <span class="nv-toggle-state" id="two-stage-caption" data-off="{{ case.price_type_label }}" data-on="Convert to Internal &amp; External (two-stage)">{{ case.price_type_label }}</span>
+          <span class="nv-toggle-label">{% trans "Price type" %}</span>
+          <span class="nv-toggle-state" id="two-stage-caption" data-off="{{ case.price_type_label }}" data-on="{% trans 'Convert to Internal & External (two-stage)' %}">{{ case.price_type_label }}</span>
         </div>
       </div>
-      <form method="post" action="{% url 'cases:transition' case.pk %}" id="two-stage-form" style="display:none;margin-top:.5rem;">
-        {% csrf_token %}<input type="hidden" name="action" value="upgrade_two_stage">
+      {# Same shape as the "new inquiry version" form above: a GET that NAVIGATES #}
+      {# INTO the items editor carrying its option as a query parameter. Nothing  #}
+      {# is converted by pressing this — the new side's first version and its     #}
+      {# mandatory deadline are created when the user confirms in the editor, so  #}
+      {# leaving the editor leaves the case unconverted.                          #}
+      <form method="get" action="{% url 'cases:edit_items' case.pk %}" id="two-stage-form" style="display:none;margin-top:.5rem;">
+        <input type="hidden" name="convert_two_stage" value="1">
         <div class="alert-inline alert-warn" style="margin-bottom:.5rem;">
           <i class="fa-solid fa-triangle-exclamation"></i>
-          <span>This permanently splits the case into independent <strong>Internal</strong> and <strong>External</strong> streams. The current side keeps its history; the other side starts fresh. This can't be undone.</span>
+          <span>{% blocktrans %}This permanently splits the case into independent <strong>Internal</strong> and <strong>External</strong> streams. The side that already exists stays exactly as it is — same status, same holder, same expert, same history — and the case does not come back to you. Only the other side is created: you set its items and its deadline in the editor, and confirming there creates its first version as a <strong>Draft</strong> in your hands. This can't be undone.{% endblocktrans %}</span>
         </div>
         <div class="btn-row">
-          <button class="btn btn-sm btn-primary" type="submit"><i class="fa-solid fa-layer-group"></i> Confirm conversion</button>
-          <button class="btn btn-sm btn-ghost" type="button" id="two-stage-cancel">Cancel</button>
+          <button class="btn btn-sm btn-primary" type="submit"><i class="fa-solid fa-layer-group"></i> {% trans "Open editor" %}</button>
+          <button class="btn btn-sm btn-ghost" type="button" id="two-stage-cancel">{% trans "Cancel" %}</button>
         </div>
       </form>
     </div>
@@ -166,59 +203,88 @@
     })();
     </script>
   {% endif %}
-  {% include "cases/_versioned_section.html" with forms=sd.version_lists.INQUIRY group_id="inq-"|add:sd.code empty_text="No inquiry items." %}
+  {% trans "No inquiry items." as empty_inq_text %}
+  {% include "cases/_versioned_section.html" with forms=sd.version_lists.INQUIRY group_id="inq-"|add:sd.code empty_text=empty_inq_text %}
 </div>
 
 <div class="tab-panel" id="panel-to-{{ sd.code }}">
   <div class="row-flex" style="margin-bottom:.6rem;flex-wrap:wrap;gap:.4rem;">
-    <span class="muted" style="font-size:.8rem;">Technical Offer versions{% if multi_side %} · {{ sd.label }}{% endif %}</span>
+    <span class="muted" style="font-size:.8rem;">{% trans "Technical Offer versions" %}{% if multi_side %} · {{ sd.label }}{% endif %}</span>
     <span class="spacer"></span>
     {% if sd.can_build_to %}
       {% if sd.to_mode == 'build' %}
-        <a class="btn btn-sm btn-primary" href="/tool/case/{{ case.pk }}/TO/?mode=build&amp;side={{ sd.code }}"><i class="fa-solid fa-wand-magic-sparkles"></i> Build TO</a>
+        <a class="btn btn-sm btn-primary" href="/tool/case/{{ case.pk }}/TO/?mode=build&amp;side={{ sd.code }}"><i class="fa-solid fa-wand-magic-sparkles"></i> {% trans "Build TO" %}</a>
       {% elif sd.to_mode == 'edit' %}
-        <a class="btn btn-sm" href="/tool/case/{{ case.pk }}/TO/?mode=edit&amp;side={{ sd.code }}"><i class="fa-solid fa-pen"></i> Edit current</a>
+        <a class="btn btn-sm" href="/tool/case/{{ case.pk }}/TO/?mode=edit&amp;side={{ sd.code }}"><i class="fa-solid fa-pen"></i> {% trans "Edit current" %}</a>
       {% else %}
-        <a class="btn btn-sm btn-primary" href="/tool/case/{{ case.pk }}/TO/?mode=newversion&amp;side={{ sd.code }}"><i class="fa-solid fa-code-branch"></i> New version</a>
+        <a class="btn btn-sm btn-primary" href="/tool/case/{{ case.pk }}/TO/?mode=newversion&amp;side={{ sd.code }}"><i class="fa-solid fa-code-branch"></i> {% trans "New version" %}</a>
       {% endif %}
+    {% elif is_admin_view and sd.version_lists.TO and not is_split %}
+      {# Same read-only View as the Technical-seat branch below, extended to #}
+      {# GM/Admin: user_can_view_case already lets them open the case page,  #}
+      {# and _may_build_form already refuses them a save, so tool_for_case   #}
+      {# was already read-only for them — this only adds the button.        #}
+      <a class="btn btn-sm" href="/tool/case/{{ case.pk }}/TO/?mode=edit&amp;side={{ sd.code }}"><i class="fa-solid fa-eye"></i> {% trans "View" %}</a>
+    {% elif is_tech and sd.version_lists.TO and not is_split %}
+      {# Technical does not hold the case, so there is no Edit here. The offer #}
+      {# is still theirs to read, and the whole table is already printed below #}
+      {# this row for any Technical seat (case_detail hands the owning unit    #}
+      {# every version of its own form), so opening it in the TO environment   #}
+      {# adds the filters and the reference tools, not new information. The    #}
+      {# environment itself is read-only — see _may_build_form in bridge.py.   #}
+      {# Split cases are excluded: there each side is private to the seat that #}
+      {# may act on it, and that rule is left exactly as it is.                #}
+      <a class="btn btn-sm" href="/tool/case/{{ case.pk }}/TO/?mode=edit&amp;side={{ sd.code }}"><i class="fa-solid fa-eye"></i> {% trans "View" %}</a>
+    {% elif sd.to_locked_reason %}
+      <span class="muted" style="font-size:.78rem;"><i class="fa-solid fa-lock"></i> {{ sd.to_locked_reason }}</span>
     {% endif %}
     {% if sd.version_lists.TO %}{% if is_admin_view or is_tech or is_comm %}
-      <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'TO' 'xlsx' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">Excel</a>
-      <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'TO' 'pdf' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">PDF</a>
-      <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'TO' 'html' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">Print view</a>
+      <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'TO' 'xlsx' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "Excel" %}</a>
+      <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'TO' 'pdf' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "PDF" %}</a>
+      <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'TO' 'html' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "Print view" %}</a>
     {% endif %}{% endif %}
   </div>
-  {% include "cases/_versioned_section.html" with forms=sd.version_lists.TO group_id="to-"|add:sd.code empty_text="No technical offer yet." %}
+  {% trans "No technical offer yet." as empty_to_text %}
+  {% include "cases/_versioned_section.html" with forms=sd.version_lists.TO group_id="to-"|add:sd.code empty_text=empty_to_text %}
 </div>
 
 <div class="tab-panel" id="panel-pi-{{ sd.code }}">
   <div class="row-flex" style="margin-bottom:.6rem;flex-wrap:wrap;gap:.4rem;">
-    <span class="muted" style="font-size:.8rem;">Proforma versions{% if multi_side %} · {{ sd.label }}{% endif %}</span>
+    <span class="muted" style="font-size:.8rem;">{% trans "Proforma versions" %}{% if multi_side %} · {{ sd.label }}{% endif %}</span>
     <span class="spacer"></span>
     {% if sd.can_pi %}
       {% if sd.pi_mode == 'build' %}
-        <a class="btn btn-sm btn-primary" href="/tool/case/{{ case.pk }}/PI/?mode=build&amp;side={{ sd.code }}"><i class="fa-solid fa-wand-magic-sparkles"></i> Build PI</a>
+        <a class="btn btn-sm btn-primary" href="/tool/case/{{ case.pk }}/PI/?mode=build&amp;side={{ sd.code }}"><i class="fa-solid fa-wand-magic-sparkles"></i> {% trans "Build PI" %}</a>
       {% elif sd.pi_mode == 'edit' %}
-        <a class="btn btn-sm" href="/tool/case/{{ case.pk }}/PI/?mode=edit&amp;side={{ sd.code }}"><i class="fa-solid fa-pen"></i> Edit current</a>
+        <a class="btn btn-sm" href="/tool/case/{{ case.pk }}/PI/?mode=edit&amp;side={{ sd.code }}"><i class="fa-solid fa-pen"></i> {% trans "Edit current" %}</a>
       {% else %}
-        <a class="btn btn-sm btn-primary" href="/tool/case/{{ case.pk }}/PI/?mode=newversion&amp;side={{ sd.code }}"><i class="fa-solid fa-code-branch"></i> New version</a>
+        <a class="btn btn-sm btn-primary" href="/tool/case/{{ case.pk }}/PI/?mode=newversion&amp;side={{ sd.code }}"><i class="fa-solid fa-code-branch"></i> {% trans "New version" %}</a>
       {% endif %}
+    {% elif is_supply and sd.version_lists.PI and not is_split %}
+      {# Same as the TO tab above, for Supply and the Proforma: View instead of #}
+      {# Edit whenever the case is not with Supply. Read-only is enforced by    #}
+      {# the save endpoint's own authorisation, not by the page.                #}
+      <a class="btn btn-sm" href="/tool/case/{{ case.pk }}/PI/?mode=edit&amp;side={{ sd.code }}"><i class="fa-solid fa-eye"></i> {% trans "View" %}</a>
+    {% elif sd.pi_locked_reason %}
+      {# Why this row is empty. Set in case_detail from the same predicate that #}
+      {# hid the button above, so it can only ever show where none was drawn.   #}
+      <span class="muted" style="font-size:.78rem;"><i class="fa-solid fa-lock"></i> {{ sd.pi_locked_reason }}</span>
     {% endif %}
     {% if sd.version_lists.PI %}
       {% if is_admin_view or is_comm %}
-        <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'xlsx' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">Excel</a>
-        <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'pdf' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">PDF</a>
-        <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'html' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">Print view</a>
+        <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'xlsx' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "Excel" %}</a>
+        <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'pdf' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "PDF" %}</a>
+        <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'html' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "Print view" %}</a>
       {% elif is_supply %}
-        <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'xlsx' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">Excel</a>
+        <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'xlsx' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "Excel" %}</a>
       {% endif %}
       {% if is_admin_view or is_supply %}
-        <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'grouped' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">Grouped Excel</a>
+        <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'grouped' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "Grouped Excel" %}</a>
       {% endif %}
     {% endif %}
   </div>
   {% if sd.assignee %}
-    <div class="muted" style="font-size:.78rem;margin-bottom:.5rem;"><i class="fa-solid fa-user-check"></i> {{ sd.label }} expert: {{ sd.assignee.get_full_name|default:sd.assignee.username }}</div>
+    <div class="muted" style="font-size:.78rem;margin-bottom:.5rem;"><i class="fa-solid fa-user-check"></i> {% blocktrans with side=sd.label %}{{ side }} expert{% endblocktrans %}: <span dir="auto">{{ sd.assignee.get_full_name|default:sd.assignee.username }}</span></div>
   {% endif %}
   {% if sd.version_lists.PI and is_comm or sd.version_lists.PI and is_supply or sd.version_lists.PI and is_admin_view %}
   <div class="pi-comm-wrap"
@@ -231,33 +297,33 @@
       <div class="row-flex" style="gap:.55rem;flex-wrap:wrap;align-items:flex-end;">
         {% if is_comm %}
         <div class="pi-conv-gate">
-          <button type="button" class="btn btn-sm pi-conv-open"><i class="fa-solid fa-right-left"></i> Change currency unit</button>
+          <button type="button" class="btn btn-sm pi-conv-open"><i class="fa-solid fa-right-left"></i> {% trans "Change currency unit" %}</button>
           <div class="pi-conv-confirm" hidden style="margin-top:.4rem;max-width:22rem;">
             <div class="pi-conv-confirm-msg" style="color:var(--rej);font-size:.78rem;font-weight:600;line-height:1.35;margin-bottom:.35rem;">
-              Are you sure you want to change the currency unit?
+              {% trans "Are you sure you want to change the currency unit?" %}
             </div>
             <div class="btn-row" style="gap:.35rem;">
-              <button type="button" class="btn btn-sm btn-primary pi-conv-confirm-yes">Confirm</button>
-              <button type="button" class="btn btn-sm btn-ghost pi-conv-confirm-no">Cancel</button>
+              <button type="button" class="btn btn-sm btn-primary pi-conv-confirm-yes">{% trans "Confirm" %}</button>
+              <button type="button" class="btn btn-sm btn-ghost pi-conv-confirm-no">{% trans "Cancel" %}</button>
             </div>
           </div>
         </div>
         {% endif %}
         <div class="pi-comm-totals-right" style="display:flex;gap:.55rem;flex-wrap:wrap;{% if is_comm %}margin-left:auto;{% endif %}">
           <div class="badge" style="background:var(--cloud);border:1px solid var(--line);color:var(--ink);padding:.45rem .7rem;">
-            <span class="muted" style="font-size:.68rem;display:block;text-transform:uppercase;">Subtotal</span>
+            <span class="muted" style="font-size:.68rem;display:block;text-transform:uppercase;">{% trans "Subtotal" %}</span>
             <strong><span class="pi-tot-sub">0</span> <span class="pi-tot-unit"></span></strong>
           </div>
           <div class="badge pi-tot-svc-badge" style="background:var(--infobg);border:1px solid var(--infoline);color:var(--info);padding:.45rem .7rem;">
-            <span class="muted" style="font-size:.68rem;display:block;text-transform:uppercase;color:var(--info);">Total Service</span>
+            <span class="muted" style="font-size:.68rem;display:block;text-transform:uppercase;color:var(--info);">{% trans "Total Service" %}</span>
             <strong style="color:var(--info);"><span class="pi-tot-svc">0</span> <span class="pi-tot-unit"></span></strong>
           </div>
           <div class="badge" style="background:var(--cloud);border:1px solid var(--line);color:var(--ink);padding:.45rem .7rem;">
-            <span class="muted pi-tot-vat-label" style="font-size:.68rem;display:block;text-transform:uppercase;">VAT ({{ vat_percent|floatformat:"-2" }}%)</span>
+            <span class="muted pi-tot-vat-label" style="font-size:.68rem;display:block;text-transform:uppercase;">{% blocktrans with pct=vat_percent|floatformat:"-2" %}VAT ({{ pct }}%){% endblocktrans %}</span>
             <strong><span class="pi-tot-vat">0</span> <span class="pi-tot-unit"></span></strong>
           </div>
           <div class="badge" style="background:var(--accent-soft);border:1px solid var(--accent);color:var(--accent-strong);padding:.45rem .7rem;">
-            <span class="muted" style="font-size:.68rem;display:block;text-transform:uppercase;color:var(--accent-strong);">Grand Total</span>
+            <span class="muted" style="font-size:.68rem;display:block;text-transform:uppercase;color:var(--accent-strong);">{% trans "Grand Total" %}</span>
             <strong style="color:var(--accent-strong);"><span class="pi-tot-grand">0</span> <span class="pi-tot-unit"></span></strong>
           </div>
         </div>
@@ -268,31 +334,43 @@
     <div class="pi-conv-panel card" hidden style="padding:.75rem 1rem;"
          data-fx-api="{% url 'cases:fx_rates_api' %}"
          data-locked-from="{% if sd.code == 'EXTERNAL' %}usd{% else %}rial{% endif %}">
-      <div class="muted" style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.35rem;"><i class="fa-solid fa-right-left"></i> Unit conversion</div>
+      <div class="muted" style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.35rem;"><i class="fa-solid fa-right-left"></i> {% trans "Unit conversion" %}</div>
       <div class="pi-fx-stale" hidden></div>
+      {# Overview: the Grand Total converted into every board currency at once, #}
+      {# filled by syncFxRate() from the same FX payload it already fetches for #}
+      {# the From/To picker below — no extra request. Pick a row's currency in  #}
+      {# "To" underneath, then Confirm applies that ONE conversion; this table  #}
+      {# itself never posts anything. #}
+      <div class="pi-conv-multi-preview" style="margin-bottom:.6rem;">
+        <div class="muted" style="font-size:.7rem;margin-bottom:.25rem;">{% trans "Grand Total in every currency" %}</div>
+        <table class="data" style="font-size:.8rem;">
+          <thead><tr><th>{% trans "Currency" %}</th><th>{% trans "Grand Total" %}</th></tr></thead>
+          <tbody class="pi-conv-multi-body"></tbody>
+        </table>
+      </div>
       <div class="row-flex" style="gap:.5rem;flex-wrap:wrap;align-items:flex-end;">
-        <label style="font-size:.78rem;">From
+        <label style="font-size:.78rem;">{% trans "From" %}
           <select class="pi-conv-from" disabled style="display:block;margin-top:.15rem;min-width:7rem;opacity:.85;background:var(--cloud);color:var(--ink);">
             {% if sd.code == 'EXTERNAL' %}
             <option value="usd" selected>USD ($)</option>
             {% else %}
-            <option value="rial" selected>Rial</option>
+            <option value="rial" selected>{% trans "Rial" %}</option>
             {% endif %}
           </select>
         </label>
-        <label style="font-size:.78rem;">To
+        <label style="font-size:.78rem;">{% trans "To" %}
           <select class="pi-conv-to" style="display:block;margin-top:.15rem;min-width:7rem;">
             {% if sd.code == 'EXTERNAL' %}
             <option value="usd">USD ($)</option>
             <option value="eur" selected>EUR (€)</option>
             {% else %}
-            <option value="rial">Rial</option>
+            <option value="rial">{% trans "Rial" %}</option>
             <option value="usd" selected>USD ($)</option>
             <option value="eur">EUR (€)</option>
             {% endif %}
           </select>
         </label>
-        <label class="pi-conv-rate-wrap" style="font-size:.78rem;display:none;cursor:not-allowed;">Rate
+        <label class="pi-conv-rate-wrap" style="font-size:.78rem;display:none;cursor:not-allowed;">{% trans "Rate" %}
           <span style="display:inline-flex;align-items:center;gap:5px;margin-top:.15rem;cursor:not-allowed;">
             <input type="text" class="pi-conv-rate calc-rate-locked" value="" readonly tabindex="-1"
                    aria-readonly="true"
@@ -300,49 +378,299 @@
             <span class="pi-conv-rate-unit muted" style="font-size:.7rem;font-weight:700;white-space:nowrap;cursor:not-allowed;"></span>
           </span>
         </label>
-        <button type="button" class="btn btn-sm btn-primary pi-conv-save"><i class="fa-solid fa-floppy-disk"></i> Confirm</button>
-        <button type="button" class="btn btn-sm btn-ghost pi-conv-cancel">Cancel</button>
+        <button type="button" class="btn btn-sm btn-primary pi-conv-save"><i class="fa-solid fa-floppy-disk"></i> {% trans "Confirm" %}</button>
+        <button type="button" class="btn btn-sm btn-ghost pi-conv-cancel">{% trans "Cancel" %}</button>
       </div>
       <div class="muted pi-fx-rate-note" style="font-size:.72rem;margin-top:.45rem;"></div>
     </div>
     {% endif %}
   </div>
   {% endif %}
-  {% include "cases/_versioned_section.html" with forms=sd.version_lists.PI group_id="pi-"|add:sd.code empty_text="No proforma yet." %}
+  {% trans "No proforma yet." as empty_pi_text %}
+  {% include "cases/_versioned_section.html" with forms=sd.version_lists.PI group_id="pi-"|add:sd.code empty_text=empty_pi_text %}
 </div>
 
+{% if not multi_side %}
+{# ----------------------------------------------------------------- reports #}
+{# Relocated wholesale from the old standalone "Marketing" card — same        #}
+{# markup, same context variables (case_reports / is_case_owner /             #}
+{# case_report_form, all inherited from case_detail.html's own context),      #}
+{# only the panel id gained this side's `-{{ sd.code }}` suffix so it can sit  #}
+{# beside this tab bar's other panels. VIEWING/WRITING are gated exactly as    #}
+{# case_detail.html's own long comment above the old card explained: viewing  #}
+{# is open to anyone who reached this page at all, writing is is_case_owner-  #}
+{# only and case_report_add re-checks that server-side regardless.            #}
+<div class="tab-panel" id="panel-reports-{{ sd.code }}">
+  {% if is_case_owner %}
+  <details class="card" style="margin-bottom:.8rem;">
+    <summary class="btn btn-sm btn-primary" style="display:inline-flex;width:auto;cursor:pointer;">
+      <i class="fa-solid fa-file-pen"></i> {% trans "Write a report" %}
+    </summary>
+    <form method="post" action="{% url 'cases:case_report_add' case.pk %}" style="margin-top:.8rem;" autocomplete="off">
+      {% csrf_token %}
+      {% if case_report_form.non_field_errors %}
+      <div class="flash flash-error">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>{% for e in case_report_form.non_field_errors %}{{ e }}{% endfor %}</span>
+      </div>
+      {% endif %}
+      <div class="field">
+        <label><i class="fa-solid fa-list-check"></i> {{ case_report_form.options.label }}</label>
+        {{ case_report_form.options }}
+        {% if not case_report_form.options_available %}
+        <div class="help">{% trans "No report options exist yet — write the report in the box below instead." %}</div>
+        {% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ case_report_form.text.id_for_label }}"><i class="fa-solid fa-file-lines"></i> {{ case_report_form.text.label }}</label>
+        {{ case_report_form.text }}
+        <div class="help">{% trans "Tick at least one option above, write the report here, or do both." %}</div>
+      </div>
+      <div class="btn-row">
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-check"></i> {% trans "Confirm report" %}</button>
+      </div>
+    </form>
+  </details>
+  {% endif %}
+
+  {# FILTER CARD — new this round, the exact same reusable mechanism           #}
+  {# marketing/templates/marketing/company_detail.html's own Reports tab uses  #}
+  {# (static/js/ui.js's data-filter-table pass; no JavaScript of this page's   #}
+  {# own). That page's version also carries a "Case" field, because ITS list   #}
+  {# spans every case on a company; this page needs no such field — a case     #}
+  {# detail page is already scoped to the one case whose reports these are —   #}
+  {# so the field it has in its place is the equivalent free-text search this  #}
+  {# list actually wants: over the report text itself. The date range targets  #}
+  {# "Date", the same column this table already sorts/displays by.             #}
+  <div class="card" style="margin-bottom:.8rem;">
+    <div class="card-head">
+      <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Filters" %}</h3>
+      <button type="button" class="btn btn-sm" data-filter-clear="caseReportsTable-{{ sd.code }}" title="{% trans 'Reset all filters' %}">
+        <i class="fa-solid fa-eraser"></i> {% trans "Clear filters" %}
+      </button>
+    </div>
+    <div class="grid grid-3">
+      <div class="field">
+        <label><i class="fa-solid fa-magnifying-glass"></i> {% trans "Search" %}</label>
+        <input type="text" data-filter-for="caseReportsTable-{{ sd.code }}" data-filter-colname="{% trans "Report" %}"
+               data-filter-mode="contains" placeholder="{% trans 'Search report text…' %}" autocomplete="off">
+      </div>
+      <div class="field">
+        <label><i class="fa-solid fa-calendar-day"></i> {% trans "From date (Jalali)" %}</label>
+        {# data-filter-colname wrapped in the same {% trans %} tag as the     #}
+        {# "Date" <th> below — see static/js/ui.js's nameToCol, which        #}
+        {# matches this attribute against the header cell's OWN rendered      #}
+        {# text at runtime, so both sides have to translate together.         #}
+        <input type="text" data-jalali-datetime data-filter-for="caseReportsTable-{{ sd.code }}"
+               data-filter-colname="{% trans "Date" %}" data-filter-mode="gte" placeholder="{% trans "From date" %}" autocomplete="off">
+      </div>
+      <div class="field">
+        <label><i class="fa-solid fa-calendar-day"></i> {% trans "To date (Jalali)" %}</label>
+        <input type="text" data-jalali-datetime data-filter-for="caseReportsTable-{{ sd.code }}"
+               data-filter-colname="{% trans "Date" %}" data-filter-mode="lte" placeholder="{% trans "To date" %}" autocomplete="off">
+      </div>
+    </div>
+  </div>
+
+  <table class="data" id="caseReportsTable-{{ sd.code }}" data-filter-table>
+    <thead>
+      <tr>
+        <th>{% trans "Date" %}</th>
+        <th>{% trans "Author" %}</th>
+        <th>{% trans "What it's about" %}</th>
+        <th>{% trans "Report" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in case_reports %}
+      <tr>
+        <td class="mono muted">{{ r.created_at|jalali:"Y.m.d H:i" }}</td>
+        <td dir="auto">{{ r.author|default:"—" }}</td>
+        <td>
+          {% if r.options %}
+          <div class="chips-row">
+            {% for opt in r.options %}
+            <span class="chip c-draft" dir="auto"><i class="fa-solid fa-check"></i>{{ opt }}</span>
+            {% endfor %}
+          </div>
+          {% else %}<span class="muted">—</span>{% endif %}
+        </td>
+        <td dir="auto" style="white-space:pre-line;max-width:32ch;overflow-wrap:anywhere;">{{ r.text|default:"—" }}</td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="4" class="empty">
+          {% if is_case_owner %}{% blocktrans %}No reports have been written on this case yet — use “Write a report” to add the first one.{% endblocktrans %}
+          {% else %}{% trans "No reports have been written on this case yet." %}{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{# ---------------------------------------------------------------- reminders #}
+{# Relocated wholesale, same as Reports above. #}
+<div class="tab-panel" id="panel-reminders-{{ sd.code }}">
+  {% if is_case_owner %}
+  <details class="card" style="margin-bottom:.8rem;">
+    <summary class="btn btn-sm btn-primary" style="display:inline-flex;width:auto;cursor:pointer;">
+      <i class="fa-solid fa-bell"></i> {% trans "Set a reminder" %}
+    </summary>
+    <form method="post" action="{% url 'cases:case_reminder_add' case.pk %}" style="margin-top:.8rem;" autocomplete="off">
+      {% csrf_token %}
+      {% if case_reminder_form.non_field_errors %}
+      <div class="flash flash-error">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>{% for e in case_reminder_form.non_field_errors %}{{ e }}{% endfor %}</span>
+      </div>
+      {% endif %}
+      <div class="field">
+        <label for="{{ case_reminder_form.due_at.id_for_label }}"><i class="fa-regular fa-clock"></i> {{ case_reminder_form.due_at.label }}</label>
+        {{ case_reminder_form.due_at }}
+      </div>
+      <div class="field">
+        <label for="{{ case_reminder_form.note.id_for_label }}"><i class="fa-solid fa-pen"></i> {{ case_reminder_form.note.label }}</label>
+        {{ case_reminder_form.note }}
+      </div>
+      <div class="btn-row">
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-bell"></i> {% trans "Set reminder" %}</button>
+      </div>
+    </form>
+  </details>
+  {% endif %}
+
+  {# Said in words, the same way the company page's own Reminders tab says    #}
+  {# it — see cases/views.py::_case_marketing_reminders for why this stays    #}
+  {# owner-scoped by default, widened only for the admin/GM tier.             #}
+  <div class="help" style="margin:0 0 .7rem;">
+    {% if sees_all_case_reminders %}{% trans "You see every reminder set on this case." %}
+    {% else %}{% trans "You see your own reminders on this case — a reminder is a private note to its own owner." %}{% endif %}
+  </div>
+
+  {# FILTER CARD — same reasoning as the Reports tab's own, immediately above:  #}
+  {# the company page's Reminders tab has a "Case" field this page has no use   #}
+  {# for (already scoped to one case), so in its place a free-text search over  #}
+  {# the note itself; the date range targets "Due", the column this table       #}
+  {# already sorts by and shows the overdue colour on.                          #}
+  <div class="card" style="margin-bottom:.8rem;">
+    <div class="card-head">
+      <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Filters" %}</h3>
+      <button type="button" class="btn btn-sm" data-filter-clear="caseRemindersTable-{{ sd.code }}" title="{% trans 'Reset all filters' %}">
+        <i class="fa-solid fa-eraser"></i> {% trans "Clear filters" %}
+      </button>
+    </div>
+    <div class="grid grid-3">
+      <div class="field">
+        <label><i class="fa-solid fa-magnifying-glass"></i> {% trans "Search" %}</label>
+        <input type="text" data-filter-for="caseRemindersTable-{{ sd.code }}" data-filter-colname="{% trans "Note" %}"
+               data-filter-mode="contains" placeholder="{% trans 'Search reminder text…' %}" autocomplete="off">
+      </div>
+      <div class="field">
+        <label><i class="fa-solid fa-calendar-day"></i> {% trans "From date (Jalali)" %}</label>
+        <input type="text" data-jalali-datetime data-filter-for="caseRemindersTable-{{ sd.code }}"
+               data-filter-colname="{% trans "Due" %}" data-filter-mode="gte" placeholder="{% trans "From date" %}" autocomplete="off">
+      </div>
+      <div class="field">
+        <label><i class="fa-solid fa-calendar-day"></i> {% trans "To date (Jalali)" %}</label>
+        <input type="text" data-jalali-datetime data-filter-for="caseRemindersTable-{{ sd.code }}"
+               data-filter-colname="{% trans "Due" %}" data-filter-mode="lte" placeholder="{% trans "To date" %}" autocomplete="off">
+      </div>
+    </div>
+  </div>
+
+  <table class="data" id="caseRemindersTable-{{ sd.code }}" data-filter-table>
+    <thead>
+      <tr>
+        <th>{% trans "Due" %}</th>
+        <th>{% trans "Note" %}</th>
+        <th>{% trans "State" %}</th>
+        {% if sees_all_case_reminders %}<th>{% trans "Set by" %}</th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in case_reminders %}
+      <tr>
+        <td class="mono{% if r.is_due and not r.is_done %} c-rej{% endif %}">{{ r.due_at|jalali:"Y.m.d H:i" }}</td>
+        <td dir="auto" style="white-space:pre-line;max-width:32ch;overflow-wrap:anywhere;">{{ r.note }}</td>
+        <td>
+          {% if r.is_done %}
+          <span class="chip c-ok"><i class="fa-solid fa-check"></i>{% trans "Dealt with" %}</span>
+          {% elif r.is_due %}
+          <span class="chip c-rej"><i class="fa-solid fa-bell"></i>{% trans "Due" %}</span>
+          {% else %}
+          <span class="chip c-draft"><i class="fa-regular fa-clock"></i>{% trans "Waiting" %}</span>
+          {% endif %}
+        </td>
+        {% if sees_all_case_reminders %}
+        <td dir="auto">{{ r.owner.get_full_name|default:r.owner.username }}</td>
+        {% endif %}
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="{% if sees_all_case_reminders %}4{% else %}3{% endif %}" class="empty">
+          {% if is_case_owner %}{% blocktrans %}No reminders set on this case yet — use “Set a reminder” to add one.{% endblocktrans %}
+          {% else %}{% trans "No reminders on this case are visible to you." %}{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
 <div class="tab-panel" id="panel-tl-{{ sd.code }}">
+  {% if can_open_marketing_chart %}
+  {# Gated exactly like the combined panel's own copy of this button in           #}
+  {# case_detail.html, and widened with it from is_admin_view to "may reach the   #}
+  {# marketing section" — the two must agree or the same reader would see the     #}
+  {# button on one timeline tab and not the other.                                #}
+  {# The per-side timeline (this one) is what a reader actually lands on first -   #}
+  {# the "Combined timeline" toggle above only exists for a multi_side case and is #}
+  {# never the default view, so the same deep-link the combined panel's own       #}
+  {# card-head carries (see case_detail.html) is repeated here, sibling to the    #}
+  {# .tl-layout grid rather than inside it, so it cannot disturb that grid's two  #}
+  {# columns (1fr 300px — an extra direct child would misalign both). #}
+  <div style="display:flex;justify-content:flex-end;margin-bottom:.5rem;">
+    <a href="{% url 'marketing:home' %}?case={{ case.pk }}" class="btn btn-sm"><i class="fa-solid fa-share-nodes"></i> {% trans "View in marketing chart" %}</a>
+  </div>
+  {% endif %}
   <div class="tl-layout">
     <ul class="timeline" id="tl-list-{{ sd.code }}">
       {% for ev in sd.events %}
         <li>
           <div class="tl-action">
-            {% if ev.action == 'EDIT' and ev.form_kind %}Edited {{ ev.form_kind }} form
-            {% elif ev.action == 'NEW_VERSION' and ev.form_kind == 'INQUIRY' %}New inquiry form
-            {% elif ev.action == 'NEW_VERSION' and ev.form_kind %}New {{ ev.form_kind }} form
+            {% if ev.action == 'EDIT' and ev.form_kind %}{% blocktrans with kind=ev.form_kind %}Edited {{ kind }} form{% endblocktrans %}
+            {% elif ev.action == 'NEW_VERSION' and ev.form_kind == 'INQUIRY' %}{% trans "New inquiry form" %}
+            {% elif ev.action == 'NEW_VERSION' and ev.form_kind %}{% blocktrans with kind=ev.form_kind %}New {{ kind }} form{% endblocktrans %}
             {% else %}{{ ev.action_label }}{% endif %}
-            {% if ev.form_version is not None %}<span class="tl-ver">Version {{ ev.form_version|stringformat:"02d" }}</span>{% endif %}
-            {% if ev.two_stage %}<span class="stage-chip">Two&nbsp;Stage</span>{% endif %}
+            {% if ev.form_version is not None %}<span class="tl-ver">{% blocktrans with ver=ev.form_version|stringformat:"02d" %}Version {{ ver }}{% endblocktrans %}</span>{% endif %}
+            {% if ev.two_stage %}<span class="stage-chip">{% trans "Two Stage" %}</span>{% endif %}
             {% if ev.from_unit and ev.to_unit and ev.from_unit != ev.to_unit %}
               · <span class="tl-route"><span class="unit u-{{ ev.from_unit }}">{{ ev.from_unit }}</span><i class="fa-solid fa-arrow-right-long arrow"></i><span class="unit u-{{ ev.to_unit }}">{{ ev.to_unit }}</span></span>
             {% endif %}
           </div>
-          <div class="tl-meta">{{ ev.actor_display_name }}{% if ev.actor_is_substitute %} <span class="tl-sub-tag">Substitute</span>{% endif %} · {{ ev.created_at|jalali:"Y.m.d H:i" }}</div>
-          {% if ev.comment %}<div class="tl-comment">{{ ev.comment }}</div>{% endif %}
+          {# dir="auto" gives the comment its own base direction, so a Persian #}
+          {# note that mentions a Latin code reads in the order it was typed.  #}
+          {# See the long note at the end of static/css/app.css. The date next #}
+          {# to the name is ours and stays left-to-right, which is why only    #}
+          {# the name is wrapped and not the whole meta line.                  #}
+          <div class="tl-meta">{% if ev.actor_is_substitute %}<span class="tl-sub-tag">{% trans "Substitute" %}</span> {% endif %}<span dir="auto">{{ ev.actor_display_name }}</span> · {{ ev.created_at|jalali:"Y.m.d H:i" }}</div>
+          {% if ev.comment %}<div class="tl-comment" dir="auto">{{ ev.comment }}</div>{% endif %}
         </li>
       {% empty %}
-        <li class="muted">No activity for this section yet.</li>
+        <li class="muted">{% trans "No activity for this section yet." %}</li>
       {% endfor %}
     </ul>
     {% if 'comment' in actions %}
     <div class="tl-side-comment card">
-      <div class="card-head"><h3>Add a comment</h3></div>
+      <div class="card-head"><h3>{% trans "Add a comment" %}</h3></div>
       <form class="ajax-comment-form" data-action-url="{% url 'cases:transition' case.pk %}" data-target="tl-list-{{ sd.code }}" data-user-name="{{ user.get_full_name|default:user.username }}">
         {% csrf_token %}
         <input type="hidden" name="action" value="comment">
         <input type="hidden" name="side" value="{{ sd.code }}">
-        <div class="field"><textarea name="comment" rows="3" placeholder="Write a note for the audit trail…" required></textarea></div>
-        <button type="submit" class="btn btn-primary btn-sm">Post comment</button>
+        <div class="field"><textarea name="comment" rows="3" placeholder="{% trans 'Write a note for the audit trail…' %}" required></textarea></div>
+        <button type="submit" class="btn btn-primary btn-sm">{% trans "Post comment" %}</button>
       </form>
     </div>
     {% endif %}
@@ -352,19 +680,19 @@
 {% if export_logs is not None %}
 <div class="tab-panel" id="panel-export-tl-{{ sd.code }}">
   <div class="card" style="margin:0;box-shadow:none;border:0;background:transparent;">
-    <div class="muted" style="font-size:.78rem;margin-bottom:.6rem;">Every document export on this case — administrators only.</div>
+    <div class="muted" style="font-size:.78rem;margin-bottom:.6rem;">{% trans "Every document export on this case — administrators only." %}</div>
     <ul class="timeline">
       {% for ex in export_logs %}
         <li>
           <div class="tl-action">
             {{ ex.label|default:ex.fmt }}
-            {% if ex.form_version is not None %}<span class="tl-ver">Version {{ ex.form_version|stringformat:"02d" }}</span>{% endif %}
+            {% if ex.form_version is not None %}<span class="tl-ver">{% blocktrans with ver=ex.form_version|stringformat:"02d" %}Version {{ ver }}{% endblocktrans %}</span>{% endif %}
             {% if ex.side and case.has_internal and case.has_external %}<span class="side-chip u-side-{{ ex.side }}">{{ ex.side_label }}</span>{% endif %}
           </div>
           <div class="tl-meta">{{ ex.actor.get_full_name|default:ex.actor.username|default:"—" }} · {{ ex.created_at|jalali:"Y.m.d H:i" }}</div>
         </li>
       {% empty %}
-        <li class="muted">No exports yet.</li>
+        <li class="muted">{% trans "No exports yet." %}</li>
       {% endfor %}
     </ul>
   </div>
@@ -374,21 +702,21 @@
 {% if currency_logs is not None %}
 <div class="tab-panel" id="panel-fx-tl-{{ sd.code }}">
   <div class="card" style="margin:0;box-shadow:none;border:0;background:transparent;">
-    <div class="muted" style="font-size:.78rem;margin-bottom:.6rem;">Every Proforma unit conversion on this case — administrators only.</div>
+    <div class="muted" style="font-size:.78rem;margin-bottom:.6rem;">{% trans "Every Proforma unit conversion on this case — administrators only." %}</div>
     <ul class="timeline">
       {% for fx in currency_logs %}
         <li>
           <div class="tl-action">
             <i class="fa-solid fa-right-left"></i>
             {{ fx.label }}
-            {% if fx.form_version is not None %}<span class="tl-ver">Version {{ fx.form_version|stringformat:"02d" }}</span>{% endif %}
+            {% if fx.form_version is not None %}<span class="tl-ver">{% blocktrans with ver=fx.form_version|stringformat:"02d" %}Version {{ ver }}{% endblocktrans %}</span>{% endif %}
             {% if fx.side and case.has_internal and case.has_external %}<span class="side-chip u-side-{{ fx.side }}">{{ fx.side_label }}</span>{% endif %}
             {% if fx.source %}<span class="muted" style="font-size:.72rem;margin-left:.35rem;">({{ fx.source }})</span>{% endif %}
           </div>
           <div class="tl-meta">{{ fx.actor.get_full_name|default:fx.actor.username|default:"—" }} · {{ fx.created_at|jalali:"Y.m.d H:i" }}</div>
         </li>
       {% empty %}
-        <li class="muted">No currency conversions yet.</li>
+        <li class="muted">{% trans "No currency conversions yet." %}</li>
       {% endfor %}
     </ul>
   </div>

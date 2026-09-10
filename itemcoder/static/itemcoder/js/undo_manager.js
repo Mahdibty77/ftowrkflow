@@ -82,6 +82,15 @@
           else { td.setAttribute('data-calc-base', snap.raw); td.setAttribute('data-calc-raw', snap.raw); }
           if (field.dataset) field.dataset.raw = snap.raw;
         }
+        // Fire input so autosize / pricing / counters react.
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        field.dispatchEvent(new Event('blur', { bubbles: true }));
+        // Price provenance is restored AFTER the events on purpose. pi_pricing's
+        // input handler treats any non-zero value in a UNIT PRICE field as a
+        // hand-typed override and stamps the row data-unit-manual="1" /
+        // data-price-source="manual"; restoring first let that handler overwrite
+        // us, so undoing "apply price list" relabelled list prices as Manual —
+        // and applyList() then skips exactly those rows on the next apply.
         if (snap.src != null) {
           if (snap.src === '') td.removeAttribute('data-price-source');
           else td.setAttribute('data-price-source', snap.src);
@@ -93,9 +102,6 @@
           if (snap.manual === '1') tr.setAttribute('data-unit-manual', '1');
           else tr.removeAttribute('data-unit-manual');
         }
-        // Fire input so autosize / pricing / counters react.
-        field.dispatchEvent(new Event('input', { bubbles: true }));
-        field.dispatchEvent(new Event('blur', { bubbles: true }));
       }
     } else {
       td.textContent = snap.value;

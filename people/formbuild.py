@@ -158,14 +158,3 @@ def collect_rows(data, card):
         if any(row.values()):
             rows.append(row)
     return rows
-
-
-def gather(form, card):
-    """The cleaned values of one card, keyed by field name with the prefix kept."""
-    out = {}
-    for f in card.get("fields", []):
-        if f["name"] in form.cleaned_data:
-            v = form.cleaned_data[f["name"]]
-            if v not in (None, "", []):
-                out[f["name"]] = v
-    return out

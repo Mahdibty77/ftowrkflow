@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% comment %}
+  Returned with a 403 to anyone whose active seat is not in the Marketing unit
+  — see the module docstring of marketing/views.py for who that is and why.
+
+  It extends base.html rather than being a bare response so the refused person
+  keeps their own sidebar and can carry on working; the status code is what
+  makes it a refusal, not the wording.
+{% endcomment %}
+{% block title %}{% trans "Marketing" %} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% trans "Marketing" %}{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1>{% trans "Marketing" %}</h1>
+    <div class="sub">{{ user.profile.title_line }}</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-h"><h3>{% trans "Not your unit" %}</h3></div>
+  <p style="margin:0;color:var(--muted)">
+    {% trans "This section belongs to the Marketing unit. Your seat is not in it, so there is nothing here for you to open." %}
+  </p>
+</div>
+
+{% endblock %}

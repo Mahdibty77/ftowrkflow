@@ -182,11 +182,119 @@ def _item_key(row: dict) -> str:
 
 
 def _index_by_item(table) -> dict[str, dict]:
+    """Item Code → row, for reading one form's values while exporting another.
+
+    Item codes are NOT unique. ``bridge._form_grid_html`` mints the column as
+    ``inq_item_by_cr.get(cr) or seq_no``, so any row whose client number carries
+    no Item of its own on the inquiry falls back to its position in the table —
+    which collides with whatever real Item number happens to equal that
+    position. Soft-deleted rows keep their old code and still occupy a slot, so
+    they collide too.
+
+    A collision cannot be resolved here, but a *deleted* row must never be the
+    survivor: it is not on the document at all, and letting it shadow a live row
+    made an issued Proforma quote the price of a line the user had removed.
+    Live rows keep the previous last-one-wins behaviour among themselves.
+    """
     out: dict[str, dict] = {}
+    deleted: dict[str, dict] = {}
     for row in table or []:
         key = _item_key(row)
-        if key:
+        if not key:
+            continue
+        if str((row or {}).get("_deleted", "") or "") == "1":
+            deleted[key] = row
+        else:
             out[key] = row
+    for key, row in deleted.items():
+        out.setdefault(key, row)
+    return out
+
+
+def _client_row_key(row: dict) -> str:
+    """The client's own row number (``#``), normalised — the one row identity
+    that means the same product on the Inquiry, the TO and the PI.
+
+    Deliberately NOT ``Item Code``: that column is minted per form and is not
+    unique (see ``_index_by_item``), which is exactly what once made an export
+    print a neighbouring line's price. ``#`` is the number the client wrote on
+    the inquiry line; the TO and the PI rows built from that line both carry it
+    and it is never renumbered, so it survives soft-deletes and added rows.
+    ``client_row`` is the same value under the name the inquiry editor uses.
+
+    "2" and "2.0" are the same line — a spreadsheet import can hand back either.
+    """
+    s = str((row or {}).get("#", (row or {}).get("client_row", "")) or "").strip()
+    if not s:
+        return ""
+    try:
+        f = float(s)
+        if f == int(f):
+            return str(int(f))
+    except (TypeError, ValueError):
+        pass
+    return s
+
+
+def _pi_unsuppliable_client_rows(case, to_form, pi_form=None) -> dict[str, bool]:
+    """``{client row # -> True}`` for the rows the Proforma of ``to_form``'s OWN
+    version has marked NOT SUPPLIABLE.
+
+    Supply owns that mark and sets it on the Proforma; the Technical Offer only
+    reports it. It is therefore read live here instead of being copied onto the
+    TO's stored rows — which is also what keeps the two in step: clearing the
+    flag on the Proforma clears it on the TO at the same moment, and there is no
+    second copy that can go stale (or rewrite a TO snapshot that has been sent).
+
+    The Proforma is matched on side AND version AND two-stage generation, so
+    TO 01 answers to PI 01 even once the case is working on version 02, and a
+    version whose Proforma does not exist yet is left exactly as it was.
+
+    A ``#`` that somehow lands on more than one live Proforma row only counts as
+    flagged when EVERY one of those rows is flagged: an ambiguous pair must not
+    be able to stamp NOT SUPPLIABLE on a line Supply is still quoting.
+
+    ``pi_form`` is the Proforma the caller has already loaded. It is used only
+    when it IS the Proforma of this version — which is the ordinary case, since
+    a TO is normally exported at the version its Proforma is also current at.
+    Re-reading that same record means a second query and a second decode of its
+    JSON table, worth ~3 ms on a 300-row Technical Offer; reusing it puts the
+    whole mirror at 0.4 ms (measured: 6.6 ms to build that TO's export rows
+    before this, 7.8 ms after).
+    """
+    from .models import CaseForm
+
+    side = getattr(to_form, "side", "") or ""
+    version = getattr(to_form, "version", 0) or 0
+    two_stage = bool(getattr(to_form, "two_stage", False))
+
+    pi = pi_form if (
+        pi_form is not None
+        and (getattr(pi_form, "side", "") or "") == side
+        and (getattr(pi_form, "version", 0) or 0) == version
+        and bool(getattr(pi_form, "two_stage", False)) == two_stage
+    ) else (
+        CaseForm.objects.filter(
+            case=case, kind=FormKind.PI,
+            side=side, version=version, two_stage=two_stage,
+        )
+        # The default manager ordering is not to be relied on when a caller picks
+        # one row out of several (see CaseForm.Meta): say it here. The live
+        # snapshot of that version wins; ``-id`` settles anything still tied.
+        .order_by("-is_current", "-id")
+        .first()
+    )
+    if pi is None:
+        return {}
+    out: dict[str, bool] = {}
+    for row in (pi.table or []):
+        if str((row or {}).get("_deleted", "") or "") == "1":
+            continue
+        key = _client_row_key(row)
+        if not key:
+            continue
+        flagged = str((row or {}).get("_unsuppliable", "") or "") == "1"
+        out[key] = out.get(key, True) and flagged
     return out
 
 
@@ -265,27 +373,11 @@ def vendor_last_name(form) -> str:
     return profile.honorific_last_name
 
 
-def vendor_signature_url(form) -> str:
-    profile = vendor_signatory(form)
-    if not profile or not profile.signature:
-        return ""
-    try:
-        return profile.signature.url
-    except Exception:
-        return ""
-
-
-def vendor_stamp_url(form) -> str:
-    """Unit stamp for this export: PI → Commercial, TO → Technical."""
-    field = _unit_stamp_field(form)
-    if not field:
-        return ""
-    try:
-        return field.url
-    except Exception:
-        return ""
-
-
+# There is deliberately no helper that hands out the *live* signature/stamp URL
+# for a form. Exports read vendor_signature_data_uri / vendor_stamp_data_uri,
+# which go through the frozen SignatureSnapshot; a live lookup would restate
+# every already-issued document with the current manager's signature the moment
+# the seat changes hands, which is the exact failure the snapshot exists for.
 def _stamp_unit_for_form(form) -> str:
     """Which working unit's seal belongs on this form's exports."""
     kind = (getattr(form, "kind", "") or "").upper()
@@ -426,7 +518,15 @@ def _get_or_create_signature_snapshot(form):
                 snap.signature_image.save(
                     os.path.basename(profile.signature.name), fh, save=False)
         except Exception:
-            pass
+            # The snapshot is frozen once and reused for ever, so a storage
+            # hiccup in this one moment silently costs that document version its
+            # signature permanently. Losing it must not fail the handoff the user
+            # just performed, but it has to leave a trace: an administrator can
+            # delete the snapshot row and let the next export re-freeze it.
+            _logger.exception(
+                "Could not freeze the signature image for form %s; the document "
+                "will print with no signature until the snapshot is reset.",
+                getattr(form, "pk", "?"))
 
     stamp_field = _unit_stamp_field(form)
     if stamp_field is not None:
@@ -436,7 +536,11 @@ def _get_or_create_signature_snapshot(form):
                 snap.stamp_image.save(
                     os.path.basename(stamp_field.name), fh, save=False)
         except Exception:
-            pass
+            # Same one-shot freeze as the signature above — see that comment.
+            _logger.exception(
+                "Could not freeze the unit stamp for form %s; the document will "
+                "print with no seal until the snapshot is reset.",
+                getattr(form, "pk", "?"))
 
     try:
         # The savepoint matters and is not decoration. This function is now
@@ -554,6 +658,22 @@ def build_export_rows(case, form) -> list[dict[str, str]]:
     to_index = _index_by_item(getattr(to_form, "table", None) if to_form else [])
     pi_index = _index_by_item(getattr(pi_form, "table", None) if pi_form else [])
 
+    # NOT SUPPLIABLE belongs to the Proforma, and the Technical Offer of the same
+    # version mirrors it: a line Supply cannot supply is not on offer on either
+    # document. Empty for a PI (its rows are the source), and empty for a TO
+    # whose version has no Proforma yet — that TO then exports exactly as before.
+    unsup_from_pi = (
+        _pi_unsuppliable_client_rows(case, form, pi_form)
+        if kind == FormKind.TO else {}
+    )
+
+    # Currency and its display label belong to the form, not to a row. Resolving
+    # the label once matters for anything outside rial/usd/eur: currency_label
+    # then has to read the FX board, and doing that per priced cell put several
+    # queries — one of them a write — behind every price on the sheet.
+    cur = form_currency(form, case) if kind == FormKind.PI else "rial"
+    cur_label = currency_label(cur) if kind == FormKind.PI else None
+
     rows_out: list[dict[str, str]] = []
     item_no = 0
     for row in form.table or []:
@@ -561,8 +681,21 @@ def build_export_rows(case, form) -> list[dict[str, str]]:
             continue
         item_no += 1
         item = _item_key(row)
-        to_row = to_index.get(item) or (row if kind == FormKind.TO else {})
-        pi_row = pi_index.get(item) or (row if kind == FormKind.PI else {})
+        # The row in hand is the authority for the values of its OWN form, and
+        # it is read directly — never looked up.
+        #
+        # This used to go through the item-code index even when the index had
+        # been built from the very table being walked (``pi_form is form`` when
+        # a PI is exported, ``to_form is form`` for a TO). That self-lookup can
+        # only ever return a *different* row than the one in hand, because a hit
+        # on the row itself is a no-op. Item codes are not unique — see
+        # ``_index_by_item`` — so on a collision the export printed a
+        # neighbour's, or a soft-deleted line's, UNIT PRICE and TOTAL PRICE in
+        # place of the ones the Commercial expert had entered and approved, and
+        # ``pi_totals`` then summed the substituted figures. A commercial
+        # document must state the price that was saved on that line.
+        to_row = row if kind == FormKind.TO else (to_index.get(item) or {})
+        pi_row = row if kind == FormKind.PI else (pi_index.get(item) or {})
 
         # Prefer the source form's own row for shared fields; fall back sensibly.
         src = row
@@ -576,6 +709,12 @@ def build_export_rows(case, form) -> list[dict[str, str]]:
         desc_ftco = _strip_html(_cell(src, "Final Arranged Text"))
         is_issue = str((src or {}).get("_issue", "") or "") == "1"
         is_unsup = str((src or {}).get("_unsuppliable", "") or "") == "1"
+        # A TO row inherits the mark from the Proforma line with the same client
+        # ``#``. Rows already carrying a TECHNICAL PROBLEM are left alone: that
+        # flag is Technical's own, it outranks this one everywhere it is shown,
+        # and touching those rows is not what was asked for.
+        if unsup_from_pi and not is_unsup and not is_issue:
+            is_unsup = unsup_from_pi.get(_client_row_key(src), False)
         svc_comment = _meta_text((src or {}).get("_service_comment", ""))
         has_service = bool(svc_comment)
         flag_label = ""
@@ -592,6 +731,12 @@ def build_export_rows(case, form) -> list[dict[str, str]]:
             # (do not fall back to the PI brand).
             if not brand and str((src or {}).get("_brand_split", "") or "") != "1":
                 brand = _strip_html(_cell(pi_row, "BRAND"))
+            # The brand of a NOT SUPPLIABLE row is deliberately left as it is.
+            # The rule for this mark is "the TO behaves exactly as the Proforma
+            # does", and the Proforma only sets the flag — it has never touched
+            # BRAND, on the stored row or on the document. Blanking it here would
+            # have made the two forms disagree about a column neither of them was
+            # asked to change.
         else:
             brand = _strip_html(_cell(pi_row, "BRAND"))
             if not brand and str((pi_row or {}).get("_brand_split", "") or "") != "1":
@@ -606,7 +751,6 @@ def build_export_rows(case, form) -> list[dict[str, str]]:
                 or _meta_text((pi_row or {}).get("_service_price_raw", ""))
             )
 
-        cur = form_currency(form, case) if kind == FormKind.PI else "rial"
         rows_out.append({
             "client_no": _strip_html(_cell(src, "#", "Item Code")),
             "item": str(item_no),
@@ -620,13 +764,16 @@ def build_export_rows(case, form) -> list[dict[str, str]]:
             "brand": brand,
             "time": _strip_html(_cell(pi_row, "TIME")),
             "unit_price": (
-                format_pi_money(unit_price_raw, cur) if kind == FormKind.PI else unit_price_raw
+                format_pi_money(unit_price_raw, cur, label=cur_label)
+                if kind == FormKind.PI else unit_price_raw
             ),
             "service_price": (
-                format_pi_money(svc_raw, cur) if (kind == FormKind.PI and svc_raw) else svc_raw
+                format_pi_money(svc_raw, cur, label=cur_label)
+                if (kind == FormKind.PI and svc_raw) else svc_raw
             ),
             "total_price": (
-                format_pi_money(total_price_raw, cur) if kind == FormKind.PI else total_price_raw
+                format_pi_money(total_price_raw, cur, label=cur_label)
+                if kind == FormKind.PI else total_price_raw
             ),
             "_group": _strip_html(_cell(src, "Group", "group")) or "general",
             "_issue": "1" if is_issue else "",
@@ -641,15 +788,22 @@ def build_export_rows(case, form) -> list[dict[str, str]]:
 def technical_problem_export_rows(form) -> list[dict[str, str]]:
     """Rows for the Technical Problems sheet (before Terms)."""
     out = []
+    # The ITEM column of the main table is a fresh sequence over the surviving
+    # rows (build_export_rows), not the stored Item Code — as soon as one row is
+    # soft-deleted the two drift apart. This sheet cross-references the main
+    # table, so it has to count exactly the same way or it points the reviewer
+    # at a different product.
+    item_no = 0
     for row in getattr(form, "table", None) or []:
         if str((row or {}).get("_deleted", "") or "") == "1":
             continue
+        item_no += 1
         if str((row or {}).get("_issue", "") or "") != "1":
             continue
         reason = _meta_text((row or {}).get("_issue_reason", ""))
         out.append({
             "client_no": _strip_html(_cell(row, "#", "Item Code")),
-            "item": _strip_html(_cell(row, "Item Code", "#")),
+            "item": str(item_no),
             "reason": reason or "—",
             "desc_client": _strip_html(_cell(row, "description", "Description")),
         })
@@ -663,10 +817,19 @@ def service_price_export_rows(form, case=None) -> list[dict[str, str]]:
     QTY, UNIT PRICE SERVICE, TOTAL PRICE SERVICE.
     """
     cur = form_currency(form, case)
+    # Resolved once: the currency belongs to the form, and for a code that is
+    # not rial/usd/eur the label has to be looked up on the FX board, which is a
+    # database round-trip we do not want to repeat for every priced cell.
+    cur_label = currency_label(cur)
     out = []
+    # FTCO ITEM must be the same running number the main table prints (see
+    # technical_problem_export_rows): counted over every row that survives the
+    # soft-delete filter, before the service/unsuppliable filters below.
+    item_no = 0
     for row in getattr(form, "table", None) or []:
         if str((row or {}).get("_deleted", "") or "") == "1":
             continue
+        item_no += 1
         if str((row or {}).get("_unsuppliable", "") or "") == "1":
             continue
         comment = _meta_text((row or {}).get("_service_comment", ""))
@@ -682,14 +845,16 @@ def service_price_export_rows(form, case=None) -> list[dict[str, str]]:
         total_n = unit_n * qty_n
         out.append({
             "client_no": _strip_html(_cell(row, "#", "Item Code")),
-            "item": _strip_html(_cell(row, "Item Code", "#")),
+            "item": str(item_no),
             "desc_client": _strip_html(_cell(row, "description", "Description")),
             "comment": comment,
             "qty": qty_raw,
-            "unit_svc_price": format_pi_money(unit_n, cur) if unit_raw else "",
-            "total_svc_price": format_pi_money(total_n, cur) if (unit_raw or qty_raw) else "",
+            "unit_svc_price": format_pi_money(unit_n, cur, label=cur_label) if unit_raw else "",
+            "total_svc_price": (
+                format_pi_money(total_n, cur, label=cur_label) if (unit_raw or qty_raw) else ""
+            ),
             # Legacy keys kept for older Excel helpers.
-            "service_price": format_pi_money(unit_n, cur) if unit_raw else "",
+            "service_price": format_pi_money(unit_n, cur, label=cur_label) if unit_raw else "",
         })
     return out
 
@@ -698,8 +863,17 @@ def row_values(row: dict[str, str], columns: list[tuple[str, str]]) -> list[str]
     return [str(row.get(key, "") or "") for _title, key in columns]
 
 
+# The same pattern ``parse_money`` always applied, compiled once at import
+# instead of being looked up in ``re``'s internal cache on every call. A single
+# archive or dashboard load runs this tens of thousands of times (one or two
+# calls per proforma row, over every current proforma on the page), and the
+# cache lookup was measurably a quarter of the function: 25.6 ms against
+# 19.3 ms for 14 000 calls on the measurement fixture, for byte-identical output.
+_MONEY_STRIP_RE = re.compile(r"[^\d.\-]")
+
+
 def parse_money(value: Any) -> float:
-    s = re.sub(r"[^\d.\-]", "", str(value or "").replace(",", ""))
+    s = _MONEY_STRIP_RE.sub("", str(value or "").replace(",", ""))
     if not s:
         return 0.0
     try:
@@ -777,8 +951,15 @@ def pi_rate_note(form) -> str:
     return f"{rate:,.3f} {label}"
 
 
-def format_pi_money(value: Any, currency: str | None = None, *, external: bool = False) -> str:
-    """Format a price for PI display: number + unit (e.g. '1,234 Rial' / '12.50 $')."""
+def format_pi_money(value: Any, currency: str | None = None, *, external: bool = False,
+                    label: str | None = None) -> str:
+    """Format a price for PI display: number + unit (e.g. '1,234 Rial' / '12.50 $').
+
+    ``label`` lets a caller that formats a whole table pass the already-resolved
+    currency label in. For anything outside rial/usd/eur ``currency_label`` has
+    to read the FX board, so leaving it to be re-derived per cell put several
+    queries (one of them a write) behind every price on the sheet.
+    """
     raw = str(value or "").strip()
     if not raw:
         return ""
@@ -786,7 +967,8 @@ def format_pi_money(value: Any, currency: str | None = None, *, external: bool =
     if n == 0 and not re.search(r"\d", raw):
         return ""
     cur = normalize_currency(currency, external=external)
-    label = currency_label(cur, external=external)
+    if label is None:
+        label = currency_label(cur, external=external)
     if cur == "rial":
         return f"{n:,.0f} {label}"
     return f"{n:,.2f} {label}"
@@ -848,6 +1030,12 @@ def pi_totals(rows: list[dict[str, str]], percent: float | None = None,
     grand = subtotal + vat + service
     # Accept both export suffixes (IRR/USD/EUR) and form keys (rial/usd/eur).
     cur_key = normalize_currency(currency, external=(currency or "").upper() in {"USD", "EUR", "$", "€"})
+    # NOTE: format_pi_money prints two decimals for every non-Rial code, so a
+    # proforma issued in a currency the Commercial manager added to the FX board
+    # later (anything outside usd/eur) shows item lines that do not add up to
+    # these totals. Widening this set changes the totals on already-issued
+    # documents, so it is left alone deliberately until somebody decides which
+    # side is authoritative.
     use_dec = cur_key in {"usd", "eur"}
 
     def fmt(n: float) -> str:
@@ -882,9 +1070,20 @@ def case_pi_grand_total_num(case) -> float:
     from .models import CaseForm
 
     total = 0.0
+    service = 0.0
+    # The ordering is stated here rather than inherited from CaseForm.Meta
+    # because this loop can feel it: the running total is a float, float
+    # addition is not associative, and the last bits of a money figure therefore
+    # depend on the sequence the rows are added in. A split Internal & External
+    # case has two current proformas that tie on everything Meta orders by
+    # except id, so a change to that default would silently move the figure.
+    # ``kind, -version, id`` is the sequence this function has always summed in
+    # (the historic default, with the tie that SQLite settled by row id now
+    # written down), and it is also what case_pi_grand_totals_map uses, which is
+    # what keeps the batch map and this single-case answer identical.
     forms = CaseForm.objects.filter(
         case_id=getattr(case, "pk", case), kind=FormKind.PI, is_current=True,
-    )
+    ).order_by("kind", "-version", "id")
     for form in forms:
         for row in (form.table or []):
             r = row or {}
@@ -898,14 +1097,66 @@ def case_pi_grand_total_num(case) -> float:
                 unit = parse_money(
                     r.get("SERVICE PRICE") or r.get("_service_price_raw") or ""
                 )
-                total += unit * qty
-    if total <= 0:
+                service += unit * qty
+    if total + service <= 0:
         return 0.0
-    return total * (1.0 + float(vat_percent()) / 100.0)
+    # Same arithmetic as the issued document (pi_totals): VAT is charged on the
+    # goods subtotal only and the service amount is added after it. Taxing the
+    # services here as well made the dashboard quote a higher figure than the
+    # proforma the client was actually sent, and the gap grew with every
+    # service line.
+    return total * (1.0 + float(vat_percent()) / 100.0) + service
 
 
-def case_pi_grand_totals_map(case_ids) -> dict:
-    """Map case_id → VAT-inclusive grand total for a batch of cases."""
+def _pi_form_deltas(form) -> list:
+    """One proforma's contribution, as ``(goods, service_or_None)`` per row.
+
+    Exactly the per-row arithmetic the loop in :func:`case_pi_grand_totals_map`
+    has always done, lifted out so the answer for one form can be reused. The
+    list keeps the table's own row order and omits precisely the rows the loop
+    skipped, so replaying it adds the same floats in the same sequence — which
+    matters, because these are floats and addition is not associative.
+    """
+    out = []
+    for row in (form.table or []):
+        r = row or {}
+        if str(r.get("_deleted", "") or "") == "1":
+            continue
+        if str(r.get("_unsuppliable", "") or "") == "1":
+            continue
+        goods = parse_money(r.get("TOTAL PRICE") or r.get("total_price") or "")
+        service = None
+        if _meta_text(r.get("_service_comment")):
+            qty = parse_money(r.get("qty") or "")
+            unit = parse_money(
+                r.get("SERVICE PRICE") or r.get("_service_price_raw") or ""
+            )
+            service = unit * qty
+        out.append((goods, service))
+    return out
+
+
+def case_pi_grand_totals_map(case_ids, *, form_cache=None) -> dict:
+    """Map case_id → VAT-inclusive grand total for a batch of cases.
+
+    ``form_cache`` is an optional dict the CALLER owns and creates, keyed by
+    ``CaseForm`` id and holding the per-row figures :func:`_pi_form_deltas`
+    already worked out for that proforma. It exists for the one page that asks
+    this question twice — the Admin / General Manager dashboard, which totals the
+    whole platform and then totals each Commercial expert's cases, walking most
+    of the same proformas both times. Decoding a proforma's JSON table is the
+    expensive half of this function (measured: 185 ms per pass over the 300-case
+    fixture), and it was being paid twice for the same rows.
+
+    What the cache holds is arithmetic, not anybody's data, and it lives for
+    exactly as long as the local variable the view made: ``reports.views.dashboard``
+    creates the dict, hands it to the two calls and drops it when the response
+    is returned. There is no module-level container, so a second visitor cannot
+    reach the first one's dict, and the figures are keyed by form id, so a form
+    that is not in it is read from the database exactly as before. Callers that
+    pass nothing (the archive, which asks once) keep the original streaming path
+    unchanged, memory profile included.
+    """
     from collections import defaultdict
     from .constants import FormKind
     from .models import CaseForm
@@ -914,25 +1165,56 @@ def case_pi_grand_totals_map(case_ids) -> dict:
     if not ids:
         return {}
     by_case = defaultdict(float)
-    for form in CaseForm.objects.filter(
+    service_by_case = defaultdict(float)
+
+    def _add(case_id, deltas):
+        for goods, service in deltas:
+            by_case[case_id] += goods
+            if service is not None:
+                service_by_case[case_id] += service
+
+    # ``.iterator()`` streams the rows instead of building one list that holds
+    # every current proforma's JSON table in memory at once — on a dashboard
+    # listing hundreds of cases that single list was the whole page's memory
+    # cost. Streaming does not change the arithmetic; the ORDER the rows arrive
+    # in would, because each case's running total is a float and float addition
+    # is not associative. So the order is nailed down here instead of being
+    # inherited from CaseForm.Meta, whose default has since gained a ``-id``
+    # term that reverses rows tied on everything before it (the two current
+    # proformas of a split Internal & External case are exactly such a tie).
+    # ``kind, -version, id`` is the sequence these sums were always added in —
+    # the historic default, with the tie that SQLite happened to settle by row
+    # id now written down as a rule — and case_pi_grand_total_num states the
+    # same one, so the batch map and the single-case figure cannot drift apart.
+    current_pi = CaseForm.objects.filter(
         case_id__in=ids, kind=FormKind.PI, is_current=True,
-    ).only("case_id", "table"):
-        for row in (form.table or []):
-            r = row or {}
-            if str(r.get("_deleted", "") or "") == "1":
-                continue
-            if str(r.get("_unsuppliable", "") or "") == "1":
-                continue
-            by_case[form.case_id] += parse_money(
-                r.get("TOTAL PRICE") or r.get("total_price") or "")
-            if _meta_text(r.get("_service_comment")):
-                qty = parse_money(r.get("qty") or "")
-                unit = parse_money(
-                    r.get("SERVICE PRICE") or r.get("_service_price_raw") or ""
-                )
-                by_case[form.case_id] += unit * qty
+    ).order_by("kind", "-version", "id")
+    if form_cache is None:
+        for form in (current_pi.only("case_id", "table")
+                     .iterator(chunk_size=200)):
+            _add(form.case_id, _pi_form_deltas(form))
+    else:
+        # Same rows, same order — ``values_list`` only asks for the two columns
+        # that decide the sequence, so a proforma already worked out in this
+        # request costs an id instead of its whole JSON table. Anything missing
+        # is fetched and worked out here, then replayed below in the order this
+        # list fixes, which is the order the streaming branch above uses.
+        ordered = list(current_pi.values_list("id", "case_id"))
+        missing = [fid for fid, _cid in ordered if fid not in form_cache]
+        if missing:
+            for form in (CaseForm.objects.filter(pk__in=missing)
+                         .only("case_id", "table").iterator(chunk_size=200)):
+                form_cache[form.pk] = _pi_form_deltas(form)
+        for fid, cid in ordered:
+            _add(cid, form_cache.get(fid) or ())
     factor = 1.0 + float(vat_percent()) / 100.0
-    return {cid: amt * factor for cid, amt in by_case.items() if amt > 0}
+    # Services are kept out of the VAT base and added afterwards, exactly as the
+    # issued proforma computes it — see case_pi_grand_total_num.
+    return {
+        cid: amt * factor + service_by_case[cid]
+        for cid, amt in by_case.items()
+        if amt + service_by_case[cid] > 0
+    }
 
 
 def format_money_amount(n: float, *, currency: str = "IRR") -> str:
@@ -1161,7 +1443,15 @@ def default_terms_for(kind: str) -> dict:
 
 
 def normalize_terms(payload: dict | None, kind: str = "PI") -> dict:
-    """Merge posted terms with kind-specific defaults; never persist across exports."""
+    """Merge a terms payload over the kind-specific defaults.
+
+    The payload may come straight from the editor's POST or from the sheet
+    remembered on the version (``CaseForm.export_terms``) — both are shaped the
+    same and both are merged over ``default_terms_for(kind)``, so a stored sheet
+    can never widen or reshape what a document prints. Anything missing falls
+    back to the default clause, which is also what makes an untouched version
+    export exactly what it exported before this was remembered at all.
+    """
     defaults = default_terms_for(kind)
     base = {
         "intro_en": defaults["intro_en"],

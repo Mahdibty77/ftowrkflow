@@ -1,8 +1,35 @@
-"""Forms used by administrators to create/manage user accounts."""
+"""Forms used by administrators to create/manage user accounts.
+
+Every form here is paired with a view in ``accounts.views``:
+
+* ``UserCreateForm`` / ``UserEditForm`` — the seat itself: unit, role, seat
+  code, the organisational identity fields, and the signature image. These are
+  plain ``Form``s rather than ``ModelForm``s because one submission writes two
+  rows (a ``User`` and its ``Profile``) and, when the account is linked to a
+  ``Person``, must respect which of those fields the person record now owns.
+* ``AdminPlatformForm`` / ``AdminUnitStampsForm`` — the single
+  ``PlatformConfig`` row, split in two so the stamps upload independently of the
+  text settings.
+* ``SelfProfileForm`` / ``SelfPasswordForm`` / ``ForcePasswordChangeForm`` — what
+  an ordinary signed-in user may change about their own account.
+
+The upload validators at the top (``_validate_png_upload``,
+``_validate_avatar_upload``, ``_validate_stamp_upload``) are shared by several
+of those, and ``_validate_avatar_upload`` is imported directly by
+``accounts.views`` for the same check on a non-form upload path. They are
+deliberately strict about format rather than merely about size: a signature and
+a unit stamp are composited onto exported company documents, where anything
+without a transparent background prints as a white box over the text.
+"""
 import secrets
 
 from django import forms
 from django.contrib.auth.models import User
+# gettext_lazy, not plain gettext: `label=` below is a Python-level string
+# evaluated once at class-definition (import) time — the exact `choices=`
+# timing hazard cases/constants.py's own comment explains at length — so it
+# must resolve per viewer at render time, not once at import time.
+from django.utils.translation import gettext_lazy as _
 
 from .constants import Gender, Role, Unit, SupplyKind
 from .models import PlatformConfig, Profile
@@ -219,6 +246,8 @@ class UserCreateForm(forms.Form):
         return cleaned
 
     def save(self) -> User:
+        from django.db import transaction
+
         from people.seats import SeatError, assign_seat
         from people.usernames import next_seat_index, vacant_login_username
 
@@ -232,40 +261,51 @@ class UserCreateForm(forms.Form):
             is_general_manager=is_gm,
         )
         generated = generate_temp_password()
-        # Create user first so vacant username can use _seat<pk>.
-        user = User.objects.create_user(
-            username=f"_tmp{secrets.token_hex(4)}",
-            password=generated,
-            first_name="",
-            last_name="",
-            email="",
-        )
-        user.username = vacant_login_username(seat_code, user_pk=user.pk)
-        user.is_active = False
-        user.save(update_fields=["username", "is_active"])
+        # One transaction for the whole seat. The index came from a read-then-use
+        # scan, so two admins creating a seat in the same Unit+Role pool at the
+        # same moment both compute the same code and the second one trips the
+        # accounts_profile_seat_index_pool constraint — in autocommit that left
+        # its half-built User row (blank unit and role, random password) behind
+        # for good. Rolling the whole thing back means a clash costs the second
+        # admin a retry and nothing else.
+        with transaction.atomic():
+            # Create user first so vacant username can use _seat<pk>.
+            user = User.objects.create_user(
+                username=f"_tmp{secrets.token_hex(4)}",
+                password=generated,
+                first_name="",
+                last_name="",
+                email="",
+            )
+            user.username = vacant_login_username(seat_code, user_pk=user.pk)
+            user.is_active = False
+            user.save(update_fields=["username", "is_active"])
 
-        profile = user.profile
-        profile.must_change_password = True
-        profile.is_admin = False
-        profile.is_general_manager = is_gm
-        profile.unit = unit
-        profile.role = role
-        profile.supply_kind = supply
-        profile.internal_code = ""
-        profile.org_title = ""
-        profile.org_number = ""
-        profile.gender = ""
-        profile.seat_code = seat_code
-        profile.seat_ready = True
-        profile.save()
+            profile = user.profile
+            profile.must_change_password = True
+            profile.is_admin = False
+            profile.is_general_manager = is_gm
+            profile.unit = unit
+            profile.role = role
+            profile.supply_kind = supply
+            profile.internal_code = ""
+            profile.org_title = ""
+            profile.org_number = ""
+            profile.gender = ""
+            profile.seat_code = seat_code
+            profile.seat_ready = True
+            profile.save()
 
-        person = data.get("person")
-        if person is not None:
-            try:
-                assign_seat(person, user, actor=None)
-            except SeatError:
-                # Seat stays in catalogue; admin can assign from People.
-                pass
+            person = data.get("person")
+            if person is not None:
+                try:
+                    assign_seat(person, user, actor=None)
+                except SeatError:
+                    # Seat stays in catalogue; admin can assign from People.
+                    # assign_seat opens its own atomic block, so its own writes
+                    # are already rolled back to the savepoint by the time this
+                    # runs — the seat above survives, exactly as before.
+                    pass
 
         self.generated_password = generated
         self.seat_code = seat_code
@@ -452,7 +492,14 @@ class UserEditForm(forms.Form):
             user.last_name = ""
             user.is_active = False
 
-        user.email = data.get("email", "") or ""
+        # The seat template renders no e-mail input (identity belongs to the
+        # Person record), so an ordinary "Edit seat" POST carries no `email`
+        # key at all and the cleaned value is the empty string. Writing that
+        # back wiped the address people.seats copies from the Person when it
+        # mints a login, just because an admin saved the index. Only take the
+        # field when the submitted form actually carried it.
+        if self.add_prefix("email") in self.data:
+            user.email = data.get("email", "") or ""
         user.save()
 
         if not self.role_locked:
@@ -536,16 +583,16 @@ class AdminPlatformForm(forms.ModelForm):
         model = PlatformConfig
         fields = ["login_welcome_message", "vat_percent"]
         labels = {
-            "login_welcome_message": "Sign-in welcome message",
-            "vat_percent": "VAT percent (%)",
+            "login_welcome_message": _("Sign-in welcome message"),
+            "vat_percent": _("VAT percent (%)"),
         }
         help_texts = {
             "login_welcome_message": (
-                "Displayed for every user after “Hi, <name>” on successful sign-in."
+                _("Displayed for every user after “Hi, <name>” on successful sign-in.")
             ),
             "vat_percent": (
-                "Used on Proforma totals: VAT = Subtotal × this percent / 100. "
-                "Shown as “VAT (N%)” on PDF/Excel preview totals."
+                _("Used on Proforma totals: VAT = Subtotal × this percent / 100. "
+                  "Shown as “VAT (N%)” on PDF/Excel preview totals.")
             ),
         }
 
@@ -557,14 +604,14 @@ class AdminUnitStampsForm(forms.ModelForm):
         model = PlatformConfig
         fields = ["stamp_commercial", "stamp_technical", "stamp_supply"]
         labels = {
-            "stamp_commercial": "Commercial stamp",
-            "stamp_technical": "Technical stamp",
-            "stamp_supply": "Supply stamp",
+            "stamp_commercial": _("Commercial stamp"),
+            "stamp_technical": _("Technical stamp"),
+            "stamp_supply": _("Supply stamp"),
         }
         help_texts = {
-            "stamp_commercial": "PNG or SVG — stamped on Proforma (PI) exports.",
-            "stamp_technical": "PNG or SVG — stamped on Technical Offer (TO) exports.",
-            "stamp_supply": "PNG or SVG — reserved for Supply exports.",
+            "stamp_commercial": _("PNG or SVG — stamped on Proforma (PI) exports."),
+            "stamp_technical": _("PNG or SVG — stamped on Technical Offer (TO) exports."),
+            "stamp_supply": _("PNG or SVG — reserved for Supply exports."),
         }
         widgets = {
             "stamp_commercial": StampFileInput(),
@@ -689,13 +736,13 @@ class SelfPasswordForm(forms.Form):
 
     current_password = forms.CharField(
         widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}),
-        label="Current password")
+        label=_("Current password"))
     new_password = forms.CharField(
         widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
-        min_length=6, label="New password")
+        min_length=6, label=_("New password"))
     confirm_password = forms.CharField(
         widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
-        label="Confirm new password")
+        label=_("Confirm new password"))
 
     def __init__(self, *args, user=None, **kwargs):
         self.user = user
@@ -704,7 +751,7 @@ class SelfPasswordForm(forms.Form):
     def clean_current_password(self):
         pw = self.cleaned_data["current_password"]
         if not self.user.check_password(pw):
-            raise forms.ValidationError("Your current password is incorrect.")
+            raise forms.ValidationError(_("Your current password is incorrect."))
         return pw
 
     def clean(self):
@@ -712,7 +759,7 @@ class SelfPasswordForm(forms.Form):
         new = cleaned.get("new_password")
         confirm = cleaned.get("confirm_password")
         if new and confirm and new != confirm:
-            self.add_error("confirm_password", "The new passwords do not match.")
+            self.add_error("confirm_password", _("The new passwords do not match."))
         return cleaned
 
     def save(self):

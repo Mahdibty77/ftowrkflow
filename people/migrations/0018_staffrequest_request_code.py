@@ -4,8 +4,13 @@ from django.db import migrations, models
 
 def backfill_request_codes(apps, schema_editor):
     StaffRequest = apps.get_model("people", "StaffRequest")
+    # The counter is read through the frozen app registry, not imported live:
+    # this migration only pins cases/0010, so on a fresh database it may run
+    # while later cases migrations are still unapplied, and the live class would
+    # then describe columns the table does not have yet. (year_month_token is a
+    # plain helper with no model behind it, so importing it directly is fine.)
+    SerialCounter = apps.get_model("cases", "SerialCounter")
     from cases.codes import year_month_token
-    from cases.models import SerialCounter
 
     counter, _ = SerialCounter.objects.get_or_create(
         key="staff_request_serial", defaults={"value": 0},

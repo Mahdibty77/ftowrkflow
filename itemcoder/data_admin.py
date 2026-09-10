@@ -21,6 +21,7 @@ from django.core.paginator import Paginator
 from django.db import transaction
 from django.shortcuts import redirect, render, get_object_or_404
 from django.urls import reverse
+from django.utils.translation import gettext as _
 
 from .models import (CodeTable, CodeTableRow, PriceList, CodePrice, ConfigDocument,
                      GroupFeature, FeatureValue, GroupCodeConfig)
@@ -228,10 +229,13 @@ def dm_code_upload(request):
     if request.method == "POST" and request.FILES.get("file"):
         group = (request.POST.get("group") or "").strip().lower()
         if not group:
-            messages.error(request, "Please enter the group name (e.g. pipe, fitting).")
+            messages.error(request, _("Please enter the group name (e.g. pipe, fitting)."))
             return redirect("dm_code_upload")
         if not _GROUP_NAME_RE.fullmatch(group):
-            messages.error(request, "Group name must be letters, digits, underscore or hyphen only.")
+            messages.error(
+                request,
+                _("Group name must be letters, digits, underscore or hyphen only."),
+            )
             return redirect("dm_code_upload")
         try:
             temp_path = _save_temp(request.FILES["file"])
@@ -246,7 +250,7 @@ def dm_code_upload(request):
             sample = [["" if v is None else str(v) for v in rec]
                       for rec in head.itertuples(index=False, name=None)]
         except Exception as exc:
-            messages.error(request, f"Could not read the file: {exc}")
+            messages.error(request, _("Could not read the file: %(exc)s") % {"exc": exc})
             return redirect("dm_code_upload")
         from . import item_builder
         classed = []
@@ -469,7 +473,7 @@ def dm_code_confirm(request):
         or ".." in temp_name
         or not os.path.exists(os.path.join(TEMP_DIR, temp_name))
     ):
-        messages.error(request, "Upload session expired. Please upload the file again.")
+        messages.error(request, _("Upload session expired. Please upload the file again."))
         return redirect("dm_code_upload")
     temp_path = os.path.join(TEMP_DIR, temp_name)
 
@@ -526,6 +530,25 @@ def dm_code_rows_api(request, group):
     return _json_response({"rows": rows, "next": nxt, "total": total})
 
 
+def _column_is_editable(group: str, col: int) -> bool:
+    """Whether Browse may write column ``col`` of ``group``.
+
+    Deliberately the same expression the grid uses to build ``editable_flags``
+    (columns 0/1 are the technical + item code, anything a GroupFeature marks as
+    ``main`` is part of the lookup key, everything else defaults to ``info``), so
+    the server never refuses a cell the page offers for editing.
+    """
+    try:
+        col = int(col)
+    except (TypeError, ValueError):
+        return False
+    col_kind = {0: "code", 1: "code"}
+    for gf in GroupFeature.objects.filter(group=group):
+        if gf.column_index is not None and gf.column_index >= 0:
+            col_kind[gf.column_index] = gf.kind
+    return col_kind.get(col, "info") in ("sub", "info")
+
+
 @login_required
 @group_data_access_required
 def dm_code_rows(request, group):
@@ -548,19 +571,29 @@ def dm_code_rows(request, group):
             size_mb = 0.0
         messages.success(
             request,
-            "Import verified: {rows:,} rows in SQLite ({size} MB) at {path}".format(
-                rows=int(imported_rows or 0),
-                size=size_mb,
-                path=db_path,
-            ),
+            _("Import verified: %(rows)s rows in SQLite (%(size)s MB) at %(path)s") % {
+                "rows": f"{int(imported_rows or 0):,}",
+                "size": size_mb,
+                "path": db_path,
+            },
         )
 
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "edit_cell":
             try:
+                col = int(request.POST["col"])
+                # Which columns may be edited was decided for the template only
+                # (``editable_flags`` below): the two code columns and every MAIN
+                # feature are the coding/pricing key and stay locked. Nothing
+                # re-checked that on the way back in, so a hand-made POST could
+                # rewrite an Item_Code and leave every CodePrice keyed on the old
+                # one orphaned. Same rule, evaluated again here.
+                if not _column_is_editable(group, col):
+                    return _json_response(
+                        {"ok": False, "error": "This column is read-only."}, status=403)
                 ok = code_db.update_cell(group, int(request.POST["row_no"]),
-                                         int(request.POST["col"]), request.POST.get("value", ""))
+                                         col, request.POST.get("value", ""))
                 _clear_caches()
                 return _json_response({"ok": bool(ok)})
             except Exception as exc:
@@ -580,7 +613,7 @@ def dm_code_rows(request, group):
                 return _json_response({"ok": False, "error": str(exc)}, status=400)
         if action == "wipe":
             if not can_delete_tool_data(request.user):
-                messages.error(request, "Only administrators can wipe an entire group.")
+                messages.error(request, _("Only administrators can wipe an entire group."))
                 return redirect("dm_code_rows", group=group)
             try:
                 code_db.wipe_group(group)
@@ -589,9 +622,15 @@ def dm_code_rows(request, group):
                 FeatureValue.objects.filter(group=group).delete()
                 GroupCodeConfig.objects.filter(group=group).delete()
                 _clear_caches()
-                messages.success(request, f"All data for '{group}' was deleted.")
+                messages.success(
+                    request,
+                    _("All data for '%(group)s' was deleted.") % {"group": group},
+                )
             except Exception as exc:
-                messages.error(request, f"Could not wipe group: {exc}")
+                messages.error(
+                    request,
+                    _("Could not wipe group: %(exc)s") % {"exc": exc},
+                )
             return redirect("dm_home")
 
     meta = get_object_or_404(CodeTable, group=group)
@@ -670,7 +709,10 @@ def dm_price_lists(request):
                 defaults={"currency": request.POST.get("currency") or "rial",
                           "note": request.POST.get("note") or "",
                           "created_by": request.user})
-            messages.success(request, f"Price list '{name}' is ready.")
+            messages.success(
+                request,
+                _("Price list '%(name)s' is ready.") % {"name": name},
+            )
         return redirect("dm_price_lists")
     lists = PriceList.objects.all()
     for pl in lists:
@@ -687,7 +729,7 @@ def dm_price_upload(request, pk):
             columns, rows = _read_table(temp_path)
             os.remove(temp_path)
         except Exception as exc:
-            messages.error(request, f"Could not read the file: {exc}")
+            messages.error(request, _("Could not read the file: %(exc)s") % {"exc": exc})
             return redirect("dm_price_upload", pk=pk)
         # Expect two columns: code, price (header names are flexible).
         added = 0
@@ -706,7 +748,11 @@ def dm_price_upload(request, pk):
                 CodePrice.objects.update_or_create(
                     price_list=price_list, code=code, defaults={"price": price})
                 added += 1
-        messages.success(request, f"Updated {added:,} prices in '{price_list.name}'.")
+        messages.success(
+            request,
+            _("Updated %(added)s prices in '%(name)s'.")
+            % {"added": f"{added:,}", "name": price_list.name},
+        )
         return redirect("dm_price_upload", pk=pk)
     sample = price_list.prices.all()[:50]
     return render(request, "itemcoder/data_admin/price_upload.html",
@@ -727,9 +773,16 @@ def dm_features(request, group):
     if request.method == "POST" and request.POST.get("action") == "seed":
         try:
             n = item_builder.seed_group_from_file(group, force=bool(request.POST.get("force")))
-            messages.success(request, f"Loaded {n} features for '{group}' from the schema file.")
+            messages.success(
+                request,
+                _("Loaded %(n)s features for '%(group)s' from the schema file.")
+                % {"n": n, "group": group},
+            )
         except Exception as exc:
-            messages.error(request, f"Could not load schema: {exc}")
+            messages.error(
+                request,
+                _("Could not load schema: %(exc)s") % {"exc": exc},
+            )
         return redirect("dm_features", group=group)
 
     if request.method == "POST" and request.POST.get("action") == "toggle_small":
@@ -749,13 +802,16 @@ def dm_features(request, group):
         # Add a new SUB feature: appends a column to the group's table.
         title = (request.POST.get("title") or "").strip()
         if not title:
-            messages.error(request, "Feature name is required.")
+            messages.error(request, _("Feature name is required."))
         else:
             try:
                 from . import code_db
                 name, _nm = item_builder.clean_header(title)
                 if GroupFeature.objects.filter(group=group, name=name).exists():
-                    messages.error(request, f"A feature named '{name}' already exists.")
+                    messages.error(
+                        request,
+                        _("A feature named '%(name)s' already exists.") % {"name": name},
+                    )
                 else:
                     col_idx = code_db.add_column(group, title) if code_db.has_db(group) else -1
                     pos = (GroupFeature.objects.filter(group=group)
@@ -771,9 +827,15 @@ def dm_features(request, group):
                         meta.columns = code_db.column_names(group)
                         meta.save(update_fields=["columns", "updated_at"])
                     _clear_caches()
-                    messages.success(request, f"Added sub feature '{name}'.")
+                    messages.success(
+                        request,
+                        _("Added sub feature '%(name)s'.") % {"name": name},
+                    )
             except Exception as exc:
-                messages.error(request, f"Could not add feature: {exc}")
+                messages.error(
+                    request,
+                    _("Could not add feature: %(exc)s") % {"exc": exc},
+                )
         return redirect("dm_features", group=group)
 
     _ensure_features(group)
@@ -805,16 +867,20 @@ def dm_feature_values(request, group, feature):
             relations = {o: request.POST.getlist("rel_" + o) for o in others}
             try:
                 code = item_builder.add_value_with_relations(group, feature, value, relations)
-                messages.success(request, f"Added '{value}' = {code} and linked it in rules.json.")
+                messages.success(
+                    request,
+                    _("Added '%(value)s' = %(code)s and linked it in rules.json.")
+                    % {"value": value, "code": code},
+                )
             except Exception as exc:
                 messages.error(request, str(exc))
         elif action == "delete":
             if not can_delete_tool_data(request.user):
-                messages.error(request, "Only administrators can remove feature values.")
+                messages.error(request, _("Only administrators can remove feature values."))
                 return redirect("dm_feature_values", group=group, feature=feature)
             FeatureValue.objects.filter(group=group, feature=feature,
                                         id=request.POST.get("id")).delete()
-            messages.success(request, "Value removed.")
+            messages.success(request, _("Value removed."))
         return redirect("dm_feature_values", group=group, feature=feature)
 
     values = FeatureValue.objects.filter(group=group, feature=feature).order_by("code", "value")
@@ -1176,25 +1242,39 @@ def dm_rules_upload(request, group):
         return redirect("dm_features", group=group)
     f = request.FILES.get("rules_file")
     if not f:
-        messages.error(request, "Please choose a rules JSON file to upload.")
+        messages.error(request, _("Please choose a rules JSON file to upload."))
         return redirect("dm_features", group=group)
     try:
         obj = json.loads(f.read().decode("utf-8"))
     except Exception:
-        messages.error(request, "That file is not valid JSON.")
+        messages.error(request, _("That file is not valid JSON."))
         return redirect("dm_features", group=group)
+    # item_builder is imported per view in this module (it pulls in the schema
+    # loaders), and this pair of views was missing it: the NameError landed in
+    # the except below and was reported as a bad rules file while the rules were
+    # never replaced.
+    from . import item_builder
     try:
         item_builder.replace_rules_from_obj(group, obj)
         _clear_caches()
-        messages.success(request, f"Rules for '{group}' were replaced from the uploaded file.")
+        messages.success(
+            request,
+            _("Rules for '%(group)s' were replaced from the uploaded file.") % {"group": group},
+        )
     except Exception as exc:
-        messages.error(request, f"Could not apply the rules file: {exc}")
+        messages.error(
+            request,
+            _("Could not apply the rules file: %(exc)s") % {"exc": exc},
+        )
     return redirect("dm_features", group=group)
 
 
 @group_data_access_required
 def dm_rules_download(request, group):
     from django.http import JsonResponse
+    # Function-local like every other item_builder user in this module; without
+    # it the Download button on the rules card raised NameError as a plain 500.
+    from . import item_builder
     group = group.lower()
     obj = item_builder.rules_export_obj(group)
     resp = JsonResponse(obj, json_dumps_params={"ensure_ascii": False, "indent": 1})
@@ -1228,19 +1308,25 @@ def dm_offer_upload(request, group):
         return redirect("dm_offer", group=group)
     f = request.FILES.get("offer_file")
     if not f:
-        messages.error(request, "Please choose an offer JSON file to upload.")
+        messages.error(request, _("Please choose an offer JSON file to upload."))
         return redirect("dm_offer", group=group)
     try:
         obj = json.loads(f.read().decode("utf-8"))
     except Exception:
-        messages.error(request, "That file is not valid JSON.")
+        messages.error(request, _("That file is not valid JSON."))
         return redirect("dm_offer", group=group)
     try:
         offer_builder.replace_offer_from_obj(group, obj)
         _clear_caches()
-        messages.success(request, f"Offer for '{group}' was replaced from the uploaded file.")
+        messages.success(
+            request,
+            _("Offer for '%(group)s' was replaced from the uploaded file.") % {"group": group},
+        )
     except Exception as exc:
-        messages.error(request, f"Could not apply the offer file: {exc}")
+        messages.error(
+            request,
+            _("Could not apply the offer file: %(exc)s") % {"exc": exc},
+        )
     return redirect("dm_offer", group=group)
 
 

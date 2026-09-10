@@ -1,14 +1,60 @@
-"""Screens for the people directory (administrators only)."""
+"""Screens for the people directory (administrators only).
+
+Four groups of views live here. They are a map of WHAT is here, not of where it
+sits: the file has been appended to over time, so several views are nowhere near
+the group they belong to (``person_toggle_status`` sits well below the shift and
+heartbeat views, and ``person_reset_password`` sits inside the seats span). Go
+by name, not by line number.
+
+* THE DIRECTORY — ``person_list`` / ``person_create`` / ``person_detail`` /
+  ``person_edit`` / ``person_toggle_status``. Plain CRUD over ``Person``,
+  rendered from the card spec in ``people.spec`` via ``people.forms``.
+* THE SHIFT PAGE — ``person_shift`` and ``person_shift_month`` draw one
+  employee's Jalali year and month of worked hours. They compute nothing
+  themselves; every figure comes from ``people.shift_hours``. NOT
+  administrator-only, unlike the rest of this file — gated by
+  ``admin_or_self_required`` (defined just below ``admin_required``), which
+  lets an administrator open anyone's copy exactly as before AND lets a
+  person open their own. The "Daily hours" edit card is still
+  administrator-only within that shared page — see the template's own guard
+  and ``person_shift``'s own docstring.
+* THE HEARTBEAT — ``shift_presence_ping`` is the endpoint the signed-in
+  person's open tab POSTs to every few seconds, and ``shift_ended`` is the
+  goodbye screen the middleware sends them to when the shift closes. Neither is
+  administrator-only, so neither carries the admin gate the rest of this file
+  uses, but they are not gated alike: the ping is ``@login_required`` (it credits
+  presence for whoever is signed in), while ``shift_ended`` is deliberately
+  unauthenticated. ``WorkShiftMiddleware`` calls ``logout()`` and only then
+  redirects there, so the request that arrives is always anonymous — requiring a
+  login would bounce the user past the very screen the redirect exists to show.
+  Leaving it open costs nothing: it reads no session and no database, only a
+  display name off the query string, which it clips before rendering.
+* SEATS — ``person_seats``, the POST-only actions around it (``seat_assign``,
+  ``seat_release``, ``seat_claim``, ``role_release``, ``role_translate``,
+  ``role_return``) and ``person_reset_password`` are the administrator's console
+  for the seat model. They validate and redirect; every state change is made by
+  ``people.seats``, which is also where that model is explained. The seat's own
+  lifecycle screens — ``seat_close`` and ``seat_delegate`` — live in
+  ``accounts.views`` instead, because they act on the seat account rather than
+  on the person holding it.
+
+``activate_role`` is the odd one out and belongs to no group: it is what the
+sidebar role switcher posts to when a person with several ``PersonRole`` rows
+changes which one they are working as. See ``people.role_nav``.
+"""
 import logging
+from functools import wraps
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
+from django.contrib.auth.views import redirect_to_login
 from django.core.paginator import Paginator
 from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
 from . import spec
@@ -17,7 +63,7 @@ from .forms import PersonForm, PersonSearchForm
 from .models import Person, PersonAccount, PersonRole
 from .seats import (
     SeatError, assign_seat, available_seats, ensure_person_login, primary_login,
-    reconcile_person_accounts, release_role, release_seat, roles_of, seats_of,
+    reconcile_person_accounts, release_seat, roles_of, seats_of,
     sync_person_users_active,
 )
 
@@ -32,6 +78,87 @@ def _is_admin(user) -> bool:
 
 
 admin_required = user_passes_test(_is_admin, login_url="accounts:login")
+
+
+def admin_or_impersonating_admin_required(view):
+    """``admin_required``, but judged on whoever is really at the keyboard.
+
+    During an impersonation ``request.user`` is deliberately the employee being
+    stood in for, so a plain ``admin_required`` refuses the administrator who
+    started it. That is correct for anything that WRITES — an edit made in that
+    state would be recorded against the employee, not against the administrator
+    who actually made it — but it broke the one page that has to stay reachable:
+    the people list is where the "Log in as" control lives, so being locked out
+    of it mid-impersonation meant an administrator could never switch from one
+    person to another. That is the 403 the owner hit after pressing Back.
+
+    Nobody new is admitted. The test is the same ``_is_admin``, applied to the
+    administrator named in the session and re-read from the database on every
+    request, so an account that has since been deactivated or demoted cannot go
+    on using a session it opened while it still could. An ordinary request —
+    no impersonation in progress — still stands or falls on ``request.user``
+    exactly as before.
+
+    Deliberately applied to the read-only list ONLY. Every mutating people view
+    keeps ``admin_required``: an administrator who wants to change a person
+    should return to their own account first, so the audit trail names them.
+    """
+
+    @wraps(view)
+    def _wrapped(request, *args, **kwargs):
+        from accounts.views import _impersonation_actor
+
+        actor = _impersonation_actor(request)
+        if actor is None or not actor.is_active or not _is_admin(actor):
+            return redirect_to_login(request.get_full_path(), reverse("accounts:login"))
+        return view(request, *args, **kwargs)
+
+    return _wrapped
+
+
+def admin_or_self_required(view):
+    """Admin viewing anyone's shift calendar, OR a person viewing their OWN.
+
+    Built for ``person_shift`` / ``person_shift_month`` — the two views the
+    owner asked to open up so a person can see their own worked/planned hours
+    without becoming administrator-only. Every OTHER shift-adjacent view (the
+    edit POST inside ``person_shift`` itself is guarded separately, right
+    where it branches — see that view's own comment) stays exactly as
+    strict as ``admin_required`` already was; this decorator exists for
+    these two GET-first pages alone, not as a general-purpose replacement for
+    ``admin_required`` elsewhere in this file.
+
+    THE TEST, IN ORDER: an administrator (``_is_admin``, re-read off the
+    database on every request, same as ``admin_required`` itself) is let
+    through unconditionally — an admin looking at their OWN record is still
+    an admin looking at a shift page, nothing about that case is special.
+    Failing that, the requester is let through only when the URL's own
+    ``pk`` names THEIR OWN linked ``Person`` (``work_shift.person_for_user``
+    — the same lookup ``my_tasks`` and the work-shift middleware already use
+    to answer "who is this login"), so a person can open their own two pages
+    and no one else's. Anyone else — no admin, no matching person — gets the
+    same login-redirect ``admin_required`` would have given them; this is
+    strictly a WIDENING of who gets through, never a narrowing.
+
+    A GENERIC HELPER, NOT A ONE-OFF: reads ``pk`` out of the view's own
+    keyword arguments (Django hands named URL converters through as kwargs)
+    rather than assuming a fixed argument position, so it applies unchanged
+    to both ``person_shift(request, pk)`` and
+    ``person_shift_month(request, pk, year, month)``.
+    """
+
+    @wraps(view)
+    def _wrapped(request, *args, **kwargs):
+        if _is_admin(request.user):
+            return view(request, *args, **kwargs)
+        from .work_shift import person_for_user
+
+        person = person_for_user(request.user)
+        if person is not None and person.pk == kwargs.get("pk"):
+            return view(request, *args, **kwargs)
+        return redirect_to_login(request.get_full_path(), reverse("accounts:login"))
+
+    return _wrapped
 
 
 def _with_seats(queryset):
@@ -71,7 +198,7 @@ def _search(queryset, term: str):
 
 
 @login_required
-@admin_required
+@admin_or_impersonating_admin_required
 def person_list(request):
     """The people list, and the same list again as a fragment.
 
@@ -133,8 +260,13 @@ def person_create(request):
             person = form.save(actor=request.user, post=request.POST)
             messages.success(
                 request,
-                f"{person.display_name} ثبت شد. کد تفصیلی: {person.detail_code} — "
-                f"نام کاربری: {person.username}")
+                _("%(name)s was registered. Detail code: %(code)s — username: %(username)s")
+                % {
+                    "name": person.display_name,
+                    "code": person.detail_code,
+                    "username": person.username,
+                },
+            )
             return redirect("people:person_detail", pk=person.pk)
     else:
         form = PersonForm()
@@ -165,7 +297,10 @@ def person_edit(request, pk):
         form = PersonForm(request.POST, instance=person)
         if form.is_valid():
             form.save(actor=request.user, post=request.POST)
-            messages.success(request, f"اطلاعات {person.display_name} ذخیره شد.")
+            messages.success(
+                request,
+                _("%(name)s's information was saved.") % {"name": person.display_name},
+            )
             return redirect("people:person_profile", pk=person.pk)
     else:
         form = PersonForm(instance=person)
@@ -175,19 +310,177 @@ def person_edit(request, pk):
     })
 
 
+def _reminder_day_counts_for_person(person):
+    """This person's own currently-open reminders, one query, bucketed by the
+    LOCAL Jalali calendar day each is due on.
+
+    ``marketing.models.Reminder`` HAS NO "OPEN" FLAG TO FILTER ON — this
+    round's own close-by-report flow means a reminder that has been dealt
+    with is a report row now, not a ``Reminder`` row at all (see that
+    model's own docstring and ``marketing/reminders.py::close_with_report``).
+    So "open" here is simply "the row still exists": every ``Reminder`` this
+    person's login owns, no ``state`` filter needed or possible.
+
+    ``owner`` IS A ``User``, NOT A ``Person`` (see ``Reminder.owner``) — the
+    login that actually created the row, not the personnel record it belongs
+    to on this page. ``PersonAccount`` is the one link between the two (a
+    person has AT MOST ONE login ``User``, per that model's own docstring),
+    so this reads it the same direction ``people.seats.primary_login``
+    already does, rather than inventing a second notion of "this person's
+    account".
+
+    ONE QUERY FOR THE WHOLE PAGE, NOT ONE PER CARD — a person's own reminder
+    list is small (it is a private to-do list, not a company-wide table), so
+    fetching every ``due_at`` this login owns and bucketing it here in Python
+    costs one round trip regardless of how many year/month/day cards the two
+    templates go on to render, instead of a query per card that would grow
+    with the calendar. ``person_shift``/``person_shift_month`` each call this
+    exactly once and then look their own cards up in the ``Counter`` it
+    returns — see ``_reminder_count_for_year``/``_reminder_count_for_month``
+    just below, and the per-day lookup inline in ``person_shift_month``.
+    """
+    from collections import Counter
+
+    from django.utils import timezone as dj_timezone
+
+    from cases.jalali import gregorian_to_jalali
+    from marketing.models import Reminder
+
+    from .models import PersonAccount
+    from .work_shift import _tz
+
+    counts = Counter()
+    user_ids = list(
+        PersonAccount.objects.filter(person=person).values_list("user_id", flat=True)
+    )
+    if not user_ids:
+        # No login at all (a personnel record with no seat) means no
+        # ``Reminder`` row could ever name this person as ``owner`` — every
+        # card's count is genuinely zero, not merely unknown.
+        return counts
+    tz = _tz()
+    due_ats = Reminder.objects.filter(owner_id__in=user_ids).values_list("due_at", flat=True)
+    for due_at in due_ats:
+        local = dj_timezone.localtime(due_at, tz)
+        jy, jm, jd = gregorian_to_jalali(local.year, local.month, local.day)
+        counts[f"{jy:04d}-{jm:02d}-{jd:02d}"] += 1
+    return counts
+
+
+def _reminder_count_for_year(day_counts, jy: int) -> int:
+    """Sum of ``day_counts`` (see ``_reminder_day_counts_for_person``) for
+    every day of one Jalali year — a prefix sum over its own keys, never a
+    second query."""
+    prefix = f"{jy:04d}-"
+    return sum(v for k, v in day_counts.items() if k.startswith(prefix))
+
+
+def _reminder_count_for_month(day_counts, jy: int, jm: int) -> int:
+    """The same prefix sum as ``_reminder_count_for_year``, narrowed to one
+    Jalali month."""
+    prefix = f"{jy:04d}-{jm:02d}-"
+    return sum(v for k, v in day_counts.items() if k.startswith(prefix))
+
+
+def _my_tasks_period_url(jy: int, jm: int | None = None, jd: int | None = None) -> str:
+    """The "My Tasks" Reminders-tab URL, pre-filtered to one Jalali period
+    (a year, a month, or a single day — whichever of ``jm``/``jd`` is given).
+
+    REUSES THE SAME DATE-RANGE FILTER THAT TAB ALREADY DRAWS — not a second
+    filtering mechanism. ``marketing/templates/marketing/_my_tasks_reminders.html``
+    already carries a From/To pair of ``data-jalali-datetime`` inputs wired
+    through ``static/js/ui.js``'s own ``data-filter-table`` pass
+    (``data-filter-colname="Due"``, ``gte``/``lte``) — the exact mechanism
+    ``cases/templates/cases/archive.html`` already drives from its own
+    ``?ffrom=``/``?fto=`` query parameters (see ``cases/views.py``'s
+    ``f_active``). ``marketing/views.py::my_tasks`` now reads this page's
+    ``?from=``/``?to=`` the same way and hands them straight back onto those
+    two inputs' own ``value=`` attribute — ``ui.js`` runs its filter pass on
+    page load regardless of whether a value arrived by typing or by markup,
+    so no new JavaScript and no server-side row filtering was written for
+    this: the browser filters exactly as it would if the viewer had typed
+    these two dates in by hand. ``?tab=reminders`` selects the tab through
+    the identical ``?tab=`` mechanism ``marketing/static/marketing/js/
+    directory.js`` already reads (shared with the company page's own tab
+    strip).
+
+    VALUES ARE PLAIN JALALI STRINGS, never converted to Gregorian — the
+    filter compares the Due column's own printed text (also Jalali,
+    ``r.due_at|jalali:"Y.m.d H:i"``) against these two, so handing it
+    anything else would silently compare two different calendars. A whole
+    day/month/year is expressed as its FIRST moment through its LAST
+    (00:00 through 23:59); the client-side comparison only ever reads the
+    date part of each side (see ``ui.js``'s own ``dateKey``), so the exact
+    minute chosen here matters only for what a reader would see if they
+    opened the date picker themselves.
+    """
+    from urllib.parse import urlencode
+
+    from . import shift_hours as sh
+
+    if jd is not None:
+        frm = f"{jy:04d}-{jm:02d}-{jd:02d} 00:00"
+        to = f"{jy:04d}-{jm:02d}-{jd:02d} 23:59"
+    elif jm is not None:
+        length = sh.jalali_month_length(jy, jm)
+        frm = f"{jy:04d}-{jm:02d}-01 00:00"
+        to = f"{jy:04d}-{jm:02d}-{length:02d} 23:59"
+    else:
+        length = sh.jalali_month_length(jy, 12)
+        frm = f"{jy:04d}-01-01 00:00"
+        to = f"{jy:04d}-12-{length:02d} 23:59"
+    qs = urlencode({"tab": "reminders", "from": frm, "to": to})
+    return f"{reverse('marketing:my_tasks')}?{qs}"
+
+
 @login_required
-@admin_required
+@admin_or_self_required
 def person_shift(request, pk):
-    """Edit daily work-shift hours + monthly/yearly hour reports."""
+    """Edit daily work-shift hours + monthly/yearly hour reports.
+
+    OPENED UP BEYOND ADMINISTRATORS BY ``admin_or_self_required`` (see that
+    decorator's own docstring) — a person can now reach their OWN copy of
+    this page, but with the "Daily hours" edit card hidden entirely, not
+    merely disabled: see ``is_admin`` in the returned context and the
+    template's own guard around ``.ppl-shift-card``. ``viewer_is_self``
+    (whether the URL's ``pk`` names the SIGNED-IN login's own linked
+    ``Person`` — computed once here, not re-derived per card) is what the
+    reminder-count badges below use to decide whether their own click can
+    safely land on "My Tasks": that page always shows ``request.user``'s OWN
+    reminders, so a badge is only ever made a link when THIS is that same
+    person; an administrator looking at somebody else's calendar sees the
+    right OTHER person's count (see ``_reminder_day_counts_for_person``) but
+    the badge stays a plain, unlinked count for them, never a link that
+    would silently open the admin's own tasks instead — see the template.
+    """
     from datetime import datetime as dt
     from datetime import time as dtime
 
     from cases.jalali import gregorian_to_jalali
 
     from . import shift_hours as sh
-    from .work_shift import shift_window
+    from .work_shift import person_for_user, shift_window
 
     person = get_object_or_404(Person, pk=pk)
+    # Who is actually looking, and at whose record — see this view's own
+    # docstring and ``admin_or_self_required``. Computed once, up front,
+    # because both the template guard around "Daily hours" and every
+    # reminder-count badge below need the same answer.
+    is_admin = _is_admin(request.user)
+    viewer_person = person_for_user(request.user)
+    viewer_is_self = bool(viewer_person and viewer_person.pk == person.pk)
+
+    if request.method == "POST" and not is_admin:
+        # The "Daily hours" card that posts here is hidden from a self-viewer
+        # entirely (see the template), but hiding a button is a display
+        # choice, not a permission check — this is the actual gate: a
+        # signed-in person who reaches this URL by hand (or replays an old
+        # form) still cannot change their OWN shift definition. Only an
+        # administrator may ever submit this form; a person let in by
+        # ``admin_or_self_required`` for the read-only view below gets
+        # bounced straight back to that read-only page instead.
+        return redirect("people:person_shift", pk=person.pk)
+
     start, end = shift_window(person)
     sh.prune_empty_past_snapshots(person)
     sh.freeze_past_months(person)
@@ -198,7 +491,7 @@ def person_shift(request, pk):
     minute_choices = [f"{i:02d}" for i in range(60)]
 
     now = sh.now_local()
-    jy, jm, _ = gregorian_to_jalali(now.year, now.month, now.day)
+    jy, jm, _jd = gregorian_to_jalali(now.year, now.month, now.day)
     try:
         view_year = int(request.GET.get("year") or jy)
     except (TypeError, ValueError):
@@ -213,6 +506,27 @@ def person_shift(request, pk):
     )
     for c in year_cards:
         c["is_selected"] = c["jalali_year"] == view_year
+
+    # Open-reminder badges — TASK 3 of this round. One query for the whole
+    # page (see ``_reminder_day_counts_for_person``'s own docstring for why),
+    # then a prefix sum per card. ``reminder_url`` is only ever set when
+    # ``viewer_is_self`` — an admin looking at someone ELSE's calendar still
+    # gets that other person's own correct count (never the admin's own),
+    # but as a plain unlinked badge, because "My Tasks" has no way yet to
+    # open anyone's list but the signed-in login's own; see this view's own
+    # docstring and the template.
+    reminder_day_counts = _reminder_day_counts_for_person(person)
+    for c in year_cards:
+        c["reminder_count"] = _reminder_count_for_year(reminder_day_counts, c["jalali_year"])
+        c["reminder_url"] = (
+            _my_tasks_period_url(c["jalali_year"]) if viewer_is_self else None
+        )
+    for c in month_cards:
+        c["reminder_count"] = _reminder_count_for_month(
+            reminder_day_counts, view_year, c["month"])
+        c["reminder_url"] = (
+            _my_tasks_period_url(view_year, c["month"]) if viewer_is_self else None
+        )
 
     tracking_start = sh.get_tracking_start()
     ty, tm, td = gregorian_to_jalali(
@@ -245,8 +559,10 @@ def person_shift(request, pk):
             "year": year,
             "year_cards": year_cards,
             "report_year": view_year,
-            "tracking_label": f"{td} {sh.month_name_en(tm)} {ty}",
+            "tracking_label": f"{td} {sh.month_name(tm)} {ty}",
             "hours_per_day": round(sh.shift_minutes(s, e) / 60, 2),
+            "is_admin": is_admin,
+            "viewer_is_self": viewer_is_self,
         }
 
     def _parse_posted_time(prefix: str):
@@ -282,10 +598,10 @@ def person_shift(request, pk):
             new_float = _parse_mmss("float_time", "15", "0")
             new_grace = _parse_mmss("reconnect_time", "10", "0")
         except ValueError:
-            messages.error(request, "Please enter valid times (HH:MM / MM:SS).")
+            messages.error(request, _("Please enter valid times (HH:MM / MM:SS)."))
             return redirect("people:person_shift", pk=person.pk)
         if new_start == new_end:
-            messages.error(request, "Start and end times must be different.")
+            messages.error(request, _("Start and end times must be different."))
             return redirect("people:person_shift", pk=person.pk)
 
         if step != "2":
@@ -304,11 +620,18 @@ def person_shift(request, pk):
         )
         messages.success(
             request,
-            f"Work shift for {person.display_name} saved "
-            f"({new_start.strftime('%H:%M')}–{new_end.strftime('%H:%M')}, "
-            f"floating time {sh.format_float_mmss(new_float)}, "
-            f"reconnect time {sh.format_float_mmss(new_grace)}). "
-            f"Only the current month's planned hours were updated.",
+            _(
+                "Work shift for %(name)s saved (%(start)s–%(end)s, floating time "
+                "%(float)s, reconnect time %(reconnect)s). Only the current month's "
+                "planned hours were updated."
+            )
+            % {
+                "name": person.display_name,
+                "start": new_start.strftime("%H:%M"),
+                "end": new_end.strftime("%H:%M"),
+                "float": sh.format_float_mmss(new_float),
+                "reconnect": sh.format_float_mmss(new_grace),
+            },
         )
         return redirect("people:person_shift", pk=person.pk)
 
@@ -320,35 +643,63 @@ def person_shift(request, pk):
 
 
 @login_required
-@admin_required
+@admin_or_self_required
 def person_shift_month(request, pk, year, month):
-    """Day cards for one Jalali month."""
+    """Day cards for one Jalali month.
+
+    OPENED UP THE SAME WAY ``person_shift`` WAS — see
+    ``admin_or_self_required``'s own docstring. This page carries no edit
+    form of its own (it is drill-down only), so unlike its parent there is
+    no POST branch to additionally guard: read access is the entire
+    permission surface here.
+    """
     from cases.jalali import gregorian_to_jalali
 
     from . import shift_hours as sh
+    from .work_shift import person_for_user
 
     person = get_object_or_404(Person, pk=pk)
     month = int(month)
     year = int(year)
     if month < 1 or month > 12:
-        messages.error(request, "Invalid month.")
+        messages.error(request, _("Invalid month."))
         return redirect("people:person_shift", pk=person.pk)
+
+    # Same "who is looking, at whose record" pair ``person_shift`` computes —
+    # see that view's own docstring. This page has no admin-only card to
+    # hide, so ``is_admin`` is not needed here, only ``viewer_is_self`` for
+    # the reminder-count badges' own link-or-not decision (see the template
+    # and ``_my_tasks_period_url``).
+    viewer_person = person_for_user(request.user)
+    viewer_is_self = bool(viewer_person and viewer_person.pk == person.pk)
 
     sh.freeze_past_months(person)
     days = sh.month_day_details(person, year, month)
     now = sh.now_local()
-    cy, cm, _ = gregorian_to_jalali(now.year, now.month, now.day)
+    cy, cm, _cd = gregorian_to_jalali(now.year, now.month, now.day)
     cards = sh.year_month_cards(person, year)
     month_card = next((c for c in cards if c["month"] == month), None)
+
+    # Open-reminder badges, one per day card — see
+    # ``_reminder_day_counts_for_person``'s own docstring for why this is one
+    # query for the whole month rather than one per day.
+    reminder_day_counts = _reminder_day_counts_for_person(person)
+    for d in days:
+        key = f"{year:04d}-{month:02d}-{d['jalali_day']:02d}"
+        d["reminder_count"] = reminder_day_counts.get(key, 0)
+        d["reminder_url"] = (
+            _my_tasks_period_url(year, month, d["jalali_day"]) if viewer_is_self else None
+        )
 
     return render(request, "people/person_shift_month.html", {
         "person": person,
         "jalali_year": year,
         "jalali_month": month,
-        "month_name": sh.month_name_en(month),
+        "month_name": sh.month_name(month),
         "days": days,
         "month_card": month_card,
         "is_current_month": (year, month) == (cy, cm),
+        "viewer_is_self": viewer_is_self,
     })
 
 @login_required
@@ -443,10 +794,16 @@ def person_toggle_status(request, pk):
     person = get_object_or_404(Person, pk=pk)
     if person.is_active:
         person.status = PersonStatus.DEPARTED
-        messages.success(request, f"{person.display_name} «خارج‌شده» علامت خورد.")
+        messages.success(
+            request,
+            _("%(name)s marked «departed».") % {"name": person.display_name},
+        )
     else:
         person.status = PersonStatus.ACTIVE
-        messages.success(request, f"{person.display_name} دوباره «شاغل» شد.")
+        messages.success(
+            request,
+            _("%(name)s marked «active» again.") % {"name": person.display_name},
+        )
     person.save(update_fields=["status", "updated_at"])
     sync_person_users_active(person)
     return redirect(_back_to_list(request))
@@ -489,7 +846,16 @@ def activate_role(request, role_id):
     safe_activate_role(request.user, role)
     request.session["active_role_id"] = role.pk
     nxt = (request.POST.get("next") or request.GET.get("next") or "").strip()
-    if nxt.startswith("/") and not nxt.startswith("//"):
+    # "One slash but not two" reads as a safe relative path and is not: browsers
+    # treat "/\host" as "//host" and leave the site, which turns this link into a
+    # way of landing a signed-in colleague on somebody else's login page. Django's
+    # helper re-tests the URL with the backslashes swapped, and the accounts app
+    # already relies on it for exactly this reason.
+    if nxt and url_has_allowed_host_and_scheme(
+        nxt,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
         return redirect(nxt)
     return redirect("cases:inbox")
 
@@ -561,7 +927,11 @@ def person_seats(request, pk):
         if p.is_general_manager:
             title = "General Manager"
         else:
-            parts = [x for x in [Unit.LABELS.get(p.unit, ""), Role.LABELS.get(p.role, "")] if x]
+            # str(...): Unit.LABELS / Role.LABELS now hold gettext_lazy proxies
+            # (accounts.constants.Unit/Role.CHOICES) — the join() below needs
+            # real str instances, same reason accounts.models.Profile's own
+            # unit_label/role_label properties resolve eagerly.
+            parts = [x for x in [str(Unit.LABELS.get(p.unit, "")), str(Role.LABELS.get(p.role, ""))] if x]
             if p.supply_kind:
                 sk = SupplyKind.LABELS.get(p.supply_kind, p.supply_kind)
                 if sk:
@@ -610,7 +980,7 @@ def person_reset_password(request, pk):
         messages.error(request, str(exc))
         return redirect("people:person_seats", pk=person.pk)
     if login_user is None:
-        messages.error(request, "This person has no login username yet.")
+        messages.error(request, _("This person has no login username yet."))
         return redirect("people:person_seats", pk=person.pk)
 
     generated = generate_temp_password()
@@ -626,7 +996,10 @@ def person_reset_password(request, pk):
         "password": generated,
         "label": f"Password reset for {person.display_name}",
     }
-    messages.success(request, f"Password reset for “{person.display_name}”.")
+    messages.success(
+        request,
+        _("Password reset for “%(name)s”.") % {"name": person.display_name},
+    )
     return redirect("people:person_list")
 
 
@@ -638,7 +1011,7 @@ def seat_assign(request, pk):
     person = get_object_or_404(Person, pk=pk)
     wanted = request.POST.getlist("seats")
     if not wanted:
-        messages.warning(request, "No seat was selected.")
+        messages.warning(request, _("No seat was selected."))
         return redirect("people:person_seats", pk=person.pk)
 
     chosen = list(available_seats().filter(pk__in=wanted))
@@ -656,14 +1029,15 @@ def seat_assign(request, pk):
     if done:
         messages.success(
             request,
-            f"{len(done)} seat(s) assigned to {person.display_name}: " + ", ".join(done),
+            _("%(n)s seat(s) assigned to %(name)s: %(seats)s")
+            % {"n": len(done), "name": person.display_name, "seats": ", ".join(done)},
         )
     for reason in failed:
         messages.error(request, reason)
     if missing > 0:
         messages.warning(
             request,
-            f"{missing} seat(s) were taken by someone else and were skipped.",
+            _("%(n)s seat(s) were taken by someone else and were skipped.") % {"n": missing},
         )
     return redirect("people:person_seats", pk=person.pk)
 
@@ -683,7 +1057,8 @@ def seat_release(request, pk, seat_id):
     else:
         messages.success(
             request,
-            f"Login released from {person.display_name}; account renamed to «{freed}».",
+            _("Login released from %(name)s; account renamed to «%(code)s».")
+            % {"name": person.display_name, "code": freed},
         )
     return redirect("people:person_seats", pk=person.pk)
 
@@ -703,7 +1078,8 @@ def role_release(request, pk, role_id):
         if tasks > 0 and role.source_user_id:
             messages.warning(
                 request,
-                f"Cannot close «{title}» while {tasks} open task(s) remain — Delegate first.",
+                _("Cannot close «%(title)s» while %(n)s open task(s) remain — Delegate first.")
+                % {"title": title, "n": tasks},
             )
             return redirect("accounts:seat_delegate", pk=role.source_user_id)
         freed = close_seat(role, actor=request.user)
@@ -713,10 +1089,15 @@ def role_release(request, pk, role_id):
         if freed:
             messages.success(
                 request,
-                f"Role «{title}» closed; seat freed as «{freed}».",
+                _("Role «%(title)s» closed; seat freed as «%(code)s».")
+                % {"title": title, "code": freed},
             )
         else:
-            messages.success(request, f"Role «{title}» closed for {person.display_name}.")
+            messages.success(
+                request,
+                _("Role «%(title)s» closed for %(name)s.")
+                % {"title": title, "name": person.display_name},
+            )
     return redirect("people:person_seats", pk=person.pk)
 
 
@@ -741,7 +1122,8 @@ def role_translate(request, pk, role_id):
         return redirect("people:person_seats", pk=person.pk)
     messages.success(
         request,
-        f"Role «{title}» translated to {to_person.display_name} (substitute).",
+        _("Role «%(title)s» translated to %(name)s (substitute).")
+        % {"title": title, "name": to_person.display_name},
     )
     return redirect("people:person_seats", pk=to_person.pk)
 
@@ -764,7 +1146,7 @@ def role_return(request, pk, role_id):
         return redirect("people:person_seats", pk=person.pk)
     messages.success(
         request,
-        f"Role «{title}» returned to {owner.display_name}.",
+        _("Role «%(title)s» returned to %(name)s.") % {"title": title, "name": owner.display_name},
     )
     return redirect("people:person_seats", pk=owner.pk)
 
@@ -779,7 +1161,7 @@ def seat_claim(request, pk):
     person = get_object_or_404(Person, pk=pk)
     seat_id = (request.POST.get("seat") or "").strip()
     if not seat_id.isdigit():
-        messages.error(request, "No seat selected.")
+        messages.error(request, _("No seat selected."))
         return redirect("people:person_seats", pk=person.pk)
     seat_user = get_object_or_404(User.objects.select_related("profile", "person_link"), pk=int(seat_id))
     link = getattr(seat_user, "person_link", None)
@@ -788,11 +1170,12 @@ def seat_claim(request, pk):
             assign_seat(person, seat_user, actor=request.user)
             messages.success(
                 request,
-                f"Seat «{seat_user.profile.seat_code or seat_user.username}» assigned.",
+                _("Seat «%(code)s» assigned.")
+                % {"code": seat_user.profile.seat_code or seat_user.username},
             )
         else:
             if link.person_id == person.pk:
-                messages.warning(request, "That seat already belongs to this person.")
+                messages.warning(request, _("That seat already belongs to this person."))
                 return redirect("people:person_seats", pk=person.pk)
             role = PersonRole.objects.filter(
                 person=link.person, source_user=seat_user,
@@ -803,7 +1186,8 @@ def seat_claim(request, pk):
             translate_role(role, person, actor=request.user)
             messages.success(
                 request,
-                f"Role «{title}» translated onto {person.display_name}.",
+                _("Role «%(title)s» translated onto %(name)s.")
+                % {"title": title, "name": person.display_name},
             )
     except SeatError as exc:
         messages.error(request, str(exc))

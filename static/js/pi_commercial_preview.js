@@ -65,10 +65,30 @@
   }
 
   function csrfToken() {
-    var m = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+    // base.html owns the one token source for the whole site; keep using it so
+    // this file cannot drift from it. The local reader stays as the fallback for
+    // the (test-only) case of this script running without base.html.
+    if (window.FTCsrf && window.FTCsrf.token) return window.FTCsrf.token();
+    var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
     if (m) return decodeURIComponent(m[1]);
     var inp = document.querySelector("input[name=csrfmiddlewaretoken]");
     return inp ? inp.value : "";
+  }
+
+  /*
+    Both calls below are JSON endpoints behind @login_required, and Django
+    answers an ended session with a 302 to the HTML sign-in page. Measured, with
+    no session: /cases/fx-rates/api/ and /cases/<pk>/transition/ both return
+    "302 -> text/html", which fetch() follows silently and hands back status 200
+    with an HTML body. Left to res.json() that is a SyntaxError, and the two
+    handlers here turned it into (a) the Confirm button silently disabling itself
+    with no reason given, and (b) a page reload that looked like a successful
+    save. window.FTJson names the case instead, so the user is told the session
+    ended rather than being left guessing at a priced screen.
+  */
+  function readJson(res) {
+    if (window.FTJson) return window.FTJson(res);
+    return res.json();
   }
 
   function activeWrap(panel) {
@@ -120,7 +140,12 @@
 
   function fxApiUrl(card) {
     var panel = card.querySelector(".pi-conv-panel");
-    return (panel && panel.getAttribute("data-fx-api")) || "/fx-rates/api/";
+    // The FX board lives at /cases/fx-rates/api/. The old fallback here was the
+    // bare "/fx-rates/api/", which is not a route in this project at all and
+    // answers 404 — measured — so any card that ever reached it would have failed
+    // with no rate and no explanation. The attribute is the real source; this is
+    // only what to use if a template ever forgets it.
+    return (panel && panel.getAttribute("data-fx-api")) || "/cases/fx-rates/api/";
   }
 
   function lockedFromOf(card) {
@@ -165,6 +190,68 @@
     }
   }
 
+  function computeBaseTotals(card) {
+    // Same DOM read as refreshCard()'s subtotal/service/VAT pass, but always
+    // at factor 1 (the version's own saved currency) — this feeds the
+    // multi-currency preview, which shows every board currency at once and
+    // must not depend on whatever the To-picker currently has selected.
+    var panel = card.closest(".tab-panel");
+    var table = visiblePiTable(panel);
+    var vatPct = toNumber(card.getAttribute("data-vat-percent") || "10");
+    var subtotal = 0;
+    var svcSum = 0;
+    if (table) {
+      table.querySelectorAll("td[data-col-key='TOTAL PRICE']").forEach(function (td) {
+        var tr = td.closest("tr");
+        if (tr && (tr.classList.contains("row-soft-deleted") || tr.classList.contains("row-unsuppliable"))) return;
+        var base = td.getAttribute("data-base-value");
+        if (base == null || base === "") { base = td.textContent; td.setAttribute("data-base-value", base); }
+        subtotal += toNumber(base);
+      });
+      table.querySelectorAll("tbody tr").forEach(function (tr) {
+        if (tr.classList.contains("row-soft-deleted") || tr.classList.contains("row-unsuppliable")) return;
+        var comment = (tr.getAttribute("data-svc-comment") || "").trim();
+        if (!comment || /^(nan|none|<na>|null)$/i.test(comment)) return;
+        var unit = toNumber(tr.getAttribute("data-svc-raw") || "");
+        var qty = toNumber(tr.getAttribute("data-svc-qty") || "") || 1;
+        svcSum += unit * qty;
+      });
+    }
+    return subtotal + subtotal * (vatPct / 100) + svcSum;
+  }
+
+  function renderMultiPreview(card, data) {
+    var body = card.querySelector(".pi-conv-multi-body");
+    if (!body) return;
+    var ext = card.getAttribute("data-external-currency") === "1";
+    var from = lockedFromOf(card);
+    var grand = computeBaseTotals(card);
+    // rial_price per code; Rial itself is the reference unit (price 1) and is
+    // never one of the FX board's own rate rows, only synthesised into units.
+    var rialPriceOf = { rial: 1 };
+    (data.rates || []).forEach(function (r) { rialPriceOf[r.code] = toNumber(r.rial_price); });
+    var fromRial = rialPriceOf[from];
+    body.innerHTML = "";
+    (data.units || []).forEach(function (u) {
+      if (u.code === from) return;
+      if (ext && u.code === "rial") return;
+      if (!fromRial || !rialPriceOf[u.code]) return;
+      // Same "src_rial / dst_rial" convention factorFor() already uses below.
+      var factor = fromRial / rialPriceOf[u.code];
+      var row = document.createElement("tr");
+      var nameCell = document.createElement("td");
+      var sym = u.symbol || u.code.toUpperCase();
+      if (sym === "﷼") sym = "Rial";
+      nameCell.textContent = sym + " — " + (u.name || u.code.toUpperCase());
+      var valCell = document.createElement("td");
+      valCell.style.fontVariantNumeric = "tabular-nums";
+      valCell.textContent = formatMoney(grand * factor, u.code, ext) + " " + unitLabel(u.code, ext);
+      row.appendChild(nameCell);
+      row.appendChild(valCell);
+      body.appendChild(row);
+    });
+  }
+
   function syncFxRate(card, done) {
     var staleEl = card.querySelector(".pi-fx-stale");
     var noteEl = card.querySelector(".pi-fx-rate-note");
@@ -196,12 +283,13 @@
     }
     var url = fxApiUrl(card) + "?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to);
     fetch(url, { credentials: "same-origin", headers: { "X-Requested-With": "XMLHttpRequest" } })
-      .then(function (r) { return r.json(); })
+      .then(readJson)
       .then(function (data) {
         if (!data || data.ok === false) throw new Error((data && data.error) || "FX lookup failed");
         fillUnitOptions(toSel, data.units, ext, to);
         lockFromSelect(card);
         card._fxStale = !!data.stale;
+        renderMultiPreview(card, data);
         if (saveBtn) saveBtn.disabled = !!data.stale || from === to || !data.convertible;
         if (data.convertible && data.rate != null && !data.stale) {
           setRateInputValue(rateInp, data.rate);
@@ -211,10 +299,21 @@
         if (typeof done === "function") done();
         else refreshCard(card);
       })
-      .catch(function () {
+      .catch(function (err) {
         card._fxStale = true;
         setRateInputValue(rateInp, "");
         if (saveBtn) saveBtn.disabled = true;
+        // A disabled Confirm button with no rate is indistinguishable from "the
+        // FX board is out of date", which is a state the user can do nothing
+        // about and would sit and wait on. When the reason is actually that the
+        // session ended or this page's token went stale, say so in the panel's
+        // own stale banner — that is recoverable, and only by signing in or
+        // reloading.
+        var note = card.querySelector(".pi-fx-stale");
+        if (note && err && (err.ftSessionEnded || err.ftCsrf)) {
+          note.textContent = err.message;
+          note.hidden = false;
+        }
         if (typeof done === "function") done();
         else refreshCard(card);
       });
@@ -403,8 +502,12 @@
       },
       body: body.toString()
     }).then(function (res) {
-      return res.json().catch(function () { return { ok: res.ok }; }).then(function (data) {
-        if (!res.ok || data.ok === false) {
+      // Not res.json().catch(() => ({ok: res.ok})): once the session has ended
+      // the redirect to the sign-in page arrives as a 200 with an HTML body, so
+      // that fallback produced {ok: true} and this reloaded the page as if the
+      // conversion had been saved. It had not been. FTJson tells the two apart.
+      return readJson(res).then(function (data) {
+        if (!res.ok || !data || data.ok === false) {
           throw new Error((data && data.error) || "Save failed.");
         }
         window.location.reload();

@@ -1,9 +1,17 @@
-{% load ft_extras %}
+{% load ft_extras i18n %}
 
+{% comment %}
+data-version is copied verbatim into the export links' ?v= by static/js/ui.js.
+The version NUMBER alone cannot say which snapshot a chip is showing: a
+two-stage upgrade keeps the number it supersedes, so "Version 01" and
+"Version 01 · Two Stage" are both version 1, and both chips used to export the
+same (two-stage) document. The trailing "s" marks the two-stage generation;
+cases.views._parse_version_token reads it back.
+{% endcomment %}
 {% if forms %}
   <div class="vchips" data-vgroup="{{ group_id }}">
     {% for f in forms %}
-      <button type="button" class="vchip{% if forloop.last %} active{% endif %}" data-vgroup="{{ group_id }}" data-vtarget="{{ group_id }}-{{ forloop.counter0 }}" data-version="{{ f.version }}">Version {{ f.version|stringformat:"02d" }}{% if f.two_stage %} · Two&nbsp;Stage{% endif %}{% if f.meta|dictget:'currency_conversion_only' %} · Unit convert{% endif %}{% if f.meta|dictget:'update_price' %} · Update price{% endif %}</button>
+      <button type="button" class="vchip{% if forloop.last %} active{% endif %}" data-vgroup="{{ group_id }}" data-vtarget="{{ group_id }}-{{ forloop.counter0 }}" data-version="{{ f.version }}{% if f.two_stage %}s{% endif %}">{% blocktrans with ver=f.version|stringformat:"02d" %}Version {{ ver }}{% endblocktrans %}{% if f.two_stage %} · {% trans "Two Stage" %}{% endif %}{% if f.meta|dictget:'currency_conversion_only' %} · {% trans "Unit convert" %}{% endif %}{% if f.meta|dictget:'update_price' %} · {% trans "Update price" %}{% endif %}</button>
     {% endfor %}
   </div>
   {% for f in forms %}

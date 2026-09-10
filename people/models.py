@@ -24,15 +24,58 @@ or a paragraph (motivation, references) is JSON. Roughly forty sparse columns
 were the alternative, most of them empty on most rows, and a migration every
 time the form gains a question.
 
-PEOPLE AND SEATS
-A ``User`` account is a *seat*: a unit and a role — "the commercial manager".
-A ``Person`` is the human. One human may sit in several seats at once (a
-manager who also covers purchasing), and a seat is held by exactly one human at
-a time. ``PersonAccount`` is that holding: a foreign key to the person, a
-one-to-one to the account.
+SEAT, PERSON, ROLE — read this before touching anything seat-shaped
+This is the one idea in the codebase that cannot be guessed from the code, it
+is spread across two apps, and more than one bug has come from conflating its
+parts. It is written out here once; ``people.seats`` and ``accounts.models``
+point back to this paragraph rather than repeating it.
+
+*A seat is a job, not a human.* A seat is a Django ``User`` account, and what
+makes it a seat is its ``accounts.Profile``: a unit and a role — "the
+commercial manager", "the internal supply expert" — plus a short ``seat_code``
+that numbers it within that unit+role pool. The seat outlives whoever fills it.
+Cases, inboxes and archives hang off the seat User, which is exactly why a
+person can leave and their successor inherits the work rather than an empty
+desk.
+
+*A person is a human.* ``Person`` here is that human, and it exists whether or
+not they were ever given a login — that was the whole reason this app was
+added. A person id and a user id are unrelated sequences; a number that means
+one never means the other (see ``person_photo_path`` below for what that cost).
+
+*``PersonAccount`` is the holding of a seat by a human.* Foreign key to the
+person, one-to-one to the seat User. One human may hold several seats at once
+(a manager who also covers purchasing); a seat is held by at most one human at
+a time.
+
+*One human still gets one login.* Assigning a person their FIRST organisational
+seat moves their identity — username, first name, last name — onto that seat's
+User, and that is the account they sign in with. Every further seat they take
+stays linked and stays active, but is given a vacant username and an unusable
+password: it can never be signed into. All of that lives in ``people.seats``.
+
+*``PersonRole`` is how the extra seats keep working.* Each row is one role the
+person may act under on that single login, and it remembers ``source_user`` —
+the seat User whose unit and role it absorbed. Switching role in the sidebar
+writes the chosen row's unit/role onto the login's ``Profile`` and points the
+session's work at that ``source_user``, so the second seat's inbox and archive
+open under the first seat's password. ``people.role_nav`` resolves which role
+is active for a request.
+
+*Permissions read the ``Profile``, never a ``PersonRole``.* The profile always
+carries the *currently active* role; ``PersonRole`` is only the menu of roles
+available to switch into. Checking one where the other was meant is the single
+easiest mistake to make here.
+
+*``SeatTenure`` is the record of holding, kept for history and for undo.* Who
+holds a seat User and how: OWNER for a normal assignment, SUBSTITUTE for a
+temporary Translate, whose ``origin_person`` is what Return restores the seat
+to. A tenure that is still current has ``ended_at`` null. ``SeatEventLog`` and
+``people.seat_history`` turn the same events into the readable timeline.
 """
 from django.conf import settings
 from django.db import models, transaction
+from django.utils.translation import gettext_lazy as _
 
 from .constants import DETAIL_CODE_COUNTER_KEY, DETAIL_CODE_START, PersonStatus
 
@@ -388,10 +431,16 @@ class PersonRole(models.Model):
             return "Administrator"
         if self.is_general_manager:
             return "General Manager"
+        # str(...) here for the same reason accounts.models.Profile.unit_label
+        # / role_label wrap their own Unit.LABELS/Role.LABELS lookup: those
+        # dicts hold gettext_lazy proxies now (accounts.constants.Unit/Role
+        # .CHOICES), and the plain ``.join()`` two lines below requires real
+        # ``str`` instances — a lazy proxy raises TypeError there even though
+        # it is otherwise a fully usable stand-in for one.
         parts = [
             p for p in [
-                Unit.LABELS.get(self.unit, ""),
-                Role.LABELS.get(self.role, ""),
+                str(Unit.LABELS.get(self.unit, "")),
+                str(Role.LABELS.get(self.role, "")),
             ] if p
         ]
         return " · ".join(parts) if parts else "Unassigned"
@@ -473,9 +522,13 @@ class SeatTenure(models.Model):
 
     KIND_OWNER = "OWNER"
     KIND_SUBSTITUTE = "SUBSTITUTE"
+    # gettext_lazy, not gettext — this list is built once at import time,
+    # before any request (and therefore any viewer's language) exists; see
+    # cases/constants.py's own CHOICES lists for the full explanation this
+    # module reuses everywhere a choices= label needs to translate per viewer.
     KIND_CHOICES = [
-        (KIND_OWNER, "Owner"),
-        (KIND_SUBSTITUTE, "Substitute"),
+        (KIND_OWNER, _("Owner")),
+        (KIND_SUBSTITUTE, _("Substitute")),
     ]
 
     REASON_ASSIGN = "ASSIGN"
@@ -484,11 +537,11 @@ class SeatTenure(models.Model):
     REASON_CLOSE = "CLOSE"
     REASON_RELEASE = "RELEASE"
     REASON_CHOICES = [
-        (REASON_ASSIGN, "Assign"),
-        (REASON_TRANSLATE, "Translate"),
-        (REASON_RETURN, "Return"),
-        (REASON_CLOSE, "Close"),
-        (REASON_RELEASE, "Release"),
+        (REASON_ASSIGN, _("Assign")),
+        (REASON_TRANSLATE, _("Translate")),
+        (REASON_RETURN, _("Return")),
+        (REASON_CLOSE, _("Close")),
+        (REASON_RELEASE, _("Release")),
     ]
 
     source_user = models.ForeignKey(
@@ -546,14 +599,17 @@ class SeatEventLog(models.Model):
     DELEGATED = "DELEGATED"
     CLOSED = "CLOSED"
     VACANT = "VACANT"
+    # gettext_lazy — see SeatTenure.KIND_CHOICES above / cases/constants.py
+    # for why: this list is built once at import time, before any viewer's
+    # language is known.
     EVENT_CHOICES = [
-        (CREATED, "Created"),
-        (ASSIGNED, "Assigned"),
-        (TRANSLATED, "Translated"),
-        (RETURNED, "Returned"),
-        (DELEGATED, "Delegated"),
-        (CLOSED, "Closed"),
-        (VACANT, "Vacant"),
+        (CREATED, _("Created")),
+        (ASSIGNED, _("Assigned")),
+        (TRANSLATED, _("Translated")),
+        (RETURNED, _("Returned")),
+        (DELEGATED, _("Delegated")),
+        (CLOSED, _("Closed")),
+        (VACANT, _("Vacant")),
     ]
 
     source_user = models.ForeignKey(
@@ -668,8 +724,20 @@ class ShiftDayLog(models.Model):
     )
     day = models.DateField(db_index=True)
     minutes = models.PositiveIntegerField(default=0)
+    # Presence is reported by a browser ping every few seconds, so most gaps are
+    # a fraction of a minute. Whole minutes land in ``minutes``; what is left
+    # over waits here until the next pings make it up to a minute. Without this
+    # the remainder was discarded on every ping and a full day at the desk was
+    # credited as almost nothing.
+    carry_seconds = models.PositiveSmallIntegerField(default=0)
     # Approved overtime credited separately from presence minutes.
     overtime_minutes = models.PositiveIntegerField(default=0)
+    # Total time, in whole minutes, that the person was away past the reconnect
+    # grace on this day (summed over every such absence). An absence costs the
+    # credit it never earned and nothing more, so this column changes no total;
+    # it exists purely so a queried month can be explained — "the 40 missing
+    # minutes on the 12th were four absences", not an unexplained shortfall.
+    away_minutes = models.PositiveIntegerField(default=0)
     first_login = models.DateTimeField(null=True, blank=True)
     last_logout = models.DateTimeField(null=True, blank=True)
     last_ping = models.DateTimeField(null=True, blank=True)
@@ -746,11 +814,18 @@ class StaffRequest(models.Model):
     STATUS_SUBMITTED = "submitted"
     STATUS_APPROVED = "approved"
     STATUS_REJECTED = "rejected"
+    # gettext_lazy — see SeatTenure.KIND_CHOICES above / cases/constants.py
+    # for why: this tuple is built once at import time, before any viewer's
+    # language is known. "Approved" reuses the same English source string
+    # marketing/templates/marketing/company_detail.html already passes
+    # through {% trans %}, so a request approved here and a case marked
+    # Final Approved there read as the identical Persian word rather than
+    # two independently-chosen translations of "Approved" drifting apart.
     STATUS_CHOICES = (
-        (STATUS_DRAFT, "Draft"),
-        (STATUS_SUBMITTED, "Submitted"),
-        (STATUS_APPROVED, "Approved"),
-        (STATUS_REJECTED, "Rejected"),
+        (STATUS_DRAFT, _("Draft")),
+        (STATUS_SUBMITTED, _("Submitted")),
+        (STATUS_APPROVED, _("Approved")),
+        (STATUS_REJECTED, _("Rejected")),
     )
 
     person = models.ForeignKey(
@@ -804,6 +879,12 @@ class StaffRequest(models.Model):
             models.UniqueConstraint(
                 fields=["request_code"],
                 name="people_staffrequest_request_code_uniq",
+                # The field's empty default is a value like any other to a unique
+                # index, so without this only one code-less request could ever
+                # exist — the second one would fail on a constraint that is meant
+                # to police real request numbers. Same shape as the seat-code
+                # index on accounts.Profile.
+                condition=~models.Q(request_code=""),
             ),
         ]
 

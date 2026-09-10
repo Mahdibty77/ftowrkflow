@@ -1,10 +1,29 @@
-"""Views for personnel Request types / Requests / Overtime / GM queue."""
+"""Views for personnel Request types / Requests / Overtime / GM queue.
+
+A staff request is a small workflow with exactly three audiences, and the views
+are grouped by which one they serve:
+
+* THE ADMINISTRATOR configures who may raise what — ``request_types`` lists the
+  types, ``request_type_assign`` writes the ``PersonRequestAccess`` rows that
+  gate the form, and ``person_access`` shows the same grants from one person's
+  side (read-only).
+* THE EMPLOYEE raises and follows their own — ``overtime_form`` submits one,
+  ``my_requests`` lists them, ``request_detail`` shows one and marks it seen.
+* THE GENERAL MANAGER decides — ``gm_overtime_inbox`` is the queue and
+  ``gm_overtime_decide`` approves or rejects.
+
+Only the shape of the screens is here. Every rule about what an overtime
+request means — the minutes it is worth, the window it extends, what a decision
+does to the person's shift day — lives in ``people.staff_requests``.
+"""
 from __future__ import annotations
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
 from .models import Person, RequestType, StaffRequest
@@ -29,13 +48,71 @@ gm_required = user_passes_test(_is_gm, login_url="accounts:login")
 def _person_or_redirect(request):
     person = sr.person_for_request_user(request.user)
     if person is None:
-        messages.error(request, "No personnel record is linked to this login.")
+        messages.error(request, _("No personnel record is linked to this login."))
         return None
     return person
 
 
 def _history_rows(qs, *, unread_for=None):
     return sr.history_rows_enriched(qs, unread_for=unread_for)
+
+
+def _selectable_case_ids(request, ids: list[int]) -> list[int]:
+    """Drop case ids this user could not have picked from their own archive.
+
+    The ids arrive in the query string because the archive's Select mode hands
+    them back that way, and the form then prints each case's document number and
+    client. Typed by hand, that read out those two fields for any case in the
+    database — including units this user cannot open anywhere else in the app.
+
+    Only the *narrow* archive scopes are re-checked here. Whoever already sees
+    the whole archive (administrator, General Manager, Commercial manager) or a
+    whole unit (a supervisor) is left alone, so nobody loses a case they are
+    entitled to attach; the check exists to stop the everyday employee scopes
+    from reaching outside their own work.
+    """
+    if not ids:
+        return []
+    from accounts.constants import Role, Unit
+    from cases import services
+    from cases.models import Case
+
+    from .role_nav import work_context
+
+    profile = getattr(request.user, "profile", None)
+    if profile is None:
+        return []
+    ctx = work_context(request)
+    seat_user = ctx.seat_user
+    unit = (getattr(ctx.role, "unit", "") or "") or (profile.unit or "")
+    role = (getattr(ctx.role, "role", "") or "") or (profile.role or "")
+    if (
+        profile.is_admin
+        or profile.is_general_manager
+        or (unit == Unit.COMMERCIAL and role == Role.MANAGER)
+        or role == Role.SUPERVISOR
+    ):
+        return ids
+
+    allowed = set(
+        Case.objects.filter(pk__in=ids)
+        .filter(
+            Q(created_by=seat_user)
+            | Q(assigned_to=seat_user)
+            | Q(forms__created_by=seat_user)
+            | Q(events__actor=seat_user)
+        )
+        .values_list("pk", flat=True)
+    )
+    try:
+        inbox = services.inbox_cases_for_request(request)
+        if inbox is not None:
+            allowed |= set(inbox.filter(pk__in=ids).values_list("pk", flat=True))
+    except Exception:
+        # Same tolerance as the archive itself: a failed inbox union narrows the
+        # list, it never widens it.
+        pass
+    return [pk for pk in ids if pk in allowed]
 
 
 # ---------------------------------------------------------------------------
@@ -71,12 +148,13 @@ def request_type_assign(request, type_id):
         try:
             ids = [int(x) for x in raw]
         except ValueError:
-            messages.error(request, "Invalid person selection.")
+            messages.error(request, _("Invalid person selection."))
             return redirect("people:request_type_assign", type_id=rt.pk)
         added, removed = sr.set_access_for_type(rt, ids, granted_by=request.user)
         messages.success(
             request,
-            f"Access for {rt.title} updated (+{added} / −{removed}).",
+            _("Access for %(title)s updated (+%(added)s / −%(removed)s).")
+            % {"title": rt.title, "added": added, "removed": removed},
         )
         return redirect("people:request_types")
 
@@ -146,7 +224,7 @@ def overtime_form(request):
     if person is None:
         return redirect("core:home")
     if not sr.person_has_access(person, RequestType.CODE_OVERTIME):
-        messages.error(request, "Overtime is not assigned to you.")
+        messages.error(request, _("Overtime is not assigned to you."))
         return redirect("people:my_requests")
 
     session_key = "ot_selected_case_ids"
@@ -158,6 +236,7 @@ def overtime_form(request):
             part = part.strip()
             if part.isdigit():
                 ids.append(int(part))
+        ids = _selectable_case_ids(request, ids)
         request.session[session_key] = ids
         selected = ids
         return redirect("people:overtime_form")
@@ -181,7 +260,7 @@ def overtime_form(request):
             hours = int(request.POST.get("ot_hours") or 0)
             minutes = int(request.POST.get("ot_minutes") or 0)
         except ValueError:
-            messages.error(request, "Enter a valid overtime duration.")
+            messages.error(request, _("Enter a valid overtime duration."))
             return redirect("people:overtime_form")
         try:
             req = sr.submit_overtime(
@@ -198,8 +277,11 @@ def overtime_form(request):
         request.session[session_key] = []
         messages.success(
             request,
-            f"Overtime request {req.request_code} submitted ({req.requested_label}). "
-            f"Waiting for General Manager review.",
+            _(
+                "Overtime request %(code)s submitted (%(label)s). "
+                "Waiting for General Manager review."
+            )
+            % {"code": req.request_code, "label": req.requested_label},
         )
         return redirect("people:overtime_form")
 
@@ -243,7 +325,7 @@ def request_detail(request, pk):
     is_gm = _is_gm(request.user)
     person = sr.person_for_request_user(request.user)
     if not is_gm and (person is None or req.person_id != person.pk):
-        messages.error(request, "You cannot view this request.")
+        messages.error(request, _("You cannot view this request."))
         return redirect("people:my_requests")
 
     can_decide = (
@@ -337,17 +419,21 @@ def gm_overtime_decide(request, pk):
             )
             messages.success(
                 request,
-                f"Overtime approved for {req.person.display_name} "
-                f"({sr.minutes_label(req.approved_minutes or 0)}).",
+                _("Overtime approved for %(name)s (%(label)s).")
+                % {
+                    "name": req.person.display_name,
+                    "label": sr.minutes_label(req.approved_minutes or 0),
+                },
             )
         elif decision == "reject":
             sr.decide_overtime(req, user=request.user, approve=False, note=note)
             messages.success(
                 request,
-                f"Overtime request for {req.person.display_name} was rejected.",
+                _("Overtime request for %(name)s was rejected.")
+                % {"name": req.person.display_name},
             )
         else:
-            messages.error(request, "Unknown decision.")
+            messages.error(request, _("Unknown decision."))
     except ValueError as exc:
         messages.error(request, str(exc))
     return redirect("people:request_detail", pk=req.pk)

@@ -3,16 +3,24 @@
 The project still accepts CSV/JSON resources as the source of truth.  This module
 only loads and indexes them in RAM once, so upload/live-edit requests do not pay
 that cost later.
+
+Two callers: apps.ItemcoderConfig.ready() (guarded by ``should_warm_on_ready`` so
+the autoreload parent process does not warm twice), and excel_processor at the
+top of a Build TO, where a ~4k-row inquiry would otherwise pay every first-hit
+parse cost inside the row loop.
+
+Warming touches only caches that are keyed by mtime or by group name — it changes
+WHEN reference data is parsed, never what any lookup resolves to. Every stage is
+wrapped in its own try/except for the same reason apps.ready() is: a missing
+optional CSV must never stop the server from starting.
 """
 from __future__ import annotations
 
-import json
 import os
-import re
 import sys
 from typing import Any, Iterable, Set
 
-from .resource_paths import JSON_DIR, CSV_DIR, json_path, resolve_resource_path
+from .resource_paths import CSV_DIR, json_path
 from .regex_patterns import load_json_file, load_feature_values, parse_csv_for_field
 from .table_layout_manager import load_table_layout_config, _get_group_lookup_plan
 from .calculation_engine import _code_row_index_for_group
@@ -36,7 +44,15 @@ def _iter_csv_refs(obj: Any) -> Iterable[str]:
 def _warm_json_files() -> dict:
     loaded = {}
     for name in (
-        'data.json', 'asign_code.json', 'table_layout.json', 'confind_size.json',
+        # ``confind_size.json`` used to be listed here and has been removed
+        # along with the file itself. Nothing in the engine ever read it:
+        # find_size.resolve_find_size_path builds the per-group table path
+        # (find_size_<group>.csv) from the group name alone, so the JSON was
+        # never consulted for any lookup. Warming only fills mtime-checked
+        # caches, and the CSVs this file happened to name are read through
+        # find_size's own cache rather than the two warmed here — so dropping
+        # the entry changes when things are parsed, never what they resolve to.
+        'data.json', 'asign_code.json', 'table_layout.json',
         'final_arrange.json', 'common_rulse.json', 'offer.json',
         'data_translation.json',
     ):

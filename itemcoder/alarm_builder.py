@@ -1,7 +1,16 @@
-"""Alarm/missing-feature calculation.
+"""Which expected features are still missing — the ALARM column.
 
-This module only decides which expected features are still missing after feature
-extraction and rule application.
+One function, called by text_processor once per row after extraction and rules.
+An alarm is what stops a row being coded: code_assigner is not even consulted
+while any alarm stands (see text_processor.can_run_assign_code), because a code
+looked up from an incomplete feature set would be confidently wrong.
+
+"Missing" is not the same as "empty". A feature explicitly extracted as ``null``
+means the description said it does not apply, and raises no alarm; a feature with
+no entry at all does. The ``^(a & b)`` / ``^[a & b]`` markers in data.json can
+flip that per value, and the extractor has already resolved them into the hidden
+``__alarm_optional__`` / ``__alarm_required__`` lists read below — so this stays a
+fast dict walk and never re-reads data.json.
 """
 
 import re

@@ -1,8 +1,81 @@
-"""Planned / worked hours from a person's daily work shift + Iran calendar."""
+"""Planned / worked hours from a person's daily work shift + Iran calendar.
+
+THE SHIFT ACCOUNTING MODEL
+Nothing in this module measures attendance directly. It measures *evidence of
+presence* and turns that into minutes, and the difference is the source of
+every surprise the numbers have ever produced. Read this before trusting, or
+reporting on, any column it writes.
+
+A PING is a POST from the signed-in person's open browser tab to
+``people:shift_ping`` (``people.views.shift_presence_ping``), repeated every few
+seconds for as long as that tab is open. It is the only continuous evidence
+there is. Alongside it, the auth signals in ``people.signals`` call
+``note_shift_login`` on every successful sign-in and ``note_shift_logout`` on
+sign-out. All three paths write the same row: one ``ShiftDayLog`` per person per
+calendar day.
+
+FLOAT GRACE (``Person.float_seconds``, default ``DEFAULT_FLOAT_SECONDS`` below)
+forgives lateness at the *start* of the day. Arrive within it and the day is
+stamped as having begun at the shift start, and the minutes between that start
+and the actual arrival are credited as though they had been worked. Arrive one
+minute later and none of that applies: the day begins at the real arrival
+minute and the missed minutes are simply never earned. It is a grace on the
+opening of the day, not a rolling allowance.
+
+RECONNECT GRACE (``Person.reconnect_grace_seconds``, default
+``RECONNECT_GRACE_SECONDS`` below) forgives a break in the *middle*. A closed
+tab, a page reload, a dropped connection all stop the pings; a gap no longer
+than this counts as continuous presence and the whole gap is credited. A longer
+gap credits nothing — and takes nothing back either. The absence has already
+paid for itself in minutes that were never earned, and charging it a second
+time was a real bug once (see ``_record_away``).
+
+Both values live on the ``Person``. The platform-wide defaults on
+``accounts.PlatformConfig`` are *copied* onto every person when an
+administrator saves them (``accounts.views._apply_global_daily_hours``), so a
+person row is always the value that applies; the module constants below are
+only the last-resort fallback for a row that has none.
+
+MINUTES ACCRUE into ``ShiftDayLog.minutes`` as whole minutes, and every single
+credit is clamped to the day's planned length — a day can never earn more than
+it was planned for. CARRY_SECONDS is what makes that honest at the resolution
+the pings actually arrive at: a tab pinging every few seconds almost never
+produces a gap of a whole minute, and judging each gap on its own threw those
+seconds on the floor, so a person at their desk all day could be credited
+nothing. The sub-minute remainder is instead BANKED on the day row
+(``carry_seconds``, always 0–59) and spent the instant the bank makes up a
+whole minute.
+
+AWAY_MINUTES is an audit column and never a deduction. It means, precisely:
+time away *between two observed presences* — a gap that both began and ended
+while pings were arriving, clipped to the part that fell inside the shift, and
+capped at the day's planned length. What it therefore does NOT capture is the
+two commonest short days of all: someone who signs in at 10:00 on an 08:00
+shift, and someone who leaves at 15:00 and never comes back. Neither closes a
+gap, so both leave ``away_minutes`` at zero while losing two hours of credit.
+``minutes + away_minutes`` does not reconcile to a clean day and was never
+meant to; the shortfall from a late start or an early finish lives in
+``minutes`` alone. ``_record_away`` argues this out at length.
+
+OVERTIME is a separate ledger on the same row. Outside the base window an
+approved overtime request keeps the session alive, and presence there credits
+``overtime_minutes`` capped at the minutes actually approved for that day (see
+``_credit_ot_presence`` and ``people.staff_requests``).
+
+ROLLUP: day rows are summed into one ``ShiftMonthSnapshot`` per Jalali month.
+Past months are frozen (``freeze_past_months``) so a later change to a person's
+shift definition cannot rewrite history; the current month stays open and is
+recomputed by ``refresh_worked`` after every credit. ``plan_month`` is the
+other half — what the month was *supposed* to be, with Thursday/Friday weekends
+and Iranian official holidays removed (``people.iran_holidays``).
+"""
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
 from typing import Any
+
+from django.utils.translation import gettext as _
+from django.utils.translation import get_language
 
 from cases.jalali import gregorian_to_jalali, jalali_to_gregorian
 
@@ -18,11 +91,60 @@ JMONTHS_EN = (
     "Mehr", "Aban", "Azar", "Dey", "Bahman", "Esfand",
 )
 
+# Same twelve months, Persian script. This is a second hand-maintained table
+# rather than a gettext catalog lookup on purpose: these are proper calendar
+# names (like "January"), not sentence fragments assembled at render time, and
+# the codebase already keeps the analogous English table as a plain Python
+# tuple (above) rather than routing it through translate() — see the
+# module-level docstring's remark on this file's calendar vocabulary. Two
+# other hand-maintained copies of the English table already exist elsewhere
+# (core/templatetags/ft_extras.py's own ``_JMONTHS``, and
+# static/js/jalali_picker.js) and are DELIBERATELY left untouched here — see
+# this file's own history in locale/fa/LC_MESSAGES/django.po for why merging
+# all three into one shared table is a larger, separate change than what this
+# round is scoped to fix.
+JMONTHS_FA = (
+    "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
+    "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند",
+)
 
+
+# ---------------------------------------------------------------------------
+# Calendar arithmetic — Jalali months, shift length, where tracking begins
+# ---------------------------------------------------------------------------
 def month_name_en(jm: int) -> str:
+    """Always the English transliteration, regardless of the active request
+    language. Kept as its own function — rather than folding it into
+    ``month_name`` below — because it is the explicit-English form some
+    future caller may need on purpose (a log line, an export, an API
+    payload); nothing in this codebase currently calls it for that reason,
+    but the distinction is cheap to preserve and expensive to reconstruct
+    once the two meanings have been merged into one function.
+    """
     if 1 <= jm <= 12:
         return JMONTHS_EN[jm - 1]
     return str(jm)
+
+
+def month_name(jm: int) -> str:
+    """Month name in whichever language this request is running in.
+
+    Mirrors the per-person language switch ``accounts.middleware
+    .LanguageMiddleware`` already activates for the request (``Profile
+    .language``, never a cookie or the browser) — by the time a view or
+    template calls this, ``translation.get_language()`` already reflects
+    the signed-in person's own saved preference, so reading it here is
+    just as cheap and just as correct as everywhere else in the codebase
+    that leans on Django's active-language state instead of re-deriving it.
+    This is plain table selection, not a gettext-routed string: see
+    ``JMONTHS_FA``'s own comment for why these two tables are hand-kept
+    rather than translated.
+    """
+    if get_language() == "fa":
+        if 1 <= jm <= 12:
+            return JMONTHS_FA[jm - 1]
+        return str(jm)
+    return month_name_en(jm)
 
 
 def shift_minutes(start: time, end: time) -> int:
@@ -41,8 +163,16 @@ def jalali_month_length(jy: int, jm: int) -> int:
         return 31
     if jm <= 11:
         return 30
-    g1 = date(*jalali_to_gregorian(jy, 12, 1))
-    g_next = date(*jalali_to_gregorian(jy + 1, 1, 1))
+    # Esfand is 29 or 30 days, decided by where the next new year falls. A year
+    # far outside the calendar's range (a hand-typed /shift/<year>/ URL) has no
+    # Gregorian date to compare against, so answer the ordinary 29 rather than
+    # letting the page die on a ValueError; every day of such a month is then
+    # dropped by _safe_gdate anyway.
+    try:
+        g1 = date(*jalali_to_gregorian(jy, 12, 1))
+        g_next = date(*jalali_to_gregorian(jy + 1, 1, 1))
+    except (ValueError, OverflowError):
+        return 29
     return (g_next - g1).days
 
 
@@ -69,6 +199,9 @@ def get_tracking_start() -> date:
     return row.started_on
 
 
+# ---------------------------------------------------------------------------
+# The plan — what a month was supposed to be, before anybody worked it
+# ---------------------------------------------------------------------------
 def plan_month(
     jy: int,
     jm: int,
@@ -148,6 +281,9 @@ def plan_month(
     }
 
 
+# ---------------------------------------------------------------------------
+# Month snapshots — the rollup of day rows, and the freezing of the past
+# ---------------------------------------------------------------------------
 def ensure_month_snapshot(person, *, jy: int | None = None, jm: int | None = None):
     from .models import ShiftMonthSnapshot
 
@@ -294,6 +430,9 @@ def apply_shift_change(
     return refresh_worked(person, snap)
 
 
+# ---------------------------------------------------------------------------
+# Accrual — the two graces, and how a gap between pings becomes minutes
+# ---------------------------------------------------------------------------
 def float_seconds_for(person) -> int:
     raw = getattr(person, "float_seconds", None)
     if raw is None:
@@ -324,6 +463,21 @@ def _aware_combine(day: date, t: time, tz) -> datetime:
     return datetime.combine(day, t, tzinfo=tz)
 
 
+def _shift_start_dt(start: time, end: time, when: datetime) -> datetime:
+    """When the shift that ``when`` falls in actually started.
+
+    An overnight shift (22:00–06:00) is still yesterday's shift once the clock
+    passes midnight. Anchoring on ``when.date()`` alone put its start ~20 hours
+    in the future, which made every post-midnight arrival look early: the login
+    was never opened and the stamped In time was tonight's start, not the
+    person's real arrival. Mirrors the same correction in work_shift.
+    """
+    start_dt = _aware_combine(when.date(), start, when.tzinfo)
+    if start > end and when.time() < end:
+        start_dt -= timedelta(days=1)
+    return start_dt
+
+
 def _credit_gap_minutes(
     log,
     when: datetime,
@@ -334,7 +488,8 @@ def _credit_gap_minutes(
 ) -> int:
     """Minutes to *add* for a reconnect/presence gap (within grace only).
 
-    Beyond-grace deduction is handled by ``_apply_reconnect_gap``.
+    Beyond-grace gaps are handled by ``_apply_reconnect_gap``: they add nothing
+    and are only written to the audit column.
     """
     if force_skip or getattr(log, "explicit_logout", False):
         return 0
@@ -345,26 +500,161 @@ def _credit_gap_minutes(
         return 0
     if secs > max(0, int(grace_seconds)):
         return 0
-    mins = max(1, secs // 60) if secs >= 30 else 0
+    # The open tab pings every few seconds, so one gap is almost never a whole
+    # minute. Judging each gap on its own threw those seconds away and credited
+    # a person nothing for a whole day at the desk; the seconds are banked on
+    # the day row instead and spent the moment they make up a minute, so what is
+    # credited follows the time actually spent present.
+    banked = int(getattr(log, "carry_seconds", 0) or 0) + secs
+    mins = banked // 60
+    log.carry_seconds = banked % 60
     if mins <= 0:
         return 0
     room = max(0, per_day - int(log.minutes or 0))
     return min(room, mins)
 
 
+def _is_working_day(g: date) -> bool:
+    """True when the shift is actually expected to be worked on ``g``."""
+    if g.weekday() in WEEKEND_WEEKDAYS:
+        return False
+    jy, jm, jd = gregorian_to_jalali(g.year, g.month, g.day)
+    return not is_official_holiday(jy, jm, jd)
+
+
+# An absence can never be booked for more than one day's planned length (see
+# ``_record_away``), so anything older than this cannot change the answer. The
+# bound stops a stale ``last_ping`` — a person back after a month's leave — from
+# turning the day-by-day scan below into a walk over the whole calendar.
+_AWAY_SCAN_DAYS = 32
+
+
+def _in_shift_seconds(start: time, end: time, lo: datetime, hi: datetime) -> int:
+    """Seconds of the interval ``[lo, hi)`` that fall inside the working window.
+
+    The audit column answers "how much of the shift did this person miss", so
+    only the part of an absence that lands inside the shift may count. Without
+    this clipping the gap between a 16:59 ping and the 20:00 login that the
+    shift middleware then blocks booked three evening hours nobody was expected
+    to be present for — ``note_shift_login`` fires on *every* successful
+    authentication, so that was ordinary operation, not an edge case.
+
+    Each occurrence of the shift is anchored on the date it *starts* and allowed
+    to run past midnight, so an overnight 22:00–06:00 shift is one interval
+    rather than two halves and a gap straddling midnight is a plain
+    intersection like any other. Days the person does not work (weekend,
+    official holiday) contribute nothing.
+    """
+    if start == end:
+        return 0  # Zero-length shift — shift_minutes() already calls this 0.
+    if lo.tzinfo is not None and hi.tzinfo is not None:
+        # ``last_ping`` comes back from the database in UTC while ``when`` is
+        # local; the window times are wall-clock, so both ends are read in the
+        # same local zone the rest of this module anchors on.
+        lo = lo.astimezone(hi.tzinfo)
+    if hi <= lo:
+        return 0
+    floor_lo = hi - timedelta(days=_AWAY_SCAN_DAYS)
+    if lo < floor_lo:
+        lo = floor_lo
+
+    total = 0
+    # Start one day early: an overnight window opened yesterday can still be
+    # running when the gap begins.
+    day = lo.date() - timedelta(days=1)
+    last = hi.date()
+    while day <= last:
+        if _is_working_day(day):
+            begin = _aware_combine(day, start, hi.tzinfo)
+            finish = _aware_combine(day, end, hi.tzinfo)
+            if end < start:
+                finish += timedelta(days=1)
+            lo_i = max(lo, begin)
+            hi_i = min(hi, finish)
+            if hi_i > lo_i:
+                total += int((hi_i - lo_i).total_seconds())
+        day += timedelta(days=1)
+    return total
+
+
+def _record_away(
+    log,
+    prev: datetime | None,
+    when: datetime,
+    *,
+    start: time,
+    end: time,
+    per_day: int,
+) -> None:
+    """Write a beyond-grace absence onto the day row (audit only, never a cost).
+
+    An absence is already paid for by the minutes it did not earn: no ping
+    arrives while the person is gone, so nothing is credited for that window.
+    Booking it a second time — which is what the old
+    ``log.minutes -= secs // 60`` did — charged a 17-minute absence 34 minutes.
+    The owner asked for exactly its own duration, once, so the deduction is gone
+    and only the record remains.
+
+    What this column does and does not mean — read this before building a
+    report on it:
+
+        away_minutes == the in-window shift credit lost to absences that both
+        BEGAN and ENDED while the person was being observed, and
+        0 <= away_minutes <= the day's planned length.
+
+    Two things follow from the first half. Only the in-window part of a gap
+    counts — time outside the shift was never going to be credited, so nothing
+    was lost there. And the running total is capped at the day's planned length,
+    because a day cannot lose more credit than it could ever have earned.
+
+    The important limit is in the words "began and ended". An absence is only
+    ever booked when a later ping or sign-in closes it, so the two commonest
+    shapes of a short day record NOTHING here: someone who signs in at 10:00 on
+    an 08:00 shift, and someone who works to 15:00 and goes home. Both lose
+    around two hours of credit and both leave away_minutes at 0, because no gap
+    was ever closed. So (minutes + away_minutes) reconciles against a full day
+    only when every absence was bracketed by presence; for a late start or an
+    early finish the shortfall shows up in ``minutes`` alone.
+
+    Read it as "time away between two observed presences", not as "credit lost".
+    Closing that gap would mean booking the head and tail of the shift as well,
+    which is a different feature — attendance rather than reconnect accounting —
+    and it is not what this column was added for.
+
+    Absences accumulate across the day because a day can hold several, and the
+    question being answered later is "how much of this day was the person
+    away", not "how long was the worst gap". Whole minutes are rounded down, to
+    match the credit that was actually lost — the earlier floor of one minute
+    per absence rounded *up* instead, which is precisely the over-report the
+    column is being fixed for, and it broke the reconciliation above.
+    """
+    if prev is None:
+        return
+    away = _in_shift_seconds(start, end, prev, when) // 60
+    if away <= 0:
+        return
+    ceiling = max(0, int(per_day))
+    log.away_minutes = min(
+        ceiling, int(getattr(log, "away_minutes", 0) or 0) + away,
+    )
+
+
 def _apply_reconnect_gap(
     log,
     when: datetime,
     *,
+    start: time,
+    end: time,
     per_day: int,
     grace_seconds: int,
     force_skip: bool = False,
 ) -> int:
-    """Apply reconnect rules; return minutes to *add* (0 if deducted/skipped).
+    """Apply reconnect rules; return minutes to *add* (0 if away/skipped).
 
     - Within grace: credit the away gap as worked time.
-    - Beyond grace: subtract the full away duration from worked minutes.
-    - Explicit Sign out: no gap credit/deduct (caller starts a fresh +1).
+    - Beyond grace: credit nothing, and record the away time for the audit.
+      Worked minutes already earned are left alone — see ``_record_away``.
+    - Explicit Sign out: no gap credit (caller starts a fresh +1).
     Each disconnect resets the grace window via the next ``last_ping`` stamp.
     """
     if force_skip or getattr(log, "explicit_logout", False):
@@ -379,9 +669,10 @@ def _apply_reconnect_gap(
         return _credit_gap_minutes(
             log, when, per_day=per_day, grace_seconds=grace, force_skip=False,
         )
-    # Beyond grace → remove the full away window from already-earned minutes.
-    away_mins = max(1, secs // 60)
-    log.minutes = max(0, int(log.minutes or 0) - away_mins)
+    # Beyond grace → the window earns nothing, which is the whole of its cost;
+    # note down the part of it that fell inside the shift and leave the minutes
+    # earned before the absence untouched.
+    _record_away(log, log.last_ping, when, start=start, end=end, per_day=per_day)
     return 0
 
 
@@ -412,6 +703,9 @@ def prune_empty_past_snapshots(person) -> int:
     return n
 
 
+# ---------------------------------------------------------------------------
+# Entry points from the auth signals — sign-in and sign-out stamps
+# ---------------------------------------------------------------------------
 def note_shift_login(person, *, when: datetime | None = None) -> None:
     """Stamp first login, apply floating-time credit, reconnect grace."""
     from .models import ShiftDayLog
@@ -426,7 +720,7 @@ def note_shift_login(person, *, when: datetime | None = None) -> None:
 
     start, end = shift_window(person)
     per_day = shift_minutes(start, end)
-    start_dt = _aware_combine(gday, start, when.tzinfo)
+    start_dt = _shift_start_dt(start, end, when)
 
     log, _ = ShiftDayLog.objects.get_or_create(
         person=person, day=gday, defaults={"minutes": 0},
@@ -435,14 +729,32 @@ def note_shift_login(person, *, when: datetime | None = None) -> None:
     skip_gap = bool(log.explicit_logout)
     grace = reconnect_grace_seconds_for(person)
     gap = _apply_reconnect_gap(
-        log, when, per_day=per_day, grace_seconds=grace, force_skip=skip_gap,
+        log, when, start=start, end=end, per_day=per_day, grace_seconds=grace,
+        force_skip=skip_gap,
     )
     if log.explicit_logout:
         log.explicit_logout = False
 
     if when < start_dt:
         # Before shift start — wait for in-window presence; do not start the clock.
-        log.save(update_fields=["minutes", "explicit_logout"])
+        # carry_seconds and away_minutes go with it: the gap helper may already
+        # have banked the sub-minute remainder of this reconnect, or booked the
+        # absence, onto the row.
+        #
+        # last_ping is advanced here for the same reason it is advanced on the
+        # normal path: a gap that has been measured must not be measurable a
+        # second time. This branch used to return without touching it, so every
+        # later sign-in re-measured the same interval from the same stale stamp
+        # and booked the same absence again — on an overnight shift, six routine
+        # sign-ins turned half an hour away into a reported six hours, climbing
+        # until it hit the per-day clamp. Advancing the stamp credits nothing
+        # (the clock still has not started); it only stops the same absence
+        # being counted more than once.
+        log.last_ping = when
+        log.save(update_fields=[
+            "minutes", "last_ping", "explicit_logout", "carry_seconds",
+            "away_minutes",
+        ])
         return
 
     if log.first_login is None:
@@ -468,10 +780,14 @@ def note_shift_login(person, *, when: datetime | None = None) -> None:
         log.minutes = min(per_day, int(log.minutes or 0) + 1)
     elif gap:
         log.minutes = min(per_day, int(log.minutes or 0) + gap)
-    # Beyond-grace deduction already applied inside _apply_reconnect_gap.
+    # A beyond-grace gap adds nothing here; _apply_reconnect_gap has already
+    # recorded it on the row and deliberately left the earned minutes alone.
 
     log.last_ping = when
-    log.save(update_fields=["minutes", "last_ping", "first_login", "explicit_logout"])
+    log.save(update_fields=[
+        "minutes", "last_ping", "first_login", "explicit_logout",
+        "carry_seconds", "away_minutes",
+    ])
     freeze_past_months(person)
     refresh_worked(person)
 
@@ -494,6 +810,9 @@ def note_shift_logout(person, *, when: datetime | None = None, explicit: bool = 
     log.save(update_fields=fields)
 
 
+# ---------------------------------------------------------------------------
+# Presentation — the day rows, month cards and year tiles the shift page draws
+# ---------------------------------------------------------------------------
 def _fmt_hm(dt: datetime | None) -> str:
     if dt is None:
         return "—"
@@ -527,10 +846,9 @@ def month_day_details(person, jy: int, jm: int) -> list[dict[str, Any]]:
     from django.urls import reverse
 
     from .models import ShiftDayLog
-    from .staff_requests import approved_overtime_request_for_day
+    from .staff_requests import approved_overtime_requests_by_day
 
     start, end = shift_window(person)
-    per = shift_minutes(start, end)
     track = get_tracking_start()
     today = now_local().date()
     plan = plan_month(jy, jm, start=start, end=end, from_date=track)
@@ -538,9 +856,13 @@ def month_day_details(person, jy: int, jm: int) -> list[dict[str, Any]]:
     g0 = _safe_gdate(jy, jm, 1)
     g1 = _safe_gdate(jy, jm, length)
     logs = {}
+    ot_by_day = {}
     if g0 and g1:
         for row in ShiftDayLog.objects.filter(person=person, day__gte=g0, day__lte=g1):
             logs[row.day.isoformat()] = row
+        # Day rows are already batched; the overtime request was the one lookup
+        # left running once per calendar day.
+        ot_by_day = approved_overtime_requests_by_day(person, g0, g1)
 
     out = []
     for d in plan["days"]:
@@ -583,23 +905,23 @@ def month_day_details(person, jy: int, jm: int) -> list[dict[str, Any]]:
             logout_t = _fmt_hm(log.last_logout)
 
         if is_holiday and is_weekend:
-            off_reason = "Holiday · Weekend"
+            off_reason = _("Holiday · Weekend")
         elif is_holiday:
-            off_reason = "Holiday"
+            off_reason = _("Holiday")
         elif is_weekend:
-            off_reason = "Weekend"
+            off_reason = _("Weekend")
         else:
             off_reason = ""
 
         plan_h = round(planned / 60, 1) if planned else 0
         done_h = _hours1(total)
         excess_h = _excess_hours(done_h, plan_h)
-        ot_req = approved_overtime_request_for_day(person, g)
+        ot_req = ot_by_day.get(g)
         ot_url = reverse("people:request_detail", args=[ot_req.pk]) if ot_req else ""
 
         out.append({
             "jalali_day": d["jalali_day"],
-            "label": f"{d['jalali_day']} {month_name_en(jm)}",
+            "label": f"{d['jalali_day']} {month_name(jm)}",
             "weekday": wd,
             "weekday_short": _WEEKDAY_SHORT[wd],
             "status": status,
@@ -629,8 +951,8 @@ def _month_card_from_snap(person, jy, m, snap, *, status: str) -> dict[str, Any]
     excess_h = _excess_hours(done_h, plan_h)
     return {
         "month": m,
-        "name": month_name_en(m),
-        "label": month_name_en(m),
+        "name": month_name(m),
+        "label": month_name(m),
         "status": status,
         "planned_hours": snap.planned_hours,
         "worked_hours": done_h,
@@ -678,7 +1000,7 @@ def year_month_cards(person, jy: int) -> list[dict[str, Any]]:
 
         if before_track and snap is None:
             cards.append({
-                "month": m, "name": month_name_en(m), "label": month_name_en(m),
+                "month": m, "name": month_name(m), "label": month_name(m),
                 "status": "idle", "planned_hours": 0, "worked_hours": 0,
                 "overtime_hours": 0, "excess_hours": 0,
                 "working_days": 0, "off_days": 0,
@@ -706,7 +1028,7 @@ def year_month_cards(person, jy: int) -> list[dict[str, Any]]:
         if is_future:
             plan = plan_month(jy, m, start=start, end=end)
             cards.append({
-                "month": m, "name": month_name_en(m), "label": month_name_en(m),
+                "month": m, "name": month_name(m), "label": month_name(m),
                 "status": "upcoming",
                 "planned_hours": plan["planned_hours"],
                 "worked_hours": 0,
@@ -721,7 +1043,7 @@ def year_month_cards(person, jy: int) -> list[dict[str, Any]]:
         else:
             # Past month after tracking start with no snap yet — treat as idle.
             cards.append({
-                "month": m, "name": month_name_en(m), "label": month_name_en(m),
+                "month": m, "name": month_name(m), "label": month_name(m),
                 "status": "idle", "planned_hours": 0, "worked_hours": 0,
                 "overtime_hours": 0, "excess_hours": 0,
                 "working_days": 0, "off_days": 0,
@@ -773,10 +1095,6 @@ def summarize_year_cards(cards: list[dict[str, Any]], jy: int) -> dict[str, Any]
     }
 
 
-def year_summary(person, jy: int) -> dict[str, Any]:
-    return summarize_year_cards(year_month_cards(person, jy), jy)
-
-
 def year_cards_for_person(person, current_jy: int, *, current_summary=None) -> list[dict[str, Any]]:
     """Year tiles for the shift page (6-per-row grid). Current year first, then past."""
     from .models import ShiftMonthSnapshot
@@ -807,11 +1125,9 @@ def year_cards_for_person(person, current_jy: int, *, current_summary=None) -> l
     return cards
 
 
-def archived_years(person, current_jy: int) -> list[dict[str, Any]]:
-    """Past years only (compat helper)."""
-    return [y for y in year_cards_for_person(person, current_jy) if not y.get("is_current")]
-
-
+# ---------------------------------------------------------------------------
+# Entry point from the open browser tab — the heartbeat, and overtime presence
+# ---------------------------------------------------------------------------
 def _credit_ot_presence(person, when: datetime) -> int:
     """Accrue actual minutes spent inside the approved overtime extension."""
     from .models import ShiftDayLog
@@ -832,10 +1148,11 @@ def _credit_ot_presence(person, when: datetime) -> int:
     else:
         secs = max(0, int((when - log.last_ping).total_seconds()))
         if secs <= max(0, int(grace)):
-            if secs >= 30:
-                add = max(1, secs // 60)
-            elif secs >= 20:
-                add = 1
+            # Same banked-seconds rule as the base shift: a few seconds per ping
+            # never reaches a minute on its own, so it is carried until it does.
+            banked = int(getattr(log, "carry_seconds", 0) or 0) + secs
+            add = banked // 60
+            log.carry_seconds = banked % 60
         # Beyond grace during OT: do not credit the away gap as overtime.
 
     room = max(0, cap - int(log.overtime_minutes or 0))
@@ -843,7 +1160,7 @@ def _credit_ot_presence(person, when: datetime) -> int:
     if add:
         log.overtime_minutes = int(log.overtime_minutes or 0) + add
     log.last_ping = when
-    log.save(update_fields=["overtime_minutes", "last_ping"])
+    log.save(update_fields=["overtime_minutes", "last_ping", "carry_seconds"])
     freeze_past_months(person)
     refresh_worked(person)
     return int(log.minutes or 0)
@@ -867,10 +1184,7 @@ def record_presence_ping(person, *, when: datetime | None = None) -> int:
         # Approved overtime keeps the session alive; credit actual presence
         # into overtime_minutes (capped at approved OT for the day).
         try:
-            from .staff_requests import (
-                approved_overtime_minutes_for_day,
-                is_within_extended_window,
-            )
+            from .staff_requests import is_within_extended_window
             if is_within_extended_window(person, when):
                 return _credit_ot_presence(person, when)
         except Exception:
@@ -882,7 +1196,7 @@ def record_presence_ping(person, *, when: datetime | None = None) -> int:
         return 0
 
     per_day = shift_minutes(start, end)
-    start_dt = _aware_combine(gday, start, when.tzinfo)
+    start_dt = _shift_start_dt(start, end, when)
     log, _ = ShiftDayLog.objects.get_or_create(
         person=person, day=gday, defaults={"minutes": 0},
     )
@@ -925,17 +1239,22 @@ def record_presence_ping(person, *, when: datetime | None = None) -> int:
                 add = _credit_gap_minutes(
                     log, when, per_day=per_day, grace_seconds=grace, force_skip=False,
                 )
-                if add <= 0 and 20 <= secs < 30:
-                    add = 1
             else:
-                # Beyond grace → subtract full away duration; do not credit gap.
-                away_mins = max(1, secs // 60)
-                log.minutes = max(0, int(log.minutes or 0) - away_mins)
+                # Beyond grace → the gap is not credited, and nothing already
+                # earned is taken back either; the lost credit is the cost. Same
+                # rule as ``_apply_reconnect_gap`` on the login path.
+                _record_away(
+                    log, log.last_ping, when,
+                    start=start, end=end, per_day=per_day,
+                )
                 add = 0
 
     log.minutes = min(per_day, max(0, int(log.minutes or 0)) + add)
     log.last_ping = when
-    log.save(update_fields=["minutes", "last_ping", "first_login", "explicit_logout"])
+    log.save(update_fields=[
+        "minutes", "last_ping", "first_login", "explicit_logout",
+        "carry_seconds", "away_minutes",
+    ])
     freeze_past_months(person)
     refresh_worked(person)
     return log.minutes

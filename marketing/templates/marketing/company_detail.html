@@ -1,0 +1,849 @@
+{% extends "base.html" %}
+{% load ft_extras static i18n %}
+{% comment %}
+  ONE COMPANY — its roles, the people to call there, its cases, the reports
+  and reminders Marketing wrote/set on it, and its history.
+
+  A FULL REDESIGN OF THE TOP OF THIS PAGE, THIS ROUND, per the owner's own
+  spec (see marketing/views.py::company_detail for the full breakdown of
+  where every number/list below comes from). What changed and why:
+
+  * THE OLD HORIZONTAL `.infobox` ROW OF FOUR STAT BOXES IS GONE, and so is
+    the lopsided `.grid.grid-3` row that put a wide Roles-and-labels card
+    beside a narrow "at a glance" one. In their place: THREE EQUAL CARDS,
+    Company / Roles / Cases, in the SAME `.grid.grid-3` (three equal columns
+    by default) the case detail page's own top row uses, each a plain
+    `.card`/`.card-head` panel — the same visual language as
+    cases/templates/cases/case_detail.html, not a parallel set of classes.
+    The Cases card is a VERTICAL icon+label+value list (`dl.kv-ic.compact`,
+    reused verbatim from the case page's own "Offer details" sub-card)
+    rather than a row of boxes, per the owner's explicit ask.
+  * THE LOOSE "Set reminder" BUTTON IN THE PAGE HEAD IS GONE. Reminders now
+    have their own tab, with their own "Set new reminder" action inside it —
+    see that tab below.
+  * THE TABS GAIN A FIFTH MEMBER, Reminders, seated immediately before
+    Timeline (the owner's own words: "قبل از تب تایم لاین").
+
+  Still modelled on the case detail page for everything the spec did not ask
+  to change: the same `.page-head` with the name as the <h1>, the same
+  `.tabs`/`.tab` strip over `.tab-panel` panels (switched by
+  marketing/js/directory.js), the same `.card`/`.card-head` panels inside
+  them, and — for the timeline — the same `<ul class="timeline">` with
+  `.tl-action` / `.tl-meta` / `.tl-comment` rows and the same `|jalali` filter
+  on every stamp.
+
+  EVERY ACCESS-DEPENDENT CONTROL IS GATED EXACTLY AS THE VIEW GATES IT, and
+  this round moved markup around without touching one of those tests:
+  "Add contact", "Add report" and "Set new reminder" are all {% if can_edit %},
+  which is the same flag marketing/views.py::contact_add / ::report_add /
+  ::reminder_add refuse on; the per-row contact delete is c.can_remove; a
+  reminder row's own "Submit report" control is r.is_own (see
+  marketing/views.py::_reminder_rows — acting on a reminder stays strictly
+  owner-only even now that SEEING the tab can show a Supervisor everyone's
+  rows); and the PI money figure is behind show_money. A hidden control is
+  not a permission — every one of those URLs re-checks for itself — but a
+  drawn control that the server will refuse is a bug, so the two sides are
+  kept saying the same thing.
+
+  THE REMINDERS TAB'S OWN CLOSE CONTROL USED TO BE A DIFFERENT PAIR —
+  "Set new time" (posting to marketing:reminder_retime) and "Mark dealt
+  with" (posting to marketing:reminder_done), a plain reschedule or a
+  mark-done with NO report ever required. Those two views/routes are gone —
+  see marketing/urls.py's own module docstring and the comment left in
+  marketing/views.py where they used to be defined — because they were a
+  live, working bypass of the mandatory close-only-via-a-report cycle this
+  whole round was built around: a reminder on THIS page could close with no
+  report behind it, or reopen with a fresh due date, while every other
+  screen in the app had already moved to marketing:my_tasks_report /
+  marketing/reminders.py::close_with_report. This tab now carries the SAME
+  "Submit report" control marketing/templates/marketing/
+  _my_tasks_reminders.html already has, linking to the SAME view — not a
+  second, separate close mechanism — so a reminder closes identically no
+  matter which page it was closed from.
+
+  Nothing here formats a date itself: every stamp goes through the |jalali
+  filter from core/templatetags/ft_extras.py, the same filter the case page's
+  timeline uses, so both pages print the same calendar in the same shape.
+
+  THE CONTACTS/REPORTS/REMINDERS SEARCH-AND-FILTER CONTROLS reuse the exact
+  mechanism marketing/templates/marketing/directory.html and
+  cases/templates/cases/archive.html already use for an inline list filter —
+  static/js/ui.js's `data-filter-table` pass, driven by plain
+  `data-filter-for`/`data-filter-colname`/`data-filter-mode` attributes on an
+  <input> (no new JavaScript of this page's own, and the controls work with
+  scripting off too — they just do nothing until a real GET/POST would need
+  writing, which none of these three lists have). The Reports/Reminders date
+  range fields carry `data-jalali-datetime` and `data-filter-mode="gte"` /
+  `"lte"`, the SAME two attributes the archive's own From/To date boxes carry,
+  for the same "look and feel of the Archive section" the owner asked for.
+{% endcomment %}
+{% block title %}{{ client.name }} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{{ client.name }}{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'marketing/css/directory.css' %}">
+{% endblock %}
+{% block content %}
+
+{# The header identifies the company and nothing else — no role chips, no    #}
+{# "Set reminder" button; both moved into cards/tabs below.                  #}
+<div class="page-head">
+  <div>
+    <h1 style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">
+      <span dir="auto">{{ client.name }}</span>
+      <span class="mono muted" style="font-size:.9rem;">({{ client.code }})</span>
+    </h1>
+    <div class="sub">{% trans "Company directory" %} · {% trans "Marketing" %}</div>
+  </div>
+  <div class="row-flex" style="align-items:center;gap:.5rem;flex-wrap:wrap;">
+    <a href="{% url 'marketing:directory' %}" class="btn btn-sm">
+      <i class="fa-solid fa-arrow-left"></i> {% trans "Directory" %}
+    </a>
+    <a href="{% url 'marketing:home' %}" class="btn btn-sm">
+      <i class="fa-solid fa-diagram-project"></i> {% trans "Relationship chart" %}
+    </a>
+  </div>
+</div>
+
+{# ------------------------------------------------- the three summary cards #}
+{# Company | Roles | Cases, in that order, one plain .card apiece — but NOT  #}
+{# `.grid.grid-3` any more (that shared class still means three EQUAL        #}
+{# columns everywhere else this page uses it — the Reports/Reminders filter  #}
+{# grids further down — and this row is the only one the owner asked to      #}
+{# change). This row gets its own modifier, `.dir-top-grid`                  #}
+{# (marketing/static/marketing/css/directory.css), which keeps `.grid`'s     #}
+{# display:grid/gap but replaces the column split with one measured          #}
+{# specifically for this row: Roles renders its list in TWO CSS columns      #}
+{# (`.dir-roles-list` below) and a Persian role label routinely runs to 30+  #}
+{# characters plus its bracketed English abbreviation, so an equal third was #}
+{# never wide enough for one role per line — see that CSS rule's own comment #}
+{# for the actual measurements this ratio and its breakpoints came from.     #}
+<div class="grid dir-top-grid">
+
+  {# --------------------------------------------------------------- company #}
+  <div class="card">
+    <div class="card-head">
+      <h3><i class="fa-solid fa-building" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Company" %}</h3>
+    </div>
+    <dl class="kv-ic compact">
+      <dt><i class="fa-solid fa-building"></i>{% trans "Name" %}</dt>
+      <dd><span dir="auto">{{ client.name }}</span></dd>
+      <dt><i class="fa-solid fa-hashtag"></i>{% trans "Code" %}</dt>
+      <dd><span class="mono">{{ client.code }}</span></dd>
+      <dt><i class="fa-solid fa-users"></i>{% trans "Contacts" %}</dt>
+      <dd>{{ contacts|length }}</dd>
+      <dt><i class="fa-solid fa-file-lines"></i>{% trans "Reports" %}</dt>
+      <dd>{{ reports|length }}</dd>
+      {# DISTINCT PEOPLE who have ever added a role or a connection to this   #}
+      {# company — unscoped, a company-wide fact, not a per-viewer visibility #}
+      {# question. See marketing/services.py::contributor_count.             #}
+      <dt><i class="fa-solid fa-user-group"></i>{% trans "Contributors" %}</dt>
+      <dd>{{ contributor_count }}</dd>
+      {# THIS VIEWER'S OWN open reminders on this company — a per-viewer      #}
+      {# number, deliberately, and it stays that way regardless of whether    #}
+      {# the Reminders tab below is showing this viewer only their own rows   #}
+      {# or (a Supervisor/GM/admin) everyone's. See                          #}
+      {# marketing/reminders.py::count_open_for_client.                      #}
+      <dt><i class="fa-solid fa-bell"></i>{% trans "Your open reminders" %}</dt>
+      <dd>{{ own_open_reminder_count }}</dd>
+    </dl>
+  </div>
+
+  {# ------------------------------------------------------------------ roles #}
+  {# ONE card, no separate tag/label sub-card — the same merged, scoped list  #}
+  {# as before (services.labels_for_clients), restyled from a single row of  #}
+  {# chips into a two-column list of rows, one role per line.                #}
+  <div class="card dir-roles-card">
+    <div class="card-head">
+      <h3><i class="fa-solid fa-tags" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Roles" %}
+        <span class="count">{{ labels|length }}</span>
+      </h3>
+    </div>
+    {% if labels %}
+    <ul class="dir-roles-list">
+      {% for lab in labels %}
+      {# The icon carries the source, same as the old chip look: a           #}
+      {# case-derived role gets the folder icon, a manually tagged one gets  #}
+      {# the plain tag icon — the legend under the list spells both out.     #}
+      <li title="{% if lab.source == 'case' %}{% trans "From this company's cases" %}{% else %}{% trans "Manually tagged" %}{% endif %}">
+        <i class="fa-solid {% if lab.source == 'case' %}fa-folder-open{% else %}fa-tag{% endif %}"></i>
+        <span dir="auto">{{ lab.label_fa }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {# THE TWO-LINE LEGEND THAT USED TO SIT HERE IS GONE — the owner asked    #}
+    {# for both lines removed outright, with nothing put in their place. The  #}
+    {# per-role source is still available on hover (the `title=` on each      #}
+    {# `<li>` above, untouched), it is simply no longer spelled out in a      #}
+    {# permanent block under the list.                                       #}
+    {% else %}
+    <div class="empty">{% trans "This company carries no roles yet." %}</div>
+    {% endif %}
+  </div>
+
+  {# ------------------------------------------------------------------ cases #}
+  {# A VERTICAL list with an icon per line — dl.kv-ic.compact, the exact same #}
+  {# markup the case detail page's own "Offer details" sub-card uses — NOT   #}
+  {# the old horizontal .infobox row of boxes. counts comes from             #}
+  {# marketing/views.py::_case_card_counts, this card's OWN four-way split   #}
+  {# (see that function's docstring for why it is a separate function from  #}
+  {# the one the relationship chart's own panel still relies on, untouched).#}
+  {# pi_totals carries that SAME four-way split's own PI money, one figure   #}
+  {# per bucket instead of the old single "Grand total (all PI)" line — see  #}
+  {# marketing/views.py::_pi_money_by_bucket, which buckets every case by    #}
+  {# the identical rule counts does, so a line's count and its money always  #}
+  {# describe the same cases.                                                #}
+  <div class="card">
+    <div class="card-head">
+      <h3><i class="fa-solid fa-folder-open" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Cases" %}</h3>
+    </div>
+    <dl class="kv-ic compact">
+      <dt><i class="fa-solid fa-layer-group"></i>{% trans "Total cases" %}</dt>
+      <dd>{{ counts.total }}</dd>
+      <dt><i class="fa-solid fa-circle-check"></i>{% trans "Approved" %}</dt>
+      <dd>
+        {{ counts.approved }}
+        {# The old single "Grand total (all PI)" line is gone — the owner    #}
+        {# asked for the money split one figure per bucket, right beside the #}
+        {# count it belongs to, so each of the four lines below now carries  #}
+        {# its own total instead of one lump sum at the bottom of the card.  #}
+        {# Gated exactly as the old single figure was: show_money is whether #}
+        {# this viewer may see money at all, and pi_totals.approved is "—"   #}
+        {# for a genuinely-zero bucket, never absent for a nonzero one — see #}
+        {# marketing/views.py::_pi_money_by_bucket.                         #}
+        {% if show_money and pi_totals.approved %}
+        <span class="mono muted" style="margin-inline-start:.5rem;">{{ pi_totals.approved }}</span>
+        {% endif %}
+      </dd>
+      {# Burned + Cancelled, summed into this one line — the owner's own      #}
+      {# words: "کنسل شده ها که شامل پرونده های سوخته شده و کنسل شده میشه جمع #}
+      {# انها". See marketing/views.py::_CASE_CARD_CANCELLED.                #}
+      <dt><i class="fa-solid fa-ban"></i>{% trans "Cancelled" %}</dt>
+      <dd>
+        {{ counts.cancelled }}
+        {% if show_money and pi_totals.cancelled %}
+        <span class="mono muted" style="margin-inline-start:.5rem;">{{ pi_totals.cancelled }}</span>
+        {% endif %}
+      </dd>
+      {# NEW this round — final-closed cases, split out of Approved for this #}
+      {# card specifically. Did not exist on this page before.               #}
+      <dt><i class="fa-solid fa-flag-checkered"></i>{% trans "Closed" %}</dt>
+      <dd>
+        {{ counts.closed }}
+        {% if show_money and pi_totals.closed %}
+        <span class="mono muted" style="margin-inline-start:.5rem;">{{ pi_totals.closed }}</span>
+        {% endif %}
+      </dd>
+      <dt><i class="fa-solid fa-hourglass-half"></i>{% trans "No result" %}</dt>
+      <dd>
+        {{ counts.pending }}
+        {% if show_money and pi_totals.pending %}
+        <span class="mono muted" style="margin-inline-start:.5rem;">{{ pi_totals.pending }}</span>
+        {% endif %}
+      </dd>
+    </dl>
+  </div>
+</div>
+
+{# Reminders sits immediately BEFORE Timeline — the owner's own words,       #}
+{# "قبل از تب تایم لاین".                                                    #}
+<div class="tabs side-tabs" id="companyTabs">
+  <div class="tab active" data-tab="contacts"><i class="fa-solid fa-users"></i> {% trans "Contacts" %}</div>
+  <div class="tab" data-tab="cases"><i class="fa-solid fa-folder-open"></i> {% trans "Cases" %}</div>
+  <div class="tab" data-tab="reports"><i class="fa-solid fa-file-lines"></i> {% trans "Reports" %}</div>
+  <div class="tab" data-tab="reminders"><i class="fa-solid fa-bell"></i> {% trans "Reminders" %}</div>
+  <div class="tab" data-tab="timeline"><i class="fa-solid fa-clock-rotate-left"></i> {% trans "Timeline" %}</div>
+</div>
+
+{# ---------------------------------------------------------------- contacts #}
+<div class="tab-panel active" id="panel-contacts">
+  <div class="card">
+    <div class="card-head">
+      <h3><i class="fa-solid fa-users" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Contacts" %}
+        <span class="count" data-filter-count="contactsTable">{{ contacts|length }}</span>
+      </h3>
+      {% if can_edit %}
+      <a href="{% url 'marketing:contact_add' client.pk %}" class="btn btn-sm btn-primary">
+        <i class="fa-solid fa-user-plus"></i> {% trans "Add contact" %}
+      </a>
+      {% endif %}
+    </div>
+
+    {# Said in words because the list is scoped and a short list would          #}
+    {# otherwise read as "this company has almost no contacts". The rule itself #}
+    {# is enforced in services.list_contacts, never here — and the flag this    #}
+    {# branches on is the viewer's SCOPE, not can_edit; see                     #}
+    {# marketing/views.py::company_detail for why those two are not the same    #}
+    {# question.                                                                #}
+    <div class="help" style="margin:-.35rem 0 .7rem;">
+      {% if sees_all_contacts %}{% trans "You see every contact recorded on this company." %}{% else %}{% trans "You see the contacts you added yourself." %}{% endif %}
+    </div>
+
+    {# A SINGLE SEARCH BOX, by name OR phone — new this round. Client-side,    #}
+    {# through ui.js's existing data-filter-table pass: the Name column's own  #}
+    {# data-fval carries the contact's full name AND every one of their (now   #}
+    {# several) ContactPhone numbers concatenated, so one box searches both    #}
+    {# without a second control. See marketing/models.py::ContactPhone for     #}
+    {# why a contact can carry more than one number now.                       #}
+    <div class="field" style="max-width:320px;margin-bottom:.7rem;">
+      <label><i class="fa-solid fa-magnifying-glass"></i> {% trans "Search" %}</label>
+      <input type="text" data-filter-for="contactsTable" data-filter-colname="{% trans "Name" %}"
+             data-filter-mode="contains" placeholder="{% trans "Search by name or phone…" %}" autocomplete="off">
+    </div>
+
+    <table class="data" id="contactsTable" data-filter-table>
+      <thead>
+        <tr>
+          <th>{% trans "Name" %}</th>
+          <th>{% trans "Contact role" %}</th>
+          <th>{% trans "Phone" %}</th>
+          <th>{% trans "Email" %}</th>
+          <th>{% trans "Added" %}</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in contacts %}
+        <tr>
+          <td data-fval="{{ c.full_name }} {% for p in c.phones %}{{ p.phone_prefix }}{{ p.phone }}{{ p.phone_ext }} {% endfor %}">
+            <span dir="auto">{{ c.full_name }}</span>
+            <div class="muted" style="font-size:.72rem;">{{ c.gender_label }}</div>
+          </td>
+          <td dir="auto">{{ c.role|default:"—" }}</td>
+          {# A contact can now carry any number of phone rows (see           #}
+          {# marketing/models.py::ContactPhone) — one per line, in the order #}
+          {# they were entered (services._contact_row / ContactPhone.Meta   #}
+          {# .ordering).                                                     #}
+          <td class="mono">
+            {% if c.phones %}
+              {% for p in c.phones %}
+                <div{% if not forloop.first %} style="margin-top:.2rem;"{% endif %}>
+                  {% if p.phone_prefix %}<span class="muted">{{ p.phone_prefix }}</span> {% endif %}{{ p.phone|phone_fmt }}{% if p.phone_ext %} <span class="muted">{% blocktrans with ext=p.phone_ext %}ext. {{ ext }}{% endblocktrans %}</span>{% endif %}
+                </div>
+              {% endfor %}
+            {% else %}—{% endif %}
+          </td>
+          <td dir="ltr">{% if c.email %}<a href="mailto:{{ c.email }}">{{ c.email }}</a>{% else %}—{% endif %}</td>
+          <td class="muted">{{ c.created_at|jalali:"Y.m.d H:i" }}</td>
+          {# A real POST form, not a link: this deletes a row. c.can_remove is   #}
+          {# computed in marketing/views.py::_contact_rows and is True only when #}
+          {# services.remove_contact would actually delete THIS row for THIS     #}
+          {# viewer, so the control never appears where pressing it would do     #}
+          {# nothing. The view re-checks all of it — a hidden button is not a    #}
+          {# permission.                                                         #}
+          <td style="width:1%;white-space:nowrap;">
+            {% if c.can_remove %}
+            <form method="post" action="{% url 'marketing:contact_remove' client.pk c.id %}"
+                  onsubmit="return confirm('{% trans "Remove this contact from the company?" %}');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-ghost" title="{% trans "Remove this contact" %}">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="empty">{% trans "No contacts recorded for this company yet." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ------------------------------------------------------------------- cases #}
+<div class="tab-panel" id="panel-cases">
+  <div class="card">
+    <div class="card-head">
+      <h3><i class="fa-solid fa-folder-open" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Cases" %}
+        <span class="count">{{ counts.total }}</span>
+      </h3>
+      {# Persian nouns do not inflect for number the way "approved"/"case"    #}
+      {# etc. do in English, so every {% blocktrans count %} pair below       #}
+      {# carries the IDENTICAL Persian wording on both branches — the plural  #}
+      {# branch is only there because ``count`` requires one, not because     #}
+      {# Persian needs a different sentence for it.                          #}
+      <span class="row-flex" style="gap:.4rem;flex-wrap:wrap;">
+        <span class="chip c-ok"><i class="fa-solid fa-circle-check"></i>{% blocktrans count n=counts.approved %}{{ n }} approved{% plural %}{{ n }} approved{% endblocktrans %}</span>
+        <span class="chip c-rej"><i class="fa-solid fa-ban"></i>{% blocktrans count n=counts.cancelled %}{{ n }} cancelled{% plural %}{{ n }} cancelled{% endblocktrans %}</span>
+        <span class="chip"><i class="fa-solid fa-flag-checkered"></i>{% blocktrans count n=counts.closed %}{{ n }} closed{% plural %}{{ n }} closed{% endblocktrans %}</span>
+        <span class="chip c-draft"><i class="fa-solid fa-hourglass-half"></i>{% blocktrans count n=counts.pending %}{{ n }} no result{% plural %}{{ n }} no result{% endblocktrans %}</span>
+      </span>
+    </div>
+
+    {# THE MONEY, WORDED AND GATED EXACTLY AS THE ARCHIVE WORDS AND GATES ITS   #}
+    {# OWN — unchanged by this round. See marketing/views.py::_pi_money_total. #}
+    {% if show_money and pi_total_display %}
+    <div class="dir-money">
+      <span class="dir-money-l"><i class="fa-solid fa-coins"></i> {% trans "Grand total (all PI)" %}</span>
+      <strong class="mono dir-money-v">{{ pi_total_display }}</strong>
+      <span class="dir-money-note">{% blocktrans count n=counts.total %}over the {{ n }} case listed below{% plural %}over the {{ n }} cases listed below{% endblocktrans %}</span>
+    </div>
+    {% endif %}
+
+    {% if hidden_case_count %}
+    {# Honest rather than silent: the rows are scoped (see                      #}
+    {# marketing/views.py::_visible_case_rows) and a reader comparing this page #}
+    {# with the chart's own "cases connected to Us" panel would otherwise think #}
+    {# one of them was wrong.                                                   #}
+    <div class="flash flash-info">
+      <i class="fa-solid fa-circle-info"></i>
+      <span>{% blocktrans count n=hidden_case_count %}{{ n }} more case on this company is outside what your seat may see.{% plural %}{{ n }} more cases on this company are outside what your seat may see.{% endblocktrans %}</span>
+    </div>
+    {% endif %}
+
+    <table class="data">
+      <thead>
+        <tr>
+          <th>{% trans "Document No." %}</th>
+          <th>{% trans "Role on the case" %}</th>
+          <th>{% trans "Outcome" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in case_rows %}
+        {# row.open_url, not a bare {% url 'cases:case_detail' %}: a viewer who #}
+        {# holds this case through a SECOND (Commercial) seat has to pass       #}
+        {# through that seat to open it, or the case page bounces them. The     #}
+        {# view builds the right one per row — see access.case_open_url.        #}
+        <tr class="row-link" onclick="window.location='{{ row.open_url }}'">
+          <td><span class="mono">{{ row.doc_no }}</span></td>
+          <td>{{ row.label_fa|default:row.label }}</td>
+          <td>{{ row.status_fa }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="empty">{% trans "No cases you may see are recorded for this company." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ----------------------------------------------------------------- reports #}
+{# The reports a Marketing person wrote on this company. Rows come from        #}
+{# services.list_reports, which enforces its own visibility rule through the   #}
+{# SAME _scoped helper contacts use — an ordinary Marketing seat sees the      #}
+{# reports it wrote, a Supervisor / the GM / the admin see every one — so this #}
+{# panel filters nothing a second time and only says, in words, which of the   #}
+{# two lists the reader is looking at.                                        #}
+{#                                                                             #}
+{# NOW A PROPER TABLE, WITH A FILTER CARD ABOVE IT — new this round, mirroring #}
+{# the case archive's own filter card (same field grid, same Jalali date-range #}
+{# pair with data-jalali-datetime / data-filter-mode="gte"/"lte") per the      #}
+{# owner's own "like the Archive section" instruction. The used-to-be <ul> of  #}
+{# free-standing blocks is gone; each report is now one row.                   #}
+<div class="tab-panel" id="panel-reports">
+  <div class="card" style="margin-bottom:1rem;">
+    <div class="card-head">
+      <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Filters" %}</h3>
+      <button type="button" class="btn btn-sm" data-filter-clear="reportsTable" title="{% trans "Reset all filters" %}">
+        <i class="fa-solid fa-eraser"></i> {% trans "Clear filters" %}
+      </button>
+    </div>
+    {# COMPACT, ONE-ROW LAYOUT — `.filters-row`, the same modifier My Tasks'    #}
+    {# own filter cards carry (static/css/app.css's own comment on that       #}
+    {# class explains the flex/wrap mechanics); layered onto this card's      #}
+    {# existing `.grid.grid-3`, never a replacement for it — the fourth,      #}
+    {# free-text Search field a few lines down still wraps onto a second      #}
+    {# line exactly as it already did, only shorter now that every field's    #}
+    {# own label sits beside its control instead of stacked above it.         #}
+    <div class="grid grid-3 filters-row">
+      <div class="field">
+        <label><i class="fa-solid fa-folder-open"></i> {% trans "Case" %}</label>
+        <input type="text" data-filter-for="reportsTable" data-filter-colname="{% trans "Case" %}"
+               placeholder="{% trans "Document no…" %}" autocomplete="off">
+      </div>
+      <div class="field">
+        <label><i class="fa-solid fa-calendar-day"></i> {% trans "From date (Jalali)" %}</label>
+        <input type="text" data-jalali-datetime data-filter-for="reportsTable"
+               data-filter-colname="{% trans "Date" %}" data-filter-mode="gte" placeholder="{% trans "From date" %}" autocomplete="off">
+      </div>
+      <div class="field">
+        <label><i class="fa-solid fa-calendar-day"></i> {% trans "To date (Jalali)" %}</label>
+        <input type="text" data-jalali-datetime data-filter-for="reportsTable"
+               data-filter-colname="{% trans "Date" %}" data-filter-mode="lte" placeholder="{% trans "To date" %}" autocomplete="off">
+      </div>
+      <div class="field">
+        <label><i class="fa-solid fa-magnifying-glass"></i> {% trans "Search" %}</label>
+        {# LIVE, FREE-TEXT, AGAINST THE REPORT'S OWN TEXT — a FOURTH field in    #}
+        {# this same `.grid.grid-3` (CSS grid simply wraps it onto an implicit   #}
+        {# second row, the identical reasoning `_my_tasks_reminders.html`'s own  #}
+        {# Person field already relies on for its `.grid.grid-4`), reusing the   #}
+        {# exact `data-filter-colname`/`data-filter-mode="contains"` plain-      #}
+        {# <input> mechanism cases/templates/cases/case_detail.html's own        #}
+        {# Reports tab already carries — no new JavaScript, static/js/ui.js's    #}
+        {# own `data-filter-table` pass already defaults an omitted              #}
+        {# `data-filter-mode` to "contains" and re-filters on every keystroke.    #}
+        {# Targets "Report" (the <td> below holding r.text).                     #}
+        <input type="text" data-filter-for="reportsTable" data-filter-colname="{% trans "Report" %}"
+               data-filter-mode="contains" placeholder="{% trans "Search report text…" %}" autocomplete="off">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h3><i class="fa-solid fa-file-lines" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Reports" %}
+        <span class="count" data-filter-count="reportsTable">{{ reports|length }}</span>
+      </h3>
+      {# THE SAME GATE AS "Add contact" ABOVE — can_edit — because it is the    #}
+      {# same gate marketing/views.py::report_add and ::report_create refuse    #}
+      {# on, exactly as contact_add does.                                        #}
+      {% if can_edit %}
+      <a href="{% url 'marketing:report_add' client.pk %}" class="btn btn-sm btn-primary">
+        <i class="fa-solid fa-file-pen"></i> {% trans "Add report" %}
+      </a>
+      {% endif %}
+    </div>
+
+    {# Contacts' own sentence, for reports, decided by the same thing: the      #}
+    {# SCOPE, not can_edit — see marketing/views.py::company_detail on          #}
+    {# sees_all_reports.                                                        #}
+    <div class="help" style="margin:-.35rem 0 .7rem;">
+      {% if sees_all_reports %}{% trans "You see every report written on this company." %}{% else %}{% trans "You see the reports you wrote yourself." %}{% endif %}
+    </div>
+
+    <table class="data" id="reportsTable" data-filter-table>
+      <thead>
+        <tr>
+          <th>{% trans "Date" %}</th>
+          <th>{% trans "Author" %}</th>
+          <th>{% trans "Case" %}</th>
+          <th>{% trans "What it's about" %}</th>
+          <th>{% trans "Report" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in reports %}
+        <tr>
+          <td class="mono muted">{{ r.created_at|jalali:"Y.m.d H:i" }}</td>
+          {# The FROZEN author name (services._report_row ->                    #}
+          {# CompanyReport.author_display_name), never a live lookup — a rename  #}
+          {# must not rewrite who a report says wrote it.                        #}
+          <td dir="auto">{{ r.author|default:"—" }}</td>
+          <td>
+            {% if r.case_doc_no %}
+            <span class="mono">{{ r.case_doc_no }}</span>
+            {% elif r.has_case %}
+            {# ATTACHED TO A CASE THIS VIEWER MAY NOT SEE — see                  #}
+            {# services._report_row. The report itself is this viewer's to      #}
+            {# read; only the case is unnamed.                                  #}
+            <span class="chip c-draft"><i class="fa-solid fa-folder-open"></i>{% trans "On a case" %}</span>
+            {% else %}
+            <span class="chip c-draft"><i class="fa-solid fa-building"></i>{% trans "On the company" %}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if r.options %}
+            <div class="chips-row">
+              {% for opt in r.options %}
+              <span class="chip c-draft" dir="auto"><i class="fa-solid fa-check"></i>{{ opt }}</span>
+              {% endfor %}
+            </div>
+            {% else %}<span class="muted">—</span>{% endif %}
+          </td>
+          {# Free text, kept as written — white-space:pre-line preserves the    #}
+          {# author's own line breaks without turning them into markup here.    #}
+          <td dir="auto" style="white-space:pre-line;max-width:32ch;overflow-wrap:anywhere;">{{ r.text|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="empty">
+            {% if can_edit %}
+              {% blocktrans %}No reports have been written on this company yet — use "Add report" to write the first one.{% endblocktrans %}
+            {% elif sees_all_reports %}
+              {% trans "No reports have been written on this company yet." %}
+            {% else %}
+              {% trans "You have not written any reports on this company yet." %}
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ---------------------------------------------------------------- reminders #}
+{# NEW TAB THIS ROUND. This viewer's own reminders set specifically on THIS    #}
+{# company — or, for a Marketing Supervisor/the GM/the platform admin, every   #}
+{# Marketing person's, per this round's widening of Reminders to work like     #}
+{# Reports (see marketing/models.py::Reminder and marketing/reminders.py for   #}
+{# the full history of that change). "Set new reminder" reuses the existing    #}
+{# reminder_add page/reminders.create machinery unchanged — this tab only      #}
+{# gives it a proper, prominent home (the same btn-sm btn-primary treatment    #}
+{# "Add contact"/"Add report" get) instead of the removed page-head button.    #}
+<div class="tab-panel" id="panel-reminders">
+  <div class="card" style="margin-bottom:1rem;">
+    <div class="card-head">
+      <h3><i class="fa-solid fa-filter" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Filters" %}</h3>
+      <button type="button" class="btn btn-sm" data-filter-clear="remindersTable" title="{% trans "Reset all filters" %}">
+        <i class="fa-solid fa-eraser"></i> {% trans "Clear filters" %}
+      </button>
+    </div>
+    {# COMPACT, ONE-ROW LAYOUT — the identical `.filters-row` modifier the     #}
+    {# Reports panel's own filter card just above carries (see that card's    #}
+    {# own comment, and static/css/app.css's own comment on the class).       #}
+    <div class="grid grid-3 filters-row">
+      <div class="field">
+        <label><i class="fa-solid fa-folder-open"></i> {% trans "Case" %}</label>
+        <input type="text" data-filter-for="remindersTable" data-filter-colname="{% trans "Case" %}"
+               placeholder="{% trans "Document no…" %}" autocomplete="off">
+      </div>
+      <div class="field">
+        <label><i class="fa-solid fa-calendar-day"></i> {% trans "From date (Jalali)" %}</label>
+        <input type="text" data-jalali-datetime data-filter-for="remindersTable"
+               data-filter-colname="{% trans "Due" %}" data-filter-mode="gte" placeholder="{% trans "From date" %}" autocomplete="off">
+      </div>
+      <div class="field">
+        <label><i class="fa-solid fa-calendar-day"></i> {% trans "To date (Jalali)" %}</label>
+        <input type="text" data-jalali-datetime data-filter-for="remindersTable"
+               data-filter-colname="{% trans "Due" %}" data-filter-mode="lte" placeholder="{% trans "To date" %}" autocomplete="off">
+      </div>
+      <div class="field">
+        <label><i class="fa-solid fa-magnifying-glass"></i> {% trans "Search" %}</label>
+        {# LIVE, FREE-TEXT, AGAINST THE NOTE ITSELF — a FOURTH field in this      #}
+        {# same `.grid.grid-3`, wrapping the identical way the Reports filter    #}
+        {# card's own fourth field does just above; same reused mechanism as     #}
+        {# cases/templates/cases/case_detail.html's own Reminders tab. Targets    #}
+        {# "Note" (the <td> below holding r.note).                                #}
+        <input type="text" data-filter-for="remindersTable" data-filter-colname="{% trans "Note" %}"
+               data-filter-mode="contains" placeholder="{% trans "Search note text…" %}" autocomplete="off">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h3><i class="fa-solid fa-bell" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Reminders" %}
+        <span class="count" data-filter-count="remindersTable">{{ reminders|length }}</span>
+      </h3>
+      {# THE SAME GATE "Add contact"/"Add report" CARRY — can_edit — the same   #}
+      {# one marketing/views.py::reminder_add refuses on. This IS the           #}
+      {# "prominent action tied to this tab" the owner asked for, styled        #}
+      {# exactly like this app's other primary creation actions.                #}
+      {% if can_edit %}
+      <a href="{% url 'marketing:reminder_add' client.pk %}" class="btn btn-sm btn-primary">
+        <i class="fa-solid fa-bell"></i> {% trans "Set new reminder" %}
+      </a>
+      {% endif %}
+    </div>
+
+    {# Reports'/contacts' own sentence, on the SAME scope this round gave       #}
+    {# Reminders — see marketing/views.py::company_detail on sees_all_reminders.#}
+    <div class="help" style="margin:-.35rem 0 .7rem;">
+      {% if sees_all_reminders %}{% trans "You see every reminder set on this company, by anyone in Marketing." %}{% else %}{% trans "You see your own reminders on this company." %}{% endif %}
+    </div>
+
+    <table class="data" id="remindersTable" data-filter-table>
+      <thead>
+        <tr>
+          <th>{% trans "Due" %}</th>
+          <th>{% trans "Note" %}</th>
+          <th>{% trans "Case" %}</th>
+          <th>{% trans "State" %}</th>
+          {% if sees_all_reminders %}<th>{% trans "Set by" %}</th>{% endif %}
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in reminders %}
+        <tr>
+          <td class="mono{% if r.is_due and not r.is_done %} c-rej{% endif %}">{{ r.due_at|jalali:"Y.m.d H:i" }}</td>
+          <td dir="auto" style="white-space:pre-line;max-width:32ch;overflow-wrap:anywhere;">{{ r.note }}</td>
+          <td>
+            {% comment %}
+              r.show_case_no, not r.case: the reminder still names a case, but a
+              seat can lose the case access it had when the reminder was set,
+              and this app's rule is that a document number is case identity —
+              see marketing/views.py::_reminder_rows.
+            {% endcomment %}
+            {% if r.case %}
+            <span class="chip"><i class="fa-solid fa-folder-open"></i>{% if r.show_case_no %}{{ r.case.doc_no }}{% else %}{% trans "On a case" %}{% endif %}</span>
+            {% else %}<span class="muted">—</span>{% endif %}
+          </td>
+          <td>
+            {% if r.is_done %}
+            <span class="chip c-ok"><i class="fa-solid fa-check"></i>{% trans "Dealt with" %}</span>
+            {% elif r.is_due %}
+            <span class="chip c-rej"><i class="fa-solid fa-bell"></i>{% trans "Due" %}</span>
+            {% else %}
+            <span class="chip c-draft"><i class="fa-regular fa-clock"></i>{% trans "Waiting" %}</span>
+            {% endif %}
+          </td>
+          {# WHO SET IT — only drawn at all when this viewer is seeing more     #}
+          {# than their own rows; a live lookup, not frozen text, because this  #}
+          {# is a working list, not an audit row (see                          #}
+          {# marketing/reminders.py::list_for_user).                           #}
+          {% if sees_all_reminders %}
+          <td dir="auto">{{ r.owner.get_full_name|default:r.owner.username }}</td>
+          {% endif %}
+          {% comment %}
+            ACTING ON A REMINDER STAYS OWNER-ONLY, EVEN NOW THAT SEEING ONE
+            CAN BE WIDER — r.is_own is what marketing/views.py::_reminder_rows
+            computes to keep this control off a row where using it would
+            close out somebody else's private note (marketing/reminders.py
+            ::_own is called with no scope argument by close_with_report, and
+            stays strictly owner=user). A Marketing Supervisor reading a
+            colleague's row on this same tab sees the row but gets no
+            control here at all.
+
+            THE SAME "Submit report" CONTROL MY TASKS ALREADY HAS, LINKING TO
+            THE SAME VIEW (marketing:my_tasks_report) — not a second,
+            separate close mechanism. This used to be a different pair,
+            "Set new time"/"Mark dealt with", posting straight to
+            marketing:reminder_retime/marketing:reminder_done — a plain
+            reschedule or a mark-done with no report ever required, and a
+            live bypass of the mandatory close-only-via-a-report cycle this
+            whole round was built around (see this template's own head
+            comment's "THE REMINDERS TAB'S OWN CLOSE CONTROL" section, and
+            marketing/urls.py's own module docstring). Both routes are gone;
+            closing a reminder from here now produces the identical result
+            closing one from My Tasks does — the reminder disappears,
+            replaced by the report that accounts for it, and the writer
+            lands on the same pre-filled "set your next reminder" step (see
+            marketing/views.py::my_tasks_report/::my_tasks_add). Gated on
+            `not r.is_done` for the identical reason
+            _my_tasks_reminders.html's own copy of this control is: a
+            reminder already left "Dealt with" by the OLD flow (before this
+            fix) has nothing left here to close, and nothing can put a row
+            back into that state any more regardless.
+          {% endcomment %}
+          <td style="white-space:nowrap;">
+            {% if r.is_own and not r.is_done %}
+            <a href="{% url 'marketing:my_tasks_report' r.pk %}" class="btn btn-sm btn-primary">
+              <i class="fa-solid fa-file-circle-check"></i> {% trans "Submit report" %}
+            </a>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="{% if sees_all_reminders %}6{% else %}5{% endif %}" class="empty">
+            {% if can_edit %}
+              {% blocktrans %}No reminders set on this company yet — use "Set new reminder" to add one.{% endblocktrans %}
+            {% elif sees_all_reminders %}
+              {% trans "No reminders have been set on this company yet." %}
+            {% else %}
+              {% trans "You have not set any reminders on this company yet." %}
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ---------------------------------------------------------------- timeline #}
+<div class="tab-panel" id="panel-timeline">
+  <div class="card">
+    <div class="card-head">
+      <h3><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Company timeline" %}</h3>
+    </div>
+    {# The case audit timeline's own markup: <ul class="timeline"> with a       #}
+    {# .tl-action sentence, a .tl-meta actor+stamp line and an optional         #}
+    {# .tl-comment note, plus one thing on top of it: an icon per action kind   #}
+    {# (chosen in the view, one lookup, never here).                            #}
+    {#                                                                          #}
+    {# THE ACTOR'S ROLE LABEL IS DELIBERATELY NOT PRINTED. It used to sit in a  #}
+    {# .dir-tl-role span beside the name ("Commercial · Manager"); the owner    #}
+    {# asked for the NAME alone. The field is still written and still frozen on #}
+    {# every row (see marketing/models.py::ClientEvent) — it is an audit value  #}
+    {# and something may want it later — it is simply not rendered here, and    #}
+    {# the span's styling went out of directory.css with it rather than being   #}
+    {# left behind as a rule nothing can match.                                 #}
+    {#                                                                          #}
+    {# THERE IS NO "a case was opened" ROW ANY MORE either: the owner removed   #}
+    {# the derived CASE_CREATED half of the timeline outright, so this chain    #}
+    {# has no branch for it and services.client_timeline emits none. A          #}
+    {# company's cases are the Cases tab above, with its own scoping. REMINDERS #}
+    {# ARE ALSO NOT PART OF THIS TIMELINE, and that is unchanged by this round: #}
+    {# a reminder is still a private note, not a company-shared fact — see      #}
+    {# marketing/reminders.py::create's own docstring.                         #}
+    {#                                                                          #}
+    {# Every row below is written as a real sentence about what happened, with  #}
+    {# the subject the event froze at write time — never "LABEL_ADDED · x".     #}
+    {# The branch chain is the same shape case_detail.html uses for its own     #}
+    {# per-action wording, for the same reason: the sentence is presentation.   #}
+    <ul class="timeline dir-timeline">
+      {% for ev in timeline %}
+      <li>
+        <div class="tl-action">
+          <i class="fa-solid {{ ev.icon }} dir-tl-icon"></i>
+          {% if ev.action == 'CLIENT_REGISTERED' %}
+            {% blocktrans with subject=ev.subject %}Registered <span dir="auto">{{ subject }}</span> in the company directory{% endblocktrans %}
+          {% elif ev.action == 'LABEL_ADDED' %}
+            {% blocktrans with subject=ev.subject %}Tagged this company as <strong dir="auto">{{ subject }}</strong>{% endblocktrans %}
+          {% elif ev.action == 'LABEL_REMOVED' %}
+            {% blocktrans with subject=ev.subject %}Removed the <strong dir="auto">{{ subject }}</strong> tag from this company{% endblocktrans %}
+          {% elif ev.action == 'CONNECTION_ADDED' %}
+            {# "as <ROLE>" as its own chip, never buried in the .tl-comment     #}
+            {# note below — the owner's own wording. ev.subject_role is FROZEN  #}
+            {# text captured when the connection was made (see                  #}
+            {# marketing/models.py::ClientEvent), not a role looked up now, so  #}
+            {# renaming a role later cannot rewrite what this row says. Rows    #}
+            {# written before that column existed simply have none, and the     #}
+            {# sentence still reads correctly without the chip. The chip is the #}
+            {# c-draft chip the roles card at the top of this page uses, so a   #}
+            {# role reads the same wherever it appears here.                    #}
+            {# ev.subject_role is itself frozen display text (services.FIELD_   #}
+            {# LABELS' composite "<Persian> — <ENGLISH>" string), never         #}
+            {# translated here — see this file's own top-of-file note on why    #}
+            {# that composite text is content, not chrome, in this round.       #}
+            {% blocktrans with subject=ev.subject %}Connected this company to <strong dir="auto">{{ subject }}</strong>{% endblocktrans %}{% if ev.subject_role %}
+            {% trans "as" %} <span class="chip c-draft" dir="auto"><i class="fa-solid fa-tag"></i>{{ ev.subject_role }}</span>{% endif %}
+          {% elif ev.action == 'CONNECTION_REMOVED' %}
+            {% blocktrans with subject=ev.subject %}Removed the connection to <strong dir="auto">{{ subject }}</strong>{% endblocktrans %}{% if ev.subject_role %}
+            {% trans "as" %} <span class="chip c-draft" dir="auto"><i class="fa-solid fa-tag"></i>{{ ev.subject_role }}</span>{% endif %}
+          {% elif ev.action == 'CONTACT_ADDED' %}
+            {% blocktrans with subject=ev.subject %}Added <strong dir="auto">{{ subject }}</strong> as a contact at this company{% endblocktrans %}
+          {% elif ev.action == 'CONTACT_REMOVED' %}
+            {% blocktrans with subject=ev.subject %}Removed the contact <strong dir="auto">{{ subject }}</strong>{% endblocktrans %}
+          {% elif ev.action == 'REPORT_ADDED' %}
+            {# ev.subject is the attached case's document number, frozen when   #}
+            {# the report was written, or empty when the writer skipped the     #}
+            {# case step — which is a supported choice, not an omission.        #}
+            {% trans "Wrote a report on this company" %}{% if ev.subject %} {% blocktrans with doc=ev.subject %}about case <span class="mono">{{ doc }}</span>{% endblocktrans %}{% endif %}
+          {% elif ev.action == 'CASE_ROLE_CHANGED' %}
+            {# ev.subject_role is the FROZEN "OLD → NEW" text, already fully  #}
+            {# formatted at write time (marketing/services.py::               #}
+            {# log_case_role_change) — printed verbatim, never split back     #}
+            {# into two nouns and re-joined here, for the same reason         #}
+            {# CONNECTION_ADDED's chip above is frozen text rather than a     #}
+            {# role key looked up now: a relabelling later must not rewrite   #}
+            {# what this row says happened. ev.subject is the case's own doc  #}
+            {# number, frozen the same way REPORT_ADDED's is above, and       #}
+            {# already correctly redacted by the time it reaches this         #}
+            {# template — services._redact_case_numbers inspects `subject`    #}
+            {# generically for every action kind, so a viewer without access  #}
+            {# to this case sees the sentence with no number at all rather    #}
+            {# than this branch needing a second check of its own.            #}
+            {% trans "Changed this case's role" %}{% if ev.subject %} {% blocktrans with doc=ev.subject %}(<span class="mono">{{ doc }}</span>){% endblocktrans %}{% endif %}:
+            <span class="chip c-draft" dir="auto"><i class="fa-solid fa-right-left"></i>{{ ev.subject_role }}</span>
+          {% else %}
+            {# A row written before an action was renamed still has to render — #}
+            {# the same forgiving fallback ClientEvent.action_label uses.       #}
+            {{ ev.action_label }}{% if ev.subject %} · <span dir="auto">{{ ev.subject }}</span>{% endif %}
+          {% endif %}
+        </div>
+        {# The frozen actor NAME, never a live lookup — see                     #}
+        {# marketing/models.py::ClientEvent on why that CharField exists. The   #}
+        {# frozen role label beside it is deliberately not printed; see the     #}
+        {# note above the list. Only the name is dir="auto"; the stamp beside   #}
+        {# it is ours and stays left-to-right, exactly as on the case timeline. #}
+        <div class="tl-meta">
+          <span dir="auto">{{ ev.actor_name|default:"—" }}</span>
+          · {{ ev.created_at|jalali:"Y.m.d H:i" }}
+        </div>
+        {% if ev.comment %}<div class="tl-comment" dir="auto">{{ ev.comment }}</div>{% endif %}
+      </li>
+      {% empty %}
+      <li class="muted">{% trans "Nothing has happened to this company yet." %}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'marketing/js/directory.js' %}" defer></script>
+{% endblock %}

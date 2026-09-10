@@ -1,4 +1,32 @@
-"""Root URL configuration for the Foolad Tabar Workflow platform."""
+"""Root URL configuration for the Foolad Tabar Workflow platform.
+
+The map of the whole site. Each mounted app owns its own ``urls.py`` and its own
+``app_name`` namespace, so ``{% url 'cases:inbox' %}`` and friends resolve there
+rather than here:
+
+    admin/      Django admin — models, and the code-table importer
+    (root)      core.urls: the landing router that sends each signed-in user to
+                the right starting screen (admin console / dashboard / inbox)
+    (root)      licensing.urls: /activate/, the offline licence screen. Mounted
+                at root, and reachable while the app is locked, because it is
+                the one page that can unlock it — see licensing/middleware.py
+    accounts/   sign-in, profiles, units, roles, signatures, impersonation
+    cases/      the workflow itself: cases, clients, forms, exports
+    reports/    role-aware management dashboards (read-only over cases)
+    people/     personnel records, work shifts, staff requests
+    marketing/  the Marketing unit's own section. Mounted here rather than
+                inside core because it is a section of its own; the placeholder
+                core once served at this path has been removed, as the note in
+                the view it replaced asked
+    tool/       itemcoder: the item-coding / pricing tool and the Build TO/PI
+                bridge back into a case
+
+Below that come a handful of aliases at site root. They are NOT a second copy of
+anything: each one points at the very same view object the app already exposes
+under its own prefix, and they deliberately carry no ``name=`` so that
+``{% url %}`` keeps resolving to the namespaced route. See the comment above
+them for why they have to exist.
+"""
 from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path
@@ -16,10 +44,27 @@ urlpatterns = [
     path("cases/", include("cases.urls")),
     path("reports/", include("reports.urls")),
     path("people/", include("people.urls")),
+    path("marketing/", include("marketing.urls")),
     # Item coding / pricing tool + case Build TO/PI bridge.
     path("tool/", include("itemcoder.urls")),
-    # The tool's bundled JS calls this absolute path (it ran at site root in the
-    # original project); alias it here so live row processing keeps working.
+    # PWA service worker. Has to be served AT the site root — see
+    # core.views.service_worker's own docstring for why its URL, not a
+    # ``scope`` argument, is what actually decides how much of the site a
+    # service worker may ever control.
+    path("sw.js", core_views.service_worker),
+    # Root aliases for the item-coding tool.
+    #
+    # The tool arrived as a standalone project that ran AT site root, and its
+    # bundled JavaScript still hard-codes these absolute paths rather than
+    # reading a URL out of the DOM — e.g. ``fetch('/ajax/process-row/')`` in
+    # itemcoder/static/itemcoder/js/row_processor.js and ``/ajax/ea-context/``,
+    # ``/ajax/ea-create-size-item/`` in engineering_assistant.js. Mounting
+    # itemcoder under /tool/ moved every one of those endpoints, so without
+    # these aliases live row processing and the engineering assistant break.
+    #
+    # They are same-view aliases and nothing more. The named routes still live
+    # in itemcoder/urls.py; teaching the JS to use ``{% url %}`` is what would
+    # let this block go away.
     path("ajax/process-row/", itemcoder_views.process_row_ajax),
     path("ajax/ea-context/", ea_views.assistant_context_ajax),
     path("ajax/ea-options/", ea_views.assistant_options_ajax),

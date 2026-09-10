@@ -1,8 +1,35 @@
+"""HTTP entry points for the item-coding tool (the grid at ``itemcoder/table.html``).
+
+Three views — the standalone tool only. They are not the app's whole HTTP
+surface: urls.py routes most of its paths to bridge.py (the same grid entered
+from a case), data_admin.py (the reference-data screens) and
+engineering_assistant.py (the ``ea_*`` endpoints), and that file's docstring is
+the map worth reading first. What lives here is:
+
+* ``upload_excel``    — the Build-TO path. Hands the workbook to
+  ``processor.process_excel_with_json`` (which fans out to excel_reader →
+  excel_processor → text_processor → code_assigner) and renders the resulting
+  DataFrame through ``dataframe_to_html_with_ids``.
+* ``process_row_ajax`` — the live-typing path. Re-runs ONE row through
+  ``processor.process_text_record_live`` (the same engine the upload uses) and
+  returns the recomputed FTCO text, code, alarms and calculated columns as JSON.
+* ``app_json_resource`` — read-only JSON resources for frontend JS.
+
+``dataframe_to_html_with_ids`` deliberately emits ``<tr>`` rows only, no
+``<table>``/``<thead>``: the template owns the frozen header, and re-emitting it
+here would nest a second table inside it. The ``_``-prefixed DataFrame columns
+are per-row flags carried from the case layer (brand/remark splits, soft
+delete/add, price provenance); they do not become visible cells, they are
+re-emitted as ``data-*`` attributes that the tool's JS reads back. Note that
+this is a fixed LIST of column names, not a rule about the prefix: the names it
+skips are spelled out below and match exactly the extras bridge.py attaches, so
+a newly invented ``_foo`` column would be rendered as an ordinary cell until it
+is added there too.
+"""
+
 import json
 import logging
-import os
 
-from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -70,10 +97,20 @@ def _hash_cell_html(val, deleted=False, added=False):
     return f'<span class="client-no-text">{txt}</span>{marks}'
 
 
-def dataframe_to_html_with_ids(df, data_json=None):
+def dataframe_to_html_with_ids(df, data_json=None, editable_columns=None):
     """
     مبدل دیتافریم به ردیف‌های خالص HTML برای بدنه جدول جهت جلوگیری از تداخل با هدر فریز شده
+
+    ``editable_columns`` — extra CANONICAL column names to stamp with
+    ``data-editable="1"`` for this render, on top of the layout/calculation
+    columns that are always writable. The caller decides; it is how the Technical
+    Offer opens ``qty`` / ``unit`` / ``size`` for a Technical seat and nobody
+    else. Passing nothing keeps the previous behaviour exactly (every other
+    caller does). The attribute is only what lets the BROWSER open an editor —
+    the value that comes back is authorised again in
+    ``itemcoder.bridge.save_from_tool``.
     """
+    editable_columns = {str(c) for c in (editable_columns or ())}
     display_to_canonical = df.attrs.get("display_to_canonical", {}) if hasattr(df, "attrs") else {}
     parts = [] # تگ‌های table و thead کاملاً از اینجا حذف شدند
 
@@ -86,6 +123,10 @@ def dataframe_to_html_with_ids(df, data_json=None):
         "_remark_ack",
         "_brand_split", "_prev_brand", "_brand_ack", "_brand_pending", "_brand_pf_text",
         "_brand_baseline", "_ftco_user_edited",
+        # Technical's per-row Qty / Unit / Size override marks
+        # (bridge._QTY_OVERRIDE_KEY / _UNIT_OVERRIDE_KEY / _SIZE_OVERRIDE_KEY).
+        # Metadata carried through the snapshot, never a visible column.
+        "_qty_override", "_unit_override", "_size_override",
     )]
     records = df.to_dict("records")
 
@@ -127,11 +168,6 @@ def dataframe_to_html_with_ids(df, data_json=None):
         try:
             import math
             if _ack_raw is not None and isinstance(_ack_raw, float) and math.isnan(_ack_raw):
-                _ack_raw = None
-        except Exception:
-            pass
-        try:
-            if _ack_raw is not None and pd.isna(_ack_raw):
                 _ack_raw = None
         except Exception:
             pass
@@ -198,11 +234,6 @@ def dataframe_to_html_with_ids(df, data_json=None):
                 _bl_raw = None
         except Exception:
             pass
-        try:
-            if _bl_raw is not None and pd.isna(_bl_raw):
-                _bl_raw = None
-        except Exception:
-            pass
         brand_baseline = str(_bl_raw or '').strip()
         if brand_baseline.lower() in ('nan', 'none', '<na>', 'null'):
             brand_baseline = ''
@@ -253,6 +284,7 @@ def dataframe_to_html_with_ids(df, data_json=None):
                 writable_cell = (
                     is_writable_extra_column(str(canonical_col), row_group)
                     or is_writable_calculation_column(str(canonical_col))
+                    or str(canonical_col) in editable_columns
                 )
 
             td_extra_attrs = ' data-editable="1"' if writable_cell else ''
@@ -287,8 +319,22 @@ def upload_excel(request):
             excel_file = request.FILES['file']
             data_path = json_path("data.json")
             json_dict = load_json_file(data_path)
-            df_result = process_excel_with_json(excel_file, json_dict)
-            table_html = dataframe_to_html_with_ids(df_result, data_json=json_dict)
+            # UploadFileForm accepts any file, and pandas raises hard on anything
+            # that is not a readable workbook (a .csv, a legacy .xls, a sheet with
+            # fewer than four columns). Picking the wrong file is a user mistake,
+            # not a server fault, so report it on the form instead of letting the
+            # exception escape as a 500 that also loses the upload.
+            try:
+                df_result = process_excel_with_json(excel_file, json_dict)
+            except Exception:
+                logger.exception("upload_excel could not read the uploaded file")
+                form.add_error(
+                    'file',
+                    "This file could not be read. Please upload an .xlsx workbook "
+                    "whose first four columns are the item rows."
+                )
+            else:
+                table_html = dataframe_to_html_with_ids(df_result, data_json=json_dict)
     else:
         form = UploadFileForm()
 

@@ -12,10 +12,22 @@ ENV PYTHONUNBUFFERED=1 \
 # System packages. build-essential + libpq-dev let every dependency install
 # cleanly on both amd64 and arm64 servers even if a pre-built wheel is missing,
 # so the image builds the same way everywhere with no manual debugging.
+#
+# gettext supplies msgfmt/msguniq/xgettext - the toolchain
+# `manage.py makemessages` / `compilemessages` shell out to when a later stage
+# adds or updates a translated string (see locale/fa/LC_MESSAGES/django.po's
+# own header). It is NOT needed to serve the app: the compiled
+# locale/fa/LC_MESSAGES/django.mo this repo ships is read at runtime by
+# Python's own stdlib `gettext` module, which has no external dependency at
+# all. Installing the toolchain here only means a shell inside this same image
+# (`docker compose exec web python manage.py compilemessages`) can rebuild
+# that catalog after editing the .po, instead of needing a second machine that
+# happens to have gettext on its PATH.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
         libpq-dev \
+        gettext \
         chromium \
         fonts-liberation \
         fonts-noto-core \

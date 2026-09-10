@@ -1,27 +1,66 @@
-"""Account management views (admin-only, plus a self profile page)."""
+"""Account management views (admin-only, plus a self profile page).
+
+A long file, but it is five separate consoles that happen to share the same
+admin gate. Each is fenced with a banner comment, and the banners appear in the
+order below — individual views do not always: the file has been appended to, so
+a view can sit under a banner it has nothing to do with. ``user_toggle_active``
+is the one that catches people out: it acts on a single user row, which is group
+1's subject, yet it sits below ``login_check`` under the sign-in banner. The long
+comment beneath it explains what supersedes it and why editing it alone changes
+nothing anyone can reach. Trust the banners and the names, not the line numbers.
+
+ 1. USERS AND SEATS — ``admin_console``, ``user_list``, ``user_create``,
+    ``user_edit``, ``user_reset_password`` and the stray ``user_toggle_active``,
+    plus the seat actions (``seat_assign`` / ``seat_translate`` / ``seat_return`` /
+    ``seat_close`` / ``seat_delegate`` / ``seat_history``). A "user" here is a
+    SEAT — a unit and a role, not a human. That distinction and everything it
+    implies is written out once in the ``people.models`` module docstring under
+    "SEAT, PERSON, ROLE"; these views only collect input and hand the work to
+    ``people.seats``.
+ 2. IMPERSONATION — "log in as user", built on Django's own auth primitives and
+    audited into ``ImpersonationLog``.
+ 3. SELF-SERVICE — ``my_profile`` and ``settings_page`` (which is where an
+    administrator sets the platform-wide work shift, floating time and
+    reconnect grace, and pushes them onto every ``Person``).
+    ``force_password_change`` is the screen the middleware pins a user to until
+    a temporary password has been replaced; it sits with the password actions in
+    group 1 rather than here.
+ 4. SIGN-IN — ``login_check`` and the brute-force throttle around it, counted in
+    the shared cache so a lockout holds across every worker.
+ 5. BACKUPS — listing, downloading, uploading and queueing restores. The web app
+    only moves files in the shared ``/backups`` volume and drops a request into
+    a control file; the separate ``backup`` service does the actual work.
+
+Two module-level gates are defined near the top and used throughout:
+``admin_required`` (Platform Administrator) and ``impersonation_access_required``
+(Administrator OR General Manager). They are deliberately different tests — see
+the comments on ``_can_impersonate`` for why widening one would be a mistake.
+"""
 import json
 import logging
 import os
 import re
 import time
+from functools import wraps
 
 from django.contrib import messages
 from django.contrib.auth import authenticate, login as auth_login, update_session_auth_hash
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
-from django.contrib.auth.views import LoginView
+from django.contrib.auth.views import LoginView, redirect_to_login
 from django.contrib.sessions.models import Session
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.utils import timezone
+from django.utils import timezone, translation
 from django.utils.decorators import method_decorator
+from django.utils.translation import gettext as _
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_POST
 
-from .constants import Unit
 from .forms import (
     AdminPlatformForm,
     AdminUnitStampsForm,
@@ -33,6 +72,7 @@ from .forms import (
     _validate_avatar_upload,
     generate_temp_password,
 )
+from .constants import Language
 from .models import ImpersonationLog, PlatformConfig, Profile
 
 logger = logging.getLogger(__name__)
@@ -87,6 +127,61 @@ def _can_impersonate(user) -> bool:
 impersonation_access_required = user_passes_test(_can_impersonate, login_url="accounts:login")
 
 
+def _impersonation_actor(request):
+    """The account really driving this request — not always ``request.user``.
+
+    During an impersonation ``request.user`` is deliberately the employee being
+    stood in for; the person at the keyboard is the administrator whose id
+    ``impersonate_start`` parked in the session. Any question of the form "is
+    the human doing this allowed to impersonate?" has to be asked about that
+    administrator, because asking it about ``request.user`` gets the answer for
+    an employee who is quite correctly not allowed to impersonate anybody.
+
+    Returns None when the session names an administrator who no longer exists —
+    the caller must treat that as "not authorised", never as "no impersonation
+    in progress".
+    """
+    admin_id = request.session.get("impersonator_id")
+    if not admin_id:
+        return request.user
+    return User.objects.filter(pk=admin_id).select_related("profile").first()
+
+
+def impersonation_actor_required(view):
+    """``impersonation_access_required``, asked about ``_impersonation_actor``.
+
+    Identical test (``_can_impersonate``) and identical refusal (Django's
+    redirect-to-login, which is exactly what ``user_passes_test`` produces), so
+    nobody new is admitted: an ordinary request still stands or falls on
+    ``request.user``. What it adds is that a request made *during* an
+    impersonation is judged on the administrator who started it, which is what
+    makes switching from one person to another possible at all.
+
+    The authority is re-read from the database on every request rather than
+    trusted from the session, and the account must still be active and still
+    pass ``_can_impersonate``: an administrator who has since been cut off or
+    demoted cannot go on impersonating people through a session they opened
+    while they still could.
+    """
+
+    @wraps(view)
+    def _wrapped(request, *args, **kwargs):
+        actor = _impersonation_actor(request)
+        if actor is None or not actor.is_active or not _can_impersonate(actor):
+            return redirect_to_login(request.get_full_path(), reverse("accounts:login"))
+        request.impersonation_actor = actor
+        return view(request, *args, **kwargs)
+
+    return _wrapped
+
+
+# ---------------------------------------------------------------------------
+# Users and seats — the administrator's console
+# ---------------------------------------------------------------------------
+# A "user" on these screens is a SEAT: a unit and a role, a job rather than a
+# human. Nothing here changes seat state itself — the views validate and
+# redirect, and ``people.seats`` does the work.
+# ---------------------------------------------------------------------------
 @login_required
 @admin_required
 def admin_console(request):
@@ -155,20 +250,43 @@ def admin_console(request):
 
 
 @login_required
-@impersonation_access_required
+@impersonation_actor_required
 def user_list(request):
-    """Seats catalogue — grouped by Unit & role."""
+    """Seats catalogue — grouped by Unit & role.
+
+    Gated on the impersonation ACTOR, not on ``request.user``, and the reason is
+    the Back button. During an impersonation ``request.user`` is the employee
+    being stood in for, who quite correctly fails ``_can_impersonate``. So an
+    administrator who presses Back onto this page mid-impersonation used to be
+    bounced to the sign-in form — but only sometimes, which is what made it hard
+    to see: when the browser RESTORES the page from its back/forward cache no
+    request reaches Django at all and the page simply appears, while a browser
+    that REVALIDATES instead re-runs this view as the employee and gets the
+    refusal. Same key press, two outcomes, depending on the browser's cache
+    state. Asking the question about the administrator behind the impersonation
+    makes both paths agree.
+
+    Nobody new is admitted: ``impersonation_actor_required`` runs the identical
+    ``_can_impersonate`` test, and with no impersonation in progress it is asked
+    about ``request.user`` exactly as before. What the page OFFERS is unchanged
+    too — ``can_manage_users`` below is still read off ``request.user``, so an
+    impersonating session sees the catalogue and none of the admin-only actions.
+    """
     from people.constants import PersonStatus
     from people.models import Person
-    from people.seats import is_blank_org_seat, purge_unassigned_seats
+    from people.seats import is_blank_org_seat
 
     actor_profile = getattr(request.user, "profile", None)
     can_manage_users = bool(actor_profile and actor_profile.is_admin)
-    if can_manage_users:
-        try:
-            purge_unassigned_seats()
-        except Exception:
-            logger.exception("purge_unassigned_seats failed")
+    # Simply opening this page used to call purge_unassigned_seats(), which
+    # permanently deletes every account that has no unit and no role — a second
+    # bootstrap superuser, or a profile-only login that People creates by itself
+    # when someone views a person's Seats tab. Those deletions are irreversible
+    # and, because the history fields point at the user with SET_NULL
+    # (CaseForm.signed_by, CaseEvent.actor, ImpersonationLog), they quietly
+    # unsign approved documents. Reading a list must never destroy rows, and
+    # nothing here needed it to: the is_blank_org_seat filter below already
+    # keeps those accounts out of the catalogue.
 
     users = list(
         User.objects.select_related(
@@ -324,7 +442,7 @@ def seat_assign(request, pk):
     )
     profile = seat_user.profile
     if profile.is_admin or profile.is_general_manager:
-        messages.error(request, "Administrator and General Manager seats are not assigned this way.")
+        messages.error(request, _("Administrator and General Manager seats are not assigned this way."))
         return redirect("accounts:user_list")
 
     link = getattr(seat_user, "person_link", None)
@@ -337,11 +455,11 @@ def seat_assign(request, pk):
 
     to_pk = (request.POST.get("person") or "").strip()
     if not to_pk.isdigit():
-        messages.error(request, "Choose a person to assign this seat to.")
+        messages.error(request, _("Choose a person to assign this seat to."))
         return redirect("accounts:user_list")
     person = get_object_or_404(Person, pk=int(to_pk))
     if not person.is_active:
-        messages.error(request, "Cannot assign a seat to a departed person.")
+        messages.error(request, _("Cannot assign a seat to a departed person."))
         return redirect("accounts:user_list")
 
     try:
@@ -537,11 +655,11 @@ def seat_delegate(request, pk):
     )
     link = getattr(seat_user, "person_link", None)
     if link is None:
-        messages.error(request, "This seat is vacant — nothing to delegate.")
+        messages.error(request, _("This seat is vacant — nothing to delegate."))
         return redirect("accounts:user_list")
     role = PersonRole.objects.filter(person=link.person, source_user=seat_user).first()
     if role is None:
-        messages.error(request, "No role on this seat.")
+        messages.error(request, _("No role on this seat."))
         return redirect("accounts:user_list")
 
     if request.method == "POST":
@@ -554,13 +672,14 @@ def seat_delegate(request, pk):
             n = delegate_tasks(role, to_person, case_ids, actor=request.user)
             messages.success(
                 request,
-                f"Delegated {n} open task(s) to {to_person.display_name}.",
+                _("Delegated %(n)s open task(s) to %(name)s.")
+                % {"n": n, "name": to_person.display_name},
             )
             remaining = open_task_count(role)
             if remaining == 0 and request.POST.get("then_close") == "1":
                 from people.seats import close_seat
                 close_seat(role, actor=request.user)
-                messages.success(request, "Seat closed after delegating open tasks.")
+                messages.success(request, _("Seat closed after delegating open tasks."))
             return redirect("accounts:user_list")
         except SeatError as exc:
             messages.error(request, str(exc))
@@ -626,10 +745,37 @@ def user_create(request):
             code = getattr(form, "seat_code", None) or user.profile.seat_code
             person = form.cleaned_data.get("person") or locked_person
             if person is not None and hasattr(user, "person_link"):
-                messages.success(
-                    request,
-                    f"Seat “{code}” created and linked to {person.display_name}.",
-                )
+                # Linking the seat can move the login secret elsewhere: people.seats
+                # transfers the password of an existing profile-only login onto this
+                # seat, and a person who already holds a seat gets this one as a
+                # secondary seat with a deliberately unusable password. So the
+                # password this form generated is only worth revealing while it is
+                # still the one that signs in — handing it over blindly would give
+                # the administrator a password that does not work. Either way the
+                # admin must be told which of the two happened; before this, the
+                # page reported success for an account whose password nobody had
+                # ever seen and gave no hint that a separate step was needed.
+                user.refresh_from_db()
+                if user.has_usable_password() and user.check_password(form.generated_password):
+                    request.session["_reveal_credential"] = {
+                        "username": user.username,
+                        "password": form.generated_password,
+                        "label": f"Seat created: {code}",
+                    }
+                    messages.success(
+                        request,
+                        _("Seat “%(code)s” created and linked to %(name)s.")
+                        % {"code": code, "name": person.display_name},
+                    )
+                else:
+                    messages.success(
+                        request,
+                        _(
+                            "Seat “%(code)s” created and linked to %(name)s. "
+                            "Use “Reset password” to hand them a sign-in password."
+                        )
+                        % {"code": code, "name": person.display_name},
+                    )
                 return redirect("people:person_seats", pk=person.pk)
             request.session["_reveal_credential"] = {
                 "username": user.username,
@@ -638,7 +784,8 @@ def user_create(request):
             }
             messages.success(
                 request,
-                f"Seat “{code}” created (inactive until assigned in People).",
+                _("Seat “%(code)s” created (inactive until assigned in People).")
+                % {"code": code},
             )
             return redirect("accounts:user_list")
     else:
@@ -660,7 +807,7 @@ def user_edit(request, pk):
     if user.last_login is not None:
         messages.error(
             request,
-            "This seat can no longer be edited — someone has already signed in with it.",
+            _("This seat can no longer be edited — someone has already signed in with it."),
         )
         return redirect("accounts:user_list")
     profile = user.profile
@@ -669,7 +816,7 @@ def user_edit(request, pk):
         form = UserEditForm(request.POST, request.FILES, user=user)
         if form.is_valid():
             form.save()
-            messages.success(request, "Seat updated.")
+            messages.success(request, _("Seat updated."))
             return redirect("accounts:user_list")
     else:
         gender_map = {
@@ -720,7 +867,7 @@ def user_reset_password(request, pk):
     """
     target = get_object_or_404(User.objects.select_related("profile"), pk=pk)
     if target.pk == request.user.pk:
-        messages.error(request, "Use your profile page to change your own password.")
+        messages.error(request, _("Use your profile page to change your own password."))
         return redirect("accounts:user_list")
 
     generated = generate_temp_password()
@@ -737,7 +884,10 @@ def user_reset_password(request, pk):
         "label": f"Password reset for {target.get_full_name() or target.username}",
     }
     messages.success(
-        request, f"Password reset for “{target.get_full_name() or target.username}”.")
+        request,
+        _("Password reset for “%(name)s”.")
+        % {"name": target.get_full_name() or target.username},
+    )
     return redirect("accounts:user_list")
 
 
@@ -761,7 +911,7 @@ def force_password_change(request):
         if form.is_valid():
             form.save()
             update_session_auth_hash(request, request.user)
-            messages.success(request, "Your password has been set. Welcome in.")
+            messages.success(request, _("Your password has been set. Welcome in."))
             return redirect("core:home")
     else:
         form = ForcePasswordChangeForm(user=request.user)
@@ -783,8 +933,41 @@ def force_password_change(request):
 _AUTH_BACKEND = "django.contrib.auth.backends.ModelBackend"
 
 
+def _close_impersonation(request) -> None:
+    """Drop the session markers and stamp the audit row closed.
+
+    Shared by ``impersonate_stop`` and by the switch inside
+    ``impersonate_start`` so that ending an impersonation is written down the
+    same way whichever of the two ends it — a switch from one person to another
+    must leave the same closed ImpersonationLog entry behind as pressing
+    "Return to admin account" would.
+
+    The markers are cleared unconditionally, so a since-deleted administrator
+    account can never leave somebody stuck impersonating with no way back.
+    """
+    log_id = request.session.get("impersonation_log_id")
+    request.session.pop("impersonator_id", None)
+    request.session.pop("impersonator_username", None)
+    request.session.pop("impersonation_log_id", None)
+    if log_id:
+        ImpersonationLog.objects.filter(pk=log_id, ended_at__isnull=True).update(
+            ended_at=timezone.now())
+
+
+def _impersonation_refusal_redirect(request):
+    """Where to send an administrator whose "Log in as" was refused.
+
+    The Users list is the right place when they are themselves; it is the wrong
+    place mid-impersonation, because ``request.user`` is then an employee who
+    cannot open that page and would be bounced on to a sign-in form — losing
+    the message explaining the refusal. Home always renders, and carries the
+    impersonation banner with the way back on it.
+    """
+    return "core:home" if request.session.get("impersonator_id") else "accounts:user_list"
+
+
 @login_required
-@impersonation_access_required
+@impersonation_actor_required
 @require_POST
 def impersonate_start(request, pk):
     """Admin 'log in as' a user — full read/write capability exactly as that
@@ -796,7 +979,7 @@ def impersonate_start(request, pk):
     so both are treated as authorized. A departmental manager (Technical
     Manager, Commercial Manager, or any other unit Manager/Supervisor/
     Expert) can NEVER reach this view, under any circumstances: they fail
-    both @impersonation_access_required above and the explicit re-check
+    both @impersonation_actor_required above and the explicit re-check
     below, and they have no UI path to it either — the "Log in as" action
     only renders on the Users page for someone who already passes this same
     check (see user_list). Extending eligibility to General Manager
@@ -813,29 +996,57 @@ def impersonate_start(request, pk):
     cross-referencing an action's timestamp against that log answers "was
     this really them, or an admin standing in for them" whenever that
     question matters.
+
+    SWITCHING FROM ONE PERSON TO ANOTHER. Arriving here while an impersonation
+    is already open is not an error and is not treated as one: it is the
+    administrator asking to stand in for somebody else instead, which is
+    precisely what they would get by pressing "Return to admin account" and
+    then "Log in as" again. So that is what happens — the open session is
+    closed exactly as impersonate_stop would close it (markers cleared, audit
+    row stamped), and the new one is opened straight afterwards. Refusing
+    instead was not a safeguard, only an obstacle: it granted nothing, and it
+    produced a dead end, because the refusal redirected to a Users list that
+    the employee currently in request.user cannot open.
+
+    Every guard below is applied to the new target on the way through, so a
+    switch can reach no account a fresh impersonation could not — in
+    particular an account with must_change_password set stays unreachable
+    either way. And ``actor`` throughout is the real administrator supplied by
+    @impersonation_actor_required, re-read from the database and re-authorised
+    on this request, never the impersonated employee in request.user.
     """
-    actor_profile = getattr(request.user, "profile", None)
+    actor = request.impersonation_actor
+    actor_profile = getattr(actor, "profile", None)
     if actor_profile is None or not (actor_profile.is_admin or actor_profile.is_general_manager):
-        # Belt-and-suspenders: @impersonation_access_required already blocks
+        # Belt-and-suspenders: @impersonation_actor_required already blocks
         # this request from reaching here for anyone who is neither a
         # Platform Administrator nor a General Manager, including every
         # departmental manager. This explicit re-check exists so that fact
         # is not implicit.
-        messages.error(request, "Only a Platform Administrator or General Manager may impersonate a user.")
-        return redirect("accounts:user_list")
+        messages.error(request, _("Only a Platform Administrator or General Manager may impersonate a user."))
+        return redirect(_impersonation_refusal_redirect(request))
 
-    if request.session.get("impersonator_id"):
-        messages.error(request, "You are already viewing the platform as another user. Return to your own account first.")
-        return redirect("accounts:user_list")
+    switching = bool(request.session.get("impersonator_id"))
 
     target = get_object_or_404(User.objects.select_related("profile"), pk=pk)
 
-    if target.pk == request.user.pk:
-        messages.error(request, "You are already signed in as yourself.")
-        return redirect("accounts:user_list")
+    if target.pk == actor.pk:
+        messages.error(request, _("You are already signed in as yourself."))
+        return redirect(_impersonation_refusal_redirect(request))
+    if switching and target.pk == request.user.pk:
+        # Same person twice — pressing "Log in as" again on a page restored
+        # from the browser's back cache. Nothing to close and nothing to open;
+        # tearing the session down and rebuilding it would only cost the
+        # audit trail a spurious pair of rows.
+        messages.info(
+            request,
+            _("You are already viewing the platform as %(name)s.")
+            % {"name": target.get_full_name() or target.username},
+        )
+        return redirect("core:home")
     if not target.is_active:
-        messages.error(request, "This account is closed and cannot be impersonated.")
-        return redirect("accounts:user_list")
+        messages.error(request, _("This account is closed and cannot be impersonated."))
+        return redirect(_impersonation_refusal_redirect(request))
     target_profile = getattr(target, "profile", None)
     if target_profile is not None and (target_profile.is_admin or target_profile.is_general_manager):
         # Also blocks impersonating yourself-as-a-second-privileged-account and
@@ -843,16 +1054,53 @@ def impersonate_start(request, pk):
         # Manager identity can never be entered via impersonation, only by
         # signing in with its own credentials — this now matters for General
         # Manager accounts too, since they can initiate impersonation.
-        messages.error(request, "Administrator and General Manager accounts cannot be impersonated.")
-        return redirect("accounts:user_list")
+        messages.error(request, _("Administrator and General Manager accounts cannot be impersonated."))
+        return redirect(_impersonation_refusal_redirect(request))
+    if target_profile is not None and target_profile.must_change_password:
+        # An account that is still on its admin-issued temporary password is one
+        # step away from having a permanent one chosen for it: every request it
+        # makes is sent to force_password_change by MustChangePasswordMiddleware,
+        # and that form asks only for a new password, never the current one.
+        # Entering that state by impersonation would let the impersonator set the
+        # employee's real password, keep working credentials after the
+        # impersonation session ends, and silently invalidate the temporary
+        # password the administrator handed out — none of which the
+        # ImpersonationLog would show. Wait until the holder has signed in and
+        # chosen their own password.
+        messages.error(
+            request,
+            _("This account has not set its own password yet and cannot be impersonated."),
+        )
+        return redirect(_impersonation_refusal_redirect(request))
 
-    original_admin_id = request.user.pk
-    original_admin_username = request.user.username
+    original_admin_id = actor.pk
+    original_admin_username = actor.username
 
-    log_entry = ImpersonationLog.objects.create(
-        admin=request.user, admin_username=original_admin_username,
-        target=target, target_username=target.username,
-    )
+    # Every check above has passed, so the new impersonation is certain to open
+    # — only now is it safe to close the old one. Doing it earlier would let a
+    # refused switch (a closed account, say) drop the administrator into a
+    # session that is neither the person they were standing in for nor
+    # themselves.
+    #
+    # The two audit rows go in one transaction: a switch closes one
+    # impersonation and opens another, and a failure between them would leave
+    # the trail claiming the administrator was standing in for two people at
+    # once. Either both are written or neither is.
+    #
+    # The new row is created BEFORE the old one is closed, though the database
+    # cannot tell the difference: _close_impersonation also clears the session
+    # markers, and a session lives outside the transaction — no rollback can put
+    # them back. Doing the fragile write first means that if it fails, the
+    # administrator is still cleanly impersonating whoever they were, banner and
+    # "Return to admin account" intact, instead of being stranded as that
+    # employee with no way back.
+    with transaction.atomic():
+        log_entry = ImpersonationLog.objects.create(
+            admin=actor, admin_username=original_admin_username,
+            target=target, target_username=target.username,
+        )
+        if switching:
+            _close_impersonation(request)
 
     target.backend = _AUTH_BACKEND
     # Prevent shift login stamp for the impersonated person (session markers
@@ -869,11 +1117,14 @@ def impersonate_start(request, pk):
 
     messages.info(
         request,
-        f"You are now viewing the platform as {target.get_full_name() or target.username}.")
+        _("You are now viewing the platform as %(name)s.")
+        % {"name": target.get_full_name() or target.username},
+    )
     return redirect("core:home")
 
 
 @login_required
+@require_POST
 def impersonate_stop(request):
     """Return to the real admin account.
 
@@ -881,39 +1132,47 @@ def impersonate_stop(request):
     user could normally access (no @admin_required here) — it depends only
     on the session marker impersonate_start set, never on the permissions of
     whoever request.user currently resolves to.
+
+    POST only, like impersonate_start. This view swaps who request.user is
+    for the rest of the session, so it must not be triggerable by anything
+    that merely fetches a URL: a GET could be fired by a prefetching browser,
+    a link-scanner, an <img src> on any page the impersonated user visits, or
+    a bare cross-site link — silently dropping the administrator out of the
+    account they are supporting, and closing the ImpersonationLog entry that
+    is supposed to bracket the real session. Requiring POST means Django's
+    CsrfViewMiddleware checks a token, so only the banner rendered inside our
+    own pages (core/templates/base.html) can end an impersonation.
     """
     admin_id = request.session.get("impersonator_id")
     if not admin_id:
         return redirect("core:home")
 
     admin_user = User.objects.filter(pk=admin_id).first()
-    log_id = request.session.get("impersonation_log_id")
 
     # Skip shift stamps for both the target logout side-effects and admin login.
     request._ft_skip_shift_stamp = True
 
-    # Clear the markers unconditionally, so a since-deleted admin account can
-    # never leave someone stuck impersonating with no way back.
-    request.session.pop("impersonator_id", None)
-    request.session.pop("impersonator_username", None)
-    request.session.pop("impersonation_log_id", None)
-
-    if log_id:
-        ImpersonationLog.objects.filter(pk=log_id, ended_at__isnull=True).update(
-            ended_at=timezone.now())
+    # Markers cleared and the audit row stamped by the same helper a switch in
+    # impersonate_start uses, so both ways of ending an impersonation leave
+    # identical records behind.
+    _close_impersonation(request)
 
     if admin_user is None or not admin_user.is_active:
         messages.error(
             request,
-            "Could not return to the administrator account automatically. Please sign in again.")
+            _("Could not return to the administrator account automatically. Please sign in again."),
+        )
         return redirect("accounts:login")
 
     admin_user.backend = _AUTH_BACKEND
     auth_login(request, admin_user)
-    messages.info(request, "You're back in your own account.")
+    messages.info(request, _("You're back in your own account."))
     return redirect("accounts:user_list")
 
 
+# ---------------------------------------------------------------------------
+# Self-service — the signed-in user's own profile, and platform settings
+# ---------------------------------------------------------------------------
 @sensitive_post_parameters()
 @login_required
 def my_profile(request):
@@ -923,7 +1182,7 @@ def my_profile(request):
         if "save_avatar" in request.POST:
             raw = request.FILES.get("avatar")
             if not raw:
-                messages.error(request, "Choose a photo to upload.")
+                messages.error(request, _("Choose a photo to upload."))
                 return redirect("accounts:my_profile")
             try:
                 raw = _validate_avatar_upload(raw)
@@ -941,7 +1200,7 @@ def my_profile(request):
 
             data = raw.read()
             if not data:
-                messages.error(request, "The selected photo was empty. Try another file.")
+                messages.error(request, _("The selected photo was empty. Try another file."))
                 return redirect("accounts:my_profile")
             orig = (getattr(raw, "name", "") or "").lower()
             if orig.endswith(".png"):
@@ -960,20 +1219,20 @@ def my_profile(request):
                 except Exception:
                     pass
             profile.avatar.save(base, ContentFile(data), save=True)
-            messages.success(request, "Profile photo saved.")
+            messages.success(request, _("Profile photo saved."))
             return redirect("accounts:my_profile")
         elif "clear_avatar" in request.POST:
             if profile.avatar:
                 profile.avatar.delete(save=False)
                 profile.avatar = None
                 profile.save(update_fields=["avatar"])
-            messages.success(request, "Profile photo removed.")
+            messages.success(request, _("Profile photo removed."))
             return redirect("accounts:my_profile")
         else:
             form = SelfProfileForm(request.POST, request.FILES, instance=profile)
             if form.is_valid():
                 form.save()
-                messages.success(request, "Your profile was updated.")
+                messages.success(request, _("Your profile was updated."))
                 return redirect("accounts:my_profile")
 
     # Only expose image URLs when the file actually exists on disk — otherwise
@@ -1071,18 +1330,48 @@ def settings_page(request):
     settings_url = reverse("accounts:settings")
 
     if request.method == "POST":
-        if "change_password" in request.POST:
+        if "save_language" in request.POST:
+            # Unlike every other card on this page, the submit buttons here
+            # ARE the field: two buttons named "save_language" carry the two
+            # valid values ("en" / "fa") as their own value attribute (see the
+            # template), so there is no separate hidden "action" flag to test
+            # for — the POST key doubles as both. Anything else (a forged or
+            # stale value) is rejected instead of silently coerced, same as
+            # every ModelForm-backed branch below would refuse an invalid
+            # choice.
+            new_language = (request.POST.get("save_language") or "").strip()
+            valid_codes = {code for code, _label in Language.CHOICES}
+            if new_language in valid_codes:
+                profile.language = new_language
+                profile.save(update_fields=["language"])
+                # Re-activate translation for THIS request, not just the next
+                # one: settings.MIDDLEWARE's LanguageMiddleware will pick the
+                # new value up from the database on the redirect below
+                # regardless (a fresh request runs through it again), but
+                # doing it here too is the belt-and-suspenders version — it
+                # means nothing rendered for the rest of *this* request could
+                # ever lag one request behind the change just made, including
+                # the Settings page's own "Language" card heading the person
+                # lands back on immediately below, which is this round's one
+                # translated proof string (see accounts/templates/accounts/
+                # settings.html and locale/fa/LC_MESSAGES/django.po).
+                translation.activate(new_language)
+                messages.success(request, _("Language updated."))
+            else:
+                messages.error(request, _("Please choose a valid language."))
+            return redirect(settings_url)
+        elif "change_password" in request.POST:
             pw_form = SelfPasswordForm(request.POST, user=request.user)
             if pw_form.is_valid():
                 pw_form.save()
                 update_session_auth_hash(request, request.user)
-                messages.success(request, "Your password was changed.")
+                messages.success(request, _("Your password was changed."))
                 return redirect(settings_url)
         elif "save_platform" in request.POST and is_admin:
             platform_form = AdminPlatformForm(request.POST, instance=PlatformConfig.load())
             if platform_form.is_valid():
                 platform_form.save()
-                messages.success(request, "Platform settings saved.")
+                messages.success(request, _("Platform settings saved."))
                 return redirect(settings_url)
         elif "save_daily_hours" in request.POST and is_admin:
             try:
@@ -1091,18 +1380,25 @@ def settings_page(request):
                 new_float = _parse_mmss_post(request, "float_time", "float_m", "float_s", 15, 0)
                 new_grace = _parse_mmss_post(request, "reconnect_time", "grace_m", "grace_s", 10, 0)
             except ValueError:
-                messages.error(request, "Please enter valid times (HH:MM / MM:SS).")
+                messages.error(request, _("Please enter valid times (HH:MM / MM:SS)."))
                 return redirect(settings_url)
             if new_start == new_end:
-                messages.error(request, "Start and end times must be different.")
+                messages.error(request, _("Start and end times must be different."))
                 return redirect(settings_url)
             n = _apply_global_daily_hours(new_start, new_end, new_float, new_grace)
             messages.success(
                 request,
-                f"Daily hours updated for all people ({n}): "
-                f"{new_start.strftime('%H:%M')}–{new_end.strftime('%H:%M')}, "
-                f"floating {sh.format_float_mmss(new_float)}, "
-                f"reconnect {sh.format_float_mmss(new_grace)}.",
+                _(
+                    "Daily hours updated for all people (%(n)s): "
+                    "%(start)s–%(end)s, floating %(float)s, reconnect %(reconnect)s."
+                )
+                % {
+                    "n": n,
+                    "start": new_start.strftime("%H:%M"),
+                    "end": new_end.strftime("%H:%M"),
+                    "float": sh.format_float_mmss(new_float),
+                    "reconnect": sh.format_float_mmss(new_grace),
+                },
             )
             return redirect(settings_url)
         elif "save_unit_stamps" in request.POST and is_admin:
@@ -1111,7 +1407,7 @@ def settings_page(request):
             )
             if stamps_form.is_valid():
                 stamps_form.save()
-                messages.success(request, "Unit stamps updated.")
+                messages.success(request, _("Unit stamps updated."))
                 return redirect(settings_url)
 
     def _media_url(field):
@@ -1178,11 +1474,39 @@ LOGIN_MAX_IP_ATTEMPTS = 40       # per IP window (username spraying)
 LOGIN_WINDOW_SECONDS = 15 * 60
 
 
+def _trusted_proxy_ips() -> set:
+    """Addresses whose ``X-Forwarded-For`` header is worth believing.
+
+    Empty unless an operator names one, and that default is deliberate: the
+    stock deployment publishes gunicorn straight to the network (docker-compose
+    maps the web port itself), so nothing rewrites the header and the value is
+    whatever the caller typed. Set TRUSTED_PROXY_IPS in settings, or the
+    DJANGO_TRUSTED_PROXY_IPS environment variable, only once a reverse proxy at
+    that address is the sole way in — otherwise the throttle below is keyed on
+    something the person being throttled controls.
+    """
+    from django.conf import settings
+
+    raw = getattr(settings, "TRUSTED_PROXY_IPS", None)
+    if raw is None:
+        raw = os.environ.get("DJANGO_TRUSTED_PROXY_IPS", "")
+    if isinstance(raw, str):
+        raw = raw.split(",")
+    return {str(item).strip() for item in raw if str(item).strip()}
+
+
 def _client_ip(request) -> str:
-    fwd = request.META.get("HTTP_X_FORWARDED_FOR", "")
-    if fwd:
-        return fwd.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR", "") or "unknown"
+    # REMOTE_ADDR is the peer the socket is actually connected to, so it cannot
+    # be forged; X-Forwarded-For can, and a spoofed one handed every request a
+    # brand-new counter (unlimited guessing) as well as a way to run a
+    # colleague's IP up to the lockout threshold. Only read it when the peer is
+    # a proxy the operator has vouched for.
+    remote = (request.META.get("REMOTE_ADDR", "") or "").strip()
+    if remote and remote in _trusted_proxy_ips():
+        fwd = request.META.get("HTTP_X_FORWARDED_FOR", "")
+        if fwd:
+            return fwd.split(",")[0].strip() or remote
+    return remote or "unknown"
 
 
 def _login_keys(request):
@@ -1392,28 +1716,43 @@ def user_toggle_active(request, pk):
     user = get_object_or_404(User, pk=pk)
     if request.method == "POST":
         if user == request.user:
-            messages.error(request, "You cannot disable your own account.")
+            messages.error(request, _("You cannot disable your own account."))
         else:
             user.is_active = not user.is_active
             user.save(update_fields=["is_active"])
             if user.is_active:
-                messages.success(request, f"Access restored for {user.get_full_name() or user.username}.")
+                messages.success(
+                    request,
+                    _("Access restored for %(name)s.")
+                    % {"name": user.get_full_name() or user.username},
+                )
             else:
                 # Deactivating alone doesn't end a session already open in
                 # someone's browser — without this, "cut off" only blocks the
                 # *next* sign-in attempt, not access already in progress.
                 _kill_sessions_for(user)
-                messages.success(request, f"Access cut off for {user.get_full_name() or user.username}.")
+                messages.success(
+                    request,
+                    _("Access cut off for %(name)s.")
+                    % {"name": user.get_full_name() or user.username},
+                )
     return redirect("accounts:user_list")
 
 
 # Permanent deletion was removed in the 2026-07 security pass. CaseForm.signed_by
 # and similar fields use SET_NULL, so hard-deleting a user silently unsigns
 # every document they ever approved — indistinguishable, on the document,
-# from it never having been signed at all. "Cut off" (user_toggle_active,
-# above) is the supported way to end someone's access today: it blocks sign-in
-# immediately, ends any open session immediately, and is fully reversible,
-# without touching a single historical record. A fuller offboarding flow
+# from it never having been signed at all. Cutting access off instead blocks
+# sign-in immediately, ends any open session immediately, and is fully
+# reversible, without touching a single historical record.
+#
+# Where that rule actually lives: the cut-off the product offers is
+# people:person_toggle_status (people/views.py), which is what the People
+# screens post to — it works on the Person and every login behind them.
+# user_toggle_active above predates it, still works on one User row and is
+# still routed (accounts/urls.py), but no template links to it any more, so
+# changing the semantics here alone changes nothing anyone can reach: change
+# people:person_toggle_status too, or instead. A fuller offboarding flow
 # (reassigning their open work to a successor, marking them departed) belongs
 # with the Personnel module and is intentionally not built here — see the
 # changes summary document for why.
@@ -1616,65 +1955,77 @@ def backup_console(request):
                 )
                 messages.success(
                     request,
-                    "Backup started on this server: database (cases, people, seats…) "
-                    "into backups/db/ and media into backups/media/. Wait a few seconds "
-                    "and refresh — new files appear in Available backups below.",
+                    _(
+                        "Backup started on this server: database (cases, people, seats…) "
+                        "into backups/db/ and media into backups/media/. Wait a few seconds "
+                        "and refresh — new files appear in Available backups below."
+                    ),
                 )
             else:
                 messages.error(
                     request,
-                    "Could not start the backup (backups folder not writable). "
-                    "Check that the backup service is running and the backups "
-                    "folder is mounted.",
+                    _(
+                        "Could not start the backup (backups folder not writable). "
+                        "Check that the backup service is running and the backups "
+                        "folder is mounted."
+                    ),
                 )
 
         elif action == "restore":
             name = (request.POST.get("name", "") or "").replace("\\", "/")
             if not _safe_backup_path(name):
-                messages.error(request, "Invalid backup file selected.")
+                messages.error(request, _("Invalid backup file selected."))
             elif _queue_request("restore", name):
                 _write_status("running", "restore", name, "Restore in progress…")
                 kind = _backup_kind(name)
                 if kind == "code_db":
                     messages.success(
                         request,
-                        "Code-tables restore queued. This replaces the SQLite code databases only "
-                        "(pipe/fitting/…). Refresh in a few seconds to see the result.",
+                        _(
+                            "Code-tables restore queued. This replaces the SQLite code databases only "
+                            "(pipe/fitting/…). Refresh in a few seconds to see the result."
+                        ),
                     )
                 elif kind == "media":
                     messages.success(
                         request,
-                        "Media restore queued. This replaces uploaded files only "
-                        "(avatars, stamps, signatures). Refresh in a few seconds to see the result.",
+                        _(
+                            "Media restore queued. This replaces uploaded files only "
+                            "(avatars, stamps, signatures). Refresh in a few seconds to see the result."
+                        ),
                     )
                 elif kind == "db":
                     messages.success(
                         request,
-                        "Database restore queued. This replaces PostgreSQL data "
-                        "(cases, people, seats…). Media and code tables are left unchanged. "
-                        "You may need to sign in again. Refresh in a few seconds to see the result.",
+                        _(
+                            "Database restore queued. This replaces PostgreSQL data "
+                            "(cases, people, seats…). Media and code tables are left unchanged. "
+                            "You may need to sign in again. Refresh in a few seconds to see the result."
+                        ),
                     )
                 else:
                     messages.success(
                         request,
-                        "Restore queued. It replaces the current database and uploaded files "
-                        "(code tables are left unchanged unless this is an older full backup). "
-                        "You may need to sign in again. Refresh in a few seconds to see the result.",
+                        _(
+                            "Restore queued. It replaces the current database and uploaded files "
+                            "(code tables are left unchanged unless this is an older full backup). "
+                            "You may need to sign in again. Refresh in a few seconds to see the result."
+                        ),
                     )
             else:
-                messages.error(request, "Could not queue the restore (backups folder not writable).")
+                messages.error(request, _("Could not queue the restore (backups folder not writable)."))
 
         elif action == "upload":
             upload = request.FILES.get("backup_file")
             if upload is None:
-                messages.error(request, "Please choose a .tar.gz backup file to upload.")
+                messages.error(request, _("Please choose a .tar.gz backup file to upload."))
             elif not upload.name.endswith(".tar.gz"):
-                messages.error(request, "The file must be a .tar.gz backup archive.")
+                messages.error(request, _("The file must be a .tar.gz backup archive."))
             elif getattr(upload, "size", 0) and int(upload.size) > BACKUP_UPLOAD_MAX_BYTES:
                 messages.error(
                     request,
-                    "Backup file is too large (max %s GB)."
-                    % (BACKUP_UPLOAD_MAX_BYTES // (1024 ** 3)),
+                    _("Backup file is too large (max %(gb)s GB).")
+                    % {"gb": BACKUP_UPLOAD_MAX_BYTES // (1024 ** 3)},
                 )
             else:
                 # Uploads land under db/ so they appear in the list and can be restored.
@@ -1699,7 +2050,8 @@ def backup_console(request):
                     else:
                         messages.success(
                             request,
-                            "Uploaded as %s. You can restore it from the list below." % dest_rel,
+                            _("Uploaded as %(name)s. You can restore it from the list below.")
+                            % {"name": dest_rel},
                         )
                 except ValueError:
                     try:
@@ -1708,11 +2060,11 @@ def backup_console(request):
                         pass
                     messages.error(
                         request,
-                        "Backup file is too large (max %s GB)."
-                        % (BACKUP_UPLOAD_MAX_BYTES // (1024 ** 3)),
+                        _("Backup file is too large (max %(gb)s GB).")
+                        % {"gb": BACKUP_UPLOAD_MAX_BYTES // (1024 ** 3)},
                     )
                 except OSError:
-                    messages.error(request, "Failed to save the uploaded file.")
+                    messages.error(request, _("Failed to save the uploaded file."))
 
         return redirect("accounts:backup_console")
 
@@ -1739,7 +2091,7 @@ def backup_console(request):
         backups = _list_backups()
     except Exception:
         backups = []
-        messages.error(request, "Could not read the backups folder.")
+        messages.error(request, _("Could not read the backups folder."))
 
     context = {
         "backups": backups,

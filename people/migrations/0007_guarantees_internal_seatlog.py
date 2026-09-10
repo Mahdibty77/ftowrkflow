@@ -31,43 +31,12 @@ def copy_internal_codes(apps, schema_editor):
             Person.objects.filter(pk=person.pk).update(internal_code=code)
 
 
-def renumber_seat_indexes(apps, schema_editor):
-    """Replace userN (and any other codes) with 001-per-role-pool indexes."""
-    Profile = apps.get_model("accounts", "Profile")
-
-    def pool_key(p):
-        return (
-            bool(p.is_admin),
-            bool(p.is_general_manager),
-            p.unit or "",
-            p.role or "",
-            p.supply_kind or "",
-        )
-
-    groups = {}
-    for p in Profile.objects.all().order_by("pk"):
-        groups.setdefault(pool_key(p), []).append(p)
-
-    for _key, profiles in groups.items():
-        # Clear first to avoid unique collisions mid-pass.
-        for p in profiles:
-            if p.seat_code:
-                p.seat_code = None
-                p.save(update_fields=["seat_code"])
-        n = 1
-        for p in profiles:
-            # Skip seats that never had an index and are not catalogue seats
-            # unless they look like real role seats / admin / GM.
-            if not (
-                p.is_admin
-                or p.is_general_manager
-                or (p.unit or p.role)
-                or p.seat_ready
-            ):
-                continue
-            p.seat_code = f"{n:03d}"
-            p.save(update_fields=["seat_code"])
-            n += 1
+# A second copy of the seat renumbering lived here and was never listed in the
+# operations below, so reading this file suggested the 001-per-pool indexes were
+# assigned at this point in history. They are not: the renumbering that actually
+# runs is in accounts/0013_seat_index_per_role.py, which depends on this
+# migration and therefore happens later, after further seat repairs. The dead
+# copy is gone so there is only one answer to where seat indexes come from.
 
 
 class Migration(migrations.Migration):

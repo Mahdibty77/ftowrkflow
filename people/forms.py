@@ -1,6 +1,22 @@
-"""Forms for the people directory."""
+"""Forms for the people directory.
+
+``PersonForm`` is not a ``ModelForm`` and could not usefully be one: it builds
+its own fields in ``__init__`` from the card spec in ``people.spec``, via
+``people.formbuild``, so adding a question to the recruitment form is an edit to
+that spec and nothing else. Some answers land in real columns on ``Person``
+(the ones that get searched, sorted or printed) and the rest in JSON — ``save()``
+is where that split is applied, and ``initial_from_person`` is its inverse for
+the edit screen.
+
+``PersonSearchForm`` is the small filter bar above the directory list.
+
+Normalisation and format rules (Persian digits, national ID, IBAN, card number)
+are not here; they live in ``people.validators`` so the same rules apply
+wherever a person is written from.
+"""
 from django import forms
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 
 from . import spec
 from .constants import PersonStatus
@@ -347,22 +363,30 @@ def initial_from_person(person) -> dict:
 class PersonSearchForm(forms.Form):
     """The filter row above the people list.
 
-    English, unlike the rest of this module: it is application chrome sitting
-    directly above a table whose headings, pager and buttons are English, in a
-    sidebar that is English. The Persian scope starts at the form itself.
+    ``label`` is a Python-level string, evaluated once at class-definition
+    time — exactly the ``choices=`` timing hazard cases/constants.py's own
+    comment explains at length — so every translated field here uses
+    ``gettext_lazy``, not plain ``gettext``, so it resolves per viewer at
+    render time, not once at import time. "Status" carries the exact same
+    msgid as this same page's own table column (people/templates/people/
+    _person_rows.html) and every other "Status" on the platform, so it reads
+    as the identical word everywhere; its own ("", "All") choice is wrapped
+    alongside it for the same reason "seats" below wraps its own three —
+    left plain, "All" would show as the one English option in an otherwise-
+    Persian dropdown once PersonStatus.CHOICES resolves to "فعال"/"جداشده".
 
     No submit button — the list narrows as you type. Everything here is
     optional and everything degrades to a plain GET form if scripting is off.
     """
 
     q = forms.CharField(
-        required=False, label="Search",
+        required=False, label=_("Search"),
         widget=forms.TextInput(attrs={
-            "placeholder": "Detail code, name or username…",
+            "placeholder": _("Detail code, name or username…"),
             "autocomplete": "off", "spellcheck": "false"}))
     status = forms.ChoiceField(
-        required=False, label="Status",
-        choices=[("", "All")] + PersonStatus.CHOICES)
+        required=False, label=_("Status"),
+        choices=[("", _("All"))] + PersonStatus.CHOICES)
     seats = forms.ChoiceField(
-        required=False, label="Seats",
-        choices=[("", "All"), ("yes", "Holds a seat"), ("no", "No seat")])
+        required=False, label=_("Seats"),
+        choices=[("", _("All")), ("yes", _("Holds a seat")), ("no", _("No seat"))])

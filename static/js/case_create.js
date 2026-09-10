@@ -14,6 +14,26 @@
 
   var IG = window.FTInquiryGrid;
 
+  function csrfToken() {
+    // The COOKIE first, not the hidden field. Both normally carry the same
+    // value, but the field is only as fresh as the moment this page was
+    // rendered, and the CSRF secret rotates whenever somebody signs in — which
+    // includes an administrator's "Log in as". A page left open across such a
+    // rotation would send the token it was born with and get
+    // "CSRF verification failed" on the Excel preview upload, while the cookie
+    // read here is the very one the browser attaches to that request. Same rule
+    // the impersonation forms follow in core/templates/base.html, and the same
+    // one Django's own documentation gives for AJAX.
+    //
+    // The rendered field stays as the fallback for the case where there is no
+    // cookie to read (CSRF_USE_SESSIONS, or a first request that has not been
+    // issued one yet) — reading the DOM is right there and sending nothing is
+    // not.
+    var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    if (m) return decodeURIComponent(m[1]);
+    return (document.querySelector("[name=csrfmiddlewaretoken]") || {}).value || "";
+  }
+
   function renumber() {
     body.querySelectorAll("tr").forEach(function (tr, i) {
       // In NEW CASE both the client row (#) and the Item number renumber
@@ -174,7 +194,7 @@
       if (!fileInput.files || !fileInput.files.length) return;
       var fd = new FormData();
       fd.append("excel_file", fileInput.files[0]);
-      var token = (document.querySelector("[name=csrfmiddlewaretoken]") || {}).value || "";
+      var token = csrfToken();
       if (uploadStatus) uploadStatus.textContent = "Reading…";
       fetch(window.FT_PREVIEW_URL, { method: "POST", headers: { "X-CSRFToken": token }, body: fd })
         .then(function (r) { return r.json(); })

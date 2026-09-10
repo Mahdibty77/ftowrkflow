@@ -1,9 +1,17 @@
 """Request gate that enforces the license on every page.
 
-Placed *last* in ``MIDDLEWARE`` so that session / auth / messages are already
-available.  When the software is not in a valid licensed state every request is
-redirected to the activation page, except for an allow-list that must stay
-reachable while locked:
+Placed near the end of ``MIDDLEWARE`` — second to last, with
+``accounts.MustChangePasswordMiddleware`` after it — because it needs
+``request.user``, which only exists below ``AuthenticationMiddleware``. That is
+the whole constraint: this gate never touches ``django.contrib.messages``, so
+sitting under ``MessageMiddleware`` is simply where the end of Django's own
+stack falls, not a requirement of its own. It runs before the password gate so
+that an unlicensed install sends everyone to activation rather than hiding the
+problem behind a password prompt.
+
+When the software is not in a valid licensed state every request is redirected
+to the activation page, except for an allow-list that must stay reachable while
+locked:
 
     * the activation page itself (so it can be used to unlock)
     * static files (so the activation page is styled)
@@ -46,6 +54,20 @@ class LicenseGateMiddleware:
     # -- entry point -------------------------------------------------------
     def __call__(self, request):
         if self._is_allowlisted(request.path):
+            # The activation page carries no authentication of its own, because a
+            # locked application must stay unlockable. Once the licence is valid
+            # that justification is gone, and leaving it open would hand any
+            # passer-by the machine fingerprint and the exact expiry date, so on a
+            # licensed system it is only shown to someone who has signed in.
+            # Renewal still works: an expired licence re-locks the app, and the
+            # branch below reopens the page to everyone again.
+            if (
+                request.path.startswith(self._activation_path())
+                and service.current_status().ok
+            ):
+                user = getattr(request, "user", None)
+                if user is not None and not user.is_authenticated:
+                    return redirect(settings.LOGIN_URL)
             return self.get_response(request)
 
         if service.current_status().ok:

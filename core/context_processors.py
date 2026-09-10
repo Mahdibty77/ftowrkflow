@@ -1,5 +1,38 @@
-"""Template context processors shared across the whole site."""
-from .theming import DEFAULT_THEME, theme_for_unit
+"""Template context processors shared across the whole site.
+
+All three are wired up in ``settings.TEMPLATES`` and therefore run on EVERY
+rendered page, which is why each one is written to fail soft: a context
+processor that raises takes down the page it was only meant to decorate, so
+every optional lookup here is wrapped and falls back to a neutral value.
+
+    theme()               the active unit's accent colours plus everything the
+                          left navigation needs (badge counts, seat roles)
+    tool_data_access()    the itemcoder role flags base.html tests to decide
+                          which Tool Data entries a user may see
+    impersonation_status()  the "return to admin" banner
+
+The imports of `people`, `cases` and `itemcoder` sit inside the try blocks
+rather than at the top of the file for the same reason: an import that fails
+lands in the same fallback path as a lookup that fails, instead of breaking the
+whole module and with it every page on the site.
+"""
+from accounts.constants import Unit
+
+from .theming import theme_for_unit
+
+# The units an expert can be served their own report for. Named here rather
+# than imported from reports.views because that module pulls in the case
+# models, and this one is loaded for every template render. reports._own_report
+# tests the same three; add a unit to one and it goes in the other.
+#
+# Unit.MARKETING is NOT one of them, and its absence is a decision rather than
+# an oversight. The report a card would be built from is entirely made of case
+# figures — cases created, offers built, turnaround — and Marketing holds no
+# case, so every one of those would read zero. It is spelled out as the three
+# names instead of Unit.WORKFLOW because these are the units this page can
+# REPORT on, which is a different question from which units a case routes
+# between; the two happen to have the same answer today and need not later.
+_OWN_REPORT_UNITS = (Unit.COMMERCIAL, Unit.TECHNICAL, Unit.SUPPLY)
 
 
 def theme(request):
@@ -21,7 +54,10 @@ def theme(request):
         profile = getattr(user, "profile", None)
         try:
             from people.role_nav import build_nav_roles, user_has_gm_access, work_context
-            is_gm_nav = user_has_gm_access(user)
+            # Passing the request lets this answer come out of the same seat
+            # list the accordion below is about to read, instead of a separate
+            # EXISTS query for a question that list already settles.
+            is_gm_nav = user_has_gm_access(user, request=request)
             nav_roles = build_nav_roles(request, user)
             # Refresh profile after possible active-role sync.
             profile = getattr(user, "profile", None)
@@ -44,8 +80,20 @@ def theme(request):
         if is_gm_nav and not nav_roles:
             unit_code = "ADMIN"
         try:
-            from cases.services import inbox_cases_for_request
-            inbox_count = inbox_cases_for_request(request).count()
+            # The accordion above already counted this exact inbox. Its active
+            # entry comes from peek_inbox_count(user, active_role), which passes
+            # the same login user, the same PersonRole and the same seat User
+            # that inbox_cases_for_request derives from the work context — the
+            # very same COUNT, run a few lines earlier. Reuse it rather than
+            # asking the database the identical question twice per page. When
+            # there is no accordion (admins, general managers, a login with no
+            # PersonRole) nav_roles is empty and the original call still runs.
+            active_nav = next((r for r in nav_roles if r.get("is_active")), None)
+            if active_nav is not None:
+                inbox_count = int(active_nav.get("inbox_count") or 0)
+            else:
+                from cases.services import inbox_cases_for_request
+                inbox_count = inbox_cases_for_request(request).count()
         except Exception:
             inbox_count = 0
         # Commercial manager or Admin: warn when FX board is older than 24h / empty.
@@ -59,8 +107,6 @@ def theme(request):
                 fx_stale = bool(is_rates_stale())
         except Exception:
             fx_stale = False
-        show_person_requests = False
-        person_request_answers = 0
         # Person-scoped Requests tab (not under any seat accordion).
         try:
             if profile is not None and not profile.is_admin:
@@ -86,6 +132,12 @@ def theme(request):
     return {
         "active_unit_code": unit_code,
         "unit_theme": theme_for_unit(unit_code),
+        # The units reports.views.dashboard will build an expert their own
+        # report for, as a real tuple so the sidebar's ``unit in`` test is
+        # membership. Written as a string it would be a SUBSTRING test, and
+        # "" is a substring of everything -- which is how a unit-less seat
+        # came to be offered a link the view bounces straight back.
+        "nav_report_units": _OWN_REPORT_UNITS,
         "nav_inbox_count": inbox_count,
         "nav_fx_stale": fx_stale,
         "nav_roles": nav_roles,

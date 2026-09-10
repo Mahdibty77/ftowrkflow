@@ -1,0 +1,161 @@
+{% load i18n %}
+{% comment %}
+  The project role chart — every field is its own clickable card now, so this
+  partial is one inline SVG plus one reusable modal, and NO indicator of its
+  own at all. It used to hold two: a floating "query pill"
+  (#rcQueryPill/#rcQueryName/#rcQueryClear), removed an earlier round, and the
+  small floating active-anchor bar (#rcAnchorBar) in the canvas's own top-left
+  corner, removed this one. Everything either of them ever said — a company
+  activated as a role, a case, or a plain (non-anchor) Inquiry such as Quick
+  Inquiry or the ?case= deep link, each with its own clear/deactivate control
+  — is now said by the ONE sticky mode banner above the chart, which lives in
+  marketing/home.html (#rcModeBanner) and is filled by chart_interact.js's
+  updateModeBanner(). There is no separate directory tab any more — see
+  marketing/views.py.
+
+  Creating a company DOES happen here: the modal's own "+ Add company" panel
+  searches the shared client directory and registers a new client from it
+  (chart_interact.js, marketing:client_search / marketing:client_create). An
+  earlier comment here sent readers to the Companies tab for that instead;
+  that tab is gone — the company directory is its own section now, reading
+  the same ``ClientLabel`` rows this chart reads.
+
+  The modal's own behaviour is gated by each node's own
+  ``data-kind`` (see marketing/rolechart.py's ``_kind_of``): "label" cards
+  list and tag companies, the "us" card is a read-only case report, and
+  "inert" cards (nothing feeds them this round) open to a plain empty state
+  with only a Close button — see chart_interact.js.
+
+  NOT boxed and not zoomable. It used to sit in a bordered, fixed-height,
+  scrollable canvas with its own zoom controls; the owner asked for exactly
+  the opposite — no frame at all, no zoom buttons, the chart itself simply
+  scales up and down with the page's own width and stays centred, using as
+  much of the page as it can. So the SVG below carries no width/height
+  attributes of its own beyond the viewBox — see rolechart.css's `.rc-canvas
+  svg{width:100%}` for how that scaling actually happens; nothing here or in
+  chart_interact.js computes a scale any more.
+
+  KEEP THIS FILE UTF-8: the Persian role names arrive from marketing/rolechart.py
+  rather than being written here, but a literal added later would flatten to
+  "?" under a non-UTF-8 codepage (the same warning static/css/app.css carries).
+
+  THIS TEMPLATE DOES NO ARITHMETIC. Every coordinate, every path and every
+  count badge is computed in marketing/rolechart.py and arrives on ``chart``.
+  All the interaction — clicking a node, the modal, the active anchor, the
+  query highlight — lives in marketing/static/marketing/js/chart_interact.js,
+  wired from the data-* attributes each node carries and from
+  window.FT_MARKETING_CHART (set in home.html).
+{% endcomment %}
+<div class="rc-chart" id="rcChart">
+
+  <div class="rc-canvas" id="rcCanvas">
+
+    <svg id="rcSvg" viewBox="0 0 {{ chart.view_w }} {{ chart.view_h }}"
+         data-view-w="{{ chart.view_w }}" data-view-h="{{ chart.view_h }}"
+         role="img" aria-labelledby="rcSvgTitle">
+      <title id="rcSvgTitle">{% trans "Project role chart — every field is its own entity directory; click one to open it." %}</title>
+
+      {% comment %}
+        Every edge carries, alongside the finished ``d`` it has always drawn,
+        the coordinates that produced it — marketing/rolechart.py::build()'s
+        own docstring spells out the recompute recipe these feed, and
+        chart_interact.js's relayoutForGrowth() is the reader: while an
+        Inquiry is active, cards grow taller and every row below them slides
+        down, and an edge between two moved rows has to be re-routed rather
+        than left pointing at where its rows used to be. Purely additive —
+        the path itself is still just ``e.d``, and nothing here does any
+        arithmetic of its own (see this file's own header comment).
+      {% endcomment %}
+      <g class="rc-edges" aria-hidden="true">
+        {% for e in chart.edges %}<path d="{{ e.d }}" class="rc-edge"
+              data-seg="{{ e.seg }}" data-x1="{{ e.x1 }}" data-x2="{{ e.x2 }}"
+              data-parent-row="{{ e.parent_row_index }}" data-child-row="{{ e.child_row_index }}"
+              data-parent-bottom="{{ e.parent_bottom_y }}" data-child-top="{{ e.child_top_y }}"/>
+        {% endfor %}
+      </g>
+
+      <g class="rc-query-lines" id="rcQueryLines" aria-hidden="true"></g>
+
+      {% comment %}
+        Nodes are GROUPED BY ROW now — one <g class="rc-row-group"> per row of
+        rolechart.py's own ``rows``, carrying that row's index and its
+        ORIGINAL top y — so the chart's JS can move a whole row as one unit
+        (a single transform on this group) when a card above it grows, rather
+        than moving each card, its label, its badge and its own decorations
+        separately. ``regroup`` is safe here precisely because
+        rolechart.py::build() emits nodes in row order already (it walks
+        _ROWS top to bottom), and every node in a group shares that row's y
+        by construction — see ``_node``'s own ``row_index`` docstring.
+      {% endcomment %}
+      <g class="rc-nodes">
+        {% regroup chart.nodes by row_index as chart_node_rows %}
+        {% for chart_row in chart_node_rows %}
+        <g class="rc-row-group" data-row-index="{{ chart_row.grouper }}" data-row-y="{{ chart_row.list.0.y }}">
+        {% for n in chart_row.list %}
+        <g class="{{ n.cls }}" tabindex="0" role="button"
+           data-field="{{ n.key }}" data-role="{{ n.role_fa }}" data-abbr="{{ n.abbr }}"
+           data-kind="{{ n.kind }}" data-row-index="{{ n.row_index }}"
+           aria-label="{{ n.role_fa }} ({{ n.abbr }})">
+          <title>{{ n.title }}</title>
+          <rect class="rc-box" x="{{ n.x }}" y="{{ n.y }}" width="{{ n.w }}" height="{{ n.h }}" rx="10"/>
+          <text class="rc-role" x="{{ n.cx }}" y="{{ n.y_role }}" text-anchor="middle">{{ n.role_fa }}</text>
+          <text class="rc-abbr" x="{{ n.cx }}" y="{{ n.y_abbr }}" text-anchor="middle">{{ n.abbr }}</text>
+          <rect class="rc-badge" x="{{ n.badge.x }}" y="{{ n.badge.y }}" width="{{ n.badge.w }}" height="{{ n.badge.h }}" rx="9"/>
+          <text class="rc-badge-text" x="{{ n.badge.cx }}" y="{{ n.badge.text_y }}" text-anchor="middle">{{ n.badge.text }}</text>
+        </g>
+        {% endfor %}
+        </g>
+        {% endfor %}
+      </g>
+    </svg>
+  </div>
+
+  {% comment %}
+    Nothing floats over the canvas as a status indicator any more. The one
+    banner that describes what is active is #rcModeBanner in home.html, above
+    this whole partial — sticky at the top of the page, not over the chart.
+  {% endcomment %}
+
+  <div class="rc-modal-overlay" id="rcModalOverlay" hidden>
+    <div class="rc-modal" role="dialog" aria-modal="true" aria-labelledby="rcModalTitle">
+      <div class="rc-modal-head">
+        <h3 class="rc-modal-title" id="rcModalTitle" dir="auto"></h3>
+        <button type="button" class="rc-modal-x" id="rcModalClose" aria-label="{% trans "Close" %}"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      </div>
+      <div class="rc-modal-search" id="rcModalSearchWrap">
+        <input type="text" id="rcModalSearch" class="rc-modal-search-input"
+               placeholder="{% trans "Search…" %}" autocomplete="off" dir="auto">
+      </div>
+      <div class="rc-modal-list" id="rcModalList"></div>
+      {% comment %}
+        "Inquiry · استعلام" is left bilingual on purpose, in every interface
+        language — not wrapped in {% templatetag openblock %} trans
+        {% templatetag closeblock %} — the same deliberate chart-only
+        convention as the Persian role name on every card above (see this
+        file's own KEEP THIS FILE UTF-8 note and marketing/rolechart.py's own
+        comment on role_fa): "استعلام" is the actual Persian business term for
+        this action, shown alongside its English name rather than in place of
+        it. Fixing that (or not) for a pure-English interface is the later
+        Cleanup stage's call, not this one's.
+
+        THAT LATER CLEANUP STAGE IS THIS ONE, and the call, made on purpose
+        rather than left open: KEEP IT. This is the exact same
+        always-bilingual business-term convention as role_fa on every card
+        above (see marketing/rolechart.py's own, longer note beside SLOTS,
+        added by this same stage) — not the pure-chrome-with-no-English-base
+        leak (the owner's own "My Tasks (کارهای من)" example) this stage's
+        whole-repo sweep was built to find and fix. Left as-is in both
+        interface languages.
+      {% endcomment %}
+      <div class="rc-modal-actions" id="rcModalActionsDefault">
+        <button type="button" class="btn btn-sm" id="rcModalInquiry">Inquiry · استعلام</button>
+        <button type="button" class="btn btn-sm btn-ghost" id="rcModalCloseBtn">{% trans "Close" %}</button>
+      </div>
+      <div class="rc-modal-actions" id="rcModalActionsPicking" hidden>
+        <button type="button" class="btn btn-sm btn-primary" id="rcModalConfirmCard">{% trans "Confirm this card" %}</button>
+        <button type="button" class="btn btn-sm btn-ghost" id="rcModalCloseCard">{% trans "Close" %}</button>
+      </div>
+    </div>
+  </div>
+
+</div>

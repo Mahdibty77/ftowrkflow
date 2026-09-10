@@ -120,7 +120,18 @@ if [ ! -f /backups/code_db/ftcode_db.tar.gz ]; then
   run_code_db_backup "Initial code_db backup" || true
 fi
 
-LAST_DAY=$(date '+%Y-%m-%d')
+# Resume the daily schedule from the newest archive on disk, not from "now".
+# The nightly branch below only fires when the date changes while this loop is
+# running, so seeding this with today's date marked today as already done: a
+# server that is powered off overnight, or a reboot/upgrade window that spans
+# 00:00, missed that day's database backup and never retried it (the first-start
+# catch-up above only helps when NO archive exists at all). Reading the date out
+# of the newest ftdb_/ftbackup_ filename means a day without a backup still
+# looks unfinished, so the loop takes it on the next tick.
+LAST_DAY=$(ls -1 /backups/db/ftdb_*.tar.gz /backups/db/ftbackup_*.tar.gz 2>/dev/null \
+  | sed -n 's/^.*_\([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]\)_[0-9]*\.tar\.gz$/\1/p' \
+  | sort | tail -n1)
+[ -n "$LAST_DAY" ] || LAST_DAY=$(date '+%Y-%m-%d')
 while true; do
   # 1) Admin-requested action (queued by the web app).
   if [ -f "$CTRL/request.json" ]; then

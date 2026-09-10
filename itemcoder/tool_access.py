@@ -12,6 +12,7 @@ from functools import wraps
 
 from django.contrib import messages
 from django.shortcuts import redirect
+from django.utils.translation import gettext as _
 
 from accounts.constants import Role, Unit
 
@@ -62,7 +63,7 @@ def admin_required(view):
     @wraps(view)
     def wrapped(request, *args, **kwargs):
         if not is_platform_admin(request.user):
-            messages.error(request, "Only administrators can manage tool data.")
+            messages.error(request, _("Only administrators can manage tool data."))
             return redirect("cases:inbox")
         return view(request, *args, **kwargs)
     return wrapped
@@ -72,7 +73,7 @@ def price_access_required(view):
     @wraps(view)
     def wrapped(request, *args, **kwargs):
         if not can_manage_prices(request.user):
-            messages.error(request, "You do not have access to pricing management.")
+            messages.error(request, _("You do not have access to pricing management."))
             return redirect("cases:inbox")
         return view(request, *args, **kwargs)
     return wrapped
@@ -82,7 +83,7 @@ def group_data_access_required(view):
     @wraps(view)
     def wrapped(request, *args, **kwargs):
         if not can_manage_group_data(request.user):
-            messages.error(request, "You do not have access to coding reference data.")
+            messages.error(request, _("You do not have access to coding reference data."))
             return redirect("cases:inbox")
         return view(request, *args, **kwargs)
     return wrapped

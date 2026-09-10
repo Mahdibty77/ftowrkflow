@@ -1,4 +1,19 @@
-"""Template context for the work-shift countdown banner."""
+"""Template context for the work-shift countdown banner.
+
+Registered in ``settings.TEMPLATES``, so it runs on every rendered page and must
+stay cheap and unable to raise — hence the blanket ``except`` that degrades to
+an empty context rather than taking every page down with it. It answers one
+question, how long until this person's shift closes, and hands the base template
+the state the banner needs to say so: the seconds left, a warn flag for the last
+half hour, the ping URL the open tab heartbeats to, the goodbye line, and an
+overtime link for anyone entitled to raise one.
+
+The figure comes from ``work_shift.shift_status``, which memoises its answer on
+the ``User`` object precisely because this processor and ``WorkShiftMiddleware``
+both ask for it on the same request. Impersonated sessions get an empty context:
+the countdown belongs to the person really at the keyboard, not the account
+being borrowed.
+"""
 
 _WARN_SECONDS = 30 * 60
 

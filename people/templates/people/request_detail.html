@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static ft_extras %}
+{% load static ft_extras i18n %}
 {% block title %}Request · Foolad Tabar Workflow{% endblock %}
 {% block topbar %}Request detail{% endblock %}
 {% block head_extra %}
@@ -10,10 +10,10 @@
   <div>
     <h1><i class="fa-solid {{ req.request_type.icon }}"></i> {{ req.request_type.title }}</h1>
     <div class="sub">
-      {% if is_manager_view %}{{ req.person.display_name }} · {% endif %}
-      {% if req.status == 'approved' %}<span class="pill pill-green">Approved</span>
-      {% elif req.status == 'rejected' %}<span class="pill pill-rejected">Rejected</span>
-      {% elif req.status == 'submitted' %}<span class="pill pill-submitted">Submitted</span>
+      {% if is_manager_view %}<span dir="auto">{{ req.person.display_name }}</span> · {% endif %}
+      {% if req.status == 'approved' %}<span class="pill pill-green">{% trans "Approved" %}</span>
+      {% elif req.status == 'rejected' %}<span class="pill pill-rejected">{% trans "Rejected" %}</span>
+      {% elif req.status == 'submitted' %}<span class="pill pill-submitted">{% trans "Submitted" %}</span>
       {% else %}<span class="pill pill-grey">{{ req.get_status_display }}</span>{% endif %}
     </div>
   </div>
@@ -26,14 +26,14 @@
   <dl class="kv compact">
     <dt>Code</dt><dd class="mono">{{ req.request_code|default:req.pk }}</dd>
     {% if is_manager_view %}
-    <dt>Person</dt><dd>{{ req.person.display_name }}{% if req.person.detail_code %} <span class="muted mono">({{ req.person.detail_code }})</span>{% endif %}</dd>
+    <dt>{% trans "Person" %}</dt><dd><span dir="auto">{{ req.person.display_name }}</span>{% if req.person.detail_code %} <span class="muted mono">({{ req.person.detail_code }})</span>{% endif %}</dd>
     {% endif %}
-    <dt>Type</dt><dd>{{ req.request_type.title }}</dd>
-    <dt>Status</dt>
+    <dt>Type</dt><dd dir="auto">{{ req.request_type.title }}</dd>
+    <dt>{% trans "Status" %}</dt>
     <dd>
-      {% if req.status == 'approved' %}<span class="pill pill-green">Approved</span>
-      {% elif req.status == 'rejected' %}<span class="pill pill-rejected">Rejected</span>
-      {% elif req.status == 'submitted' %}<span class="pill pill-submitted">Submitted</span>
+      {% if req.status == 'approved' %}<span class="pill pill-green">{% trans "Approved" %}</span>
+      {% elif req.status == 'rejected' %}<span class="pill pill-rejected">{% trans "Rejected" %}</span>
+      {% elif req.status == 'submitted' %}<span class="pill pill-submitted">{% trans "Submitted" %}</span>
       {% else %}<span class="pill pill-grey">{{ req.get_status_display }}</span>{% endif %}
     </dd>
     <dt>Submitted</dt><dd class="mono">{{ req.submitted_at|default:req.created_at|jalali:"Y.m.d H:i" }}</dd>
@@ -44,23 +44,26 @@
     {% if req.work_day %}
     <dt>Work day</dt><dd class="mono">{{ req.work_day|jalali:"Y.m.d" }}</dd>
     {% endif %}
-    <dt>Description</dt><dd>{{ req.comment|default:"—" }}</dd>
+    {# The requester's own words, and below the manager's own words. Both  #}
+    {# take their own base direction so Persian that mentions a Latin case  #}
+    {# code reads as typed — see the note at the end of static/css/app.css. #}
+    <dt>Description</dt><dd dir="auto">{{ req.comment|default:"—" }}</dd>
     <dt>Cases</dt>
     <dd>
       {% for c in cases %}
-        <div><span class="mono">{{ c.label }}</span>{% if c.client %} · {{ c.client }}{% endif %}</div>
+        <div><span class="mono">{{ c.label }}</span>{% if c.client %} · <span dir="auto">{{ c.client }}</span>{% endif %}</div>
       {% empty %}—{% endfor %}
     </dd>
     {% if req.decided_at %}
     <dt>Decision</dt>
     <dd class="muted">
       {{ req.decided_at|jalali:"Y.m.d H:i" }}
-      {% if req.decided_by %} · {{ req.decided_by.get_full_name|default:req.decided_by.username }}{% endif %}
+      {% if req.decided_by %} · <span dir="auto">{{ req.decided_by.get_full_name|default:req.decided_by.username }}</span>{% endif %}
     </dd>
     {% endif %}
     {% if req.decision_note %}
-    <dt>Note</dt>
-    <dd>{% if req.status == 'rejected' %}Not approved: {% endif %}{{ req.decision_note }}</dd>
+    <dt>{% trans "Note" %}</dt>
+    <dd>{% if req.status == 'rejected' %}Not approved: {% endif %}<span dir="auto">{{ req.decision_note }}</span></dd>
     {% endif %}
   </dl>
 </div>

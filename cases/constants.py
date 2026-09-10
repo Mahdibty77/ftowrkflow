@@ -6,7 +6,24 @@ These mirror the business vocabulary:
 - FormKind  -> the three forms a case carries: Inquiry, TO, PI
 - CaseStatus-> where the case currently sits in the workflow
 - EventAction -> every recorded action in the case timeline
+
+STATUS/ACTION LABELS ARE ``gettext_lazy``-WRAPPED, NOT PLAIN ``gettext``. Every
+``CHOICES`` list below is built once, at import time — long before any request
+(and therefore any viewer's chosen language) exists. A plain ``gettext(...)``
+call would resolve against whatever language happened to be active at THAT
+moment (the process's default) and freeze that text into the tuple forever;
+every later request, regardless of the viewer's own language, would see the
+same frozen string. ``gettext_lazy`` instead returns a lazy proxy that defers
+the actual catalog lookup until the string is finally rendered to text (a
+template's ``{{ }}``, an f-string, ``str()``) — which happens per request,
+after ``accounts.middleware.LanguageMiddleware`` has activated that viewer's
+own language. That per-request re-resolution is exactly what lets one shared
+``choices=`` list (and the ``LABELS``/``get_..._display()`` lookups built on
+it) show the correct language to every viewer at once, rather than whichever
+language happened to be active when the server process started.
 """
+
+from django.utils.translation import gettext_lazy as _
 
 
 class DocKind:
@@ -15,9 +32,9 @@ class DocKind:
     BUDGET = "BUDGET"
 
     CHOICES = [
-        (INDENT, "Indent"),
-        (TENDER, "Tender"),
-        (BUDGET, "Budget"),
+        (INDENT, _("Indent")),
+        (TENDER, _("Tender")),
+        (BUDGET, _("Budget")),
     ]
     # Two-letter token used inside the document number.
     TOKEN = {INDENT: "IN", TENDER: "TE", BUDGET: "BU"}
@@ -28,8 +45,8 @@ class OfferType:
     TO_PI = "TO_PI"      # Technical Offer + Proforma Invoice (pricing required)
 
     CHOICES = [
-        (TO, "TO (Technical Offer)"),
-        (TO_PI, "TO & PI (Technical Offer + Proforma)"),
+        (TO, _("TO (Technical Offer)")),
+        (TO_PI, _("TO & PI (Technical Offer + Proforma)")),
     ]
 
 
@@ -39,9 +56,9 @@ class FormKind:
     PI = "PI"
 
     CHOICES = [
-        (INQUIRY, "Inquiry"),
-        (TO, "Technical Offer (TO)"),
-        (PI, "Proforma Invoice (PI)"),
+        (INQUIRY, _("Inquiry")),
+        (TO, _("Technical Offer (TO)")),
+        (PI, _("Proforma Invoice (PI)")),
     ]
     # Token inserted into export file names (FT-TO-... / FT-PI-...).
     EXPORT_TOKEN = {INQUIRY: "INQ", TO: "TO", PI: "PI"}
@@ -54,9 +71,9 @@ class PriceType:
     BOTH = "BOTH"
 
     CHOICES = [
-        (INTERNAL, "Internal"),
-        (EXTERNAL, "External"),
-        (BOTH, "Internal & External"),
+        (INTERNAL, _("Internal")),
+        (EXTERNAL, _("External")),
+        (BOTH, _("Internal & External")),
     ]
     LABELS = dict(CHOICES)
 
@@ -67,10 +84,125 @@ class Side:
     EXTERNAL = "EXTERNAL"
 
     CHOICES = [
-        (INTERNAL, "Internal"),
-        (EXTERNAL, "External"),
+        (INTERNAL, _("Internal")),
+        (EXTERNAL, _("External")),
     ]
     LABELS = dict(CHOICES)
+
+
+class MarketingLabel:
+    """Which business role a case's client played, for Marketing's own chart.
+
+    Optional on every case — see Case.marketing_label. Blank means "not
+    specified," which Marketing treats as OWNER (the client's default role)
+    rather than as a stored choice of its own; see marketing/services.py for
+    where that default is actually applied. The fourteen keys below are
+    exactly the fourteen of marketing/rolechart.py's twenty-one chart fields
+    that describe a business relationship a case's client could actually
+    hold — the other seven are not meaningful answers to "what role did THIS
+    CLIENT play," so they are not offered here. Those seven split two ways,
+    and the split is the whole reason MANUAL_ONLY_CHOICES exists further
+    down:
+
+    * SIX of them — the project itself, its phase, third-party inspection,
+      the laboratory, the sub-supplier and a competitor — are still real
+      things a COMPANY can be hand-tagged as, even though no CASE can ever
+      be "for" one. They live in MANUAL_ONLY_CHOICES below.
+    * ONE of them — "us", our own position — is not a tag at all in either
+      direction. It is backed by case data (every client with a case) rather
+      than by any stored label, so it appears in neither list here. See
+      marketing/services.py::us_connections.
+
+    So twenty of the chart's twenty-one fields are labelable in some form
+    (fourteen here + six manual-only), and only "us" is not.
+    """
+    SPONSOR = "sponsor"
+    OWNER = "owner"
+    PMT = "pmt"
+    MC = "mc"
+    LICENSOR = "licensor"
+    DESIGN = "design"
+    SUPERVISION = "supervision"
+    C = "c"
+    P = "p"
+    PC = "pc"
+    EPC = "epc"
+    SUB = "sub"
+    SUB_PC = "sub_pc"
+    SUB_EPC = "sub_epc"
+
+    CHOICES = [
+        (SPONSOR, "سرمایه‌گذار — SPONSOR / INVESTOR"),
+        (OWNER, "کارفرمای اصلی — OWNER / CLIENT"),
+        (PMT, "مجری طرح — PMT — PROJECT MGMT TEAM"),
+        (MC, "مدیریت طرح — MC / PMC — MGMT CONTRACTOR"),
+        (LICENSOR, "لایسنسور — LICENSOR"),
+        (DESIGN, "مشاور طراح — DESIGN CONSULTANT — FEED / DED"),
+        (SUPERVISION, "مشاور نظارت — SUPERVISION"),
+        (C, "پیمانکار اجرا — C — CONSTRUCTION ONLY"),
+        (P, "پیمانکار خرید — P — PROCUREMENT ONLY"),
+        (PC, "پیمانکار خرید و اجرا — PC — PROCUREMENT + CONSTRUCTION"),
+        (EPC, "پیمانکار طرح، خرید و اجرا — EPC — ENG. PROC. CONSTRUCTION"),
+        (SUB, "پیمانکار جزء P — SUBCONTRACTOR — P"),
+        (SUB_PC, "پیمانکار جزء PC — SUBCONTRACTOR — PC"),
+        (SUB_EPC, "پیمانکار جزء EPC — SUBCONTRACTOR — EPC"),
+    ]
+    LABELS = dict(CHOICES)
+
+    # Six more chart fields — the sub-supplier, a competitor, the project
+    # itself, its phase, third-party inspection and the laboratory — that are
+    # NOT among the fourteen above, and never will be: per this class's own
+    # docstring, none of them is a meaningful answer to "what role did THIS
+    # CASE'S CLIENT play," so they stay out of CHOICES/LABELS and therefore
+    # out of Case.marketing_label's own choices and the case-creation/edit
+    # forms (cases/forms.py, cases/templates/cases/case_create.html,
+    # cases/templates/cases/edit_items.html) entirely — a case cannot
+    # sensibly be "for" a competitor or a sub-supplier, and it is even more
+    # obviously true of the last four: a case's CLIENT is a company, and a
+    # company can never BE a project name, a project phase, an inspection
+    # body's slot on the chart, or a laboratory reading of "what role did
+    # this case's client play". (The four latecomers joined this list after
+    # rival/supplier did; they used to be the chart's non-interactive
+    # "inert" cards with no data source at all — see
+    # marketing/rolechart.py::_INERT_KEYS, now empty, for the other side of
+    # that promotion.)
+    #
+    # But marketing/rolechart.py draws all six of them as ordinary chart
+    # cards (see its SLOTS/LABEL_KEYS), and the owner wants a Marketing user
+    # able to hand-tag a company under any of them — "this company is a
+    # competitor we're tracking," "this company supplies us," "this company
+    # is the laboratory on that job" — exactly the kind of fact
+    # marketing/models.py::ClientLabel already exists to hold.
+    # ClientLabel.label is the ONLY consumer of this list: its ``choices``
+    # is ``MarketingLabel.CHOICES + MarketingLabel.MANUAL_ONLY_CHOICES``, so
+    # a company can carry these six tags manually while a case still can
+    # never hold them. Kept as a SEPARATE list, deliberately never merged
+    # into CHOICES/LABELS, so every existing consumer of CHOICES/LABELS
+    # (the case forms above, and the ``posted_label in MarketingLabel.LABELS``
+    # validation in cases/views.py) keeps rejecting all six as a case's own
+    # marketing_label without needing to know this list exists.
+    #
+    # Same "<Persian> — <ENGLISH>" formatting as CHOICES, and the same
+    # Persian role text / English abbreviation marketing/rolechart.py already
+    # uses for these six keys (its SLOTS tuple for five of them, its
+    # PROJECT_ROLE/PROJECT_ABBR pair for "project", which is drawn as a chart
+    # field without being a SLOTS row), so each manual-tag choice in
+    # ClientLabel reads identically to the card it tags on the chart.
+    RIVAL = "rival"
+    SUPPLIER = "supplier"
+    PROJECT = "project"
+    PHASE = "phase"
+    TPI = "tpi"
+    LABORATORY = "laboratory"
+
+    MANUAL_ONLY_CHOICES = [
+        (RIVAL, "رقیب احتمالی — COMPETITOR"),
+        (SUPPLIER, "تأمین‌کننده — SUB-SUPPLIER"),
+        (PROJECT, "نام پروژه — PROJECT"),
+        (PHASE, "فاز پروژه — PROJECT PHASE"),
+        (TPI, "بازرس ثالث — TPI — THIRD PARTY INSP."),
+        (LABORATORY, "آزمایشگاه — LABORATORY"),
+    ]
 
 
 class CaseStatus:
@@ -92,22 +224,28 @@ class CaseStatus:
     CANCELLED = "CANCELLED"               # cancelled with reason (manager approved)
 
     CHOICES = [
-        (DRAFT, "Draft"),
-        (WITH_TECHNICAL, "With Technical"),
-        (RETURNED_TO_COMMERCIAL, "Returned to Commercial"),
-        (WITH_SUPPLY, "With Supply"),
-        (RETURNED_TO_TECHNICAL, "Returned to Technical"),
-        (WITH_COMMERCIAL, "With Commercial (final)"),
-        (UNSUPPLIABLE_PENDING_SUPPLY, "Cannot supply — awaiting Supply manager"),
-        (UNSUPPLIABLE_PENDING_COMMERCIAL, "Cannot supply — awaiting Commercial manager"),
-        (UNSUPPLIABLE, "Cannot supply"),
-        (UNSUPPLIABLE_CLOSED, "Cannot supply"),
-        (PENDING_CANCEL, "Cancel — pending approval"),
-        (CLOSED, "Closed / Sent to client"),
-        (FINAL_APPROVED, "Final Approved"),
-        (FINAL_CLOSED, "Final Closed"),
-        (BURNED, "Burned"),
-        (CANCELLED, "Cancelled"),
+        (DRAFT, _("Draft")),
+        (WITH_TECHNICAL, _("With Technical")),
+        (RETURNED_TO_COMMERCIAL, _("Returned to Commercial")),
+        (WITH_SUPPLY, _("With Supply")),
+        (RETURNED_TO_TECHNICAL, _("Returned to Technical")),
+        (WITH_COMMERCIAL, _("With Commercial (final)")),
+        (UNSUPPLIABLE_PENDING_SUPPLY, _("Cannot supply — awaiting Supply manager")),
+        (UNSUPPLIABLE_PENDING_COMMERCIAL, _("Cannot supply — awaiting Commercial manager")),
+        # These two codes deliberately share one English source string ("Cannot
+        # supply") — see _collapse() in cases/services.py, which relies on that
+        # shared wording to merge them into a single pill. Calling gettext_lazy
+        # twice here still produces two proxy objects, but both resolve the
+        # same msgid, so they carry the identical Persian text too and the pill
+        # collapse keeps working exactly as before, in either language.
+        (UNSUPPLIABLE, _("Cannot supply")),
+        (UNSUPPLIABLE_CLOSED, _("Cannot supply")),
+        (PENDING_CANCEL, _("Cancel — pending approval")),
+        (CLOSED, _("Closed / Sent to client")),
+        (FINAL_APPROVED, _("Final Approved")),
+        (FINAL_CLOSED, _("Final Closed")),
+        (BURNED, _("Burned")),
+        (CANCELLED, _("Cancelled")),
     ]
     LABELS = dict(CHOICES)
 
@@ -143,6 +281,21 @@ class CaseStatus:
 
     # Collapsed archive groups: several raw statuses share one filter/tab label
     # (e.g. WITH_TECHNICAL + RETURNED_TO_TECHNICAL → "With Technical").
+    #
+    # DELIBERATELY LEFT AS PLAIN, UNTRANSLATED ENGLISH STRINGS — unlike CHOICES
+    # above. These values are not display text; they are internal grouping
+    # KEYS: cases/services.py::StatusView builds ``status_fval`` (the archive
+    # row's hidden filter value) straight from this dict, and the archive's tab
+    # strip / tab counts / the ``data-status`` attribute the tab-filter JS
+    # matches against are all built from ARCHIVE_TAB_ORDER below — the very
+    # same English strings. Wrapping either in gettext_lazy would make BOTH
+    # sides of that match re-resolve per viewer language, which sounds fine
+    # until you remember they are compared as plain dict keys/strings in
+    # Python code that runs once per request, not re-rendered per keystroke —
+    # a subtler bug than a wrong label, and not worth the risk for a filter
+    # value nobody ever sees on screen. The PILL text a viewer actually reads
+    # (CaseStatus.LABELS, via CaseStatus.CHOICES above) is translated; this
+    # bookkeeping layer underneath it stays in English on purpose.
     ARCHIVE_GROUP = {
         DRAFT: "Draft",
         WITH_COMMERCIAL: "With Commercial",
@@ -190,6 +343,46 @@ class CaseStatus:
         "Cancelled": COLORS[CANCELLED],
     }
 
+    # DISPLAY TEXT for the archive's own status-tab strip (cases/templates/
+    # cases/archive.html) — and ONLY for that. Every key here is one of the
+    # ARCHIVE_TAB_ORDER strings above; every value is the gettext_lazy text a
+    # viewer should actually read on that tab. This is deliberately a
+    # SEPARATE dict from ARCHIVE_GROUP/ARCHIVE_TAB_ORDER themselves, which
+    # stay plain English on purpose — see ARCHIVE_GROUP's own comment. Those
+    # two remain the internal grouping KEYS that cases/services.py's
+    # ``archive_tab_counts`` matches rows against (a row's own
+    # ``status_fval``, and the hidden ``fstatus`` filter control) and that
+    # the tab strip's ``data-status`` attribute is compared against by the
+    # column-filter JS — none of that plumbing reads THIS dict at all.
+    # ``cases/services.py::archive_tab_counts`` is the one place that does:
+    # it looks a tab's English group string up in here to build the tab's
+    # visible words, leaving ``label``/``data-status`` untouched so the
+    # matching logic cannot drift.
+    #
+    # Reuses CaseStatus.LABELS' own already-translated Persian text wherever
+    # the group string is identical to a status label (Draft, With Technical,
+    # With Supply, Cannot supply, Burned, Cancelled) — gettext_lazy resolves
+    # by msgid text, so wrapping the same English string here automatically
+    # picks up the same catalog entry, with nothing duplicated in
+    # locale/fa/LC_MESSAGES/django.po. The four archive-only groupings that
+    # have no identical CaseStatus label text of their own ("With Commercial"
+    # collapses three different statuses into one tab; "Sent to client",
+    # "Final approved" and "Final closed" are shorter tab-strip phrasings of
+    # "Closed / Sent to client", "Final Approved" and "Final Closed") get
+    # their own catalog entries instead.
+    ARCHIVE_GROUP_LABELS = {
+        "Draft": _("Draft"),
+        "With Technical": _("With Technical"),
+        "With Supply": _("With Supply"),
+        "With Commercial": _("With Commercial"),
+        "Sent to client": _("Sent to client"),
+        "Final approved": _("Final approved"),
+        "Final closed": _("Final closed"),
+        "Cannot supply": _("Cannot supply"),
+        "Burned": _("Burned"),
+        "Cancelled": _("Cancelled"),
+    }
+
 
 class EventAction:
     CREATE = "CREATE"
@@ -219,30 +412,30 @@ class EventAction:
     FINAL_CLOSE = "FINAL_CLOSE"   # commercial shut a final-approved case (terminal)
 
     CHOICES = [
-        (CREATE, "Case created"),
-        (SUBMIT_TO_TECHNICAL, "Submitted to Technical"),
-        (RETURN_TO_COMMERCIAL, "Returned to Commercial"),
-        (ASSIGN, "Assigned to expert"),
-        (DELEGATE, "Delegated"),
-        (SEND_TO_SUPPLY, "Submitted to Supply"),
-        (RETURN_TO_TECHNICAL, "Returned to Technical"),
-        (SEND_TO_COMMERCIAL, "Submitted to Commercial"),
-        (BUILD_TO, "TO form built"),
-        (BUILD_PI, "PI form built"),
-        (NEW_VERSION, "New form version"),
-        (EDIT, "Edited"),
-        (COMMENT, "Comment added"),
-        (CLOSE, "Closed — sent to client"),
-        (CANNOT_SUPPLY, "Marked cannot supply"),
-        (APPROVE_UNSUPPLIABLE, "Cannot-supply approved"),
-        (REJECT_UNSUPPLIABLE, "Cannot-supply rejected"),
-        (RETURN_TO_SUPPLY, "Returned to Supply"),
-        (FINALIZE, "Final Approved"),
-        (REQUEST_CANCEL, "Cancellation requested"),
-        (APPROVE_CANCEL, "Cancellation approved"),
-        (REJECT_CANCEL, "Cancellation rejected"),
-        (CANCEL, "Cancelled"),
-        (BURN, "Burned"),
-        (FINAL_CLOSE, "Final Closed"),
+        (CREATE, _("Case created")),
+        (SUBMIT_TO_TECHNICAL, _("Submitted to Technical")),
+        (RETURN_TO_COMMERCIAL, _("Returned to Commercial")),
+        (ASSIGN, _("Assigned to expert")),
+        (DELEGATE, _("Delegated")),
+        (SEND_TO_SUPPLY, _("Submitted to Supply")),
+        (RETURN_TO_TECHNICAL, _("Returned to Technical")),
+        (SEND_TO_COMMERCIAL, _("Submitted to Commercial")),
+        (BUILD_TO, _("TO form built")),
+        (BUILD_PI, _("PI form built")),
+        (NEW_VERSION, _("New form version")),
+        (EDIT, _("Edited")),
+        (COMMENT, _("Comment added")),
+        (CLOSE, _("Closed — sent to client")),
+        (CANNOT_SUPPLY, _("Marked cannot supply")),
+        (APPROVE_UNSUPPLIABLE, _("Cannot-supply approved")),
+        (REJECT_UNSUPPLIABLE, _("Cannot-supply rejected")),
+        (RETURN_TO_SUPPLY, _("Returned to Supply")),
+        (FINALIZE, _("Final Approved")),
+        (REQUEST_CANCEL, _("Cancellation requested")),
+        (APPROVE_CANCEL, _("Cancellation approved")),
+        (REJECT_CANCEL, _("Cancellation rejected")),
+        (CANCEL, _("Cancelled")),
+        (BURN, _("Burned")),
+        (FINAL_CLOSE, _("Final Closed")),
     ]
     LABELS = dict(CHOICES)

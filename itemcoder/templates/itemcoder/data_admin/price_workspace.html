@@ -82,7 +82,6 @@
   var DISTINCT_URL = "{% url 'dm_code_distinct_api' group %}";
   var BACK_URL = "{% url 'dm_price_lists' %}";
   var MAIN_COLS = [{% for mc in main_cols %}{{ mc.idx }}{% if not forloop.last %},{% endif %}{% endfor %}];
-  var csrf = document.querySelector('input[name=csrfmiddlewaretoken]').value;
   var body = document.getElementById("grid-body"), box = document.getElementById("scroll-box");
   var loading = document.getElementById("loading"), endNote = document.getElementById("end-note");
   var after = -1, busy = false, done = false;
@@ -94,21 +93,28 @@
   }) : { getFilters: function () { return {}; } };
 
   function qs(o) { return Object.keys(o).map(function (k) { return encodeURIComponent(k) + "=" + encodeURIComponent(o[k]); }).join("&"); }
-  function hdr() { return { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": csrf }; }
+  // Read the token per request, from the cookie the browser will actually send.
+  // Pricing is a long screen: the page is opened, prices are typed for an hour,
+  // and every save is a POST. A token captured once at page load is wrong the
+  // moment anyone signs in again in this browser (Django rotates the CSRF secret
+  // on login), and each save then comes back 403 — which this grid could only
+  // show as a red cell, so an hour of typed prices looked "not saving" with no
+  // reason given. See window.FTCsrf in base.html.
+  function hdr() { return { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": window.FTCsrf.token() }; }
   function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function reset() { after = -1; busy = false; done = false; body.innerHTML = ""; endNote.style.display = "none"; load(); }
 
   function load() {
     if (busy || done) return; busy = true; loading.style.display = "block";
     var p = GF.getFilters(); p.group = GROUP; p.after = after;
-    fetch(ROWS_URL + "?" + qs(p)).then(function (r) { return r.json(); }).then(function (d) {
+    fetch(ROWS_URL + "?" + qs(p)).then(window.FTJson).then(function (d) {
       loading.style.display = "none"; busy = false;
       document.getElementById("total-count").textContent = (d.total || 0).toLocaleString() + " items";
       (d.rows || []).forEach(addRow);
       if (d.next === null || d.next === undefined) { done = true; endNote.style.display = body.children.length ? "block" : "none"; }
       else after = d.next;
       if (!done && box.scrollHeight <= box.clientHeight + 40) load();
-    }).catch(function () { loading.style.display = "none"; busy = false; });
+    }).catch(function (err) { loading.style.display = "none"; busy = false; explainOnce(err); });
   }
 
   var CURRENCY = "{{ plist.currency|escapejs }}";
@@ -146,18 +152,32 @@
     td.appendChild(inp); tr.appendChild(td); body.appendChild(tr);
   }
 
+  // A red cell says "this price did not save" and nothing about why. When the
+  // cause is the same for every cell — the session ended, or the page's security
+  // token went stale — say it once, in words, so the answer is "sign in again" /
+  // "refresh" rather than "keep retyping the number".
+  var toldWhy = false;
+  function explainOnce(err) {
+    if (!err || !err.message || toldWhy) return;
+    if (!err.ftSessionEnded && !err.ftCsrf) return;
+    toldWhy = true;
+    var status = document.getElementById("bulk-status");
+    if (status) status.textContent = err.message;
+    alert(err.message);
+  }
+
   function setOne(code, inp) {
     if (!code) return;
     var raw = rawNum(inp.value);
     fetch(SETONE_URL, { method: "POST", headers: hdr(), body: new URLSearchParams({ code: code, price: raw }).toString() })
-      .then(function (r) { return r.json(); })
+      .then(window.FTJson)
       .then(function (d) {
         if (raw === "") { inp.style.background = ""; }       // cleared -> white
         else if (d.ok) { inp.style.background = "var(--okbg)"; }  // saved -> green
         else { inp.style.background = "var(--rejbg)"; }
         if (document.activeElement !== inp) inp.value = fmtNum(inp.value);
       })
-      .catch(function () { inp.style.background = "var(--rejbg)"; });
+      .catch(function (err) { inp.style.background = "var(--rejbg)"; explainOnce(err); });
   }
 
   var undoStack = [];
@@ -193,9 +213,9 @@
     var f = GF.getFilters(); Object.keys(f).forEach(function (k) { p.set(k, f[k]); });
     if (!confirm(mode === "clear" ? "Clear price for the whole filtered set?" : "Set this price for the whole filtered set?")) return;
     status.textContent = "Working…";
-    fetch(APPLY_URL, { method: "POST", headers: hdr(), body: p.toString() }).then(function (r) { return r.json(); })
+    fetch(APPLY_URL, { method: "POST", headers: hdr(), body: p.toString() }).then(window.FTJson)
       .then(function (d) { status.textContent = d.ok ? ("Done — " + d.count.toLocaleString() + " rows.") : ("Error: " + (d.error || "failed")); reset(); })
-      .catch(function () { status.textContent = "Request failed."; });
+      .catch(function (err) { status.textContent = (err && err.message) || "Request failed."; });
   }
 
   document.getElementById("bulk-apply").addEventListener("click", function () { bulk("set"); });

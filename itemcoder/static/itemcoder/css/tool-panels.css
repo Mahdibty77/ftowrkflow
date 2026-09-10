@@ -645,8 +645,12 @@ html[data-theme="dark"] .pi-status-bar.warn { background: rgba(234,179,8,.12); b
 }
 
 /* ?? 2. No-wrap columns: FT code, size, qty, unit, prices ?? */
-#virtual-scroll-table td[data-col-name="??"],
-#virtual-scroll-table th[data-col-name="??"] {
+/* "کد" is the FTCO code column's literal header (CODE_COL in
+   pi_same_code_sync.js). It must stay the Persian word byte for byte — a save
+   through a non-UTF-8 codepage once turned it into "?" and this rule matched
+   nothing. Keep this file UTF-8. */
+#virtual-scroll-table td[data-col-name="کد"],
+#virtual-scroll-table th[data-col-name="کد"] {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 #virtual-scroll-table td[data-col-name="size"],
@@ -1626,15 +1630,24 @@ tr.row-unsuppliable td[data-col-name="Item Code"] .ic-flag-ico { color: #c0392b 
 #virtual-scroll-table td[data-calc-variable="unit_price"][data-locked="1"]::before,
 #virtual-scroll-table td[data-col-name="BRAND"][data-locked="1"]::before,
 #virtual-scroll-table td[data-col-name="TIME"][data-locked="1"]::before {
-  content: "\f023";  /* fa-lock */
-  font-family: "Font Awesome 6 Free";
-  font-weight: 900;
+  /* The padlock is drawn with the same inline-SVG mask the rest of the app
+     uses (see .fa-lock in tool-icons.css). The project ships no webfont at
+     all — there is no @font-face anywhere and no CDN link — so the previous
+     content:"\f023" + "Font Awesome 6 Free" resolved to a Private-Use
+     codepoint no installed font has, and every locked cell painted a notdef
+     box instead of a lock. A pseudo-element cannot take an icon class, hence
+     the mask is spelled out here. */
+  content: "";
+  --fa-lock: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23fff'%20stroke-width='2.4'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Crect%20x='3'%20y='11'%20width='18'%20height='11'%20rx='2'/%3E%3Cpath%20d='M7%2011V7a5%205%200%200%201%2010%200v4'/%3E%3C/svg%3E");
   position: absolute;
   top: 50%;
   right: 6px;
   transform: translateY(-50%);
-  font-size: .62rem;
-  color: #c0c7d2;
+  width: .62rem;
+  height: .62rem;
+  background-color: #c0c7d2;
+  -webkit-mask: var(--fa-lock) center/contain no-repeat;
+  mask: var(--fa-lock) center/contain no-repeat;
   pointer-events: none;
   z-index: 4;
 }
@@ -1931,10 +1944,16 @@ tr.row-unsuppliable td[data-col-name="Item Code"] .ic-flag-ico { color: #c0392b 
   cursor: not-allowed !important;
 }
 #virtual-scroll-table td[data-price-locked="1"]::after {
-  content: "\f023";   /* fa-lock */
-  font-family: "Font Awesome 6 Free"; font-weight: 900;
+  /* Same inline-SVG mask as the locked BRAND/TIME/UNIT PRICE cells above —
+     there is no Font Awesome webfont in this project, so a content:"\f023"
+     glyph never renders. */
+  content: "";
+  --fa-lock: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23fff'%20stroke-width='2.4'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Crect%20x='3'%20y='11'%20width='18'%20height='11'%20rx='2'/%3E%3Cpath%20d='M7%2011V7a5%205%200%200%201%2010%200v4'/%3E%3C/svg%3E");
   position: absolute; top: 50%; right: 5px; transform: translateY(-50%);
-  font-size: .6rem; color: #c0c7d2; pointer-events: none;
+  width: .6rem; height: .6rem; background-color: #c0c7d2;
+  -webkit-mask: var(--fa-lock) center/contain no-repeat;
+  mask: var(--fa-lock) center/contain no-repeat;
+  pointer-events: none;
 }
 
 /* ============================================================
@@ -2134,7 +2153,7 @@ body[data-tool-kind="PI"] #virtual-scroll-table th[data-col-name="Item Code"] {
 
 /* ============================================================
    ROUND 20b ? PI: BRAND / TIME / UNIT PRICE look like the plain
-   ?????? column. No resting box outline, no green hover ring ?
+   ریمارک column. No resting box outline, no green hover ring ?
    just a clean cell with its always-on input inside.
    ============================================================ */
 body[data-tool-kind="PI"] #virtual-scroll-table td[data-col-name="UNIT PRICE"]:not([data-editing="1"]),
@@ -2505,3 +2524,83 @@ body[data-hide-pricing="1"] td[data-col-name="TOTAL PRICE"] {
   font-weight: 700;
 }
 .pi-pricing-applied-badge i { font-size: .95rem; }
+
+/* ── Automatic-save message ────────────────────────────────────────────────
+   The transient strip tool_save.js shows when the tool saves the grid by
+   itself. It deliberately reuses the app's existing message colours — the
+   --ok / --rej / --info triplets base.html's .flash classes are built from
+   (static/css/theme-pack.css, which this page loads and which redefines all
+   three for dark mode) — so an automatic save looks like every other message
+   in the product instead of introducing a second visual language.
+
+   Two properties are load-bearing, not decoration:
+
+   * position:fixed — the strip appears and disappears twice per save, and an
+     in-flow banner would push a 380-row virtual-scroll grid down by its own
+     height and back again each time. Fixed, it takes part in no layout at
+     all: nothing on the page moves when it comes or goes.
+   * pointer-events:none — for the seconds it is on screen it sits over the
+     tool bar. Clicks pass straight through it to whatever is underneath, so
+     it cannot intercept a press on Save, Back to case or the language
+     toggle even if a narrow window makes it overlap one of them.
+
+   It is centred on the bar's flexible .spacer, which is the one strip at the
+   top of this page that never holds a control. Off-state is
+   visibility:hidden rather than display:none so the fade has something to
+   animate and the node's box is never recalculated. */
+.ft-autosave-toast {
+  position: fixed;
+  /* Vertically centred in the 59px-tall sticky .tool-bar, which starts at the
+     top of the viewport: (59 - 33) / 2 ≈ 13. */
+  top: 13px;
+  left: 50%;
+  z-index: 400;                 /* over .tool-bar (200), under the eject overlay */
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  max-width: min(30rem, calc(100vw - 2rem));
+  padding: .42rem .8rem;
+  border-radius: 9px;
+  border: 1px solid var(--okline, #bbe6cb);
+  background: var(--okbg, #e9f7ef);
+  color: var(--ok, #15803d);
+  font-size: .82rem;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .16);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-50%) translateY(-8px);
+  transition: opacity .18s ease, transform .18s ease, visibility 0s linear .18s;
+}
+.ft-autosave-toast.is-on {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+  transition: opacity .18s ease, transform .18s ease, visibility 0s;
+}
+.ft-autosave-toast i { font-size: .9rem; opacity: .85; flex: 0 0 auto; }
+/* Truncation has to live on the text node's own box, not on the flex
+   container, or a long message overflows the pill instead of ellipsising. */
+.ft-autosave-toast .ft-autosave-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ft-autosave-toast.is-error {
+  border-color: var(--rejline, #f6c5c5);
+  background: var(--rejbg, #fdecec);
+  color: var(--rej, #dc2626);
+  white-space: normal;          /* a failure must be readable in full */
+}
+.ft-autosave-toast.is-info {
+  border-color: var(--infoline, #c3d9fb);
+  background: var(--infobg, #eaf1fe);
+  color: var(--info, #2563eb);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ft-autosave-toast { transition: opacity .01s linear, visibility 0s linear .01s; }
+  .ft-autosave-toast.is-on { transition: opacity .01s linear, visibility 0s; }
+}

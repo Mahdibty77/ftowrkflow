@@ -7,7 +7,9 @@ headless Chrome/Edge.
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
+import logging
 import math
 import os
 import re
@@ -16,6 +18,7 @@ import socket
 import struct
 import subprocess
 import tempfile
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -59,6 +62,30 @@ _MIN_ROW_H = 5.2
 _LINE_H_MM = 3.15         # ~10px font × 1.15 line-height
 _ROW_PAD_MM = 2.8         # top+bottom cell padding (~5px each side)
 
+# What document.html *actually* renders a wrapped cell with, at 96dpi: 10px
+# text on a 1.2 line-height (12px) inside 5px of padding on every side. The two
+# rounded figures above stay exactly as they are — every page break in every
+# document that fits today is derived from them — but the row splitter cannot
+# use them. It is the one caller that packs a cell right up to the top of the
+# budget, so where an ordinary row absorbs the rounding in its slack, a split
+# part has none left and a tenth of a millimetre per line becomes a clipped line
+# of text at the bottom of the sheet.
+_CSS_LINE_H_MM = 12 * 25.4 / 96      # 3.1750
+_CSS_CELL_PAD_MM = 10 * 25.4 / 96    # 2.6458 (5px each side, both axes)
+
+# The widest a single character can be in a cell. ``_estimate_lines`` divides by
+# an *average* glyph width, which is the right answer for a height estimate and
+# the wrong one for a guarantee: measured against Chrome, a run of "W", "@", an
+# em dash or CJK wraps to as much as 2.5× the estimate, and a part sized to the
+# estimate then hangs past the sheet and is clipped away by ``.table-zone``'s
+# overflow — text on no sheet at all, which is the one outcome this splitter
+# exists to prevent. A full em (10px ≈ 2.65mm) is the widest advance any of
+# those glyphs takes; 2.8 carries the measurement's rounding on top. Parts are
+# therefore capped at the number of characters that fits *even if every one of
+# them is the widest character in the font*, which costs paper on a row that
+# already spans sheets and never costs a character.
+_MAX_GLYPH_W_MM = 2.8
+
 # Column width fractions of the table (must sum ≈ 1.0)
 _PI_WIDTHS = {
     "client_no": 0.04, "item": 0.035, "code": 0.07, "desc_client": 0.11,
@@ -72,43 +99,92 @@ _TO_WIDTHS = {
     "brand": 0.10, "time": 0.12,
 }
 
+# The Technical Problems (TO) and Services (PI) sheets carry their own tables
+# with their own fixed column widths — the percentages below are the ones
+# declared as ``<th style="width: …">`` in document.html. They are needed here
+# because pagination has to estimate how tall each row wraps, exactly the way it
+# does for the main item table; without them these sheets were emitted as one
+# single page and every row past the bottom of the sheet was clipped away by the
+# fixed-height ``.document`` box.
+_ISSUE_COLUMNS: list[tuple[str, str]] = [
+    ("Client No.", "client_no"),
+    ("Item No.", "item"),
+    ("DESCRIPTION CLIENT", "desc_client"),
+    ("Technical Problem Detail", "reason"),
+]
+_ISSUE_WIDTHS = {"client_no": 0.12, "item": 0.12, "desc_client": 0.36, "reason": 0.40}
+_SERVICE_COLUMNS: list[tuple[str, str]] = [
+    ("CLIENT ITEM", "client_no"),
+    ("FTCO ITEM", "item"),
+    ("DESCRIPTION CLIENT", "desc_client"),
+    ("SERVICE COMMENT", "comment"),
+    ("QTY", "qty"),
+    ("UNIT PRICE SERVICE", "unit_svc_price"),
+    ("TOTAL PRICE SERVICE", "total_svc_price"),
+]
+_SERVICE_WIDTHS = {
+    "client_no": 0.09, "item": 0.09, "desc_client": 0.24, "comment": 0.20,
+    "qty": 0.07, "unit_svc_price": 0.15, "total_svc_price": 0.16,
+}
+# Those two sheets also print a coloured banner between the info cards and the
+# table (~60px ≈ 16mm at 96dpi) which eats into the body height available to
+# rows.
+_BANNER_H = 16.0
+
 _TABLE_WIDTH_MM = 265.0  # page width minus side margins
-_TAG_RE = re.compile(r"<[^>]+>")
-_BR_RE = re.compile(r"<br\s*/?>", re.IGNORECASE)
 _WS_RE = re.compile(r"\s+")
+
+logger = logging.getLogger(__name__)
 
 
 def _plain_cell_text(text) -> str:
-    """Strip HTML / collapse whitespace for wrap estimation."""
-    raw = str(text or "")
-    raw = _BR_RE.sub("\n", raw)
-    raw = _TAG_RE.sub("", raw)
-    raw = (
-        raw.replace("&nbsp;", " ")
-        .replace("&amp;", "&")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", '"')
-        .replace("&#39;", "'")
-    )
-    return raw
+    """The characters the reader actually sees in that cell.
+
+    document.html prints the cell through ``{{ cell.text }}``, so Django's
+    autoescaping puts the operator's string on paper *verbatim*: a pasted
+    ``<br>`` shows as the four characters "<br>", ``&nbsp;`` as the six
+    characters "&nbsp;". This used to strip tags and decode entities before
+    measuring, which measured a document nobody prints — a cell holding a run of
+    ``<br>`` was measured as empty and its 800 printed characters overflowed the
+    sheet and were clipped. Measuring the raw string is both what the renderer
+    does and the safe direction to err in: an over-estimate costs white space at
+    the bottom of a sheet, an under-estimate costs text.
+    """
+    return str(text or "")
+
+
+def _chars_per_line(width_mm: float, font_pt: float = 10.0) -> int:
+    """How many characters of body text fit on one line of a cell that wide.
+
+    Split out of ``_estimate_lines`` unchanged so the row splitter below can ask
+    the same question the height estimator asks — the two must agree exactly or
+    a "part" sized by one would not fit the budget checked by the other.
+    """
+    # Average glyph width for Segoe UI / Helvetica at ~10pt.
+    char_w = font_pt * 0.3528 * 0.46
+    return max(4, int(width_mm / char_w))
 
 
 def _estimate_lines(text: str, width_mm: float, font_pt: float = 10.0) -> int:
-    plain = _plain_cell_text(text)
-    if not plain.strip():
+    """How many lines this cell text wraps to in the export table.
+
+    The export ``<td>`` keeps the CSS default ``white-space: normal``, so the
+    browser collapses **every** run of whitespace — spaces, tabs and newlines
+    alike — into a single space and breaks lines on width only. A newline in the
+    operator's text therefore produces no line of its own on paper, and this
+    estimator has to model that or it reports a height the renderer never
+    produces. It used to count each "\\n" as a hard break, which over-counted a
+    multi-line Excel cell (and, once over-tall rows began to be split, turned
+    that over-count into extra physical sheets carrying nothing).
+
+    A blank / whitespace-only cell still occupies one line: the row exists and
+    the padding is drawn even with nothing in it.
+    """
+    plain = _WS_RE.sub(" ", _plain_cell_text(text)).strip()
+    if not plain:
         return 1
-    # Average glyph width for Segoe UI / Helvetica at ~10pt.
-    char_w = font_pt * 0.3528 * 0.46
-    per_line = max(4, int(width_mm / char_w))
-    lines = 0
-    for para in plain.split("\n"):
-        chunk = _WS_RE.sub(" ", para).strip()
-        if not chunk:
-            lines += 1
-            continue
-        lines += max(1, math.ceil(len(chunk) / per_line))
-    return max(1, lines)
+    per_line = _chars_per_line(width_mm, font_pt)
+    return max(1, math.ceil(len(plain) / per_line))
 
 
 def _row_needed_height(row: dict, columns: list[tuple[str, str]], widths: dict) -> float:
@@ -123,13 +199,248 @@ def _row_needed_height(row: dict, columns: list[tuple[str, str]], widths: dict) 
     return max(_MIN_ROW_H, _ROW_PAD_MM + lines * _LINE_H_MM)
 
 
-def _available_body_mm(*, last_page: bool, show_totals: bool) -> float:
+# Whitespace runs and non-whitespace runs, in order. ``"".join(findall(...))``
+# reproduces the subject string character for character, which is what lets the
+# splitter below cut a cell up without ever rewriting a single byte of it.
+_TOKEN_RE = re.compile(r"\s+|\S+")
+
+
+def _split_max_lines(avail_mm: float) -> int:
+    """Wrapped lines a split part may use inside a body ``avail_mm`` tall."""
+    return max(1, int((avail_mm - _CSS_CELL_PAD_MM) / _CSS_LINE_H_MM))
+
+
+def _safe_chars_per_line(width_mm: float) -> int:
+    """Characters that fit on one line of that cell *whatever* they are."""
+    return max(1, int((width_mm - _CSS_CELL_PAD_MM) / _MAX_GLYPH_W_MM))
+
+
+def _part_fits(text: str, width_mm: float, max_lines: int, suffix: str = "") -> bool:
+    """Will this piece still be inside the sheet after the browser wraps it?
+
+    Two questions, and a piece has to answer both. ``_estimate_lines`` asks the
+    likely one — how tall does this normally wrap — and is what keeps a split
+    from being needlessly aggressive on ordinary prose. The character count asks
+    the guaranteed one, and is what makes "no part is ever clipped" a property
+    of the code rather than a property of the sample data.
+    """
+    if _estimate_lines(text + suffix, width_mm) > max_lines:
+        return False
+    # Whitespace is measured the way the browser renders it: any run of it
+    # collapses to one space, so a piece cannot be pushed over by line breaks
+    # the reader never sees.
+    plain = _WS_RE.sub(" ", text + suffix).strip()
+    return len(plain) <= max_lines * _safe_chars_per_line(width_mm)
+
+
+def _split_cell_text(text: str, width_mm: float, max_lines: int,
+                     suffix: str = "") -> list[str]:
+    """Cut one cell's text into pieces that each fit ``max_lines`` lines.
+
+    "Fit" is ``_part_fits`` — the wrap estimate *and* the worst-case-glyph
+    character cap — because a piece that only fits on average is a piece that
+    the sheet clips on the day the text is a part number in capitals.
+
+    The pieces are *slices of the original string*: joining the returned list
+    back together gives the input back exactly, whitespace included. Nothing is
+    normalised, re-ordered or re-flowed — the document must show the operator's
+    text verbatim, only broken over more than one sheet.
+
+    ``suffix`` is text the template glues onto the cell without it being part of
+    the cell value (today: the ``[ISSUE]``-style flag badge). Room for it is
+    reserved in *every* piece: the badge is printed on the last one, where it
+    trails the finished description exactly as it does on a row that never had
+    to be split, and reserving it everywhere is what keeps that last piece from
+    running a line over the budget.
+    """
+    # …but only while the reservation leaves room for text at all. If the badge
+    # alone fills the budget, reserving it makes every fit test below fail,
+    # ``_fitting_take`` is forced down to its one-character floor, and the cell
+    # comes out one character per sheet with every one of those sheets still
+    # over the budget — the exact failure this splitter exists to prevent,
+    # reached by trying too hard to avoid it. In that geometry no split can put
+    # the badge on paper inside the sheet, so it stops being charged to the
+    # text: the description still lands whole and inside the sheet, which is the
+    # part a reader cannot do without. Testing one character *plus* the badge is
+    # what makes that one-character floor provably safe rather than merely
+    # likely — "x" stands for any single character, since both halves of
+    # ``_part_fits`` count characters and not glyphs.
+    if suffix.strip() and not _part_fits("x", width_mm, max_lines, suffix):
+        suffix = ""
+
+    if _part_fits(text, width_mm, max_lines, suffix):
+        # Fits as it stands — the overwhelmingly common case, and the reason a
+        # short cell on a split row simply prints once and leaves the
+        # continuation blank.
+        return [text]
+
+    chunks: list[str] = []
+    cur = ""
+    for token in _TOKEN_RE.findall(text):
+        if not token.strip():
+            # A whitespace run — however long — collapses to a single space in
+            # the browser, so it can never push a piece over the budget and must
+            # never be measured as if it could. It simply rides along with
+            # whatever piece is open. Measuring it as content is what used to
+            # break this loop: a whitespace run was accepted into an empty
+            # ``cur`` (a whitespace-only string "fits" by definition), the next
+            # word then found the piece full, ``cur.strip()`` was falsy so
+            # control fell into the mid-word branch below, and the piece was
+            # emitted with the entire run inside it — a run of 200 newlines came
+            # out several times the height of the sheet it had to fit on, and
+            # everything past the bottom of the sheet was clipped away.
+            cur += token
+            continue
+        while token:
+            if _part_fits(cur + token, width_mm, max_lines, suffix):
+                cur += token
+                token = ""
+            elif cur.strip():
+                # Full: close this piece and retry the whole word at the start
+                # of the next one, so words are never broken needlessly.
+                chunks.append(cur)
+                cur = ""
+            else:
+                # A single "word" longer than a whole part (a pasted spec with
+                # no spaces, say). The cell already wraps with
+                # ``overflow-wrap: anywhere`` in the browser, so cutting inside
+                # the word is exactly what the reader would have seen anyway.
+                take = _fitting_take(cur, token, width_mm, max_lines, suffix)
+                chunks.append(cur + token[:take])
+                cur = ""
+                token = token[take:]
+    if cur:
+        chunks.append(cur)
+    # Belt and braces. Everything above is *meant* to keep each piece inside the
+    # budget, but a piece that is over it must never reach the template: the
+    # sheet is a fixed 210mm box with ``overflow: hidden``, so an over-tall part
+    # is not a cosmetic slip, it is a character of the description printed on no
+    # sheet at all. Whatever the loop produced is therefore re-checked here and
+    # cut by character count if it is still too tall — a hard cut can cost a
+    # line break, which is acceptable; losing text is not.
+    safe: list[str] = []
+    for chunk in chunks:
+        safe.extend(_hard_wrap(chunk, width_mm, max_lines, suffix))
+    return safe or [""]
+
+
+def _fitting_take(cur: str, token: str, width_mm: float, max_lines: int,
+                  suffix: str) -> int:
+    """Largest prefix of ``token`` that keeps ``cur + prefix + suffix`` in budget.
+
+    At least one character is always taken so the caller's loop always advances
+    and no character of the cell can be dropped. That floor is safe rather than
+    merely necessary: callers only ask for a prefix with ``cur`` empty or pure
+    whitespace (which collapses to nothing in the browser), and
+    ``_split_cell_text`` has already dropped any ``suffix`` that one character
+    could not be printed beside — so the floor is always inside the budget.
+    """
+    # Start from the widest prefix that could possibly fit — the character cap,
+    # which is always the tighter of the two halves of ``_part_fits`` — and walk
+    # down from there rather than from the whole token.
+    take = min(len(token), max(1, _safe_chars_per_line(width_mm) * max_lines))
+    while take > 1 and not _part_fits(cur + token[:take], width_mm, max_lines, suffix):
+        take -= 1
+    return take
+
+
+def _hard_wrap(text: str, width_mm: float, max_lines: int, suffix: str) -> list[str]:
+    """Cut ``text`` by character count until every piece fits the budget.
+
+    Joined back together the pieces are ``text`` again, character for character;
+    the only thing a cut here can cost is the whitespace-driven line break that
+    the browser would have chosen for us, never a character.
+    """
+    if _part_fits(text, width_mm, max_lines, suffix):
+        return [text]
+    pieces: list[str] = []
+    rest = text
+    while rest and not _part_fits(rest, width_mm, max_lines, suffix):
+        take = _fitting_take("", rest, width_mm, max_lines, suffix)
+        pieces.append(rest[:take])
+        rest = rest[take:]
+    if rest:
+        pieces.append(rest)
+    return pieces
+
+
+def _split_row(row: dict, columns: list[tuple[str, str]], widths: dict,
+               max_lines: int) -> list[dict]:
+    """Break one over-tall row into consecutive parts, each ≤ ``max_lines`` tall.
+
+    Every cell is cut independently against its own column width, and part *n*
+    of the row carries piece *n* of every cell. A short cell has exactly one
+    piece, so it prints on the first part and is **blank** on the continuations.
+
+    That is a deliberate decision, not an accident of the algorithm: repeating
+    the item number, quantity and prices on a continuation would read as a
+    second, separate line item and would invite double counting by anyone
+    totalling the sheet by hand. The continuation instead carries only the rest
+    of the prose, is tinted like the row it came from, and is marked with a
+    "(cont.)" cue in its first column (see ``exp-row-cont`` in document.html) so
+    a reader can see at a glance that it belongs to the item above.
+    """
+    label = str(row.get("_flag_label") or "").strip()
+    pieces_by_key: dict[str, list[str]] = {}
+    part_count = 1
+    for _title, key in columns:
+        width_mm = _TABLE_WIDTH_MM * widths.get(key, 0.08)
+        # The flag badge is glued to desc_ftco by the template, exactly as
+        # _row_needed_height accounts for it.
+        suffix = f" [{label}]" if (key == "desc_ftco" and label) else ""
+        pieces = _split_cell_text(
+            str(row.get(key, "") or ""), width_mm, max_lines, suffix)
+        pieces_by_key[key] = pieces
+        part_count = max(part_count, len(pieces))
+
+    # The badge trails the *finished* description — the last part that actually
+    # carries desc_ftco text, which is where a reader of an unsplit row sees it.
+    # Leaving it on the first part would strand an "[ISSUE]" mid-sentence at a
+    # page break, and repeating it on every part would look like several
+    # flagged items.
+    #
+    # It has to be the last *non-empty* desc_ftco piece, and it has to be
+    # derived from that column alone. ``part_count`` is the maximum over every
+    # column, so a row whose desc_client (TO) or reason / comment (the extra
+    # sheets) splits into more parts than desc_ftco would otherwise put the
+    # badge on a part number that column never reaches. And a piece can be pure
+    # whitespace — a trailing run cut loose at a page break — on which the badge
+    # would sit alone in an otherwise blank cell.
+    ftco_pieces = pieces_by_key.get("desc_ftco")
+    if ftco_pieces is None:
+        # No desc_ftco column on this sheet, so no badge is rendered anywhere
+        # (see _build_page_rows, which only emits flag_label for that key).
+        # Blanking _flag_label on some parts would be picking a winner in a race
+        # that is not being run.
+        badge_idx = None
+    else:
+        filled = [i for i, piece in enumerate(ftco_pieces) if piece.strip()]
+        badge_idx = filled[-1] if filled else 0
+
+    parts: list[dict] = []
+    for idx in range(part_count):
+        part = dict(row)  # keeps _issue / _unsuppliable / _service_comment
+        for key, pieces in pieces_by_key.items():
+            part[key] = pieces[idx] if idx < len(pieces) else ""
+        if badge_idx is not None and idx != badge_idx:
+            part["_flag_label"] = ""
+        if idx:
+            part["_continued"] = "1"
+        parts.append(part)
+    return parts
+
+
+def _available_body_mm(*, last_page: bool, show_totals: bool, extra_mm: float = 0.0) -> float:
     used = (
         _HEADER_H + _INFO_H + _SIGN_H + _FOOTER_H + _TABLE_PAD + _THEAD_H
         + _SAFETY_MM + _PAGE_INSET_V_MM
     )
     if last_page and show_totals:
         used += _TOTALS_H
+    # ``extra_mm`` is chrome that only some sheets carry (today: the banner on
+    # the Technical Problems / Services sheets). Callers that do not pass it get
+    # the identical budget they always had.
+    used += extra_mm
     return max(18.0, _PAGE_H - used)
 
 
@@ -140,12 +451,24 @@ def _build_page_rows(
 ) -> list[dict]:
     cell_rows = []
     for row, height_mm in zip(chunk, heights):
+        # Set on the 2nd..nth part of a row that _split_row had to break over
+        # several sheets. Blank (falsy) on every ordinary row, so the markup of
+        # a document that needs no splitting is byte for byte what it was.
+        continued = str(row.get("_continued", "") or "") == "1"
         cells = []
-        for _title, key in columns:
+        for pos, (_title, key) in enumerate(columns):
             text = str(row.get(key, "") or "")
             cells.append({
                 "text": text,
-                "left": key in {"desc_client", "desc_ftco", "remark"},
+                # The "(cont.)" cue rides in the row's first column, which on a
+                # continuation is blank anyway (identifiers print once, on the
+                # first part).
+                "cont_mark": continued and pos == 0,
+                # "reason" / "comment" belong to the Technical Problems and
+                # Services sheets; they are free prose and have always been
+                # left-aligned there. Neither key exists in the main item
+                # table's columns, so listing them here cannot affect it.
+                "left": key in {"desc_client", "desc_ftco", "remark", "reason", "comment"},
                 "key": key,
                 "flag_label": (str(row.get("_flag_label") or "") if key == "desc_ftco" else ""),
                 "flag_kind": (
@@ -159,6 +482,7 @@ def _build_page_rows(
         cell_rows.append({
             "cells": cells,
             "height_mm": round(height_mm, 2),
+            "continued": continued,
             "issue": str(row.get("_issue", "") or "") == "1",
             "unsuppliable": str(row.get("_unsuppliable", "") or "") == "1",
             "service": bool(str(row.get("_service_comment", "") or "").strip())
@@ -168,7 +492,8 @@ def _build_page_rows(
     return cell_rows
 
 
-def paginate_rows(rows: list[dict], columns: list[tuple[str, str]], *, is_pi: bool):
+def paginate_rows(rows: list[dict], columns: list[tuple[str, str]], *, is_pi: bool,
+                  widths: dict | None = None, extra_mm: float = 0.0):
     """Pack item rows into pages by each row's own content height.
 
     Algorithm:
@@ -184,9 +509,18 @@ def paginate_rows(rows: list[dict], columns: list[tuple[str, str]], *, is_pi: bo
        that page so the table card has no empty band at the bottom.
     5. **Partial last page**: rows keep natural heights; empty space under the
        last row is fine.
-    6. A single row taller than the body still gets its own page (never dropped).
+    6. A single row whose own text is taller than one sheet is **split**: its
+       cells are cut into page-sized pieces (``_split_row``) and each piece gets
+       its own page, so no text is lost and no page grows past 210mm. Every page
+       this function returns therefore fits exactly one physical sheet, which is
+       what lets the caller's ``len(pages)`` be the true sheet count behind
+       "Page N of M".
+
+    ``widths`` / ``extra_mm`` let the two extra sheets (Technical Problems,
+    Services) reuse this exact algorithm with their own column widths and their
+    banner subtracted from the body budget. Omitted, the behaviour is unchanged.
     """
-    widths = _PI_WIDTHS if is_pi else _TO_WIDTHS
+    widths = widths or (_PI_WIDTHS if is_pi else _TO_WIDTHS)
     if not rows:
         return [{
             "rows": [],
@@ -208,6 +542,7 @@ def paginate_rows(rows: list[dict], columns: list[tuple[str, str]], *, is_pi: bo
             avail = _available_body_mm(
                 last_page=is_last_trial,
                 show_totals=bool(is_pi and is_last_trial),
+                extra_mm=extra_mm,
             )
             trial_sum = sum(needed[i:i + trial])
             if trial_sum <= avail + 0.05:
@@ -221,8 +556,50 @@ def paginate_rows(rows: list[dict], columns: list[tuple[str, str]], *, is_pi: bo
         avail = _available_body_mm(
             last_page=is_last,
             show_totals=bool(is_pi and is_last),
+            extra_mm=extra_mm,
         )
         natural_sum = sum(chunk_h)
+
+        # Packing never puts two rows on a page unless they fit together, so the
+        # only way to exceed the body here is a lone row (k == 1) that is taller
+        # than one sheet on its own. Such a row is cut into page-sized parts
+        # instead of being clipped (text lost) or allowed to spill onto a second
+        # physical sheet (page count lied). Everything below this branch is the
+        # untouched path every fitting document takes.
+        if k == 1 and natural_sum > avail + 0.05:
+            # How many wrapped lines a part may use. ``avail`` is already the
+            # budget for this row's page — the smaller totals-bearing budget
+            # when this is the last row of a PI — so sizing parts by it means
+            # every part fits wherever it lands. Because the row needs more
+            # lines than this, the split always yields at least two parts and
+            # the loop below always advances. Counted with the stylesheet's real
+            # line height rather than the paginator's rounded one: a part is
+            # packed to the very top of the budget, so the 0.025mm per line the
+            # rounding gives away is a clipped line of text by the thirtieth.
+            max_lines = _split_max_lines(avail)
+            parts = _split_row(rows[i], columns, widths, max_lines)
+            for p_idx, part in enumerate(parts):
+                part_last = is_last and p_idx == len(parts) - 1
+                part_avail = _available_body_mm(
+                    last_page=part_last,
+                    show_totals=bool(is_pi and part_last),
+                    extra_mm=extra_mm,
+                )
+                part_h = _row_needed_height(part, columns, widths)
+                # Same rule as any other page: while item rows still follow, the
+                # row is grown so the table card has no empty band at the
+                # bottom; the final part keeps its natural height.
+                part_fill = not part_last
+                if part_fill and part_h < part_avail - 0.05:
+                    part_h = part_avail
+                pages.append({
+                    "rows": _build_page_rows([part], columns, [part_h]),
+                    "fill": part_fill,
+                    "is_last_items": part_last,
+                    "show_totals": bool(is_pi and part_last),
+                })
+            i += 1
+            continue
 
         # Full continuation pages: grow rows evenly into leftover body space
         # so the table frame is filled (no empty strip under the last row).
@@ -231,9 +608,16 @@ def paginate_rows(rows: list[dict], columns: list[tuple[str, str]], *, is_pi: bo
         if fill and natural_sum < avail - 0.05:
             extra = (avail - natural_sum) / len(chunk_h)
             chunk_h = [h + extra for h in chunk_h]
-        elif (not is_last) and natural_sum > avail + 0.05 and len(chunk_h) == 1:
-            # Lone oversize row: clamp to body so it still fits the frame.
-            chunk_h = [avail]
+        # This spot has held two failed answers to the same over-tall row. The
+        # first clamped it back to the body height, which only meant the cell's
+        # own ``overflow: hidden`` swallowed the tail of a long material or
+        # standard specification — gone from a signed client document while
+        # Excel still showed it whole. The second let its page grow past the
+        # sheet, which kept the text but printed one logical page as two
+        # physical ones, so "Page 2 of 4" could appear on a five-sheet PDF and
+        # the signature strip landed on the spilled sheet. Both are gone: such a
+        # row is split into page-sized parts in the branch above, and no page
+        # produced here can exceed one sheet.
 
         pages.append({
             "rows": _build_page_rows(chunk, columns, chunk_h),
@@ -243,6 +627,374 @@ def paginate_rows(rows: list[dict], columns: list[tuple[str, str]], *, is_pi: bo
         })
         i += k
     return pages
+
+
+# ---------------------------------------------------------------------------
+# Term sheet pagination.
+#
+# The terms sheet used to be exactly one physical page: ``.terms-card`` and
+# every box inside it (``.terms-categories``, ``.term-category``) are
+# ``overflow: hidden`` on the same fixed-height ``.document`` every other page
+# uses — so a clause list that outgrew that one sheet was not wrapped onto a
+# second page, it was cut away mid-line with nothing to show it happened.
+# Confirmed by rendering an over-full sheet and looking at the printed pixels
+# rather than trusting either the CSS or a text-extraction tool: PDF text
+# extractors read the glyphs a page's content stream still carries even past a
+# clip rectangle, so "the text is still in the PDF" proved nothing about
+# whether a reader could see it — only a rendered screenshot showed the same
+# clause the owner reported, sliced clean at the card's bottom edge.
+#
+# The term sheet became user-editable and remembered per version not long
+# before this was found, which is what turned "a long default clause list"
+# from a design assumption into a real user action: someone adds a category,
+# or a clause, and the sheet outgrows one page.
+#
+# This mirrors ``paginate_rows`` deliberately rather than inventing a second
+# way to paginate: measure a natural height for every printable unit — here a
+# *category card*, not a table row — greedy-pack units into pages, and split
+# any single unit that is, by itself, taller than an entire empty page. A
+# term category has its own quirk the row engine does not: it renders two
+# language columns side by side (English / Persian) and CSS gives them
+# ``align-items: stretch``, so a short column never overflows next to a tall
+# one, it just carries blank space — the category's own height is the TALLER
+# of its two columns, exactly like ``_row_needed_height`` already takes the
+# tallest of a row's cells.
+# ---------------------------------------------------------------------------
+_PX_MM = 25.4 / 96
+
+_TERMS_DOC_PAD_H_MM = 5.5              # .document side padding (left = right)
+_TERMS_WRAP_PAD_V_MM = 16 * _PX_MM     # .terms-wrap { padding: 8px 0 } (top+bottom)
+_TERMS_CARD_BORDER_MM = 2 * _PX_MM     # .terms-card border, 1px each side (either axis)
+_TERMS_H2_H_MM = 33 * _PX_MM           # .terms-card h2: 16px v-padding + a 13px title line
+_TERMS_INTRO_PAD_V_MM = 12 * _PX_MM    # .terms-intro { padding: 6px 12px } (top+bottom)
+_TERMS_INTRO_PAD_H_MM = 24 * _PX_MM    # .terms-intro { padding: 6px 12px } (left+right)
+_TERMS_INTRO_BORDER_MM = 1 * _PX_MM    # .terms-intro border-bottom
+_TERMS_INTRO_GAP_MM = 10 * _PX_MM      # .terms-intro { gap: 2px 10px } — the COLUMN gap
+_TERMS_INTRO_LINE_MM = 11 * 1.3 * _PX_MM   # font-size 11px, generous line-height
+_TERMS_CATS_PAD_MM = 16 * _PX_MM       # .terms-categories { padding: 8px } (either axis)
+_TERMS_ROW_GAP_MM = 8 * _PX_MM         # .terms-categories { gap: 8px } — between rows
+_TERMS_COL_GAP_MM = 8 * _PX_MM         # .terms-categories { gap: 8px } — between the 2 columns
+_TERMS_CAT_BORDER_MM = 2 * _PX_MM      # .term-category border, 1px each side (either axis)
+_TERMS_CAT_H3_H_MM = 22 * _PX_MM       # .term-category h3: 6px v-padding + a 10px title line
+_TERMS_OL_PAD_MM = 12 * _PX_MM         # .term-bilingual ol { padding: 6px ... } (top+bottom)
+_TERMS_OL_SIDE_MM = 28 * _PX_MM        # .term-bilingual ol[.fa] side padding (20px + 8px)
+_TERMS_ITEM_LINE_MM = 9.5 * 1.35 * _PX_MM  # ol { font-size: 9.5px; line-height: 1.35 }
+_TERMS_ITEM_GAP_MM = 3 * _PX_MM        # li { margin-bottom: 3px }
+_TERMS_FONT_PT = 9.5                   # matches .term-bilingual ol's font-size
+
+# Persian glyphs in Tahoma run visibly wider than the Latin metrics
+# ``_chars_per_line`` is tuned against (Segoe UI); trusting the same average
+# glyph width for both scripts would UNDER-estimate the Persian line count,
+# which is the dangerous direction here. Narrowing the width fed into the
+# estimator for Persian text biases its line count up, never down.
+_TERMS_FA_WIDTH_FACTOR = 0.80
+
+_TERMS_CARD_W_MM = (
+    297.0 - 2 * _TERMS_DOC_PAD_H_MM - _TERMS_CARD_BORDER_MM
+)
+_TERMS_GRID_W_MM = _TERMS_CARD_W_MM - _TERMS_CATS_PAD_MM
+
+# The body available to (intro + categories) together on the FIRST terms
+# sheet, and to categories alone on every continuation sheet — everything
+# above it (``.doc-head``) and below it (the signature/footer strip) is the
+# same fixed chrome every other page type already budgets with
+# ``_available_body_mm``; the terms sheet carries no info-grid and no table,
+# so neither ``_INFO_H`` nor the table constants belong here.
+_TERMS_BODY_MM = (
+    _PAGE_H - _HEADER_H - _SIGN_H - _FOOTER_H - _SAFETY_MM - _PAGE_INSET_V_MM
+    - _TERMS_WRAP_PAD_V_MM - _TERMS_CARD_BORDER_MM - _TERMS_H2_H_MM - _TERMS_CATS_PAD_MM
+)
+
+
+def _terms_col_text_width_mm(is_full: bool) -> float:
+    """Wrapping width available to ONE language column of a category card."""
+    outer = (
+        _TERMS_GRID_W_MM if is_full
+        else (_TERMS_GRID_W_MM - _TERMS_COL_GAP_MM) / 2
+    )
+    card_inner = outer - _TERMS_CAT_BORDER_MM
+    lang_col = card_inner / 2
+    return max(20.0, lang_col - _TERMS_OL_SIDE_MM)
+
+
+def _terms_item_lines(text: str, width_mm: float, *, fa: bool, scale: float = 1.0) -> int:
+    w = width_mm * _TERMS_FA_WIDTH_FACTOR if fa else width_mm
+    return _estimate_lines(text, w, font_pt=_TERMS_FONT_PT * scale)
+
+
+def _terms_column_h_mm(items: list, width_mm: float, *, fa: bool, scale: float = 1.0) -> float:
+    """Natural height of one language column holding ``items``.
+
+    ``scale`` shrinks only the BODY TEXT metrics (line height, and the font
+    size fed to the line-wrap estimator) — never the padding around it. That
+    keeps a scaled-down sheet reading as the same layout with smaller type,
+    not a cramped one; see ``fit_terms_single_page``, the only real caller.
+    """
+    if not items:
+        return 0.0
+    total = 0.0
+    line_mm = _TERMS_ITEM_LINE_MM * scale
+    for it in items:
+        lines = _terms_item_lines(str(it or ""), width_mm, fa=fa, scale=scale)
+        total += lines * line_mm + _TERMS_ITEM_GAP_MM
+    return _TERMS_OL_PAD_MM + total
+
+
+def _category_height_mm(cat: dict, scale: float = 1.0) -> float:
+    """Natural height of one category card, EN/FA columns taken at the taller."""
+    is_full = bool(cat.get("full"))
+    w = _terms_col_text_width_mm(is_full)
+    en_h = _terms_column_h_mm(cat.get("items_en") or [], w, fa=False, scale=scale)
+    fa_h = _terms_column_h_mm(cat.get("items_fa") or [], w, fa=True, scale=scale)
+    body = max(en_h, fa_h, _TERMS_OL_PAD_MM)
+    return _TERMS_CAT_BORDER_MM + _TERMS_CAT_H3_H_MM + body
+
+
+def _terms_intro_height_mm(intro_en: str, intro_fa: str, scale: float = 1.0) -> float:
+    """Natural height of the intro paragraph pair.
+
+    Laid out SIDE BY SIDE (EN | FA), not stacked — see the ``.terms-intro``
+    CSS and ``fit_terms_single_page``'s docstring for why: a two-language
+    paragraph in one row costs one row's height instead of two, which is
+    where most of a single-page sheet's spare room actually comes from.
+    """
+    width = (_TERMS_CARD_W_MM - _TERMS_INTRO_PAD_H_MM - _TERMS_INTRO_GAP_MM) / 2
+    en_lines = _estimate_lines(intro_en or "", width, font_pt=11.0 * scale)
+    fa_lines = _estimate_lines(intro_fa or "", width * _TERMS_FA_WIDTH_FACTOR, font_pt=11.0 * scale)
+    lines = max(en_lines, fa_lines, 1)
+    return (
+        _TERMS_INTRO_PAD_V_MM + _TERMS_INTRO_BORDER_MM
+        + lines * _TERMS_INTRO_LINE_MM * scale
+    )
+
+
+def _terms_expand_oversized(items: list, col_w_mm: float, page_budget_mm: float,
+                            *, fa: bool) -> list[str]:
+    """Split any SINGLE item too tall for an entire empty page's own column.
+
+    Everything else in this module packs whole units (rows, categories) and
+    only ever falls back to cutting text inside one when the unit does not fit
+    ANYWHERE — this is that fallback for a term. Reuses ``_split_cell_text``,
+    the same character-guaranteed splitter the item table uses for an
+    over-tall cell, so a clause this large is broken over more sheets rather
+    than losing a single character of it.
+    """
+    w = col_w_mm * _TERMS_FA_WIDTH_FACTOR if fa else col_w_mm
+    max_lines = _split_max_lines(page_budget_mm - _TERMS_OL_PAD_MM - _TERMS_ITEM_GAP_MM)
+    out: list[str] = []
+    for it in items:
+        text = str(it or "")
+        h = _terms_item_lines(text, col_w_mm, fa=fa) * _TERMS_ITEM_LINE_MM + _TERMS_ITEM_GAP_MM
+        if h <= page_budget_mm + 0.05:
+            out.append(text)
+            continue
+        out.extend(_split_cell_text(text, w, max_lines))
+    return out
+
+
+def _terms_pack_column(items: list, width_mm: float, page_budget_mm: float,
+                       *, fa: bool) -> list[list[str]]:
+    """Greedy-pack one language column's items into page-sized chunks."""
+    chunks: list[list[str]] = []
+    cur: list[str] = []
+    cur_h = _TERMS_OL_PAD_MM
+    for it in items:
+        h = _terms_item_lines(it, width_mm, fa=fa) * _TERMS_ITEM_LINE_MM + _TERMS_ITEM_GAP_MM
+        if cur and cur_h + h > page_budget_mm + 0.05:
+            chunks.append(cur)
+            cur, cur_h = [], _TERMS_OL_PAD_MM
+        cur.append(it)
+        cur_h += h
+    if cur or not chunks:
+        chunks.append(cur)
+    return chunks
+
+
+def _split_category(cat: dict, avail_mm: float) -> list[dict]:
+    """Break one category whose full item list outgrows a fresh empty page.
+
+    Not a case the shipped defaults reach — it exists because a term sheet is
+    user-edited free text now, and nothing here may assume a size a reader
+    could not exceed by adding one more clause. English and Persian are
+    chunked independently (one language can legitimately run longer than its
+    translation); the shorter side just leaves its column blank on a part
+    that still carries the other language, which is the same "stretch, don't
+    overflow" behaviour a category's two columns already have.
+    """
+    is_full = bool(cat.get("full"))
+    col_w = _terms_col_text_width_mm(is_full)
+    fixed = _TERMS_CAT_BORDER_MM + _TERMS_CAT_H3_H_MM
+    fresh_budget = max(10.0, avail_mm - fixed)
+
+    items_en = _terms_expand_oversized(list(cat.get("items_en") or []), col_w, fresh_budget, fa=False)
+    items_fa = _terms_expand_oversized(list(cat.get("items_fa") or []), col_w, fresh_budget, fa=True)
+
+    en_chunks = _terms_pack_column(items_en, col_w, fresh_budget, fa=False)
+    fa_chunks = _terms_pack_column(items_fa, col_w, fresh_budget, fa=True)
+
+    n = max(len(en_chunks), len(fa_chunks))
+    title_en = str(cat.get("title_en", "") or "")
+    title_fa = str(cat.get("title_fa", "") or "")
+    parts: list[dict] = []
+    for i in range(n):
+        parts.append({
+            "title_en": title_en if i == 0 else f"{title_en} (cont.)",
+            "title_fa": title_fa if i == 0 else f"{title_fa} (ادامه)",
+            "full": is_full,
+            "items_en": en_chunks[i] if i < len(en_chunks) else [],
+            "items_fa": fa_chunks[i] if i < len(fa_chunks) else [],
+            "continued": i > 0,
+        })
+    return parts or [cat]
+
+
+def _terms_build_rows(cats: list[dict], scale: float = 1.0) -> list[dict]:
+    """Group categories into rows exactly as CSS grid auto-flow already would:
+    a ``full`` category alone in its own row, two ordinary ones side by side
+    in document order otherwise. Page breaks below only ever fall between
+    rows, never inside a pair, so each page's own ``.terms-categories`` grid —
+    started fresh — lays its slice out identically to what this predicted.
+    """
+    rows: list[dict] = []
+    i, n = 0, len(cats)
+    while i < n:
+        cat = cats[i]
+        if cat.get("full"):
+            rows.append({"cats": [cat], "h": _category_height_mm(cat, scale=scale)})
+            i += 1
+            continue
+        if i + 1 < n and not cats[i + 1].get("full"):
+            pair = [cat, cats[i + 1]]
+            rows.append({"cats": pair, "h": max(_category_height_mm(c, scale=scale) for c in pair)})
+            i += 2
+        else:
+            rows.append({"cats": [cat], "h": _category_height_mm(cat, scale=scale)})
+            i += 1
+    return rows
+
+
+def paginate_terms(terms: dict) -> list[dict]:
+    """Pack a normalised terms dict into one or more physical A4 sheets.
+
+    Every sheet keeps the intro's shape (`intro_en`/`intro_fa`) so the
+    template need not branch, but only the FIRST sheet's intro is non-empty —
+    the caller decides whether to print the intro block at all via
+    ``is_continuation``, which is what keeps the intro from being repeated on
+    every continuation page and from eating into their (larger) budget.
+    """
+    cats = list(terms.get("categories") or [])
+    intro_en = str(terms.get("intro_en", "") or "")
+    intro_fa = str(terms.get("intro_fa", "") or "")
+    intro_h = _terms_intro_height_mm(intro_en, intro_fa)
+
+    # PASS 1 — no category may exceed what it could ever be given, even on a
+    # fresh continuation page with no intro competing for room.
+    fresh: list[dict] = []
+    for cat in cats:
+        if _category_height_mm(cat) > _TERMS_BODY_MM + 0.05:
+            fresh.extend(_split_category(cat, _TERMS_BODY_MM))
+        else:
+            fresh.append(cat)
+
+    # PASS 2 — greedy-pack whole rows onto pages; page 1's budget is smaller
+    # by whatever the intro needs, every later page gets the full body.
+    rows = _terms_build_rows(fresh)
+    pages: list[list[dict]] = []
+    cur: list[dict] = []
+    used = 0.0
+    for row in rows:
+        is_first_page = not pages
+        budget = max(20.0, _TERMS_BODY_MM - (intro_h if is_first_page else 0.0))
+        gap = _TERMS_ROW_GAP_MM if cur else 0.0
+        if cur and used + gap + row["h"] > budget + 0.05:
+            pages.append(cur)
+            cur, used = [], 0.0
+            budget = _TERMS_BODY_MM
+            gap = 0.0
+        cur.append(row)
+        used += gap + row["h"]
+    pages.append(cur)
+
+    out: list[dict] = []
+    for page_idx, page_rows in enumerate(pages):
+        page_cats = [c for r in page_rows for c in r["cats"]]
+        out.append({
+            "terms": {
+                "intro_en": intro_en if page_idx == 0 else "",
+                "intro_fa": intro_fa if page_idx == 0 else "",
+                "categories": page_cats,
+            },
+            "is_continuation": page_idx > 0,
+        })
+    return out
+
+
+# The floor exists because the two things the owner asked for can conflict:
+# ONE page, always, and text small enough to still be legible. Between them,
+# one page wins — a clause quietly lost to an overflowing card is worse than
+# a dense one, which is why paginate_terms above (now unused, kept for
+# reference) existed in the first place. 9.5pt * 0.40 ~= 3.8pt: small, on the
+# order of a purchase order's fine print, not a size to print a whole page at
+# by choice — but it is what a category grid this size can hold on one A4
+# landscape sheet if a reader adds several clauses to every category, which
+# the shipped defaults alone already come close to the full-size budget
+# without (0.75-0.76 at the default clause count). Below this floor the
+# search stops and prints at the floor rather than going smaller still.
+_TERMS_MIN_SCALE = 0.40
+_TERMS_SCALE_STEP = 0.05
+
+
+def fit_terms_single_page(terms: dict) -> dict:
+    """Shrink a terms sheet's TYPE — never its content — until the whole thing
+    fits on the one physical A4 sheet every other export page gets, and return
+    that one page. Replaces ``paginate_terms`` at the render call site: the
+    owner's explicit instruction is that a term sheet is always ONE page, so
+    nothing here may ever hand back more than one.
+
+    Nothing is dropped, split or moved to a second page — the search only
+    ever returns a SCALE, never a slice, so there is no second page for it to
+    put anything on. Every category and every clause the caller passed in
+    comes back exactly as it was written, just measured (and printed)
+    smaller when the full-size layout would not fit — the same category
+    grid, the same two-column English/Persian card, at a font size
+    ``_estimate_lines`` (the same line-wrap estimator every other export
+    page already trusts) predicts will fit.
+
+    Search, not arithmetic: shrinking is not linear (padding, borders and
+    the category header bar stay a fixed size — only body text and its line
+    height scale), so there is no formula from "how much this overflows by"
+    to "the scale that fixes it". 100% down to ``_TERMS_MIN_SCALE`` in
+    ``_TERMS_SCALE_STEP`` steps is a handful of cheap in-memory measurements
+    (no rendering, no I/O) — the same technique ``paginate_terms`` above
+    already uses to decide where a page breaks, aimed at a scale instead of a
+    break point.
+    """
+    cats = list(terms.get("categories") or [])
+    intro_en = str(terms.get("intro_en", "") or "")
+    intro_fa = str(terms.get("intro_fa", "") or "")
+
+    def _needed_mm(scale: float) -> float:
+        intro_h = _terms_intro_height_mm(intro_en, intro_fa, scale=scale)
+        rows = _terms_build_rows(cats, scale=scale)
+        body = sum(r["h"] for r in rows)
+        if len(rows) > 1:
+            body += (len(rows) - 1) * _TERMS_ROW_GAP_MM
+        return intro_h + body
+
+    scale = 1.0
+    while scale > _TERMS_MIN_SCALE + 1e-9 and _needed_mm(scale) > _TERMS_BODY_MM + 0.05:
+        scale = round(scale - _TERMS_SCALE_STEP, 2)
+    scale = max(scale, _TERMS_MIN_SCALE)
+
+    return {
+        "terms": {
+            "intro_en": intro_en,
+            "intro_fa": intro_fa,
+            "categories": cats,
+        },
+        "is_continuation": False,
+        "scale": scale,
+    }
 
 
 def _chrome_path() -> str | None:
@@ -323,6 +1075,74 @@ def _chrome_path() -> str | None:
 # A4 landscape in inches (Chromium Page.printToPDF uses inches).
 _A4_LANDSCAPE_W_IN = 297.0 / 25.4
 _A4_LANDSCAPE_H_IN = 210.0 / 25.4
+
+# The switches every print run needs to *work*: no GPU, no sandbox (we are PID 1
+# in a container), no /dev/shm assumption, no scrollbars in the shot.
+_CHROME_BASE_FLAGS = [
+    "--headless=new",
+    "--disable-gpu",
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-extensions",
+    "--hide-scrollbars",
+    "--no-first-run",
+    "--no-default-browser-check",
+]
+
+# …and the switches that stop a browser we will kill in four seconds from doing
+# the housekeeping a *desktop* browser does on every cold start: phoning home for
+# component and safe-browsing updates, opening a sync channel, writing metrics
+# and crash-report state into the throwaway profile, then throttling the very
+# renderer we are waiting on because its window is not on screen. None of it can
+# reach the document — measured against the same form, the printed PDF is byte
+# for byte the same once Chromium's own /CreationDate stamp is discounted — and
+# together they take about half a second off every single export (spawn 767 →
+# 707 ms, print 3233 → 2794 ms, total 4015 → 3500 ms on the reference document).
+# In an air-gapped install the networking ones matter more than the numbers
+# suggest: those requests do not fail fast, they wait for a DNS timeout.
+_CHROME_LEAN_FLAGS = [
+    "--disable-background-networking",
+    "--disable-component-update",
+    "--disable-client-side-phishing-detection",
+    "--disable-default-apps",
+    "--disable-sync",
+    "--no-pings",
+    "--metrics-recording-only",
+    "--disable-breakpad",
+    "--mute-audio",
+    "--disable-backgrounding-occluded-windows",
+    "--disable-renderer-backgrounding",
+    "--disable-background-timer-throttling",
+]
+
+
+def _max_concurrent_chrome() -> int:
+    """How many headless browsers this *process* may run at the same time.
+
+    One export is one whole browser: measured, a single 6-sheet PI export starts
+    16 OS processes and peaks around 1.1 GB of resident memory, and nothing in
+    this module used to count them. Under gunicorn's default *sync* worker that
+    did not matter, because a worker serves one request at a time and so could
+    never start a second browser — the ceiling was the worker count, and it was
+    the whole application's ceiling rather than the export's (see DEPLOY notes /
+    entrypoint.sh). The moment a worker is given threads, that accidental
+    ceiling disappears and ten simultaneous exports would start ten browsers and
+    take the machine down with them.
+
+    So the limit is stated here instead of being inherited from the process
+    model. Two is deliberately low: an export is already seconds long, a third
+    one queueing for a moment costs nothing anybody can feel, and the memory it
+    would otherwise take is memory the rest of the application needs to stay
+    responsive.
+    """
+    try:
+        value = int(os.environ.get("FT_PDF_MAX_CONCURRENCY") or 2)
+    except (TypeError, ValueError):
+        value = 2
+    return max(1, value)
+
+
+_CHROME_SLOTS = threading.BoundedSemaphore(_max_concurrent_chrome())
 
 
 def _free_port() -> int:
@@ -464,14 +1284,8 @@ def _html_to_pdf_cdp(chrome: str, html_uri: str) -> bytes:
             chrome,
             f"--remote-debugging-port={port}",
             f"--user-data-dir={user_data}",
-            "--headless=new",
-            "--disable-gpu",
-            "--no-sandbox",
-            "--disable-dev-shm-usage",
-            "--disable-extensions",
-            "--hide-scrollbars",
-            "--no-first-run",
-            "--no-default-browser-check",
+            *_CHROME_BASE_FLAGS,
+            *_CHROME_LEAN_FLAGS,
             "about:blank",
         ],
         stdout=subprocess.DEVNULL,
@@ -559,13 +1373,69 @@ def _html_to_pdf_cdp(chrome: str, html_uri: str) -> bytes:
         shutil.rmtree(user_data, ignore_errors=True)
 
 
+# How long a printed document stays worth re-using, and how big one may be
+# before it is left out of the cache entirely.
+#
+# The window is short on purpose. It is not there to make yesterday's export
+# instant — it is there to absorb the burst the operator actually described:
+# several people taking the same document within a minute or two of each other,
+# and one person taking the same document twice (open it, look at it, download
+# it again). Five minutes covers that and nothing else, which keeps the cache
+# table to the handful of documents printed in the last five minutes rather than
+# letting it grow into a second copy of the archive.
+#
+# The ceiling is a guard, not a tuning knob: a pathological 200-sheet document
+# is exactly the one that should not be pushed through the cache backend, where
+# it would be pickled, base64'd and written to the database on every miss.
+_PDF_CACHE_TTL = 300
+_PDF_CACHE_MAX_BYTES = 12 * 1024 * 1024
+
+
+def _pdf_cache_key(html: str) -> str:
+    """Cache key for a printed document: a digest of the exact HTML printed.
+
+    Keying on the *rendered HTML* rather than on the form is what makes this
+    cache incapable of serving a stale document. Everything that can change what
+    the reader sees — a row edited, the terms retyped on the export screen, a new
+    signatory taking over the unit, a different stamp image, the currency the
+    prices are shown in — has already been resolved into this string by the time
+    it gets here, so any such change is a different key and a fresh print. There
+    is no invalidation to get wrong, and no way for a document to be cached under
+    a key that does not describe it.
+    """
+    return "ft:pdf:" + hashlib.sha256(html.encode("utf-8")).hexdigest()
+
+
 def html_to_pdf(html: str) -> bytes:
     """Convert print HTML to A4-landscape PDF bytes via headless Chromium.
 
     Prefer Chrome DevTools ``Page.printToPDF`` so paper size is exactly A4
     landscape with zero margins and no browser header/footer. Fall back to the
     ``--print-to-pdf`` CLI flag when CDP is unavailable.
+
+    Printing the same document twice used to do the whole job twice: measured,
+    about four seconds of a request-handling worker for a six-sheet PI, every
+    time, for a byte-for-byte identical result. The first thing this does now is
+    ask the cache whether that exact document has already been printed, so the
+    second and later takes of one document cost a cache read instead of a
+    browser. The cache is the one configured for the site, which under gunicorn
+    means the database table (or Redis when ``REDIS_URL`` is set) — shared by
+    every worker, so the copy printed for one user serves the next.
+
+    The cache is advisory in both directions. A backend that is down, full or
+    misconfigured must never be the reason an export fails, so every call into it
+    is contained and a failure simply means the document is printed the slow way.
     """
+    key = _pdf_cache_key(html)
+    try:
+        from django.core.cache import cache
+
+        cached = cache.get(key)
+        if isinstance(cached, bytes) and cached.startswith(b"%PDF"):
+            return cached
+    except Exception:
+        logger.warning("PDF export cache read failed; printing instead", exc_info=True)
+
     chrome = _chrome_path()
     if not chrome:
         raise RuntimeError(
@@ -574,6 +1444,25 @@ def html_to_pdf(html: str) -> bytes:
             "on Windows install Google Chrome or set CHROME_PATH."
         )
 
+    # Only ``_max_concurrent_chrome()`` browsers at a time, per process. Held
+    # around the browser work alone: the cache lookup above and the store below
+    # are not what needs rationing.
+    with _CHROME_SLOTS:
+        pdf = _print_html(chrome, html)
+
+    if len(pdf) <= _PDF_CACHE_MAX_BYTES:
+        try:
+            from django.core.cache import cache
+
+            cache.set(key, pdf, _PDF_CACHE_TTL)
+        except Exception:
+            logger.warning("PDF export cache write failed; export unaffected",
+                           exc_info=True)
+    return pdf
+
+
+def _print_html(chrome: str, html: str) -> bytes:
+    """Run the browser: CDP first, the ``--print-to-pdf`` CLI as a fallback."""
     with tempfile.TemporaryDirectory(prefix="ft_pdf_") as tmp:
         html_path = Path(tmp) / "document.html"
         pdf_path = Path(tmp) / "document.pdf"
@@ -623,39 +1512,56 @@ def build_document_context(case, form, terms: dict | None = None, *, pdf_lite: b
     rows = build_export_rows(case, form)
     pages = paginate_rows(rows, columns, is_pi=is_pi)
     issue_rows = technical_problem_export_rows(form) if kind == FormKind.TO else []
-    has_issues_page = bool(issue_rows)
     service_rows = service_price_export_rows(form, case) if is_pi else []
-    has_services_page = bool(service_rows)
-    total_pages = len(pages) + (1 if has_issues_page else 0) + (1 if has_services_page else 0) + 1  # + issues? + services? + terms
+    # The two extra sheets are paginated with the very same packer as the main
+    # item table. They used to be dropped into a single page each, which meant
+    # every row past the bottom of that one sheet was silently clipped by the
+    # fixed-height ``.document`` box — the Excel export of the same form wrote
+    # them all, so the two artefacts of one document disagreed. The content is
+    # unchanged; only where a page break falls is new.
+    issues_pages = paginate_rows(
+        issue_rows, _ISSUE_COLUMNS, is_pi=False,
+        widths=_ISSUE_WIDTHS, extra_mm=_BANNER_H,
+    ) if issue_rows else []
+    services_pages = paginate_rows(
+        service_rows, _SERVICE_COLUMNS, is_pi=False,
+        widths=_SERVICE_WIDTHS, extra_mm=_BANNER_H,
+    ) if service_rows else []
+    # A clause list this document's own editor lets a user grow used to be
+    # clipped by ``.terms-categories``'s own ``overflow: hidden`` past one
+    # fixed 210mm sheet, with nothing to show it happened. This document
+    # ALWAYS carries exactly one terms sheet — the owner's explicit
+    # instruction — so growth shrinks the type to fit instead of paginating;
+    # see fit_terms_single_page's docstring for why that is a search, not a
+    # formula. (paginate_terms/_split_category above are unused now — kept
+    # rather than deleted in case the one-page constraint is ever relaxed.)
+    terms_pages = [fit_terms_single_page(normalize_terms(terms, kind=kind))]
+    # Counted *after* pagination, so a row (or a term category) that had to be
+    # split across sheets is already reflected in the page counts above. Every
+    # page any paginator returns is exactly one physical sheet, so this total
+    # is the sheet count of the printed PDF and "Page N of M" cannot disagree
+    # with it.
+    total_pages = len(pages) + len(issues_pages) + len(services_pages) + len(terms_pages)
 
     for idx, page in enumerate(pages, start=1):
         page["page_no"] = idx
         page["page_label"] = f"{idx} of {total_pages}"
 
-    issues_page = None
     next_no = len(pages) + 1
-    if has_issues_page:
-        issues_page = {
-            "page_no": next_no,
-            "page_label": f"{next_no} of {total_pages}",
-            "rows": issue_rows,
-        }
+    for page in issues_pages:
+        page["page_no"] = next_no
+        page["page_label"] = f"{next_no} of {total_pages}"
         next_no += 1
 
-    services_page = None
-    if has_services_page:
-        services_page = {
-            "page_no": next_no,
-            "page_label": f"{next_no} of {total_pages}",
-            "rows": service_rows,
-        }
+    for page in services_pages:
+        page["page_no"] = next_no
+        page["page_label"] = f"{next_no} of {total_pages}"
         next_no += 1
 
-    terms_page = {
-        "page_no": next_no,
-        "page_label": f"{next_no} of {total_pages}",
-        "terms": normalize_terms(terms, kind=kind),
-    }
+    for page in terms_pages:
+        page["page_no"] = next_no
+        page["page_label"] = f"{next_no} of {total_pages}"
+        next_no += 1
 
     side = getattr(form, "side", "") or ""
     is_external = (
@@ -686,9 +1592,9 @@ def build_document_context(case, form, terms: dict | None = None, *, pdf_lite: b
             for t, k in columns
         ],
         "pages": pages,
-        "issues_page": issues_page,
-        "services_page": services_page,
-        "terms_page": terms_page,
+        "issues_pages": issues_pages,
+        "services_pages": services_pages,
+        "terms_pages": terms_pages,
         "totals": totals,
         "currency_suffix": (totals or {}).get("currency_suffix", " IRR"),
         "vendor_name": vendor_last_name(form),

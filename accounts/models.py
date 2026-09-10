@@ -3,13 +3,27 @@
 Each Django ``User`` is extended with one ``Profile`` that stores the unit, the
 role, the organisational identity fields requested by the business, and the
 uploaded signature image used when a form is approved.
+
+The ``Profile`` is also what turns a bare ``User`` row into a *seat* — a unit
+and a role, a job rather than a human — and it always carries the role that
+account is acting under *right now*, which is why every permission check in the
+platform reads it. How a seat relates to the human holding it, to the other
+roles that human may switch into, and to the tenure history of the seat itself
+is explained in full in the ``people.models`` module docstring, under "SEAT,
+PERSON, ROLE". Read that before changing anything here that a seat depends on.
+
+Also here: ``ImpersonationLog`` (the audit trail for "log in as user", written
+by ``accounts.views``) and ``PlatformConfig`` — a single row of site-wide
+settings such as the VAT percentage, the login welcome message, the unit stamps
+and the default work-shift window inherited by people who have none of their
+own.
 """
 from datetime import time
 
 from django.conf import settings
 from django.db import models
 
-from .constants import Gender, Role, Unit, SupplyKind
+from .constants import Gender, Language, Role, Unit, SupplyKind
 
 
 def signature_upload_path(instance, filename):
@@ -72,6 +86,31 @@ class Profile(models.Model):
     # a blank gender simply shows the last name with no honorific prefixed,
     # exactly as every export looked before this field existed.
     gender = models.CharField(max_length=10, choices=Gender.CHOICES, blank=True)
+
+    # The platform CHROME language this person has chosen in Settings —
+    # sidebar, tabs, buttons, field labels, status labels, page titles. Never
+    # the CONTENT (a company's own name, a person's own comment/report/
+    # reminder text, anything else someone typed), which is never translated
+    # regardless of this setting. Deliberately a field on this per-user record
+    # rather than a browser cookie or session key: it is a PER-PERSON
+    # preference that must follow that person to any device/browser they sign
+    # in from, exactly like every other Profile field, and not something a
+    # fresh browser or a colleague's machine should ever reset. See
+    # accounts.middleware.LanguageMiddleware for where this is read and
+    # activated on every request, and accounts.constants.Language for why the
+    # choice values are lowercase unlike this app's other choice fields.
+    #
+    # default="en" (rather than blank) so a freshly created account with
+    # nobody having touched this yet renders in English — the same interface
+    # language the platform has always shown, before this field existed.
+    # blank=True only so the admin change-list / bulk tools that already treat
+    # every Profile field as optional keep working; the Settings-page form is
+    # the only place a person actually changes this, and it always posts one
+    # of the two real choices.
+    language = models.CharField(
+        "Language", max_length=5, choices=Language.CHOICES, default=Language.ENGLISH,
+        blank=True,
+    )
 
     # Historical clear-text password copy. No longer written to (see the
     # 2026-07 security pass) — the column is kept only so nothing errors if a
@@ -153,6 +192,15 @@ class Profile(models.Model):
             self.role = ""
             self.supply_kind = ""
         elif username:
+            # Deliberately NOT relaxed for Django superusers. Platform-admin is
+            # the reserved ``admin`` login and nothing else, because is_admin is
+            # not only a permission — cases.export_data.unit_manager() selects
+            # the document signatory with ``is_admin=False``, so granting the
+            # flag to a superuser who also holds a manager seat would drop them
+            # out of the signatory pool and issue TO/PI documents with no name
+            # and no signature. A bootstrap account that cannot reach the admin
+            # console is a deployment problem and is solved in entrypoint.sh,
+            # not by widening what is_admin means.
             self.is_admin = False
         update_fields = kwargs.get("update_fields")
         if update_fields is not None:
@@ -184,11 +232,21 @@ class Profile(models.Model):
 
     @property
     def unit_label(self) -> str:
-        return Unit.LABELS.get(self.unit, "")
+        # str(...) resolves the gettext_lazy proxy Unit.LABELS now holds
+        # (accounts.constants.Unit.CHOICES) into a genuine ``str`` right here,
+        # at property-access time — which is always during request handling,
+        # after accounts.middleware.LanguageMiddleware has already activated
+        # this viewer's language, so resolving eagerly loses nothing. It has
+        # to happen somewhere before this value can reach title_line's own
+        # ``" · ".join(parts)`` below: Python's ``str.join`` requires every
+        # item to already be a real ``str`` instance and raises TypeError on
+        # a lazy proxy even though the proxy behaves like a string almost
+        # everywhere else (f-strings, ``+``, dict keys, template output).
+        return str(Unit.LABELS.get(self.unit, ""))
 
     @property
     def role_label(self) -> str:
-        return Role.LABELS.get(self.role, "")
+        return str(Role.LABELS.get(self.role, ""))
 
     @property
     def title_line(self) -> str:

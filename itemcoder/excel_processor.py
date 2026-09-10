@@ -1,21 +1,32 @@
-"""Excel-to-table processing workflow.
+"""Build TO: turn an uploaded inquiry into the coded grid, one row at a time.
 
-The view calls `process_excel`; this module reads the workbook, processes each
-row, assigns codes, and returns the final DataFrame used by the template.
+``process_excel_with_json`` is what views.upload_excel calls; ``process_inquiry_records``
+is the same pipeline entered from the case layer with rows already in memory, so
+seeding a case never has to round-trip through a workbook.
+
+Per row: excel_reader gets the four client columns, feature_extractor resolves
+group/type/size, text_processor.process_text_record does the coding, code_assigner
+looks up the FT code, then table_layout_manager and calculation_engine add the
+extra and priced columns. apply_table_layout puts them in display order last.
+
+Two guards shape the loop and both are about never losing the operator's work: a
+row whose coder raises falls back to ``_safe_minimal_flat`` (client columns kept,
+coded columns blank) so one bad description cannot fail the whole grid, and
+``_row_compute_memo`` reuses the result for repeated (description, size) pairs,
+which is common in real inquiries.
 """
 
 import logging
 import os
 
 import pandas as pd
-from django.conf import settings
 
 from .code_assigner import assign_code_from_csv
 from .excel_reader import read_excel_first_four_columns_fast
 from .feature_extractor import confind_size, find_group, find_type
 from .normalizers import clean_for_group_and_features
 from .regex_patterns import load_json_file
-from .text_processor import process_text_record, can_run_assign_code, has_orange_alert, clear_size_only_rule_alerts
+from .text_processor import process_text_record, can_run_assign_code, clear_size_only_rule_alerts
 from .table_layout_manager import apply_table_layout, build_extra_values, load_table_layout_config
 from .calculation_engine import calculate_row_values
 from .resource_paths import json_path

@@ -1,38 +1,39 @@
 {% extends "base.html" %}
-{% load ft_extras %}
+{% load ft_extras i18n %}
 {% block title %}Inbox · Foolad Tabar Workflow{% endblock %}
-{% block topbar %}Inbox{% endblock %}
+{% block topbar %}{% trans "Inbox" %}{% endblock %}
 {% block content %}
 <div class="page-head">
   <div>
-    <h1>Inbox</h1>
+    <h1>{% trans "Inbox" %}</h1>
     <div class="sub">
-      {% if scope == 'commercial' %}Live status of every case — nearest deadline first.
-      {% elif scope == 'technical' %}Cases currently with the Technical unit — nearest deadline first.
-      {% elif scope == 'supply' %}Pricing queue — nearest deadline first.
-      {% else %}Your cases — nearest deadline first.{% endif %}
+      {% if scope == 'commercial' %}{% trans "Live status of every case — unopened first, then nearest deadline." %}
+      {% elif scope == 'technical' %}{% trans "Cases currently with the Technical unit — unopened first, then nearest deadline." %}
+      {% elif scope == 'supply' %}{% trans "Pricing queue — unopened first, then nearest deadline." %}
+      {% else %}{% trans "Your cases — unopened first, then nearest deadline." %}{% endif %}
     </div>
   </div>
-  {% if can_create %}<a href="{% url 'cases:case_create' %}" class="btn btn-primary">New Case</a>{% endif %}
+  {% if can_create %}<a href="{% url 'cases:case_create' %}" class="btn btn-primary">{% trans "New Case" %}</a>{% endif %}
 </div>
 
 {% if fx_stale %}
+{% url 'cases:fx_rates' as fx_rates_url_val %}
 <div class="flash flash-warning" style="margin-bottom:1rem;">
   <i class="fa-solid fa-triangle-exclamation"></i>
-  <span>FX rates are outdated (more than 24 hours) or incomplete.
-    <a href="{% url 'cases:fx_rates' %}"><strong>Update exchange rates</strong></a>
-    so Proforma currency conversion can run.</span>
+  <span>{% blocktrans %}FX rates are outdated (more than 24 hours) or incomplete.
+    <a href="{{ fx_rates_url_val }}"><strong>Update exchange rates</strong></a>
+    so Proforma currency conversion can run.{% endblocktrans %}</span>
 </div>
 {% endif %}
 
-<div class="card" style="margin-bottom:1rem;">
-  <div class="grid grid-4">
-    <div class="field"><label><i class="fa-solid fa-hashtag"></i> Document No.</label>
-      <input type="text" data-filter-for="inboxTable" data-filter-colname="Document No." placeholder="e.g. 503, 1256" autocomplete="off">
+<div class="card filter-card-fit" style="margin-bottom:1rem;">
+  <div class="filter-fit-grid">
+    <div class="field"><label><i class="fa-solid fa-hashtag"></i> {% trans "Document No." %}</label>
+      <input type="text" data-filter-for="inboxTable" data-filter-colname="{% trans "Document No." %}" placeholder="e.g. 503, 1256" autocomplete="off">
     </div>
     {% if unit != 'SUPPLY' %}
-    <div class="field"><label><i class="fa-solid fa-building"></i> Client</label>
-      <input type="text" data-filter-for="inboxTable" data-filter-colname="Client" data-filter-mode="contains" placeholder="Search client…" autocomplete="off">
+    <div class="field"><label><i class="fa-solid fa-building"></i> {% trans "Client" %}</label>
+      <input type="text" data-filter-for="inboxTable" data-filter-colname="{% trans "Client" %}" data-filter-mode="contains" placeholder="{% trans 'Search client…' %}" autocomplete="off">
     </div>
     {% endif %}
   </div>
@@ -50,28 +51,76 @@
   <table class="data" id="inboxTable" data-filter-table>
     <thead>
       <tr>
-        <th>Document No.</th>{% if unit != 'SUPPLY' %}<th>Client</th>{% endif %}<th>Status</th>
-        <th>Deadline</th><th>Offer type</th><th>Updated</th>
+        <th>{% trans "Document No." %}</th>{% if unit != 'SUPPLY' %}<th>{% trans "Client" %}</th>{% endif %}<th>{% trans "Status" %}</th>
+        <th>{% trans "Deadline" %}</th><th>{% trans "Offer type" %}</th><th>{% trans "Updated" %}</th>
       </tr>
     </thead>
     <tbody>
       {% for c in cases %}
-        <tr class="row-link" onclick="window.location='{% url 'cases:case_detail' c.pk %}'">
-          <td>
+        <tr class="row-link{% if c.is_new_in_inbox %} row-unseen{% endif %}" onclick="window.location='{% url 'cases:case_detail' c.pk %}'">
+          <td>{% if c.is_new_in_inbox %}<span class="sr-only">{% trans "Unopened." %} </span>{% endif %}
             <span class="docno-line">
-              <span class="docno"><span>{{ c.doc_no }}</span></span>{% if c.is_delegated %} <span class="pill pill-delegated">Delegated</span>{% endif %}
+              <span class="docno"><span>{{ c.doc_no }}</span></span>{% if c.is_delegated %} <span class="pill pill-delegated">{% trans "Delegated" %}</span>{% endif %}
             </span>
           </td>
-          {% if unit != 'SUPPLY' %}<td>{{ c.client.name }} <span class="muted mono">({{ c.client.code }})</span></td>{% endif %}
+          {# Client name is typed by a user, the code beside it is generated — #}
+          {# only the name takes its own base direction. See the note at the  #}
+          {# end of static/css/app.css.                                       #}
+          {% if unit != 'SUPPLY' %}<td><span dir="auto">{{ c.client.name }}</span> <span class="muted mono">({{ c.client.code }})</span></td>{% endif %}
           <td>{% for s_label, s_status, s_color in c.inbox_status_rows %}<div{% if not forloop.last %} style="margin-bottom:.2rem;"{% endif %}><span class="status-tag" style="--sc:{{ s_color }}">{% if s_label %}{{ s_label }}: {% endif %}{{ s_status }}</span></div>{% endfor %}</td>
           <td>{% if c.deadline %}{{ c.deadline|jalali:"Y.m.d H:i" }}{% else %}<span class="muted">—</span>{% endif %}</td>
           <td><span class="offer-cell">{{ c.offer_type_label|default:"—" }}</span></td>
           <td class="muted">{{ c.updated_at|jalali:"Y.m.d H:i" }}</td>
         </tr>
       {% empty %}
-        <tr><td colspan="{% if unit == 'SUPPLY' %}5{% else %}6{% endif %}" class="empty">Your inbox is empty.</td></tr>
+        <tr><td colspan="{% if unit == 'SUPPLY' %}5{% else %}6{% endif %}" class="empty">{% trans "Your inbox is empty." %}</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* Opening a case marks it read on the server, so any route that asks the server
+   again — the Inbox link, a refresh, and BACK now that this page refuses to be
+   stored — comes back correctly showing the row as read.
+
+   One route asks nothing: a browser may answer BACK by restoring this page from
+   memory, replaying the DOM exactly as it was left, stripe and all. No request
+   is made, so no response header governs it, and the row would look unopened
+   when it has been opened.
+
+   The row is therefore cleared on the way BACK, not on the way out. Clearing it
+   at the moment of the click also worked, but it meant the colour drained a
+   beat before the case opened, which reads as though the click did something to
+   the row rather than opening it. Remembering the row and clearing it only when
+   this page is restored keeps the row exactly as it was while the user leaves,
+   and has it already read when they come back — which is what they see anyway
+   on the re-fetch path.
+
+   Nothing is sent and nothing is written here: the server recorded the read when
+   it rendered the case. This only stops a restored copy from contradicting it. */
+(function () {
+  "use strict";
+  var table = document.querySelector("table.data");
+  if (!table) return;
+  var opened = null;
+
+  table.addEventListener("click", function (e) {
+    var row = e.target && e.target.closest ? e.target.closest("tr.row-unseen") : null;
+    if (row && table.contains(row)) opened = row;
+  }, true);
+
+  window.addEventListener("pageshow", function (e) {
+    // persisted === true means this page came back from memory rather than from
+    // the server. Only then is the DOM stale enough to need correcting.
+    if (!e.persisted || !opened) return;
+    opened.classList.remove("row-unseen");
+    var note = opened.querySelector(".sr-only");
+    if (note) note.remove();
+    opened = null;
+  });
+})();
+</script>
 {% endblock %}

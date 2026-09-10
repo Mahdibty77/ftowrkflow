@@ -5,8 +5,11 @@ __pycache__/
 *.pyd
 
 # Local development database. The server uses PostgreSQL, so this file must NOT
-# go into the image. (The itemcoder reference code tables under
-# itemcoder/resources/db/ are intentionally NOT ignored - they are bundled.)
+# go into the image. Note the leading slash: it ignores this one file only, so
+# the itemcoder reference code tables under itemcoder/resources/db/ still go
+# into the image WHEN THEY ARE PRESENT in the build folder. They are excluded
+# from git (.gitignore: *.sqlite3), so a build from a fresh clone carries none
+# of them and every table has to be imported from the admin Tool Data page.
 /db.sqlite3
 
 # Collected static + uploads are generated/persisted at runtime.

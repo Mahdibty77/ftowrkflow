@@ -31,3 +31,7 @@ _clean_*.py
 venv/
 *.log
 *.zip
+
+# Claude Code personal permission cache (per-machine, not shared)
+.claude/settings.local.json
+*.it2vbak

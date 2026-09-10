@@ -2,6 +2,21 @@
 
 These helpers do not know anything about Django views, Excel files, or rules.
 They only keep the original text-cleaning behavior in one readable place.
+
+``clean_for_group_and_features`` is the one to understand: it strips a
+description down to lowercase letters/digits (spaces included), which is what
+makes ``SCH 40``, ``sch-40`` and ``Sch40`` all compare equal. That is also why
+Remark and Revision are extracted as SEPARATE snippets in text_processor —
+concatenating them first would let two adjacent tokens fuse into a third.
+
+The parse helpers read data.json's key grammar: ``M1_A_Seamless`` (ordering
+metadata) and the ``^(...)`` / ``^[...]`` dependency markers that make an alarm
+optional or required. Both are configuration syntax and must never reach the
+displayed text.
+
+All four are called per feature per row during an upload, so the pure ones are
+lru_cached; ``clear_normalizer_caches`` is called from constants.clear_data_caches()
+when an admin edits reference data.
 """
 
 import re

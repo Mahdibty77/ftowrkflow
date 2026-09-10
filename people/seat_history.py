@@ -1,4 +1,16 @@
-"""Build a seat History timeline from SeatEventLog (+ created date)."""
+"""Build a seat History timeline from SeatEventLog (+ created date).
+
+Read-only presentation. ``people.seats`` writes a ``SeatEventLog`` row for each
+lifecycle event (created, assigned, translated, returned, delegated, closed,
+vacant); this module turns those rows into the entries the History page draws —
+a label, an icon, a Jalali timestamp and a one-line summary — newest first. A
+seat that predates the event log has no Created row, so the account's own
+``date_joined`` is synthesised into one; it then sorts to the bottom, which is
+where a reader expects the beginning of a timeline to be.
+
+Nothing here queries or interprets seat *state*: if a summary looks wrong, the
+event that was written is what to look at, not this file.
+"""
 from __future__ import annotations
 
 from django.utils import timezone
@@ -78,7 +90,7 @@ def _event_entry(ev) -> dict:
     elif ev.event == SeatEventLog.CLOSED:
         base["label"] = "Closed"
         base["summary"] = (
-            f"Seat closed and freed back to the catalogue"
+            "Seat closed and freed back to the catalogue"
             + (f" (was held by {fr})." if fr else ".")
         )
     elif ev.event == SeatEventLog.VACANT:

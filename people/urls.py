@@ -1,3 +1,13 @@
+"""URL map for the people app, in four blocks: the directory, the shift pages,
+seats, and staff requests.
+
+Two things here are not obvious from the lines themselves. ``person_profile`` is
+a second name for ``person_edit`` at a friendlier URL — the hub card and the
+post-save redirect reverse that name, and both routes render the same view.
+And although almost everything in this app is administrator-only,
+``shift_ping``, ``shift_ended``, ``activate_role`` and the whole staff-request
+block are reached by ordinary employees; the gate lives on each view, not here.
+"""
 from django.urls import path
 
 from . import views

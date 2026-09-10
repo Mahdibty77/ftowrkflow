@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-15">
     <link rel="stylesheet" href="{% static 'itemcoder/css/tool-layout.css' %}?v=autosize-1">
     <link rel="stylesheet" href="{% static 'itemcoder/css/tool-cells-status.css' %}?v=to-brand-2">
-    <link rel="stylesheet" href="{% static 'itemcoder/css/tool-panels.css' %}?v=attach-brand-1">
+    <link rel="stylesheet" href="{% static 'itemcoder/css/tool-panels.css' %}?v=autosave-1">
     <link rel="stylesheet" href="{% static 'itemcoder/css/tool-icons.css' %}?v=reorg-1">
     <link rel="stylesheet" href="{% static 'itemcoder/css/tool-dark-mode.css' %}?v=reorg-1">
     {% if kind == 'TO' %}<link rel="stylesheet" href="{% static 'itemcoder/css/engineering_assistant.css' %}?v=ea-wrap-2">{% endif %}
@@ -56,6 +56,25 @@
         .tb-btn.primary:hover { background: var(--primary-light); border-color: var(--primary-light); }
         .tb-btn.lang-toggle.is-fa { background: var(--primary-soft, #eef2ff); border-color: var(--primary); color: var(--primary); }
         .tb-pill { cursor: default; font-size: 12px; opacity: .85; height: 38px; display: inline-flex; align-items: center; }
+        {% if read_only %}
+        /* View-only: say so in the bar, and again above the grid, because the
+           grid itself looks identical to the editable one by design. Rendered
+           only for a viewer, so the page an editing unit gets is untouched. */
+        .tb-readonly { gap: 6px; padding: 0 12px; border-radius: 8px; font-weight: 700;
+            opacity: 1; color: var(--warn, #92400e); background: var(--warn-soft, #fef3c7);
+            border: 1px solid var(--warn, #f59e0b); }
+        .ro-banner { margin: 0 16px .7rem; padding: .6rem .85rem; border-radius: 10px;
+            display: flex; align-items: center; gap: .55rem; font-size: .84rem;
+            color: var(--warn, #92400e); background: var(--warn-soft, #fef3c7);
+            border: 1px solid var(--warn, #f59e0b); }
+        /* Courtesy only — the save endpoint is what refuses a viewer (see
+           _may_build_form in bridge.py). This just stops the pointer from
+           inviting an edit that could never be stored. */
+        body[data-read-only="1"] #excel-table-container input,
+        body[data-read-only="1"] #excel-table-container textarea,
+        body[data-read-only="1"] #excel-table-container select,
+        body[data-read-only="1"] #excel-table-container button { cursor: not-allowed; }
+        {% endif %}
         .tool-bar a, .tool-bar button, .tool-bar .pill-note {
             font: inherit; cursor: pointer; border-radius: 7px; }
         .tool-bar .primary { background: var(--primary); border-color: var(--primary); color: #fff; }
@@ -73,7 +92,7 @@
         th[data-col-name="Filled_Features"], td[data-col-name="Filled_Features"] { display: none !important; }
     </style>
 </head>
-<body data-tool-kind="{{ kind }}"{% if hide_pricing %} data-hide-pricing="1"{% endif %}>
+<body data-tool-kind="{{ kind }}"{% if hide_pricing %} data-hide-pricing="1"{% endif %}{% if read_only %} data-read-only="1"{% endif %}>
 
     <div class="tool-bar">
         <span class="doc">{{ case.doc_no }}</span>
@@ -81,7 +100,7 @@
         <span class="builder">{{ kind }} builder{% if side_label %} · {{ side_label }}{% endif %}</span>
         {% if kind == 'PI' and doc_kind == 'TENDER' %}<span class="indent-note"><i class="fa-solid fa-circle-info"></i> Tender case — items can't be marked “not suppliable”.</span>{% endif %}
         <span class="spacer"></span>
-        {% if tool_mode == 'edit' %}<span class="tb-pill">Editing current version</span>{% elif tool_mode == 'newversion' %}<span class="tb-pill">New version from the last</span>{% endif %}
+        {% if read_only %}<span class="tb-pill tb-readonly"><i class="fa-solid fa-eye"></i> View only</span>{% elif tool_mode == 'edit' %}<span class="tb-pill">Editing current version</span>{% elif tool_mode == 'newversion' %}<span class="tb-pill">New version from the last</span>{% endif %}
         <!-- Language: button shows the TARGET language (click to switch to it). -->
         <select class="lang-switch" data-json-url="{% url 'app_json_resource' 'data_translation.json' %}" hidden>
             <option value="en" selected>English</option>
@@ -90,8 +109,29 @@
         <button type="button" class="tb-btn lang-toggle" id="lang-toggle-btn" title="Toggle document language">
             <i class="fa-solid fa-language"></i> <span class="lang-toggle-text">Persian</span>
         </button>
+        {% if read_only %}
+        {# No Save control at all in View mode: the endpoint would refuse this  #}
+        {# seat anyway, so offering the button would only promise a save that   #}
+        {# can never happen. Back is the one way out, so it leads the bar.      #}
+        <a class="tb-btn primary" href="/cases/{{ case.pk }}/"><i class="fa-solid fa-arrow-left"></i> Back to case</a>
+        {% else %}
         <button type="button" class="tb-btn primary" id="tool-save-btn">Save {{ kind }}</button>
         <a class="tb-btn" href="/cases/{{ case.pk }}/">Back to case</a>
+        {% endif %}
+    {% if not read_only %}
+        {# The automatic-save message. It lives INSIDE the tool bar so it       #}
+        {# appears at the top of the page, centred over the flexible spacer —   #}
+        {# the only strip up here that holds no control — and it is fixed and   #}
+        {# pointer-events:none (see .ft-autosave-toast in tool-panels.css), so  #}
+        {# showing and hiding it moves nothing and it can never swallow a click.#}
+        {# Rendered only for a seat that can actually save: a viewer never      #}
+        {# posts, so a viewer has no message to show. Empty until tool_save.js  #}
+        {# fills it in.                                                         #}
+        <div id="tool-autosave-toast" class="ft-autosave-toast is-ok"
+             role="status" aria-live="polite">
+            <i class="fa-solid fa-circle-check" aria-hidden="true"></i><span class="ft-autosave-text"></span>
+        </div>
+    {% endif %}
     </div>
     <script>
     (function () {
@@ -115,6 +155,17 @@
     </script>
 
     <h1 class="tool-page-title">{% if kind == 'PI' %}Proforma Invoice{% else %}Technical Offer{% endif %}{% if side_label %} · {{ side_label }}{% endif %}</h1>
+
+    {% if read_only %}
+    <div class="ro-banner" role="status">
+      <i class="fa-solid fa-lock"></i>
+      <span>This case is not with your unit right now, so you are looking at the
+        saved {% if kind == 'PI' %}Proforma{% else %}Technical Offer{% endif %} in
+        <strong>view-only</strong> mode. Filters and the reference tools still work;
+        no value, price, margin or conversion can be changed. Use
+        <strong>Back to case</strong> when you are done.</span>
+    </div>
+    {% endif %}
 
     {% if table_html %}
         {% if kind == 'PI' %}
@@ -349,8 +400,44 @@
         {% endif %}
     {% endif %}
 
+    {% comment %}
+      This page posts only from script, so it has no form of its own. The token
+      is still rendered here for two reasons: rendering it is what asks Django
+      to send the csrftoken cookie with this response (the getter below reads
+      that cookie), and it is the fallback the getter uses on an install
+      configured with CSRF_USE_SESSIONS, where there is no cookie to read.
+    {% endcomment %}
+    <div hidden>{% csrf_token %}</div>
+
     <script>
-      window.FT_TOOL_SAVE = { saveUrl: "{{ save_url }}", statusUrl: "/tool/case/{{ case.pk }}/{{ kind }}/status/?side={{ side|default:'' }}", currencyLogUrl: "{% url 'cases:log_currency_conversion' case.pk %}", csrfToken: "{{ csrf_token }}", mode: "{{ tool_mode }}", kind: "{{ kind }}", docKind: "{{ doc_kind }}", pricingLocked: {% if pricing_locked %}true{% else %}false{% endif %}, requireFtcoCode: {% if require_ftco_code %}true{% else %}false{% endif %}, externalCurrency: {% if external_currency %}true{% else %}false{% endif %}, unlockCommercial: {% if unlock_commercial %}true{% else %}false{% endif %}, side: "{{ side|default:'' }}", caseId: {{ case.pk }}, hidePricing: {% if hide_pricing %}true{% else %}false{% endif %} };
+      window.FT_TOOL_SAVE = { saveUrl: "{{ save_url }}", statusUrl: "/tool/case/{{ case.pk }}/{{ kind }}/status/?side={{ side|default:'' }}", currencyLogUrl: "{% url 'cases:log_currency_conversion' case.pk %}", mode: "{{ tool_mode }}", kind: "{{ kind }}", docKind: "{{ doc_kind }}", pricingLocked: {% if pricing_locked %}true{% else %}false{% endif %}, requireFtcoCode: {% if require_ftco_code %}true{% else %}false{% endif %}, externalCurrency: {% if external_currency %}true{% else %}false{% endif %}, unlockCommercial: {% if unlock_commercial %}true{% else %}false{% endif %}, side: "{{ side|default:'' }}", caseId: {{ case.pk }}, hidePricing: {% if hide_pricing %}true{% else %}false{% endif %}, readOnly: {% if read_only %}true{% else %}false{% endif %} };
+      /*
+        csrfToken is a LIVE read of the CSRF cookie. It used to be the page's
+        own csrf_token template variable, baked in once at render time.
+
+        This page is where the longest sessions on the platform happen: a unit
+        opens the grid, codes or prices hundreds of rows for an hour, and the
+        only copy of that work lives in this page's memory until Save posts it
+        (see collect() in tool_save.js). Django rotates the CSRF secret on every
+        sign-in, so if anybody signs in again in this browser while the grid is
+        open — including the administrator using "Log in as" — the baked token
+        stops matching the cookie and Save comes back 403. tool_save.js then
+        lands in its .catch and shows "Could not save. Please try again.", and
+        trying again can never succeed. Reading the cookie at the moment of the
+        request is what makes the retry work.
+
+        The other readers of this field (calculation_controls.js, pi_pricing.js)
+        get the same live value through the same property.
+      */
+      Object.defineProperty(window.FT_TOOL_SAVE, "csrfToken", {
+        get: function () {
+          var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+          if (m) return decodeURIComponent(m[1]);
+          var inp = document.querySelector('input[name=csrfmiddlewaretoken]');
+          return (inp && inp.value) || "";
+        },
+        enumerable: true
+      });
     </script>
     {{ group_features_map|json_script:"ft-group-features" }}
     {{ group_feature_aliases|json_script:"ft-group-feature-aliases" }}
@@ -369,14 +456,23 @@
     <script src="{% static 'itemcoder/js/virtual_scroll_engine.js' %}?v=vs-svc-col-1"></script>
     <script src="{% static 'itemcoder/js/item_flag.js' %}?v=tp-multi-2"></script>
     <script src="{% static 'itemcoder/js/row_processor.js' %}?v=ftco-edit-3"></script>
-    <script src="{% static 'itemcoder/js/table_ui.js' %}?v=self-append-1"></script>
+    <script src="{% static 'js/autogrow.js' %}?v=autogrow-1"></script>
+    {# Bumped WITH the file: table_ui.js now opens a server-marked qty/unit    #}
+    {# cell on a single click. WhiteNoise serves /static/ with a long max-age, #}
+    {# and a browser caches per full URL — query string included — so a        #}
+    {# returning user with the previous file never even asks for the new one   #}
+    {# while this key stays the same, and the cell simply does not open for    #}
+    {# them. tool_save.js below was bumped for the same round; this one was    #}
+    {# missed. A file changed without its key changed is a change that only    #}
+    {# reaches people who have never opened the page.                          #}
+    <script src="{% static 'itemcoder/js/table_ui.js' %}?v=qty-unit-click-1"></script>
     <script src="{% static 'itemcoder/js/excel_paste.js' %}?v=pasteundo-5"></script>
     <script src="{% static 'itemcoder/js/calculation_controls.js' %}?v=fxboard-5"></script>
     <script src="{% static 'itemcoder/js/translator.js' %}?v=ftco-edit-3"></script>
-    <script src="{% static 'itemcoder/js/tool_save.js' %}?v=brand-split-scope-1"></script>
+    <script src="{% static 'itemcoder/js/tool_save.js' %}?v=autosave-9-verdict"></script>
     {% if kind == 'PI' %}<script src="{% static 'itemcoder/js/pi_pricing.js' %}?v=price-sep-1"></script>
     <script src="{% static 'itemcoder/js/pi_same_code_sync.js' %}?v=no-brand-remark-sync-1"></script>
     <script src="{% static 'itemcoder/js/service_price.js' %}?v=svcprice-5"></script>{% endif %}
-    <script src="{% static 'itemcoder/js/tool_guard.js' %}?v=kickout-1"></script>
+    <script src="{% static 'itemcoder/js/tool_guard.js' %}?v=readonly-1"></script>
 </body>
 </html>

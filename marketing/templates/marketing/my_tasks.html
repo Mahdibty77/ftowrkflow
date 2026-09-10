@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% load static i18n %}
+{% comment %}
+  MY TASKS (کارهای من) — the personal hub every person with a linked Person
+  record reaches from the sidebar's own "Personal" nav group, seat or no seat
+  at all. See marketing/views.py::my_tasks for the full gating story.
+
+  THIS IS A SHELL, DELIBERATELY, MODELLED ON company_detail.html'S OWN
+  .tabs/.tab-panel STRUCTURE — reusing that exact markup (and its existing
+  #companyTabs tab-switcher, marketing/js/directory.js, which reads that one
+  id regardless of which page it is on) rather than inventing a second one.
+  AN EARLIER STAGE BUILT EXACTLY ONE TAB, Reminders, whose own markup lives
+  in its own partial (`_my_tasks_reminders.html`) rather than inline here;
+  THIS STAGE IS THE "LATER" ONE THAT EARLIER STAGE LEFT ROOM FOR — Reports
+  now sits beside it as one more `.tab` button, one more `.tab-panel`, and
+  one more `{% templatetag openblock %} include {% templatetag closeblock %}`,
+  with no change to the Reminders tab's own markup, and its own markup lives
+  in its own sibling partial (`_my_tasks_reports.html`) for the identical
+  reason Reminders' does: a second tab's worth of markup slots in beside the
+  first without this file growing into the size company_detail.html's own
+  five-tab template did.
+
+  ``scope``/``scope_all`` — THE ADMIN-WIDE VARIANT'S OWN CONTEXT, added a
+  ROUND LATER STILL — is what tells this SAME template apart from the
+  ordinary "My Tasks" it always was: see marketing/views.py::my_tasks's own
+  docstring for why this stays ONE view and ONE set of templates,
+  parameterised, rather than a second page that could quietly drift from
+  this one. The handful of ``{% templatetag openblock %} if scope_all
+  {% templatetag closeblock %}`` blocks below and in the two tab partials are
+  EVERY place the two visits differ in markup — heading text, the Person
+  filter field, and the Person column on each table — and nothing else on
+  this page (the tab strip, the day/hour grouping, every OTHER filter)
+  changes shape at all between the two.
+
+  BOTH PANELS' OWN FILTER CARDS reuse the exact mechanism
+  marketing/templates/marketing/company_detail.html already uses for its
+  Reports/Reminders tabs and cases/templates/cases/archive.html uses for its
+  own — static/js/ui.js's `data-filter-table` pass, driven by plain
+  `data-filter-for`/`data-filter-colname`/`data-filter-mode` attributes (see
+  each partial's own head comment for its own full column list, including the
+  Reminders tab's HIDDEN Day/Hour/State columns, which the day/hour pills and
+  the missed-only toggle piggyback on through that identical mechanism — the
+  Reports tab carries no such hidden columns, since it has no day/hour
+  grouping of its own). The one genuinely NEW behaviour day/hour grouping
+  adds on the Reminders tab — `marketing/static/marketing/js/my_tasks.js` — is
+  unaffected by the Reports tab sitting beside it: that script is
+  self-guarding (see its own head comment) and simply finds nothing to do on
+  the Reminders tab's own `#myTasksTable` id, which the Reports tab sitting
+  beside it does not touch — its own table carries a different id
+  (`#myTasksReportsTable`, see `_my_tasks_reports.html`) and no hidden
+  day/hour/state columns of its own for that script to ever look for.
+{% endcomment %}
+{% block title %}{% if scope_all %}{% trans "All Reports & Reminders" %}{% else %}{% trans "My Tasks" %}{% endif %} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% if scope_all %}{% trans "All Reports & Reminders" %}{% else %}{% trans "My Tasks" %}{% endif %}{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'marketing/css/directory.css' %}">
+{% endblock %}
+{% block content %}
+
+<div class="page-head" style="align-items:center;">
+  <div>
+    {% comment %}
+      THE PERSIAN PARENTHETICAL THAT USED TO SIT BESIDE EACH HEADING BELOW
+      ((کارهای همه) / (کارهای من)) HAS BEEN REMOVED BY THIS CLEANUP STAGE —
+      it was a pre-existing leak of Persian text into what should be pure
+      chrome (the owner's own example of it, referenced by name when this
+      i18n round was scoped: "My Tasks (کارهای من)"). An earlier stage in
+      this round correctly wrapped and translated the ENGLISH heading text
+      itself ("All Reports & Reminders" / "My Tasks") but, per this file's
+      own then-current head comment, deliberately left the already-Persian
+      parenthetical untouched, since finding and fixing every such leak
+      across the whole app was scoped to this later stage instead — done
+      once, here, rather than piecemeal. With the leak gone, {% trans %}
+      alone is what decides the heading's language in both directions: the
+      English default reads as plain "My Tasks" / "All Reports & Reminders"
+      with no stray Persian beside it, and the Persian toggle still shows
+      this same heading's own Persian translation from the catalog, exactly
+      as it did before this parenthetical was removed.
+    {% endcomment %}
+    {% if scope_all %}
+    <h1>{% trans "All Reports & Reminders" %}</h1>
+    <div class="sub">{% trans "Every reminder and report anyone has set or written, on any company or case, or on nothing at all — filterable by person." %}</div>
+    {% else %}
+    <h1>{% trans "My Tasks" %}</h1>
+    <div class="sub">{% trans "Every reminder and report you have set or written for yourself, on any company or case — or on nothing at all." %}</div>
+    {% endif %}
+  </div>
+  <div class="row-flex" style="align-items:center;gap:.5rem;flex-wrap:wrap;">
+    {% comment %}
+      WORK CALENDAR — the new entry point into THIS viewer's own shift
+      calendar (people/views.py::person_shift, opened up to a self-viewer by
+      ``admin_or_self_required``; see that view's own docstring). ``person``
+      is this exact viewer's own linked Person record — the view above only
+      ever reaches this template once ``_my_tasks_person_or_redirect`` has
+      already confirmed one exists, the SAME gate "My Tasks" itself is
+      behind, so this guard is defensive rather than load-bearing: it keeps
+      this button from ever pointing at a broken page even if that
+      invariant changes later, exactly the caution the owner asked for.
+    {% endcomment %}
+    {% if person %}
+    <a href="{% url 'people:person_shift' person.pk %}" class="btn btn-sm">
+      <i class="fa-solid fa-hourglass-half"></i> {% trans "Work calendar" %}
+    </a>
+    {% endif %}
+    <a href="{% url 'marketing:my_tasks_add' %}" class="btn btn-sm btn-primary">
+      <i class="fa-solid fa-plus"></i> {% trans "Add Task" %}
+    </a>
+  </div>
+</div>
+
+{# TWO TABS — Reminders (an earlier stage) and Reports (this stage). See the #}
+{# head comment: this strip and the #companyTabs id it reuses were built to  #}
+{# take this second tab with no change to the Reminders tab's own markup.   #}
+<div class="tabs" id="companyTabs">
+  <div class="tab active" data-tab="reminders"><i class="fa-solid fa-bell"></i> {% trans "Reminders" %}</div>
+  <div class="tab" data-tab="reports"><i class="fa-solid fa-file-lines"></i> {% trans "Reports" %}</div>
+</div>
+
+<div class="tab-panel active" id="panel-reminders">
+  {% include "marketing/_my_tasks_reminders.html" %}
+</div>
+
+<div class="tab-panel" id="panel-reports">
+  {% include "marketing/_my_tasks_reports.html" %}
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'marketing/js/directory.js' %}" defer></script>
+<script src="{% static 'marketing/js/my_tasks.js' %}" defer></script>
+{% endblock %}

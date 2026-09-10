@@ -69,7 +69,40 @@ def normalize_code(code: str) -> str:
 
 
 def ensure_builtin_rates() -> None:
-    """Create USD / EUR rows if missing (idempotent)."""
+    """Create USD / EUR rows if missing (idempotent).
+
+    Every read helper below opens with this call and ``api_payload`` fans out to
+    four of them, so one board poll used to pay for the two get_or_create lookups
+    plus the backfill UPDATE five times over — a write, and its row locks, on a
+    purely read-only path. The settled state (both rows present and flagged) is
+    the overwhelmingly common one, so it is answered with a single SELECT and the
+    create/backfill in ``_seed_builtin_rates`` only runs when something is
+    genuinely missing. This is checked per call, not cached, so a row removed out
+    of band is still restored.
+    """
+    wanted = {item["code"] for item in BUILTIN_RATES}
+    flagged = set(
+        CurrencyRate.objects.filter(code__in=wanted, is_builtin=True)
+        .values_list("code", flat=True)
+    )
+    if flagged >= wanted:
+        return
+    _seed_builtin_rates()
+
+
+def _builtins_settled(rows) -> bool:
+    """Whether ``ensure_builtin_rates`` would find nothing to do for ``rows``.
+
+    Same test as the guard above, answered from rows a caller has already
+    fetched, so a helper that reads the whole table does not have to pay for the
+    separate existence SELECT first.
+    """
+    wanted = {item["code"] for item in BUILTIN_RATES}
+    return wanted <= {r.code for r in rows if r.is_builtin}
+
+
+def _seed_builtin_rates() -> None:
+    """Create the missing USD / EUR rows and backfill the builtin flag."""
     for item in BUILTIN_RATES:
         CurrencyRate.objects.get_or_create(
             code=item["code"],
@@ -96,10 +129,21 @@ def is_rates_stale(now=None) -> bool:
       • no rates exist / never updated
       • **any** currency with a price was last updated more than 24h ago
       • no positive Rial price exists yet
+
+    This is the FX call on the site-wide render path (the sidebar warns on a
+    stale board), so it reads the table once and derives the seeding question
+    from those same rows instead of asking for it separately first. When the
+    builtins really are missing the seeding still happens and the rows are
+    re-read, so the answer is computed over exactly what ensure_builtin_rates
+    would have left behind — identical verdict, one fewer query in the normal case.
     """
-    ensure_builtin_rates()
     now = now or timezone.now()
     rows = list(CurrencyRate.objects.all())
+    if not _builtins_settled(rows):
+        # The rows just read already answered the question ensure_builtin_rates
+        # would have asked, so go straight to the seeding half of it.
+        _seed_builtin_rates()
+        rows = list(CurrencyRate.objects.all())
     if not rows:
         return True
     priced = [r for r in rows if (r.rial_price or 0) > 0]

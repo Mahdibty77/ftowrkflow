@@ -181,23 +181,6 @@ def next_seat_index(
     return format_seat_index(n)
 
 
-def next_seat_code(**kwargs) -> str:
-    """Alias kept for older call sites — prefers kwargs, else global legacy scan."""
-    if kwargs:
-        return next_seat_index(**kwargs)
-    # Fallback: highest numeric index across all pools (create form should pass pool).
-    from accounts.models import Profile
-
-    highest = 0
-    for code in Profile.objects.exclude(seat_code__isnull=True).exclude(
-        seat_code="",
-    ).values_list("seat_code", flat=True):
-        n = parse_seat_index(code)
-        if n is not None:
-            highest = max(highest, n)
-    return format_seat_index(highest + 1)
-
-
 def vacant_login_username(seat_code: str, user_pk=None) -> str:
     """Internal Django username for an empty seat (never shown as the Index).
 
@@ -218,20 +201,6 @@ def vacant_login_username(seat_code: str, user_pk=None) -> str:
                 pk=user_pk).exists():
             return candidate[:MAX_USERNAME]
     return f"{base}_{secrets.token_hex(4)}"[:MAX_USERNAME]
-
-
-def next_placeholder_username() -> str:
-    return next_seat_code()
-
-
-def placeholder_username(user_pk=None) -> str:
-    """Neutral login name for a freed seat, based on its seat_code when known."""
-    if user_pk:
-        from accounts.models import Profile
-        profile = Profile.objects.filter(user_id=user_pk).only("seat_code").first()
-        if profile and profile.seat_code:
-            return vacant_login_username(profile.seat_code, user_pk=user_pk)
-    return vacant_login_username(next_seat_code(), user_pk=user_pk)
 
 
 def seat_username_candidates(base: str, limit: int = 40):
@@ -262,8 +231,3 @@ def normalize_seat_code(value: str) -> str:
     if n is None:
         return ""
     return format_seat_index(n)
-
-
-def parse_seat_code_number(code: str) -> int | None:
-    """Backward-compatible alias."""
-    return parse_seat_index(code)

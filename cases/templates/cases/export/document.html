@@ -38,6 +38,15 @@
       break-after: page;
     }
     .document:last-child { page-break-after: auto; break-after: auto; }
+    /* Every .document is one physical sheet — no exceptions. A row whose own
+       text is taller than the body used to be handled here, first by clipping
+       it and later by letting its page grow past 210mm; the first lost text,
+       the second turned one logical page into two sheets so "Page N of M" no
+       longer matched the paper. Such a row is now split into page-sized parts
+       by paginate_rows() in pdf_export.py before it ever reaches this template,
+       so the fixed 210mm box above needs no escape hatch and none is offered:
+       one .document is always one sheet, which is what makes the paginator's
+       page count the same number the printer produces. */
     .document::before {
       content: "";
       position: absolute;
@@ -111,6 +120,11 @@
       background: #fff; font-size: 11.5px; color: var(--ink);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
+    /* The Client and Project boxes carry dir="auto" in the markup below: both
+       hold what a person typed, so a Persian name that includes a Latin word
+       must keep the order it was typed in. Vendor and Doc No. do not — they are
+       generated. Nothing here changes size: the box is one nowrap line either
+       way, so the header block is the same height and pagination is untouched. */
 
     .table-zone {
       margin: 0; flex: 1; min-height: 0;
@@ -163,6 +177,23 @@
     .total-card.grand-total-card { border-color: var(--navy); min-width: 160px; }
     .grand-total-card .total-card-header { background: #141348; font-size: 11px; }
     .grand-total-card .total-card-value { color: #000; font-size: 15px; }
+
+    /* Continuation of the row above: the 2nd..nth part of one item whose text
+       was too tall for a single sheet. Its identifier / quantity / price cells
+       are deliberately blank — the item is numbered and priced once, on its
+       first part — so without a cue the reader would see an unlabelled block of
+       prose. The grey rail plus the "(cont.)" marker in the first column say
+       "same item, carried over". Declared before the flag colours below so a
+       flagged item keeps its own coloured rail and tint all the way down.
+       Top-aligned, unlike an ordinary row: the text carried over has to start
+       at the top of the sheet to read on from the bottom of the previous one,
+       and centring it would leave it floating in the middle of the page. */
+    tr.exp-row-cont td:first-child { box-shadow: inset 3px 0 0 #b8c3d1; }
+    tr.exp-row-cont td { border-top: 1px dashed #b8c3d1; vertical-align: top; }
+    .exp-cont-mark {
+      display: inline-block; font-size: 8.5px; font-weight: 700;
+      color: #6b7a90; white-space: nowrap; letter-spacing: .04em;
+    }
 
     tr.exp-row-issue td { background: rgba(142, 68, 173, .14) !important; }
     tr.exp-row-issue td:first-child { box-shadow: inset 3px 0 0 #8e44ad; }
@@ -289,6 +320,7 @@
     .terms-page .doc-head { height: 95px; }
     .terms-wrap { padding: 8px 0; flex: 1; display: flex; min-height: 0; }
     .terms-card {
+      --terms-scale: 1;
       border: 1px solid var(--line); background: #fff; overflow: hidden;
       border-radius: 8px; width: 100%; display: flex; flex-direction: column;
     }
@@ -296,11 +328,25 @@
       margin: 0; padding: 8px 12px; background: #042e77; color: #dce5f0;
       font-size: 13px; text-transform: uppercase; font-weight: 700;
     }
+    .terms-cont-mark {
+      display: inline-block; font-size: 9px; font-weight: 700;
+      text-transform: none; color: #b9c6dc; letter-spacing: .02em;
+    }
+    {# EN / FA side by side (not stacked): one row's height instead of two, #}
+    {# which is where most of a single-page sheet's spare room comes from — #}
+    {# see fit_terms_single_page in cases/pdf_export.py. Font size scales   #}
+    {# with the clause text below it so the intro is never the odd one out #}
+    {# once a grown sheet has shrunk everything else to fit.               #}
     .terms-intro {
       padding: 6px 12px; color: var(--muted); font-weight: 600;
-      border-bottom: 1px solid var(--line); background: #eef1f6; font-size: 11px;
+      border-bottom: 1px solid var(--line); background: #eef1f6;
+      font-size: calc(11px * var(--terms-scale));
+      display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; align-items: start;
     }
-    .terms-intro .fa { direction: rtl; font-family: Tahoma, "Segoe UI", sans-serif; margin-top: 2px; }
+    .terms-intro .fa {
+      direction: rtl; font-family: Tahoma, "Segoe UI", sans-serif;
+      border-right: 1px solid #dbe1ea; padding-right: 10px;
+    }
     .terms-categories {
       padding: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
       flex: 1; align-content: start; overflow: hidden;
@@ -321,8 +367,14 @@
       direction: rtl; white-space: nowrap;
     }
     .term-bilingual { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+    {# Only the clause text shrinks with --terms-scale — not the padding    #}
+    {# around it, and not the category header above it. cases/pdf_export.py #}
+    {# ::fit_terms_single_page measures this exact font-size/line-height    #}
+    {# pair when it decides how far to shrink, so the two must not drift.   #}
     .term-bilingual ol {
-      margin: 0; padding: 6px 8px 6px 20px; font-size: 9.5px; line-height: 1.35; color: #0a1629;
+      margin: 0; padding: 6px 8px 6px 20px; color: #0a1629;
+      font-size: calc(9.5px * var(--terms-scale));
+      line-height: 1.35;
     }
     .term-bilingual ol.fa {
       direction: rtl; font-family: Tahoma, "Segoe UI", sans-serif; border-right: 1px solid #e0e5eb;
@@ -415,8 +467,8 @@
   <b>Foolad Tabar · {{ form.get_kind_display }} Professional Layout Engine</b>
   <div class="acts">
     <a href="#items">Scope Items</a>
-    {% if issues_page %}<a href="#issues">Technical Problems</a>{% endif %}
-    {% if services_page %}<a href="#services">Services</a>{% endif %}
+    {% if issues_pages %}<a href="#issues">Technical Problems</a>{% endif %}
+    {% if services_pages %}<a href="#services">Services</a>{% endif %}
     <a href="#terms">Terms Sheets</a>
     <a class="print" href="javascript:void(0)" id="ft-print-btn">Print / Export PDF</a>
     <a href="#" id="ft-dl-html">Download HTML</a>
@@ -470,8 +522,8 @@
       </div>
       <div class="info-card">
         <div class="info-card-title">Client / Project Information</div>
-        <div class="label">Client</div><div class="value">{{ client }}</div>
-        <div class="label">Project</div><div class="value">{{ order_no }}</div>
+        <div class="label">Client</div><div class="value" dir="auto">{{ client }}</div>
+        <div class="label">Project</div><div class="value" dir="auto">{{ order_no }}</div>
       </div>
     </div>
 
@@ -486,9 +538,29 @@
         </thead>
         <tbody>
           {% for row in page.rows %}
-          <tr class="{% if row.issue %}exp-row-issue{% elif row.unsuppliable %}exp-row-unsup{% elif row.service %}exp-row-service{% endif %}"{% if row.height_mm %} style="height: {{ row.height_mm }}mm; min-height: {{ row.height_mm }}mm;"{% endif %}>
+          <tr class="{% if row.issue %}exp-row-issue{% elif row.unsuppliable %}exp-row-unsup{% elif row.service %}exp-row-service{% endif %}{% if row.continued %} exp-row-cont{% endif %}"{% if row.height_mm %} style="height: {{ row.height_mm }}mm; min-height: {{ row.height_mm }}mm;"{% endif %}>
             {% for cell in row.cells %}
-              <td{% if cell.left %} class="left"{% endif %}>{{ cell.text }}{% if cell.flag_label %} <span class="exp-flag exp-flag-{{ cell.flag_kind }}">[{{ cell.flag_label }}]</span>{% endif %}</td>
+              {% comment %}
+                `cell.left` is set by pdf_export.py for exactly the five text
+                columns a person writes — client description, FTCO description,
+                remark, technical-problem reason and service comment — so it is
+                also the right test for which cells need their own base
+                direction. Without it a Persian remark holding a Latin code
+                prints with its parts swapped round; see the note at the end of
+                static/css/app.css.
+
+                This CANNOT change pagination. `dir` only reorders the runs
+                inside a line: the same characters wrap at the same points, in
+                the same font, in the same column width, so the cell needs the
+                same number of lines and the row the same height. The heights in
+                the style attribute above are still the ones paginate_rows()
+                computed, and the number of sheets is unchanged.
+
+                Every other column is left alone deliberately: item / client
+                numbers, the FTCO code, size, quantity, unit, brand, time and
+                the price columns are all left-to-right by nature.
+              {% endcomment %}
+              <td{% if cell.left %} class="left" dir="auto"{% endif %}>{% if cell.cont_mark %}<span class="exp-cont-mark">(cont.)</span>{% endif %}{{ cell.text }}{% if cell.flag_label %} <span class="exp-flag exp-flag-{{ cell.flag_kind }}">[{{ cell.flag_label }}]</span>{% endif %}</td>
             {% endfor %}
           </tr>
           {% endfor %}
@@ -524,8 +596,8 @@
 </section>
 {% endfor %}
 
-{% if issues_page %}
-<section class="document issues-page" id="issues">
+{% for page in issues_pages %}
+<section class="document issues-page"{% if forloop.first %} id="issues"{% endif %}>
   <header class="doc-head">
     <div class="logo-block">
       <svg class="logo-svg" viewBox="0 0 740 150" xmlns="http://www.w3.org/2000/svg" aria-label="Foolad Tabar Logo">
@@ -536,14 +608,18 @@
         <path d="M18 116H520" stroke="#8a9bb0" stroke-width="4" stroke-linecap="round"/>
         {% else %}
         <defs>
-          <linearGradient id="silverLogoIssues" x1="0" y1="0" x2="0" y2="1">
+          {% comment %}
+            Gradient ids carry the page number: this sheet can now span several
+            pages, and two defs with the same id in one document is invalid.
+          {% endcomment %}
+          <linearGradient id="silverLogoIssues{{ page.page_no }}" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stop-color="#ffffff"/><stop offset=".32" stop-color="#c8d1dc"/>
             <stop offset=".62" stop-color="#e4e9f0"/><stop offset="1" stop-color="#8a9bb0"/>
           </linearGradient>
         </defs>
-        <rect x="425" y="28" width="312" height="27" fill="url(#silverLogoIssues)" rx="1"/>
-        <path d="M588 82 H737 V109 H615 V163 H588 Z" fill="url(#silverLogoIssues)"/>
-        <text x="18" y="101" font-family="Constantia, serif" font-size="55" font-weight="800" letter-spacing="-2" fill="url(#silverLogoIssues)">FOOLAD TABAR</text>
+        <rect x="425" y="28" width="312" height="27" fill="url(#silverLogoIssues{{ page.page_no }})" rx="1"/>
+        <path d="M588 82 H737 V109 H615 V163 H588 Z" fill="url(#silverLogoIssues{{ page.page_no }})"/>
+        <text x="18" y="101" font-family="Constantia, serif" font-size="55" font-weight="800" letter-spacing="-2" fill="url(#silverLogoIssues{{ page.page_no }})">FOOLAD TABAR</text>
         <path d="M18 116H520" stroke="#8a9bb0" stroke-width="4" stroke-linecap="round"/>
         {% endif %}
       </svg>
@@ -556,7 +632,7 @@
     <div class="doc-meta">
       <div class="meta-line"><span>Code No.:</span><b>{{ code_no }}</b></div>
       <div class="meta-line"><span>Date</span><b>{{ form_date }}</b></div>
-      <div class="meta-line"><span>Page</span><b>{{ issues_page.page_label }}</b></div>
+      <div class="meta-line"><span>Page</span><b>{{ page.page_label }}</b></div>
     </div>
   </header>
   <div class="content-wrapper">
@@ -568,8 +644,8 @@
       </div>
       <div class="info-card">
         <div class="info-card-title">Client / Project Information</div>
-        <div class="label">Client</div><div class="value">{{ client }}</div>
-        <div class="label">Project</div><div class="value">{{ order_no }}</div>
+        <div class="label">Client</div><div class="value" dir="auto">{{ client }}</div>
+        <div class="label">Project</div><div class="value" dir="auto">{{ order_no }}</div>
       </div>
     </div>
     <div class="issues-sheet-banner">
@@ -577,7 +653,7 @@
       <div class="issues-sheet-banner-sub">Rows flagged as technical problem in this Technical Offer.</div>
     </div>
     <div class="table-zone" style="--row-h: 8mm;">
-      <table>
+      <table{% if page.fill %} class="fill"{% endif %}>
         <thead>
           <tr>
             <th style="width:12%;">Client No.</th>
@@ -587,12 +663,19 @@
           </tr>
         </thead>
         <tbody>
-          {% for r in issues_page.rows %}
-          <tr class="exp-row-issue">
-            <td>{{ r.client_no }}</td>
-            <td>{{ r.item }}</td>
-            <td class="left">{{ r.desc_client }}</td>
-            <td class="left">{{ r.reason }}</td>
+          {% comment %}
+            Cells come from the shared paginator now (same order and the same
+            left-alignment as the four columns above), so a long list of
+            declared deviations continues onto further sheets instead of being
+            cut off at the bottom of this one. A single problem description too
+            tall for one sheet is split by the same paginator; the parts after
+            the first carry row.continued and print the "(cont.)" cue.
+          {% endcomment %}
+          {% for row in page.rows %}
+          <tr class="exp-row-issue{% if row.continued %} exp-row-cont{% endif %}"{% if row.height_mm %} style="height: {{ row.height_mm }}mm; min-height: {{ row.height_mm }}mm;"{% endif %}>
+            {% for cell in row.cells %}
+              <td{% if cell.left %} class="left" dir="auto"{% endif %}>{% if cell.cont_mark %}<span class="exp-cont-mark">(cont.)</span>{% endif %}{{ cell.text }}</td>
+            {% endfor %}
           </tr>
           {% endfor %}
         </tbody>
@@ -601,10 +684,10 @@
   </div>
   {% include "cases/export/_sign_and_footer.html" %}
 </section>
-{% endif %}
+{% endfor %}
 
-{% if services_page %}
-<section class="document issues-page" id="services">
+{% for page in services_pages %}
+<section class="document issues-page"{% if forloop.first %} id="services"{% endif %}>
   <header class="doc-head">
     <div class="logo-block">
       <svg class="logo-svg" viewBox="0 0 740 150" xmlns="http://www.w3.org/2000/svg" aria-label="Foolad Tabar Logo">
@@ -615,14 +698,18 @@
         <path d="M18 116H520" stroke="#8a9bb0" stroke-width="4" stroke-linecap="round"/>
         {% else %}
         <defs>
-          <linearGradient id="silverLogoServices" x1="0" y1="0" x2="0" y2="1">
+          {% comment %}
+            Page-numbered id, for the same reason as the Technical Problems
+            sheet: this section may now repeat.
+          {% endcomment %}
+          <linearGradient id="silverLogoServices{{ page.page_no }}" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stop-color="#ffffff"/><stop offset=".32" stop-color="#c8d1dc"/>
             <stop offset=".62" stop-color="#e4e9f0"/><stop offset="1" stop-color="#8a9bb0"/>
           </linearGradient>
         </defs>
-        <rect x="425" y="28" width="312" height="27" fill="url(#silverLogoServices)" rx="1"/>
-        <path d="M588 82 H737 V109 H615 V163 H588 Z" fill="url(#silverLogoServices)"/>
-        <text x="18" y="101" font-family="Constantia, serif" font-size="55" font-weight="800" letter-spacing="-2" fill="url(#silverLogoServices)">FOOLAD TABAR</text>
+        <rect x="425" y="28" width="312" height="27" fill="url(#silverLogoServices{{ page.page_no }})" rx="1"/>
+        <path d="M588 82 H737 V109 H615 V163 H588 Z" fill="url(#silverLogoServices{{ page.page_no }})"/>
+        <text x="18" y="101" font-family="Constantia, serif" font-size="55" font-weight="800" letter-spacing="-2" fill="url(#silverLogoServices{{ page.page_no }})">FOOLAD TABAR</text>
         <path d="M18 116H520" stroke="#8a9bb0" stroke-width="4" stroke-linecap="round"/>
         {% endif %}
       </svg>
@@ -635,7 +722,7 @@
     <div class="doc-meta">
       <div class="meta-line"><span>Code No.:</span><b>{{ code_no }}</b></div>
       <div class="meta-line"><span>Date</span><b>{{ form_date }}</b></div>
-      <div class="meta-line"><span>Page</span><b>{{ services_page.page_label }}</b></div>
+      <div class="meta-line"><span>Page</span><b>{{ page.page_label }}</b></div>
     </div>
   </header>
   <div class="content-wrapper">
@@ -647,8 +734,8 @@
       </div>
       <div class="info-card">
         <div class="info-card-title">Client / Project Information</div>
-        <div class="label">Client</div><div class="value">{{ client }}</div>
-        <div class="label">Project</div><div class="value">{{ order_no }}</div>
+        <div class="label">Client</div><div class="value" dir="auto">{{ client }}</div>
+        <div class="label">Project</div><div class="value" dir="auto">{{ order_no }}</div>
       </div>
     </div>
     <div class="services-sheet-banner">
@@ -656,7 +743,7 @@
       <div class="services-sheet-banner-sub">Rows that have services with their prices</div>
     </div>
     <div class="table-zone" style="--row-h: 8mm;">
-      <table>
+      <table{% if page.fill %} class="fill"{% endif %}>
         <thead>
           <tr>
             <th style="width:9%;">CLIENT ITEM</th>
@@ -669,15 +756,20 @@
           </tr>
         </thead>
         <tbody>
-          {% for r in services_page.rows %}
-          <tr class="exp-row-service">
-            <td>{{ r.client_no }}</td>
-            <td>{{ r.item }}</td>
-            <td class="left">{{ r.desc_client }}</td>
-            <td class="left">{{ r.comment }}</td>
-            <td>{{ r.qty }}</td>
-            <td>{{ r.unit_svc_price }}</td>
-            <td>{{ r.total_svc_price }}</td>
+          {% comment %}
+            Same seven cells in the same order, produced by the shared
+            paginator so that billed service lines beyond the bottom of this
+            sheet continue on the next one instead of disappearing. A single
+            service comment too tall for one sheet is split the same way; the
+            parts after the first carry row.continued and the "(cont.)" cue,
+            and their price / quantity cells stay blank so the line is not
+            counted twice by eye.
+          {% endcomment %}
+          {% for row in page.rows %}
+          <tr class="exp-row-service{% if row.continued %} exp-row-cont{% endif %}"{% if row.height_mm %} style="height: {{ row.height_mm }}mm; min-height: {{ row.height_mm }}mm;"{% endif %}>
+            {% for cell in row.cells %}
+              <td{% if cell.left %} class="left" dir="auto"{% endif %}>{% if cell.cont_mark %}<span class="exp-cont-mark">(cont.)</span>{% endif %}{{ cell.text }}</td>
+            {% endfor %}
           </tr>
           {% endfor %}
         </tbody>
@@ -686,9 +778,10 @@
   </div>
   {% include "cases/export/_sign_and_footer.html" %}
 </section>
-{% endif %}
+{% endfor %}
 
-<section class="document terms-page" id="terms">
+{% for terms_page in terms_pages %}
+<section class="document terms-page"{% if forloop.first %} id="terms"{% endif %}>
   <header class="doc-head">
     <div class="logo-block">
       <svg class="logo-svg" viewBox="0 0 740 150" xmlns="http://www.w3.org/2000/svg">
@@ -699,14 +792,18 @@
         <path d="M18 116H520" stroke="#8a9bb0" stroke-width="4" stroke-linecap="round"/>
         {% else %}
         <defs>
-          <linearGradient id="silverLogoTerms" x1="0" y1="0" x2="0" y2="1">
+          {% comment %}
+            Gradient ids carry the page number: this sheet can now span several
+            pages, and two defs with the same id in one document is invalid.
+          {% endcomment %}
+          <linearGradient id="silverLogoTerms{{ terms_page.page_no }}" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stop-color="#ffffff"/><stop offset=".32" stop-color="#c8d1dc"/>
             <stop offset=".62" stop-color="#e4e9f0"/><stop offset="1" stop-color="#8a9bb0"/>
           </linearGradient>
         </defs>
-        <rect x="425" y="28" width="312" height="27" fill="url(#silverLogoTerms)" rx="1"/>
-        <path d="M588 82 H737 V109 H615 V163 H588 Z" fill="url(#silverLogoTerms)"/>
-        <text x="18" y="101" font-family="Constantia, serif" font-size="55" font-weight="800" letter-spacing="-2" fill="url(#silverLogoTerms)">FOOLAD TABAR</text>
+        <rect x="425" y="28" width="312" height="27" fill="url(#silverLogoTerms{{ terms_page.page_no }})" rx="1"/>
+        <path d="M588 82 H737 V109 H615 V163 H588 Z" fill="url(#silverLogoTerms{{ terms_page.page_no }})"/>
+        <text x="18" y="101" font-family="Constantia, serif" font-size="55" font-weight="800" letter-spacing="-2" fill="url(#silverLogoTerms{{ terms_page.page_no }})">FOOLAD TABAR</text>
         <path d="M18 116H520" stroke="#8a9bb0" stroke-width="4" stroke-linecap="round"/>
         {% endif %}
       </svg>
@@ -724,12 +821,17 @@
   </header>
 
   <div class="terms-wrap">
-    <div class="terms-card">
-      <h2>Terms &amp; Conditions / شرایط و ضوابط</h2>
+    {# --terms-scale shrinks the CLAUSE TEXT only (see fit_terms_single_page   #}
+    {# in cases/pdf_export.py) so a grown sheet still fits the one physical   #}
+    {# page every other export page gets, without paginating. 1 = full size.  #}
+    <div class="terms-card" style="--terms-scale:{{ terms_page.scale|default:1 }}">
+      <h2>Terms &amp; Conditions / شرایط و ضوابط{% if terms_page.is_continuation %} <span class="terms-cont-mark">(continued)</span>{% endif %}</h2>
+      {% if not terms_page.is_continuation %}
       <div class="terms-intro">
         <div>{{ terms_page.terms.intro_en }}</div>
         <div class="fa">{{ terms_page.terms.intro_fa }}</div>
       </div>
+      {% endif %}
       <div class="terms-categories">
         {% for cat in terms_page.terms.categories %}
         <section class="term-category{% if cat.full %} full{% endif %}">
@@ -750,6 +852,7 @@
 
   {% include "cases/export/_sign_and_footer.html" %}
 </section>
+{% endfor %}
 
 {% if print_toolbar %}
 <script>

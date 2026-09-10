@@ -8,9 +8,19 @@
 
     const ENABLE_BASIC_CELL_EDITING = true;
     const KIND = (window.FT_TOOL_SAVE && window.FT_TOOL_SAVE.kind) || '';
-    // size / qty / unit are reference fields in BOTH TO and PI — never inline-edited.
-    // (TO used to allow clicking them; that is intentionally locked now.)
+    // size / qty / unit are reference fields in BOTH TO and PI — never inline-edited
+    // BY COLUMN NAME. This set stays empty on purpose: a name in here would open
+    // the cell on every grid for every seat, which is what it used to do and why
+    // it was emptied. The exception the owner asked for — qty, unit AND size, TO
+    // only, Technical seat only — arrives per cell as a server-rendered
+    // data-editable="1" (itemcoder.views.dataframe_to_html_with_ids), decided by
+    // the same authorisation the save endpoint applies.
     const BASIC_EDITABLE_COLUMNS = new Set();
+    // Server-opened columns that should also answer a SINGLE click, like the
+    // Proforma's value columns do. Double-click already works for any editable
+    // cell; this only saves the user the second click on the ones the owner
+    // asked for, and only when the server actually marked that cell editable.
+    const TO_CLICK_EDIT_COLUMNS = new Set(['qty', 'unit', 'size']);
     const ROW_LIGHT_DEBOUNCE_MS = 220;
     const ROW_FULL_DEBOUNCE_MS = 700;
     // PI columns that have permanent always-on inputs — handled by pi_columns.js.
@@ -353,6 +363,22 @@
         table.addEventListener('focusin', (event) => {
             const textarea = event.target.closest('textarea');
             if (!textarea) return;
+            // static/js/autogrow.js also listens for 'focusin' on `document` and,
+            // seeing any textarea gain focus (this grid's included), resizes it to
+            // ITS OWN "comment box" floor — at least 6 rows tall — meant for the
+            // standalone burn/cancel/comment panels it was written for. Bubble
+            // order runs this handler (table-level) before that one
+            // (document-level), so without stopping propagation here, clicking a
+            // cell first sizes it correctly and then autogrow.js immediately
+            // overwrites that with its oversized floor: the visible "row jumps
+            // taller on click" bug. Typing is unaffected — autogrow.js listens for
+            // 'input' in the CAPTURE phase, ahead of this grid's own 'input'
+            // handler below, which runs after it and overwrites with the correct
+            // content-driven height, so growth-by-typing already self-corrects.
+            // Stopping propagation here keeps this grid's textareas out of that
+            // unrelated module entirely, for every focus path (a real click, a
+            // programmatic .focus() from pi_columns.js, keyboard nav, …).
+            event.stopPropagation();
             const colName = textarea.closest('td')?.dataset.colName || '';
             if (AUTO_SIZE_COLS.has(colName) || textarea.classList.contains('pi-text-area')
                 || textarea.classList.contains('remark-revision-textarea')) {
@@ -469,7 +495,8 @@
         // Single click opens a clean inline field for the value columns, so the
         // user doesn't need to double-click. Scoped to these columns only so it
         // never interferes with the Item Code flag box or text selection.
-        // TO: size/qty/unit stay locked like Client Description.
+        // TO: Client Description stays locked; qty/unit/size open only when
+        //     the server marked that cell data-editable="1" (Technical seat).
         // PI: only always-on commercial inputs.
         const FIELD_EDIT_COLUMNS = (KIND === 'PI')
             ? new Set(['UNIT PRICE', 'BRAND', 'TIME'])
@@ -489,7 +516,10 @@
                 return;
             }
 
-            if (!FIELD_EDIT_COLUMNS.has(col)) return;
+            const serverOpened = (KIND === 'TO'
+                && cell.dataset.editable === '1'
+                && TO_CLICK_EDIT_COLUMNS.has(col));
+            if (!FIELD_EDIT_COLUMNS.has(col) && !serverOpened) return;
             beginBasicCellEdit(cell);
         });
 

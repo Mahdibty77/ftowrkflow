@@ -2081,6 +2081,81 @@ def _ea_validate_size_extension(group: str, selected: dict, size_feature: str,
               "Manager access via Tool Data."
         )
 
+    # The loop above only proves each value exists SOMEWHERE in the group. That
+    # is not what this validator promises: a pure size extension means the rest
+    # of the combination already sits together on a real coded row. Values that
+    # each exist but never co-occur (Weld Neck + A105 + Class 2500) would
+    # otherwise let EA mint a product nobody manufactures — which is precisely
+    # the "new attribute combination" the error above says needs a Technical
+    # Manager. Only the values actually present constrain the query: an absent
+    # attribute stays unconstrained so this check can never be stricter than the
+    # code lookup that diagnosed the row as a size-only gap in the first place.
+    #
+    # For the same reason the query has to follow asign_code.json rather than the
+    # GroupFeature list: the plan deliberately puts several physical columns in OR
+    # groups (pipe SCH/SDR/PN/SN/WT, fitting and flange CLASS vs SDR/SCH, gasket
+    # WIDTH vs SIZE), while classify_header calls every unmarked column MAIN. AND-ing
+    # those siblings together would refuse combinations the real lookup matches
+    # through whichever alternative the row actually fills in — an over-strict gate
+    # blocking real work, worse than no gate at all. With no plan we do not judge.
+    ncols = len(code_db.column_names(group)) if code_db.has_db(group) else 0
+    # Without a column list there is nothing to query against, and a count of 0
+    # would then mean "cannot tell", not "does not exist" — never refuse on that.
+    plan = None
+    if ncols:
+        try:
+            mapping_all = CODE_MAPPING_CACHE.get("__asign_all__")
+            if mapping_all is None:
+                mapping_all = load_json_file(json_path("asign_code.json"))
+                CODE_MAPPING_CACHE["__asign_all__"] = mapping_all
+            plan = _get_assign_code_feature_plan(
+                group, str(type_ or "").strip().lower(), mapping_all)
+        except Exception:
+            logger.exception("ea_validate: could not read the assign_code plan")
+            plan = None
+    if plan is not None:
+        required_feats, or_groups = plan
+        size_pos = -1
+        val_by_pos: Dict[int, str] = {}
+        for f in mains:
+            pos = int(f.column_index)
+            # Columns 0/1 are the codes themselves, never an attribute.
+            if pos in (0, 1) or pos < 0 or pos >= ncols:
+                continue
+            if str(f.name).strip().lower() == size_feature:
+                size_pos = pos
+                continue
+            val = str(normalized.get(f.name, "") or "").strip()
+            if _ea_is_absent_attr(val):
+                continue
+            val_by_pos[pos] = code_db._normalize(val)
+
+        search_by_pos: Dict[int, str] = {}
+        for _feat_key, col_idx, _is_combined, _parts in required_feats:
+            pos = col_idx - 1
+            if pos in val_by_pos:
+                search_by_pos[pos] = val_by_pos[pos]
+
+        or_groups_by_pos: List[Tuple[str, List[Tuple[int, str]]]] = []
+        for or_name, feats in (or_groups or {}).items():
+            positions = [col_idx - 1 for _inner_feat, col_idx in feats]
+            # An OR dimension the new size itself sits in (gasket WIDTH/SIZE) can
+            # only be answered by the size we are about to create, so it says
+            # nothing about whether the rest of the combination already exists.
+            if size_pos in positions:
+                continue
+            members = [(pos, val_by_pos[pos]) for pos in positions if pos in val_by_pos]
+            if members:
+                or_groups_by_pos.append((or_name, members))
+
+        if (search_by_pos or or_groups_by_pos) and code_db.count_matches(
+                group, search_by_pos, or_groups_by_pos) <= 0:
+            raise ValueError(
+                "No existing item combines these attributes, so this is a new "
+                "attribute combination and not a size extension. Adding it "
+                "requires Technical Manager access via Tool Data."
+            )
+
     # Size itself must genuinely be new — if it already has a code, this
     # isn't a "create" at all (the caller should have just used the
     # existing code; ea_create_size_item checks this too, but refusing here
@@ -2095,6 +2170,41 @@ def _ea_validate_size_extension(group: str, selected: dict, size_feature: str,
         )
 
     return main_names, size_value, normalized
+
+
+def _ea_rollback_new_size(group: str, size_main: str, size_value: str) -> None:
+    """Undo the size registration when the coded row could not be created.
+
+    Registering the size and inserting its row are two separate writes (one of
+    them to a file), so there is no transaction that could cover both. Leaving
+    the FeatureValue behind is the worst of the two states: the size becomes
+    selectable while resolving to no coded row, and because the validator
+    rejects any size that already has a value, the user can never retry through
+    EA — only an admin could clear it. Deleting it restores exactly the state
+    the request started from.
+
+    The rules_<group>.json links are deliberately left alone: they are additive,
+    a link pointing at a value with no code matches nothing, and a retry re-adds
+    the identical links (set union), so unpicking them would buy nothing and
+    risks discarding links another write made in between.
+    """
+    from .models import FeatureValue
+    try:
+        # Same normalisation add_value_with_relations applied when it created
+        # the row, so this can only ever match that one row.
+        FeatureValue.objects.filter(
+            group=str(group).strip().lower(),
+            feature=str(size_main).strip(),
+            value=str(size_value).strip()).delete()
+    except Exception:
+        logger.exception("ea_create_size_item: could not roll back the new size")
+
+
+# How many times the row insert below may be rebuilt and retried when another
+# creation takes the item-code sequence number first. Each retry re-reads the
+# table, so one is normally enough; three leaves room for a burst without ever
+# looping for long.
+_ITEM_CODE_ATTEMPTS = 3
 
 
 @login_required
@@ -2174,8 +2284,28 @@ def ea_create_size_item(request):
     if not code_db.has_db(group):
         return JsonResponse({"ok": False, "error": "This group has no code database."}, status=400)
 
+    # Canonical main-feature spelling (``Size`` not ``size``) — required by
+    # add_value_with_relations, which matches GroupFeature.name exactly.
+    size_main = next(
+        (n for n in main_names if str(n).strip().lower() == size_feature),
+        None,
+    )
+    if not size_main:
+        return JsonResponse({
+            "ok": False,
+            "error": "This group has no 'size' feature configured.",
+        }, status=400)
+
     try:
-        technical, item_code, _prefix = item_builder.build_codes(group, selected)
+        # The validator has just proved this size has NO FeatureValue yet, so
+        # build_codes can only emit an empty segment for it. Hand it the code
+        # the size is about to receive — the very same next_value_code call
+        # add_value_with_relations makes below — otherwise the preview shows a
+        # code with its size digits missing and the confirmation card promises
+        # something different from what gets created.
+        pending = {size_main: item_builder.next_value_code(group, size_main)}
+        technical, item_code, _prefix = item_builder.build_codes(
+            group, selected, pending_value_codes=pending)
     except Exception as exc:
         logger.exception("ea_create_size_item: build_codes failed")
         return JsonResponse({"ok": False, "error": f"Could not build codes: {exc}"}, status=500)
@@ -2194,17 +2324,6 @@ def ea_create_size_item(request):
         # exact mechanism the Feature Values screen uses — "relations" tells
         # it which other already-chosen values this size should be linked
         # to, exactly like an admin filling in that screen's own form would.
-        # Canonical main-feature spelling (``Size`` not ``size``) — required
-        # by add_value_with_relations which matches GroupFeature.name exactly.
-        size_main = next(
-            (n for n in main_names if str(n).strip().lower() == size_feature),
-            None,
-        )
-        if not size_main:
-            return JsonResponse({
-                "ok": False,
-                "error": "This group has no 'size' feature configured.",
-            }, status=400)
         relations = {}
         for name in main_names:
             if name == size_main:
@@ -2221,14 +2340,39 @@ def ea_create_size_item(request):
         logger.exception("ea_create_size_item: add_value_with_relations failed")
         return JsonResponse({"ok": False, "error": "Could not register the new size."}, status=500)
 
+    inserted = False
     try:
-        if code_db.code_exists(group, technical, col=0):
-            return JsonResponse({
-                "ok": False,
-                "error": "This exact item already exists (same technical code).",
-            }, status=400)
-        cells = item_builder.build_row_cells(group, selected, technical, item_code)
-        code_db.insert_item(group, cells)
+        # Rebuild from the database now that the size is registered. The codes
+        # above were built while the size still had no FeatureValue, so they
+        # relied on the predicted code; this reads the code that was actually
+        # assigned, which is what must go into the row, the duplicate guard and
+        # the audit log.
+        #
+        # The rebuild sits in a retry loop because the item code ends in a
+        # sequence number that build_codes only READS (highest in use for this
+        # prefix, plus one) — another creation running at the same moment can
+        # store that same number first. insert_item refuses the row in that case
+        # rather than writing a second item with an identical code, and the
+        # answer is simply to build the codes again: the second read sees the
+        # other row and yields the next number. Rebuilding, not adjusting, is
+        # what keeps the code identical to what a lone creation would produce.
+        for attempt in range(_ITEM_CODE_ATTEMPTS):
+            technical, item_code, _prefix = item_builder.build_codes(group, selected)
+            if code_db.code_exists(group, technical, col=0):
+                _ea_rollback_new_size(group, size_main, size_value)
+                return JsonResponse({
+                    "ok": False,
+                    "error": "This exact item already exists (same technical code).",
+                }, status=400)
+            cells = item_builder.build_row_cells(group, selected, technical, item_code)
+            try:
+                code_db.insert_item(group, cells)
+            except code_db.DuplicateItemCode:
+                if attempt + 1 >= _ITEM_CODE_ATTEMPTS:
+                    raise
+                continue
+            inserted = True
+            break
         meta = CodeTable.objects.filter(group=group).first()
         if meta:
             meta.row_count = code_db.row_count(group)
@@ -2239,11 +2383,15 @@ def ea_create_size_item(request):
         except Exception:
             pass
     except Exception as exc:
-        # The new size's FeatureValue may now exist with no row using it yet
-        # (see module docstring on add_value_with_relations' caller side) —
-        # harmless and self-correcting: retrying this same request will find
-        # the size already registered, skip straight to this block, and
-        # succeed once whatever failed here is fixed.
+        # Undo the registration before reporting the failure. Retrying is NOT
+        # self-correcting: _ea_validate_size_extension refuses any size that
+        # already has a FeatureValue, so an orphan left here would advertise a
+        # size that resolves to no coded row and lock the user out of the only
+        # path back. Once the row is in, the size must stay registered — the
+        # row would otherwise be the orphan — so bookkeeping that fails after
+        # the insert is reported without touching it.
+        if not inserted:
+            _ea_rollback_new_size(group, size_main, size_value)
         logger.exception("ea_create_size_item: row creation failed")
         return JsonResponse({"ok": False, "error": f"Could not create the item: {exc}"}, status=500)
 

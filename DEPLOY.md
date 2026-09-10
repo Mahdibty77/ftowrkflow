@@ -1,8 +1,18 @@
 # Deploying Foolad Tabar Workflow with Docker
 
 This guide runs the application on a server using Docker and PostgreSQL. The
-main database starts **empty**; the reference code tables (pipe/valve/...)
-bundled in the image are loaded automatically on first start.
+main database starts **empty**. Reference code tables (pipe/valve/...) are
+copied from the image into the `code_db_data` volume the first time that volume
+is created — but only the tables that were present in the folder the image was
+built from. The `.sqlite3` files are excluded from version control, so an image
+built from a fresh `git clone` contains **none** of them and every table has to
+be imported once from the admin **Tool Data** page.
+
+> **Before sending this project to anyone:** delete `.env` from the copy you
+> send. It is the developer's own environment file — a real secret key, database
+> password and admin password — and it is not part of the delivery. `.env` is
+> excluded from git and from the Docker image, but nothing strips it out of a
+> zip or an `scp -r` of the folder. The customer creates their own in step 3.
 
 There are two install paths below — pick the one that matches your server:
 
@@ -71,10 +81,20 @@ Fill in at least:
 
 - `DJANGO_SECRET_KEY` — the value from the generate step above.
 - `POSTGRES_PASSWORD` — a strong database password.
-- `DJANGO_ALLOWED_HOSTS` — your server IP and/or domain,
-  e.g. `203.0.113.10` or `workflow.example.com,203.0.113.10`.
+- `DJANGO_ALLOWED_HOSTS` — **this one does nothing.** It is passed through by
+  `docker-compose.yml` and listed in `.env.example`, but `ftworkflow/settings.py`
+  never reads it: `ALLOWED_HOSTS` is deliberately hard-coded to `["*"]` so that
+  an incomplete host list can never lock an existing deployment out. Setting it
+  is harmless and changes nothing — do not spend time on it, and do not record
+  host validation as enforced because you filled it in. See the comment above
+  `ALLOWED_HOSTS` in `ftworkflow/settings.py`.
 - (Optional) `DJANGO_SUPERUSER_USERNAME` + `DJANGO_SUPERUSER_PASSWORD` to create
   the first admin automatically (otherwise create it in step A5).
+  **`DJANGO_SUPERUSER_USERNAME` must be exactly `admin`.** Platform-administrator
+  rights belong to that one reserved login; an account created under any other
+  name can reach Django's `/admin/` but none of the platform's own screens
+  (Users, Seats, People, Backups). Start-up refuses any other name and tells you
+  so in the log rather than creating a half-working administrator.
 
 Save in nano: `Ctrl+O`, `Enter`, then `Ctrl+X`.
 
@@ -156,9 +176,9 @@ notepad .env
 ```
 
 Fill in the same values as Linux: `DJANGO_SECRET_KEY` (from the generate step),
-`POSTGRES_PASSWORD`, `DJANGO_ALLOWED_HOSTS` (your PC/server IP, or `localhost`
-for local testing), and optionally the first-admin username/password. Save in
-Notepad (`Ctrl+S`) and close it.
+`POSTGRES_PASSWORD`, and optionally the first-admin username/password.
+(`DJANGO_ALLOWED_HOSTS` is inert — see the note in step A3.) Save in Notepad
+(`Ctrl+S`) and close it.
 
 ## B4. Build and start
 
@@ -215,6 +235,13 @@ When you receive an updated project zip:
 Your data is **not** lost on rebuild — the database, uploads and code tables
 live in Docker **named volumes**, not in the image.
 
+That cuts both ways for the reference code tables: a named volume is filled from
+the image only when Docker first creates it, and from then on it hides whatever
+the image carries. So if a new version ships a **corrected** code table, the
+rebuild does **not** replace the one already in `code_db_data`, and nothing in
+the logs or the UI says so. Import the corrected table from the admin **Tool
+Data** page after the upgrade.
+
 # 8. Back up and restore the database
 
 Back up:
@@ -249,19 +276,45 @@ To serve on a domain with automatic HTTPS, put a reverse proxy (e.g. Caddy) in
 front of the app on port 8000, then set in `.env`:
 
 ```
-DJANGO_ALLOWED_HOSTS=workflow.example.com
 DJANGO_CSRF_TRUSTED_ORIGINS=https://workflow.example.com
+DJANGO_SECURE_SSL=1
 ```
 
+`DJANGO_CSRF_TRUSTED_ORIGINS` and `DJANGO_SECURE_SSL` are both read and both
+matter here. `DJANGO_ALLOWED_HOSTS` is not read at all (see step A3), so host
+validation is not part of what this step turns on.
+
 and run `docker compose up -d` to apply.
+
+`DJANGO_SECURE_SSL=1` is what actually makes the deployment an HTTPS one: it
+marks the session and CSRF cookies **Secure** (so they are never sent over plain
+HTTP), redirects HTTP to HTTPS, trusts the proxy's `X-Forwarded-Proto`, and
+sends HSTS. Without it the site is reachable over HTTPS but the cookies are
+still transmitted in the clear to anyone who opens `http://SERVER_IP:8000`
+directly — the container port stays published on the LAN either way. Leave it
+unset (or `0`) for a plain-HTTP internal install: turning it on without TLS in
+front redirects every request to a URL nobody is serving.
+
+# 11. The license volume
+
+Activation state lives in the `license_data` volume and is **not** covered by
+the automatic backups (they cover the database, uploads and code tables). That
+is deliberate — it is not application data. If the volume is lost
+(`docker compose down -v`, a wiped Docker install), the app redirects to the
+activation page and you simply paste the same license string again, so **keep
+that string somewhere outside the server**. A new license is only needed when
+the machine itself changes.
 
 ---
 
 ## Notes
 
 - The main database uses PostgreSQL and starts empty.
-- Reference code tables (millions of rows) remain fast read-only SQLite files,
-  bundled in the image and seeded into the `code_db_data` volume on first start.
-  Tables you upload later through the admin are persisted in that volume.
+- Reference code tables (millions of rows) remain fast read-only SQLite files.
+  Any that are present when the image is built are seeded into the
+  `code_db_data` volume the first time that volume is created; they are not in
+  version control, so a build from a fresh clone ships none. Tables you upload
+  through the admin are persisted in that volume, and once it exists the volume
+  takes precedence over the image (see section 7).
 - Static files are served by WhiteNoise; `collectstatic` runs automatically on
   every start.

@@ -1,3 +1,14 @@
+"""Django-admin registrations for the accounts app.
+
+Not the day-to-day tool: administrators run the platform from ``accounts.views``
+(the Users page, the seat actions, the settings console), and this exists as the
+break-glass view underneath. Everything registered here is therefore narrowed
+rather than widened — permanent deletion is removed wherever it would orphan a
+row that permission checks read through, ``PlatformConfig`` is held to the single
+row it is meant to be, and the dead ``plain_password`` column is kept off the
+form so this screen cannot become the one place a readable password could be
+written back. Each of those has its reason recorded where it is applied.
+"""
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.models import User

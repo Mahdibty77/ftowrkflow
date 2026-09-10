@@ -9,7 +9,9 @@ from django.db import models
 
 from accounts.constants import Unit
 
-from .constants import CaseStatus, DocKind, EventAction, FormKind, OfferType, PriceType, Side
+from .constants import (
+    CaseStatus, DocKind, EventAction, FormKind, MarketingLabel, OfferType, PriceType, Side,
+)
 
 
 class SerialCounter(models.Model):
@@ -98,6 +100,11 @@ class Case(models.Model):
     client_commercial_phone = models.CharField(max_length=40, blank=True)
     client_technical_expert = models.CharField(max_length=120, blank=True)
     client_technical_phone = models.CharField(max_length=40, blank=True)
+    # Which business role the client played for THIS case — optional, read only
+    # by the marketing app's chart (see marketing/services.py). Blank means
+    # "not specified"; marketing treats blank as the client's default OWNER role
+    # rather than storing that choice explicitly here.
+    marketing_label = models.CharField(max_length=32, choices=MarketingLabel.CHOICES, blank=True, default="")
     # Internal / External / Both — drives the sub-streams in case detail.
     price_type = models.CharField(
         max_length=10, choices=PriceType.CHOICES, default=PriceType.INTERNAL)
@@ -223,6 +230,26 @@ class Case(models.Model):
         return PriceType.LABELS.get(self.price_type, "")
 
     @property
+    def holder_unit_label(self) -> str:
+        """Translated display text for ``holder_unit`` ("Technical" / "فنی"), not
+        the raw storage code ("TECHNICAL").
+
+        Added for case_detail.html's "Current owner" field: when
+        ``current_owner()`` below returns ``None`` (the case sits unassigned in
+        a unit's shared queue rather than with one named person) the template
+        falls back to showing which UNIT holds it — and used to print
+        ``holder_unit`` straight, which is a plain Python constant, never a
+        translatable string. Mirrors the exact same ``Unit.LABELS.get(...)``
+        lookup every other unit-label site in the codebase already uses
+        (accounts.models.Profile.unit_label, people/models.py, reports/views.py)
+        rather than inventing a new pattern. Falls back to the raw code for any
+        value not in ``Unit.LABELS`` (there shouldn't be one — holder_unit is
+        always one of the three workflow units — but this keeps a legacy/blank
+        value rendering exactly as before rather than turning it into "").
+        """
+        return Unit.LABELS.get(self.holder_unit, self.holder_unit)
+
+    @property
     def has_internal(self) -> bool:
         return self.price_type in (PriceType.INTERNAL, PriceType.BOTH)
 
@@ -265,9 +292,11 @@ class Case(models.Model):
             side = self.primary_side
         cached = getattr(self, "_prefetched_objects_cache", None)
         if cached is not None and "forms" in cached:
-            # The related manager's default ordering is ["kind", "-version"], so
-            # the first match in this list is the highest version — same as the
-            # DB .first() below.
+            # The prefetched list arrives in the related manager's default
+            # ordering (see CaseForm.Meta: kind, then newest version, then the
+            # two-stage generation ahead of the same-numbered version it
+            # supersedes, then newest id), so the first match in this list is
+            # the newest snapshot — exactly the row the DB .first() below picks.
             current = [f for f in cached["forms"] if f.kind == kind and f.is_current]
             form = next((f for f in current if f.side == side), None)
             if form is None and side == self.primary_side:
@@ -307,6 +336,36 @@ class Case(models.Model):
         if side == Side.EXTERNAL:
             return self.external_holder or self.holder_unit
         return self.holder_unit
+
+    def current_owner(self, side: str = None):
+        """The PERSON currently holding this case's side, not just their unit.
+
+        ``side_holder`` answers "which unit"; the case-detail page also wants
+        "which person" — the case page shows every version to the owning
+        unit already, so a Commercial user watching a case they built wants
+        to know it moved from the Technical manager's queue to a specific
+        expert, not just that it is "with Technical" both before and after.
+        Falls back to the manager-level assignee (or ``None`` while a case
+        sits unassigned in a unit's shared queue) exactly as ``inbox_filter_q``
+        already resolves ownership for that unit.
+        """
+        side = side or self.primary_side
+        holder = self.side_holder(side)
+        if holder == Unit.COMMERCIAL:
+            return self.created_by
+        if holder == Unit.TECHNICAL:
+            if side == Side.INTERNAL and self.technical_internal_assignee_id:
+                return self.technical_internal_assignee
+            if side == Side.EXTERNAL and self.technical_external_assignee_id:
+                return self.technical_external_assignee
+            return self.technical_assignee
+        if holder == Unit.SUPPLY:
+            if side == Side.INTERNAL and self.supply_internal_assignee_id:
+                return self.supply_internal_assignee
+            if side == Side.EXTERNAL and self.supply_external_assignee_id:
+                return self.supply_external_assignee
+            return self.supply_assignee
+        return None
 
     def set_side_state(self, side: str, status: str, holder: str):
         if side == Side.INTERNAL:
@@ -382,6 +441,18 @@ class CaseForm(models.Model):
     columns = models.JSONField(default=list, blank=True)   # ordered column titles
     table = models.JSONField(default=list, blank=True)     # list[dict] of rows
     meta = models.JSONField(default=dict, blank=True)       # header boxes + totals
+    # The Terms & Conditions sheet as it was LAST EXPORTED from this snapshot.
+    # Empty ({}) until someone takes a PDF / Print-view export of this version;
+    # rewritten by every later export of it. Because one CaseForm row *is* one
+    # (case, kind, side, version, generation), the sheet is remembered per case
+    # and per version exactly as asked, and a new version starts empty again.
+    #
+    # It gets its own column rather than a key inside ``meta`` on purpose:
+    # ``meta`` is the header payload — cases/templates/cases/_form_table.html
+    # prints every key it does not recognise as a badge, and the exporters read
+    # it for the header boxes — so a terms blob parked there would show up on
+    # screen and could travel into the documents themselves.
+    export_terms = models.JSONField(default=dict, blank=True)
     # True once this version has left its unit (sent/returned). A sent version
     # can no longer be edited — the owner must branch a new version instead.
     sent = models.BooleanField(default=False)
@@ -406,11 +477,53 @@ class CaseForm(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["kind", "-version"]
+        # A two-stage snapshot does NOT get a new version number: "01" and
+        # "01 · Two Stage" are both version 1, so ordering by version alone
+        # leaves those two rows tied and the database is free to return either
+        # first. That is why "the newest version" used to be a coin toss rather
+        # than a rule. The two-stage generation is the later one by definition,
+        # so it is the next sort term; ``-id`` then settles anything still tied
+        # (an FX-only clone against the real snapshot of the same number), so
+        # ``.first()`` on this manager always means the same row.
+        #
+        # ``-id`` does more than break ties, though: it REVERSES rows that tie on
+        # everything before it — the two PI snapshots of a split Internal &
+        # External case, say, now come back External-first where they used to
+        # come back Internal-first. That is harmless for ``.first()`` (the point
+        # of the term) and harmless for anything that filters or aggregates in
+        # SQL, but a caller that WALKS the rows and does something the order can
+        # be felt in must not read its sequence out of this default. Two such
+        # callers exist and both now state their own ``.order_by()``: the float
+        # money sums in ``cases.export_data`` (float addition is not
+        # associative) and the v00 baseline lookup in ``cases.services``. Add
+        # the same explicit ordering to any new one rather than relying on this.
+        ordering = ["kind", "-version", "-two_stage", "-id"]
 
     def __str__(self):
         from .codes import format_version
         return f"{self.case.doc_no} · {self.get_kind_display()} v{format_version(self.version)}"
+
+    @property
+    def version_key(self) -> tuple:
+        """Ascending rank of this snapshot inside its (kind, side) stream.
+
+        The single definition of "which snapshot is newer". Sorting a list with
+        it puts the oldest first, so a version list reads left → right exactly
+        as the units expect: ``00``, ``01``, ``01 · Two Stage``, ``02`` …. Take
+        ``max()`` of it for the latest and ``min()`` for the original.
+
+        It exists so the chip list, the tool's "which form is current", and the
+        export resolver cannot drift apart: every one of them ranks by this,
+        never by ``version`` on its own (which cannot separate a two-stage
+        snapshot from the same-numbered version it supersedes).
+        """
+        return (int(self.version or 0), 1 if self.two_stage else 0, int(self.pk or 0))
+
+    @property
+    def has_export_terms(self) -> bool:
+        """True once a Terms sheet has actually been exported from this version."""
+        terms = self.export_terms
+        return bool(isinstance(terms, dict) and terms.get("categories"))
 
     def make_current(self):
         """Mark this snapshot as the current one for its kind and side."""
@@ -443,10 +556,6 @@ class CaseEvent(models.Model):
     form_version = models.IntegerField(null=True, blank=True)
     # Internal / External sub-stream this event belongs to (blank = case-level).
     side = models.CharField(max_length=10, blank=True, db_index=True)
-
-    @property
-    def side_label(self) -> str:
-        return Side.LABELS.get(self.side, "")
     # Set on the new-inquiry-version event that upgraded a TO case to two-stage.
     two_stage = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -471,6 +580,9 @@ class CaseEvent(models.Model):
     def action_label(self) -> str:
         return EventAction.LABELS.get(self.action, self.action)
 
+    # The single definition of this property. An identical copy used to sit up
+    # among the field declarations, between ``side`` and ``two_stage``; Python
+    # binds the later one, so any edit made to that copy silently did nothing.
     @property
     def side_label(self) -> str:
         return Side.LABELS.get(self.side, "")
@@ -662,3 +774,62 @@ class SignatureSnapshot(models.Model):
 
     def __str__(self):
         return f"Signature snapshot · {self.form_id} · {self.signer_name}"
+
+
+class CaseSeen(models.Model):
+    """When a given person last OPENED a given case. Powers the inbox NEW marker.
+
+    "Seen" cannot be a flag on the case: two people can be looking at the same
+    inbox row and must be allowed to disagree about whether they have seen it.
+    So it is one row per (case, person), and it lives on the SERVER — not in a
+    cookie or in localStorage — because the owner's rule is that pressing Back
+    must not bring the marker back, and only the server can still know that on
+    the next request, from any browser or any machine.
+
+    A row is written when the person opens the case DETAIL page, and by nothing
+    else. Writing it must never touch the ``Case`` row (no ``updated_at`` bump)
+    and never write a ``CaseEvent``: opening a case is not a workflow action and
+    must not appear on the audit timeline, change any status, or move the file.
+
+    HOW A CASE BECOMES "NEW" AGAIN
+    ------------------------------
+    The row is never deleted when the case leaves the inbox and never re-created
+    when it comes back. Instead ``seen_at`` is compared against
+    ``Case.updated_at``: the row reads as NEW while ``seen_at < case.updated_at``
+    (and, of course, when there is no row at all). Every handoff in
+    :mod:`cases.services` saves the case with ``updated_at`` in its
+    ``update_fields``, so a case that goes out to another unit and later returns
+    always has an ``updated_at`` newer than the stored ``seen_at`` and is marked
+    NEW again — which is exactly the arrival the owner wants flagged.
+
+    The price of picking that particular timestamp has to be stated plainly:
+    ``updated_at`` advances on ANY save of the case, not only on a change of
+    hands. A deadline edit, an assignee change or an approval toggle therefore
+    re-marks the case as new for everyone who can see it. That is a deliberate
+    trade — those are all things worth a second look — but it is broader than
+    "it changed hands", and anyone tightening it later should compare against a
+    narrower signal (e.g. the newest handoff ``CaseEvent``) rather than change
+    what this field means.
+    """
+
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="seen_marks")
+    # The seat that did the looking. On a multi-seat login this is the seat User
+    # whose inbox the row was in (``WorkContext.seat_user``), so opening a case
+    # from one seat does not silently mark it read for the person's other seat.
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="case_seen_marks",
+    )
+    # Set explicitly by cases.services.mark_case_seen rather than auto_now, so
+    # the value can only come from that one call site.
+    seen_at = models.DateTimeField()
+
+    class Meta:
+        # One row per person per case. This is also the race guard: two browser
+        # tabs opening the same case at the same instant both try to insert, the
+        # loser hits this constraint, and the upsert in mark_case_seen turns that
+        # back into an update instead of an error page.
+        unique_together = ("case", "user")
+
+    def __str__(self):
+        return f"case {self.case_id} seen by user {self.user_id}"

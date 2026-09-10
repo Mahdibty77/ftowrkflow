@@ -1,10 +1,39 @@
-"""Business rules and rule-based color target calculation.
+"""Business rules and rule-based colour target calculation.
 
-`apply_rules` keeps the previous behavior: it updates feature values when an
-offer rule applies and produces `target_values_map` for green/orange coloring.
+``apply_rules`` is the only entry point. text_processor calls it once per row,
+after feature_extractor has produced the variables and before the FTCO text is
+rendered. It returns ``(feature_vars, target_values_map)``: the variables —
+which an offer rule may have FILLED IN — and a ``{displayed value: colour}`` map
+that final_arrange_builder paints with. It never assigns a code.
 
-Orange comes from ``rules_<group>.json`` (via ``flag_incompatible``) and from
-``common_rulse.json`` global alerts. Offer green comes from ``offer_*.json``.
+Where each colour comes from, and which file owns it::
+
+    green   offer_<group>.json    a rule matched, so an empty feature was
+                                  auto-filled (a suggestion, not the user's word)
+    orange  rules_<group>.json    two values are incompatible — resolved by
+                                  item_builder.flag_incompatible
+    orange  common_rulse.json     a global alert list (allowed schedules, …)
+    red     rules_<group>.json    the SIZE spelling is unknown to the rules —
+                                  isolated by item_builder.refine_size_conflict
+
+Priority is enforced in one place, ``_mark``: red beats orange beats green, and
+red is never downgraded. That ordering is the rule that matters — a value that
+breaks a rule must stay flagged even when an offer would happily paint it green.
+
+The passes run in a fixed order and each one depends on the last:
+
+ 1. common alert   → orange on any value outside a global allow-list
+ 2. offer          → fill empty features and mark them green
+ 3. offer repair   → a green the offer just guessed can clash with a word the
+                     user typed THIS edit; it is re-derived or withdrawn, never
+                     flagged. A value the user typed is never touched here.
+ 4. authoritative  → re-check EVERYTHING against rules_<group>.json, flagging
+                     true incompatibles AND clearing stale oranges left by an
+                     earlier pass that had guessed the wrong group
+ 5. compound unit  → a ``a & b & c`` feature from asign_code.json displays as
+                     one string, so all its members take the single worst colour
+
+Only step 2/3 change any value; the rest decide display only.
 """
 
 import os
@@ -16,14 +45,20 @@ from .composite_features import compound_siblings, compound_group_members, compo
 from .regex_patterns import is_empty_variant
 
 
-def colored_display(value, target_value, current_value=None):
-    """
-    بر اساس target_values_map رنگ می‌دهد (مقادیر با حروف بزرگ نمایش داده می‌شوند)
-    """
-    color = "black"  # پیش‌فرض مشکی
-    if target_value is not None:
-        color = target_value  # استفاده مستقیم از رنگی که apply_rules ساخته
-    return f"<span style='color:{color}'>{str(value).upper()}</span>"
+# There was a second ``colored_display`` here. It was an unreachable duplicate of
+# final_feature_display.colored_display — nothing called it, and every live path
+# (final_arrange_builder, which builds Final_Text and Filled_Features) imports the
+# other one. It is deleted rather than left alone because the two had quietly
+# diverged in the one way that matters: this copy interpolated the value straight
+# into a <span> with no escaping, while the surviving copy neutralises the tag
+# opener precisely because that value can come from a customer's workbook and is
+# handed to innerHTML by the grid's JavaScript.
+#
+# Verified before removal: `<img src=x onerror=alert(1)>` came back out of this
+# copy intact, and out of the surviving one as `&lt;IMG ...`. It was also exported
+# from processor.__all__, so it was one import statement away from being used and
+# silently reopening the stored-XSS hole that was closed in the audit pass. A dead
+# unsafe twin of a live safe function is a trap, not dead weight.
 
 
 def _feature_map_from_vars(feature_vars, group=None, type_=None):

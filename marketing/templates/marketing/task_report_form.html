@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% load ft_extras static i18n %}
+{% comment %}
+  SUBMIT REPORT — step 1 of closing out one reminder from My Tasks.
+
+  NO CASE PICKER AT ALL, unlike report_form.html — the case (if any) is
+  whichever one THIS reminder already names, exactly the shape
+  cases/templates/cases/case_detail.html's own inline "write a report" panel
+  already uses for its own case-implied form (see
+  marketing/views.py::my_tasks_report's own docstring, which follows that
+  precedent point for point). form.case_id exists on marketing.forms.ReportForm
+  but is never rendered here — it is simply not read on submit; see that
+  view's own docstring for why a tampered hidden value could not attach the
+  report to a different case even if this page rendered it.
+
+  THE REMINDER'S OWN CONTEXT IS SHOWN IN WORDS INSTEAD, above the form, so
+  the writer can see exactly what they are closing before they confirm — its
+  company (if any), its case's document number (if this viewer's own case
+  access still covers it — the same show_case_no redaction every other case
+  mention in this app respects), when it was set, when it came due, and its
+  own note text.
+{% endcomment %}
+{% block title %}{% trans "Submit report" %} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% trans "Submit report" %}{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1>{% trans "Submit report" %}</h1>
+    <div class="sub">{% trans "Closing out one reminder — writing this saves the report and removes the reminder." %}</div>
+  </div>
+  <a href="{% url 'marketing:my_tasks' %}" class="btn btn-sm">
+    <i class="fa-solid fa-arrow-left"></i> {% trans "Back to My Tasks" %}
+  </a>
+</div>
+
+{# THE REMINDER BEING CLOSED, IN WORDS — reminder.case_id/reminder.client_id #}
+{# are plain column reads (no extra query), the same guard                  #}
+{# _my_tasks_reminders.html already uses for a bare, company-less reminder. #}
+{# show_case_no is not computed for this one-row screen (see                #}
+{# my_tasks_report's own docstring — it only ever needed the reminder's     #}
+{# client/case to render a form, not a redaction decision); the document    #}
+{# number is shown here as a matter of course because reaching THIS page    #}
+{# at all already required owning this very reminder, the strictest access  #}
+{# this app has for one.                                                    #}
+<div class="card" style="margin-bottom:1rem;">
+  <div class="card-head">
+    <h3><i class="fa-solid fa-bell" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "What you are closing" %}</h3>
+  </div>
+  <div class="row-flex" style="gap:.5rem;flex-wrap:wrap;margin-bottom:.6rem;">
+    <span class="chip mono"><i class="fa-regular fa-clock"></i> {% trans "Due" %} {{ reminder.due_at|jalali:"Y.m.d H:i" }}</span>
+    {% if reminder.client_id %}
+    <a class="chip" href="{% url 'marketing:company_detail' reminder.client_id %}">
+      <i class="fa-solid fa-building"></i><span dir="auto">{{ reminder.client.name }}</span>
+    </a>
+    {% endif %}
+    {% if reminder.case_id %}
+    <span class="chip"><i class="fa-solid fa-folder-open"></i><span class="mono">{{ reminder.case.doc_no }}</span></span>
+    {% endif %}
+  </div>
+  {% if reminder.note %}
+  <div class="dir-reminder-text" dir="auto" style="white-space:pre-line;">{{ reminder.note }}</div>
+  {% endif %}
+</div>
+
+<form method="post" class="card form-narrow" autocomplete="off">
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+  <div class="flash flash-error">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <span>{% for e in form.non_field_errors %}{{ e }}{% endfor %}</span>
+  </div>
+  {% endif %}
+
+  <div class="field">
+    <label><i class="fa-solid fa-list-check"></i> {{ form.options.label }}</label>
+    {{ form.options }}
+    {% if form.options.errors %}<ul class="errorlist">{% for e in form.options.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    {% if not form.options_available %}
+    <div class="help">
+      {% if can_manage_options %}{% trans "No report options exist yet — add the first one in the field below." %}
+      {% else %}{% trans "No report options exist yet. A Marketing Supervisor or the platform admin can add them; until then, write the report below." %}{% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  {% if can_manage_options %}
+  <div class="field">
+    <label for="{{ form.new_option.id_for_label }}"><i class="fa-solid fa-plus"></i> {{ form.new_option.label }}</label>
+    {{ form.new_option }}
+    {% if form.new_option.errors %}<ul class="errorlist">{% for e in form.new_option.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    <div class="help">{% trans "Adds the option to the shared list for everyone in Marketing, and ticks it on this report. Leave it blank if the options above are enough." %}</div>
+  </div>
+  {% endif %}
+
+  <div class="field">
+    <label for="{{ form.text.id_for_label }}"><i class="fa-solid fa-file-lines"></i> {{ form.text.label }}</label>
+    {{ form.text }}
+    {% if form.text.errors %}<ul class="errorlist">{% for e in form.text.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    <div class="help">{% trans "Tick at least one option above, write the report here, or do both." %}</div>
+  </div>
+
+  <div class="btn-row">
+    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> {% trans "Submit report" %}</button>
+    <a href="{% url 'marketing:my_tasks' %}" class="btn btn-ghost">{% trans "Cancel" %}</a>
+  </div>
+</form>
+{% endblock %}

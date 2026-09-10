@@ -1,35 +1,105 @@
 {% load ft_extras %}
 {% with form_cur=form_obj|pi_form_currency %}
 <div class="row-flex" style="margin-bottom:.6rem;flex-wrap:wrap;gap:.35rem;">
+  {# RTL note (this round): every badge below is a fixed "Label: value" pair    #}
+  {# whose text is always English/Latin (a technical form field name — "Offer  #}
+  {# type", "Currency", "Document kind" and the like, from form_obj.meta — and #}
+  {# a code/enum value beside it), never Persian, regardless of which language #}
+  {# the viewer has chosen — the same "content is always Latin" situation the  #}
+  {# foundation RTL pass already handles for a document number via .docno/     #}
+  {# .mono (see static/css/app.css's own [dir="rtl"] section). A plain badge   #}
+  {# with no dir of its own inherits <html dir="rtl"> when Persian is active,  #}
+  {# and — because "Label: " and the value live as two SEPARATE inline runs    #}
+  {# rather than one bidi-isolated unit — the browser's own bidi algorithm     #}
+  {# then reorders which run comes first on screen, printing "value :Label"    #}
+  {# instead of "Label: value" even though each run individually still reads   #}
+  {# left-to-right. dir="ltr" on each badge (this file's own established      #}
+  {# fix for exactly this class of problem — see this file's dir="auto" terms  #}
+  {# sheet further down) pins the WHOLE badge, label and value together, to    #}
+  {# one certain reading order under either page direction. #}
   {% if form_obj.two_stage %}
-    <span class="badge" style="background:#e8f5ec;color:#0f5132;border:1px solid #1a7f37;font-weight:600;"><i class="fa-solid fa-layer-group"></i> Offer type: TO &amp; PI (Two Stage)</span>
+    <span class="badge" dir="ltr" style="background:#e8f5ec;color:#0f5132;border:1px solid #1a7f37;font-weight:600;"><i class="fa-solid fa-layer-group"></i> Offer type: TO &amp; PI (Two Stage)</span>
   {% else %}
     {% with offer_meta=form_obj.meta|dictget:"Offer type" %}
-      {% if offer_meta %}<span class="badge" style="background:var(--surface-2);color:var(--ink-soft);border:1px solid var(--hairline);">Offer type: <span class="mono">{{ offer_meta }}</span></span>{% endif %}
+      {% if offer_meta %}<span class="badge" dir="ltr" style="background:var(--surface-2);color:var(--ink-soft);border:1px solid var(--hairline);">Offer type: <span class="mono">{{ offer_meta }}</span></span>{% endif %}
     {% endwith %}
   {% endif %}
   {% with m=form_obj.meta %}
     {% if m|dictget:'update_price_requested' and not m|dictget:'update_price' %}
-      <span class="badge nv-flag-badge nv-flag-update"><i class="fa-solid fa-tags"></i> Update Price</span>
+      <span class="badge nv-flag-badge nv-flag-update" dir="ltr"><i class="fa-solid fa-tags"></i> Update Price</span>
     {% endif %}
     {% if m|dictget:'unit_convert_requested' and not m|dictget:'currency_conversion_only' %}
-      <span class="badge nv-flag-badge nv-flag-unit"><i class="fa-solid fa-right-left"></i> Unit Convert</span>
+      <span class="badge nv-flag-badge nv-flag-unit" dir="ltr"><i class="fa-solid fa-right-left"></i> Unit Convert</span>
     {% endif %}
   {% endwith %}
   {% if form_obj.meta %}
     {% for k, v in form_obj.meta.items %}
       {% if v and k != 'Offer type' and k != 'currency' and k != 'currency_converted' and k != 'currency_label' and k != 'calc' and k != 'currency_rate' and k != 'currency_from' and k != 'currency_conversion_only' and k != 'update_price' and k != 'update_price_requested' and k != 'unit_convert_requested' %}
         {% if v|stringformat:"s"|slice:":1" != "{" and v|stringformat:"s"|slice:":1" != "[" %}
-          <span class="badge" style="background:var(--surface-2);color:var(--ink-soft);border:1px solid var(--hairline);">{{ k }}: <span class="mono">{{ v }}</span></span>
+          <span class="badge" dir="ltr" style="background:var(--surface-2);color:var(--ink-soft);border:1px solid var(--hairline);">{{ k }}: <span class="mono">{{ v }}</span></span>
         {% endif %}
       {% endif %}
     {% endfor %}
   {% endif %}
   {% if form_obj.kind == 'PI' %}
     {% with rate_note=form_obj|pi_form_rate_note %}
-    <span class="badge" style="background:#eef4ff;color:#0b42a8;border:1px solid #b6c8e6;">Currency: <span class="mono">{{ form_cur|currency_unit_label }}</span>{% if rate_note %} &middot; Rate: <span class="mono">{{ rate_note }}</span>{% endif %}</span>
+    <span class="badge" dir="ltr" style="background:#eef4ff;color:#0b42a8;border:1px solid #b6c8e6;">Currency: <span class="mono">{{ form_cur|currency_unit_label }}</span>{% if rate_note %} &middot; Rate: <span class="mono">{{ rate_note }}</span>{% endif %}</span>
     {% endwith %}
   {% endif %}
+  {# The termsheet control: the Terms & Conditions sheet this VERSION was last  #}
+  {# exported with. It appears only once a sheet has actually been saved — i.e. #}
+  {# once a PDF or Print view has been taken of this snapshot — and only for a  #}
+  {# seat that could have taken that export itself. That gate is the template   #}
+  {# reading of cases.views._can_export for 'pdf': admin/GM anything, Commer-   #}
+  {# cial anything, Technical the TO only, Supply never (Supply is limited to   #}
+  {# the Excel exports, which is where employer identity is hidden from it), so #}
+  {# the control cannot show anything its reader could not already export.      #}
+  {% if form_obj.has_export_terms %}{% if is_admin_view or is_comm or is_tech and form_obj.kind == 'TO' %}
+  <span class="spacer"></span>
+  <button type="button" class="btn btn-sm" aria-expanded="false"
+          data-termsheet-toggle="termsheet-{{ form_obj.pk }}"
+          title="Terms &amp; Conditions last exported for this version">
+    <i class="fa-solid fa-file-lines"></i> Termsheet
+  </button>
+  {# Full-width flex item, so it wraps onto its own line under the strip and    #}
+  {# still sits above the table without needing a second wrapper element.       #}
+  <div class="ts-sheet" id="termsheet-{{ form_obj.pk }}" hidden
+       style="flex:0 0 100%;border:1px solid var(--hairline);border-radius:10px;background:var(--surface-2);padding:.7rem .85rem;margin-top:.35rem;">
+    {% with ts=form_obj.export_terms %}
+    <div class="muted" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.5rem;">
+      Terms &amp; Conditions last exported for Version {{ form_obj.version|stringformat:"02d" }}{% if form_obj.two_stage %} &middot; Two&nbsp;Stage{% endif %}
+    </div>
+    {% if ts.intro_en %}<p style="margin:0 0 .3rem;font-size:.82rem;" dir="auto">{{ ts.intro_en }}</p>{% endif %}
+    {% if ts.intro_fa %}<p style="margin:0 0 .6rem;font-size:.82rem;" dir="rtl">{{ ts.intro_fa }}</p>{% endif %}
+    {% for cat in ts.categories %}
+    <div style="margin-bottom:.55rem;">
+      <div style="font-size:.78rem;font-weight:700;color:var(--ink-soft);">
+        <span dir="auto">{{ cat.title_en }}</span>{% if cat.title_fa %} <span dir="rtl" style="font-weight:600;opacity:.8;">{{ cat.title_fa }}</span>{% endif %}
+      </div>
+      {% if cat.items_en %}<ul style="margin:.15rem 0 .2rem 1.1rem;padding:0;font-size:.8rem;">{% for it in cat.items_en %}<li dir="auto">{{ it }}</li>{% endfor %}</ul>{% endif %}
+      {% if cat.items_fa %}<ul dir="rtl" style="margin:.15rem 1.1rem .2rem 0;padding:0;font-size:.8rem;">{% for it in cat.items_fa %}<li>{{ it }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    {% endfor %}
+    {% endwith %}
+  </div>
+  <script>
+  /* One delegated handler for every version on the page — this partial is
+     included once per version, so the guard keeps it to a single listener. */
+  (function () {
+    if (window.__ftTermsheetInit) return;
+    window.__ftTermsheetInit = true;
+    document.addEventListener("click", function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest("[data-termsheet-toggle]") : null;
+      if (!btn) return;
+      var panel = document.getElementById(btn.getAttribute("data-termsheet-toggle"));
+      if (!panel) return;
+      var opening = panel.hasAttribute("hidden");
+      if (opening) panel.removeAttribute("hidden"); else panel.setAttribute("hidden", "");
+      btn.setAttribute("aria-expanded", opening ? "true" : "false");
+    });
+  })();
+  </script>
+  {% endif %}{% endif %}
 </div>
 
 {% if form_obj.kind == 'TO' %}
@@ -38,8 +108,11 @@
   <div class="tp-reasons-card">
     <h4><i class="fa-solid fa-screwdriver-wrench"></i> Technical problems</h4>
     <ul class="tp-reasons-list">
+      {# The reason is written by the technical expert, so it needs its own base #}
+      {# direction — see the note at the end of static/css/app.css. The "#12"    #}
+      {# beside it is a row number and stays left-to-right.                      #}
       {% for it in issues %}
-      <li><span class="tp-item">#{{ it.client_no }}</span><span class="tp-text">{{ it.reason }}</span></li>
+      <li><span class="tp-item">#{{ it.client_no }}</span><span class="tp-text" dir="auto">{{ it.reason }}</span></li>
       {% endfor %}
     </ul>
   </div>

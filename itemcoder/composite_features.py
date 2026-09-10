@@ -15,6 +15,14 @@ module lets the engine treat a ``&`` group as a single unit for COLORING only:
 when one member is colored (offer green / alert orange), its siblings get the
 same color so the whole unit reads consistently.  It never changes matching or
 code-assignment logic.
+
+Read-only and cache-backed; the caches are dropped by
+``constants.clear_data_caches()`` along with the other reference data. Callers:
+rule_engine (sibling colouring), item_builder and engineering_assistant (offering
+a whole unit rather than one part of it), bridge (case display).
+
+Do not confuse this with composite_keys.py — that one handles ``||`` ALIASES for
+one key, this one handles ``&`` COMPOUNDS of several features.
 """
 from __future__ import annotations
 
