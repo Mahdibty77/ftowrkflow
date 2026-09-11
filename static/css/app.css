@@ -550,15 +550,24 @@ html[data-theme="dark"] .shift-ot-link:hover{
    touching layout, and that costs nothing while the page is otherwise
    idle.
 
-   MOSTLY-IDLE KEYFRAMES are what make "periodic" free between pulses.
-   Both keyframes below hold one flat value from 0% to 92% of a 6-SECOND
-   cycle — a static value across 92% of a timeline animates nothing, so it
-   costs the same as no animation at all for the 5.52s it lasts — and only
-   move in the last 8% (0.48s), landing inside the "0.4-0.6s" brief this
-   was asked for; the 6s cycle itself sits inside the "every 5-8 seconds"
-   interval also asked for. animation-iteration-count:infinite repeats
-   that whole 6s cycle forever, which is what turns one static CSS rule
-   into "every several seconds" with no timer anywhere in this file's own
+   THE EXACT TIMING THE OWNER ASKED FOR, THIS ROUND — a 3-SECOND cycle
+   (was 6s), spelled out precisely: the bell shakes AND its backing disc
+   is visible (reading as "filled") for roughly the first second of every
+   cycle, then the disc disappears (reading as plain outline again) for
+   the remaining ~2 seconds before the next shake — "هر ۳ ثانیه تکون
+   بخورد ... توپر شود، بعد ۲ ثانیه بدون بک‌گراند" in the owner's own
+   words. A PREVIOUS attempt at this same effect used a 6s cycle animating
+   only in its last 8% (under half a second) — too rare and too brief to
+   read as "constantly shaking" the way the owner meant it; this version
+   is deliberately much more present (shake+fill occupies a full third of
+   every cycle, not a flash at the very end of a long quiet stretch).
+
+   STILL MOSTLY-IDLE, JUST LESS OF THE CYCLE THIS TIME — the flat 67%
+   (33% to 100%, exactly the 2 idle seconds asked for) still animates
+   nothing and costs nothing while it holds; only the first third of each
+   3s cycle is genuinely moving. animation-iteration-count:infinite
+   repeats that whole cycle forever, which is what turns one static CSS
+   rule into "every 3 seconds" with no timer anywhere in this file's own
    <script> or any other.
 
    ALTERNATING FILLED/OUTLINE, WITHOUT A FILLED GLYPH TO SWITCH TO. Read
@@ -566,33 +575,35 @@ html[data-theme="dark"] .shift-ot-link:hover{
    bell, a stroked outline painted solid-via-mask, with no separate
    filled-body variant to toggle onto — so the "filled" half of the
    alternation is manufactured with a solid disc BEHIND the glyph (the
-   ::before below) that fades in and out twice during the shake window:
-   disc visible reads as a filled bell, disc gone reads as the plain
-   outline glyph underneath it. This is the "filled circle badge behind it
-   appearing/disappearing" fallback, for exactly the reason it was offered
-   as one — there is no real fa-bell/fa-bell-regular pair in this offline
-   set to swap between. */
+   ::before below): disc visible reads as a filled bell, disc gone reads
+   as the plain outline glyph underneath it. This is the "filled circle
+   badge behind it appearing/disappearing" fallback, for exactly the
+   reason it was offered as one — there is no real fa-bell/fa-bell-regular
+   pair in this offline set to swap between. */
 .reminder-bell-btn.is-due .fa-bell{
   position:relative;transform-origin:50% 0%;
-  animation:reminder-bell-shake 6s ease-in-out infinite;
+  animation:reminder-bell-shake 3s ease-in-out infinite;
 }
 .reminder-bell-btn.is-due .fa-bell::before{
   content:"";position:absolute;inset:-4px;border-radius:50%;
   background:var(--warn);z-index:-1;opacity:0;
-  animation:reminder-bell-fill-pulse 6s ease-in-out infinite;
+  animation:reminder-bell-fill-pulse 3s ease-in-out infinite;
 }
 @keyframes reminder-bell-shake{
-  0%,92%,100%{transform:rotate(0deg)}
-  93%{transform:rotate(-15deg)}
-  94.5%{transform:rotate(12deg)}
-  96%{transform:rotate(-9deg)}
-  97.5%{transform:rotate(6deg)}
-  99%{transform:rotate(-3deg)}
+  0%,24%,100%{transform:rotate(0deg)}
+  4%{transform:rotate(-15deg)}
+  8%{transform:rotate(12deg)}
+  12%{transform:rotate(-9deg)}
+  16%{transform:rotate(6deg)}
+  20%{transform:rotate(-3deg)}
 }
 @keyframes reminder-bell-fill-pulse{
-  0%,92%,100%{opacity:0}
-  93%,96%{opacity:.85}
-  94.5%,98%{opacity:0}
+  /* Fades in fast as the shake starts (2%), holds solid through the whole
+     shake (to 24%), then fades out (by 33%) and stays gone for the
+     remaining two-thirds of the cycle — exactly the "shake+filled, then
+     2 seconds with no background" the owner described. */
+  0%,33%,100%{opacity:0}
+  2%,24%{opacity:.85}
 }
 /* Respect the OS-level "less motion" preference exactly like the shift
    timer's own pulse a few hundred lines above this file already does for
