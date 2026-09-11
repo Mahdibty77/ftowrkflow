@@ -3025,12 +3025,23 @@ def my_tasks_day_reminders(request):
     THIS PLATFORM ALREADY GOES THROUGH, ``marketing/forms.py::
     _clean_jalali_datetime`` — never a second, hand-rolled Jalali parse for
     this one query parameter. A malformed or blank value degrades to an
-    empty result (``{"ok": True, "reminders": []}``) rather than a 400: the
-    caller is a background fetch fired on every ``change`` of a field the
-    person may still be mid-edit on (a half-typed date, or one the picker
-    has not yet committed), and the honest answer to "nothing readable was
-    submitted yet" is "nothing to show", not an error the small panel would
-    have to render as one.
+    empty result (``{"ok": True, "day_key": "", "hour_groups": []}``) rather
+    than a 400: the caller is a background fetch fired on every ``change``
+    of a field the person may still be mid-edit on (a half-typed date, or
+    one the picker has not yet committed), and the honest answer to
+    "nothing readable was submitted yet" is "nothing to show", not an error
+    the small panel would have to render as one.
+
+    HOUR-GROUPED, THE SAME SHAPE TODAY/TOMORROW ALREADY USE — the owner's
+    own later follow-up: this preview's list used to be one flat,
+    time-sorted array; it now returns ``hour_groups`` (one entry per hour
+    of this viewer's own shift window, each carrying ``label``,
+    ``has_reminder`` and ``rows``) built through the SAME
+    ``_task_hour_blocks``/``_task_hour_groups_for_day`` helpers the
+    Reminders tab's own day stacks already use, over rows from
+    ``_task_rows`` (which is what stamps ``day_key``/``hour_key``/
+    ``show_case_no`` in the first place) — one grouping/redaction
+    implementation, not two.
     """
     from django.core.exceptions import ValidationError
     from django.utils import timezone
@@ -3051,36 +3062,48 @@ def my_tasks_day_reminders(request):
     except ValidationError:
         due_at = None
     if due_at is None:
-        return JsonResponse({"ok": True, "day_key": "", "reminders": []})
+        return JsonResponse({"ok": True, "day_key": "", "hour_groups": []})
 
     day_key = timezone.localtime(due_at).date().isoformat()
-    day_rows = [
-        r for r in reminders.list_for_user(request.user, scope="own")
-        if r.state == ReminderState.OPEN
-        and timezone.localtime(r.due_at).date().isoformat() == day_key
-    ]
-    day_rows.sort(key=lambda r: r.due_at)
 
-    # See this view's own docstring's "THE CASE DOCUMENT NUMBER IS REDACTED"
-    # section — one batched visibility check for every case among today's
-    # rows, the identical shape ``_task_rows`` already uses (over the SAME
-    # ``_my_tasks_case_access``, not a fresh ``case_access_for`` — see that
-    # helper's own docstring for why this page can never reuse the plain
-    # one), rather than a query per row.
+    # HOUR-GROUPED, NOW — the owner's own follow-up: this preview used to be
+    # one flat, time-sorted list; it now reuses the EXACT SAME per-hour
+    # bucketing the Reminders tab's own always-visible boxes already use for
+    # Today/Tomorrow/any day pill (``_task_hour_blocks``/
+    # ``_task_hour_groups_for_day`` — see both their own docstrings), rather
+    # than a second, hand-rolled grouping for this one endpoint. ``_task_rows``
+    # is what stamps the ``day_key``/``hour_key``/``show_case_no`` fields that
+    # grouping function reads, over THIS page's own ``case_access``
+    # (``_my_tasks_case_access``) exactly as every other read on this page
+    # already does — see this view's own docstring's "THE CASE DOCUMENT
+    # NUMBER IS REDACTED" section, still true, just computed by the shared
+    # helper now instead of a second redaction pass written out by hand here.
     case_access = _my_tasks_case_access(request)
-    case_ids = [r.case_id for r in day_rows if r.case_id]
-    visible_case_ids = services._visible_case_ids(case_ids, case_access) if case_ids else set()
+    day_rows = [
+        r for r in _task_rows(request, case_access, scope="own")
+        if r.state == ReminderState.OPEN and r.day_key == day_key
+    ]
+    hour_blocks = _task_hour_blocks(request.user)
+    hour_groups = _task_hour_groups_for_day(day_rows, hour_blocks, day_key)
 
-    out = []
-    for r in day_rows:
-        show_case = r.case_id is not None and r.case_id in visible_case_ids
-        out.append({
-            "time": timezone.localtime(r.due_at).strftime("%H:%M"),
-            "note": r.note or "",
-            "company": r.client.name if r.client_id else "",
-            "case_doc_no": r.case.doc_no if show_case else "",
-        })
-    return JsonResponse({"ok": True, "day_key": day_key, "reminders": out})
+    out_groups = [
+        {
+            "key": g["key"],
+            "label": g["label"],
+            "has_reminder": g["has_reminder"],
+            "rows": [
+                {
+                    "time": timezone.localtime(r.due_at).strftime("%H:%M"),
+                    "note": r.note or "",
+                    "company": r.client.name if r.client_id else "",
+                    "case_doc_no": r.case.doc_no if r.show_case_no else "",
+                }
+                for r in g["rows"]
+            ],
+        }
+        for g in hour_groups
+    ]
+    return JsonResponse({"ok": True, "day_key": day_key, "hour_groups": out_groups})
 
 
 @login_required

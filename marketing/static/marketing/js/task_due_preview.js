@@ -22,13 +22,21 @@
    token dance is needed the way marketing/static/marketing/js/
    chart_interact.js's own POST helper carries one.
 
-   RENDERS A COMPACT LIST, NOT A TABLE — the owner's own wording, "just
-   enough to see what's already there": time, company (if any), case
-   document number (if any, and only if this viewer's own access still
-   covers it — see marketing/views.py::my_tasks_day_reminders's own
-   docstring on why that redaction happens server-side, not here), and the
-   note. Built with plain DOM calls (textContent, never innerHTML) so a
-   reminder note containing "<"/"&" can never be read back as markup.
+   RENDERS THE SAME HOUR-BOX SHAPE AS TODAY/TOMORROW — the owner's own later
+   follow-up ask: this used to be one flat, time-sorted list; it now builds
+   the identical `.hour-box`/`.hour-box-head`/`.hour-box-dot`/
+   `.hour-box-rows` markup the Reminders tab's own day stacks already
+   render server-side (marketing/templates/marketing/_my_tasks_reminders.
+   html), one box per hour of this viewer's own shift window, from
+   `data.hour_groups` (marketing/views.py::my_tasks_day_reminders now hands
+   back hour-grouped rows through the SAME `_task_hour_blocks`/
+   `_task_hour_groups_for_day` helpers that page's own view uses, rather
+   than a second hand-rolled grouping). Each row still shows only time,
+   company (if any), case document number (if any, and only if this
+   viewer's own access still covers it — see that view's own docstring on
+   why that redaction happens server-side, not here), and the note. Built
+   with plain DOM calls (textContent, never innerHTML) so a reminder note
+   containing "<"/"&" can never be read back as markup.
 
    Self-guarding, like marketing/js/my_tasks.js and marketing/js/
    directory.js: if the due-at field or its panel is not on the page (a
@@ -124,15 +132,47 @@
     headEl.appendChild(document.createTextNode(" " + text));
   }
 
-  function render(rows) {
+  // ONE `.hour-box` PER HOUR BLOCK — the exact same three-part shape
+  // (`.hour-box-head` with its optional `.hour-box-dot`, then
+  // `.hour-box-rows` only when the hour actually holds something) that
+  // _my_tasks_reminders.html renders server-side for Today/Tomorrow/any
+  // named day; see that template's own comment on this same class trio.
+  function renderHourBox(g) {
+    var box = document.createElement("div");
+    box.className = "hour-box" + (g.has_reminder ? "" : " hour-box-empty");
+
+    var head = document.createElement("div");
+    head.className = "hour-box-head";
+    if (g.has_reminder) {
+      var dot = document.createElement("span");
+      dot.className = "hour-box-dot";
+      dot.setAttribute("aria-hidden", "true");
+      head.appendChild(dot);
+    }
+    var labelEl = document.createElement("span");
+    labelEl.textContent = g.label || "";
+    head.appendChild(labelEl);
+    box.appendChild(head);
+
+    if (g.has_reminder) {
+      var rowsWrap = document.createElement("div");
+      rowsWrap.className = "hour-box-rows";
+      (g.rows || []).forEach(function (r) { rowsWrap.appendChild(renderRow(r)); });
+      box.appendChild(rowsWrap);
+    }
+    return box;
+  }
+
+  function render(hourGroups) {
     listEl.innerHTML = "";
-    if (!rows || !rows.length) {
+    var anyReminder = (hourGroups || []).some(function (g) { return g.has_reminder; });
+    if (!hourGroups || !hourGroups.length || !anyReminder) {
       setHeadText(emptyText);
       panel.hidden = false;
       return;
     }
     setHeadText(headingText);
-    rows.forEach(function (r) { listEl.appendChild(renderRow(r)); });
+    hourGroups.forEach(function (g) { listEl.appendChild(renderHourBox(g)); });
     panel.hidden = false;
   }
 
@@ -145,7 +185,7 @@
       .then(function (data) {
         if (myToken !== token) return; // a newer pick has already superseded this
         if (!data || !data.ok) { clearPanel(); return; }
-        render(data.reminders || []);
+        render(data.hour_groups || []);
       })
       .catch(function () {
         if (myToken === token) clearPanel();
