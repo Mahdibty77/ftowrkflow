@@ -285,28 +285,48 @@
         </td>
         <td>
           {% comment %}
-            THE THREE-POINT TIMELINE, NOW A REAL COLUMN OF THIS SAME ROW —
-            see this file's own head comment's "THE CLOSED-REMINDER
+            THE THREE-POINT TIMELINE — GENUINELY HORIZONTAL, THIS ROUND.
+            See this file's own head comment's "THE CLOSED-REMINDER
             TIMELINE" section for the full history of where this used to
-            live (a shared cell, then a full-width strip under the row).
-            Set and Due come from the CLOSED reminder's own frozen columns;
-            Reported is this SAME row's own created_at (its own former
-            "Date" column, now the hidden one at the very end of this row)
-            so all three points still line up without sending the reader
-            anywhere else on the page. `.kv` is this app's existing compact
-            label/value grid (see this stylesheet's own `.kv` rule) —
-            reused as-is, not a new class of this table's own, just at a
-            smaller font size than its ordinary use elsewhere so three
-            short lines fit a normal cell width instead of the old strip's
-            own full-row height. "—" for a plain report, exactly like the
-            Reminder note column beside it.
+            live (a shared cell, then a full-width strip under the row,
+            then a vertical `.kv` label/value list inside this same cell —
+            three stacked lines, "Set: ...", "Due: ...", "Reported: ...",
+            which the owner pointed out was STILL dates written one under
+            another, not the horizontal, arrow-connected timeline actually
+            asked for). Set and Due come from the CLOSED reminder's own
+            frozen columns; Reported is this SAME row's own created_at (its
+            own former "Date" column, now the hidden one at the very end of
+            this row) so all three points still line up without sending the
+            reader anywhere else on the page.
+
+            `.report-timeline` (new, this file/app.css's own — not `.kv`,
+            which is a two-column label/value GRID and cannot lay three
+            whole label+value pairs out in a single row) is a plain flex
+            row: point, arrow, point, arrow, point. Forced `direction:ltr`
+            regardless of the page's own language/direction — the same
+            treatment this app already gives `.mono`/doc-code/date content
+            elsewhere (see static/css/app.css's own `[dir="rtl"]` section)
+            — a chronological Set→Due→Reported sequence reads as one fixed
+            left-to-right flow either way, so the arrows always point INTO
+            the next point instead of needing a mirrored icon under RTL.
           {% endcomment %}
           {% if r.has_timeline %}
-          <dl class="kv" style="font-size:.7rem;gap:.15rem .5rem;margin:0;">
-            <dt>{% trans "Set" %}</dt><dd class="mono">{{ r.reminder_set_at|jalali:"Y.m.d H:i" }}</dd>
-            <dt>{% trans "Due" %}</dt><dd class="mono">{{ r.reminder_due_at|jalali:"Y.m.d H:i" }}</dd>
-            <dt>{% trans "Reported" %}</dt><dd class="mono">{{ r.created_at|jalali:"Y.m.d H:i" }}</dd>
-          </dl>
+          <div class="report-timeline">
+            <div class="report-timeline-point">
+              <span class="report-timeline-label">{% trans "Set" %}</span>
+              <span class="mono">{{ r.reminder_set_at|jalali:"Y.m.d H:i" }}</span>
+            </div>
+            <i class="fa-solid fa-arrow-right-long report-timeline-arrow" aria-hidden="true"></i>
+            <div class="report-timeline-point">
+              <span class="report-timeline-label">{% trans "Due" %}</span>
+              <span class="mono">{{ r.reminder_due_at|jalali:"Y.m.d H:i" }}</span>
+            </div>
+            <i class="fa-solid fa-arrow-right-long report-timeline-arrow" aria-hidden="true"></i>
+            <div class="report-timeline-point">
+              <span class="report-timeline-label">{% trans "Reported" %}</span>
+              <span class="mono">{{ r.created_at|jalali:"Y.m.d H:i" }}</span>
+            </div>
+          </div>
           {% else %}<span class="muted">—</span>{% endif %}
         </td>
         <td hidden class="mono muted">{{ r.created_at|jalali:"Y.m.d H:i" }}</td>

@@ -497,9 +497,13 @@ html[data-theme="dark"] .shift-ot-link:hover{
    whole widget vanishing (see .reminder-bell-btn / .reminder-bell-btn.is-
    due below); (2) a small always-visible "cloud" beside the button,
    .reminder-bell-bubble, carries the most urgent due reminder's summary
-   without needing a click; (3) once .is-due applies, the bell icon itself
-   periodically shakes — see .reminder-bell-shake below for the timing and
-   for why it fakes a filled/outline toggle rather than switching glyphs. */
+   without needing a click, and (as of a later follow-up) carries its own
+   slow attention-drawing glow — see that class's own comment further
+   down for why that job moved onto it; (3) once .is-due applies, the
+   bell icon's own backing disc fills in on hover — see
+   .reminder-bell-btn.is-due .fa-bell's own comment for why this is a
+   plain hover transition now rather than the automatic periodic shake an
+   earlier follow-up gave it. */
 
 /* The trigger: a small rounded button, not a bare icon floating in the
    topbar. NEUTRAL BY DEFAULT now (AUDIT #134 follow-up) — a person with
@@ -539,82 +543,25 @@ html[data-theme="dark"] .shift-ot-link:hover{
   color:var(--warn);
 }
 .reminder-bell-btn.is-due:hover{background:color-mix(in srgb,var(--warn) 14%,var(--warnbg));border-color:var(--warn)}
-/* THE SHAKE — a periodic "look at me" pulse on the ICON alone (the button's
-   own tint above is already the "urgent" signal; this is the "new since you
-   last looked" signal on top of it), only while .is-due. CSS @keyframes
-   only, deliberately, per the "must not make the site slow or heavy"
-   constraint that already shapes this whole widget end to end (see
-   marketing/context_processors.py's own module docstring) — no JS
-   interval, no requestAnimationFrame loop, just a browser-composited
-   transform/opacity animation the compositor handles without ever
-   touching layout, and that costs nothing while the page is otherwise
-   idle.
-
-   THE EXACT TIMING THE OWNER ASKED FOR, THIS ROUND — a 3-SECOND cycle
-   (was 6s), spelled out precisely: the bell shakes AND its backing disc
-   is visible (reading as "filled") for roughly the first second of every
-   cycle, then the disc disappears (reading as plain outline again) for
-   the remaining ~2 seconds before the next shake — "هر ۳ ثانیه تکون
-   بخورد ... توپر شود، بعد ۲ ثانیه بدون بک‌گراند" in the owner's own
-   words. A PREVIOUS attempt at this same effect used a 6s cycle animating
-   only in its last 8% (under half a second) — too rare and too brief to
-   read as "constantly shaking" the way the owner meant it; this version
-   is deliberately much more present (shake+fill occupies a full third of
-   every cycle, not a flash at the very end of a long quiet stretch).
-
-   STILL MOSTLY-IDLE, JUST LESS OF THE CYCLE THIS TIME — the flat 67%
-   (33% to 100%, exactly the 2 idle seconds asked for) still animates
-   nothing and costs nothing while it holds; only the first third of each
-   3s cycle is genuinely moving. animation-iteration-count:infinite
-   repeats that whole cycle forever, which is what turns one static CSS
-   rule into "every 3 seconds" with no timer anywhere in this file's own
-   <script> or any other.
-
-   ALTERNATING FILLED/OUTLINE, WITHOUT A FILLED GLYPH TO SWITCH TO. Read
-   static/css/icons-offline.css before writing this: it draws exactly one
-   bell, a stroked outline painted solid-via-mask, with no separate
-   filled-body variant to toggle onto — so the "filled" half of the
-   alternation is manufactured with a solid disc BEHIND the glyph (the
-   ::before below): disc visible reads as a filled bell, disc gone reads
-   as the plain outline glyph underneath it. This is the "filled circle
-   badge behind it appearing/disappearing" fallback, for exactly the
-   reason it was offered as one — there is no real fa-bell/fa-bell-regular
-   pair in this offline set to swap between. */
-.reminder-bell-btn.is-due .fa-bell{
-  position:relative;transform-origin:50% 0%;
-  animation:reminder-bell-shake 3s ease-in-out infinite;
-}
+/* THE FILLED DISC — HOVER-ONLY NOW, NOT A PERIODIC SHAKE. Two earlier
+   rounds gave this icon an automatic, ever-repeating shake+fill pulse; the
+   owner then changed their mind entirely: no automatic motion at all —
+   "پشیمون شدم ... لازم نیست زنگوله بلرزد ... فقط وقتی موس روی آن رفت
+   زنگوله بک‌گراندش پر بشه". So there is no @keyframes animation left on
+   the bell icon at all any more — the backing disc (the same "no separate
+   filled glyph in this app's offline icon set" trick the shake used to
+   drive) now simply fades in on :hover and fades back out on mouse-leave,
+   a plain transition, exactly the same mechanism .reminder-bell-btn.is-
+   due's own background-colour hover above already uses. The "keep drawing
+   the eye back" job the shake used to do moved onto the bubble instead —
+   see .reminder-bell-bubble's own glow below. */
+.reminder-bell-btn.is-due .fa-bell{position:relative}
 .reminder-bell-btn.is-due .fa-bell::before{
   content:"";position:absolute;inset:-4px;border-radius:50%;
   background:var(--warn);z-index:-1;opacity:0;
-  animation:reminder-bell-fill-pulse 3s ease-in-out infinite;
+  transition:opacity .15s ease-in-out;
 }
-@keyframes reminder-bell-shake{
-  0%,24%,100%{transform:rotate(0deg)}
-  4%{transform:rotate(-15deg)}
-  8%{transform:rotate(12deg)}
-  12%{transform:rotate(-9deg)}
-  16%{transform:rotate(6deg)}
-  20%{transform:rotate(-3deg)}
-}
-@keyframes reminder-bell-fill-pulse{
-  /* Fades in fast as the shake starts (2%), holds solid through the whole
-     shake (to 24%), then fades out (by 33%) and stays gone for the
-     remaining two-thirds of the cycle — exactly the "shake+filled, then
-     2 seconds with no background" the owner described. */
-  0%,33%,100%{opacity:0}
-  2%,24%{opacity:.85}
-}
-/* Respect the OS-level "less motion" preference exactly like the shift
-   timer's own pulse a few hundred lines above this file already does for
-   an unrelated widget — same media query, same !important, same
-   reasoning: a viewer who has asked their OS for reduced motion gets the
-   coloured, still bell with no animation at all rather than this widget
-   being the one exception on the page. */
-@media (prefers-reduced-motion:reduce){
-  .reminder-bell-btn.is-due .fa-bell,
-  .reminder-bell-btn.is-due .fa-bell::before{animation:none !important}
-}
+.reminder-bell-btn.is-due:hover .fa-bell::before{opacity:.85}
 /* THE PERSISTENT "LATEST NOTIFICATION" BUBBLE — only while something is
    due (base.html wraps it in the same {% if reminder_notice %} the panel
    below already uses). Distinct from .reminder-bell-panel further down:
@@ -661,16 +608,46 @@ html[data-theme="dark"] .shift-ot-link:hover{
    automatically kept inside whatever room .topbar-end actually has and
    shrinks/wraps with it instead.
 
-   Ordered BEFORE the bell button in base.html, not after: this is a plain
-   flex row with no [dir=rtl] override anywhere in this file (see
-   .topbar-end's own comment above), so "first child" already lands on the
-   correct side of the bell in both languages for free — the same logical-
-   order reasoning every other piece of this widget already relies on. */
+   CLICKABLE AGAIN (a <button>, see base.html's own comment on this
+   element) — cursor:pointer restored, same click target as the bell.
+
+   THE GLOW — this round's answer to "make the text keep drawing the
+   user's attention back to it, don't let them miss that a reminder is
+   due"; the owner deliberately left HOW open ("هر ایده درست و بهینه و
+   سبکی که هست ... ایده و خلاقیت اینجا را به تو بسپارم"). The bell's own
+   automatic shake used to be that "keep noticing me" signal; the owner
+   then asked for the shake gone entirely (hover-only now, see
+   .reminder-bell-btn.is-due's own comment above) — so the job of staying
+   noticeable moved here, onto the one thing that actually carries the
+   reminder's own words. Built as a slow, continuous "breathing" glow
+   around the bubble's own edge (box-shadow only — no transform, nothing
+   that could nudge the arrow pseudo-element or its neighbours out of
+   place), matching the family of pulse this app already uses elsewhere
+   for exactly this "notice me, gently, forever" job (see
+   @keyframes shift-timer-pulse a few hundred lines above — same idea,
+   text-shadow there because that pulse rides on bare text; box-shadow
+   here because this is a filled panel, not bare text). A slower, calmer
+   cadence than that 1s countdown-timer pulse on purpose — 2.4s, closer to
+   a resting heartbeat than an alarm, since this keeps running the entire
+   time a reminder sits unread rather than only in a shift's final
+   minutes. Paint-only (box-shadow never triggers layout), so it costs
+   nothing this app's own "must not make the site heavy" rule would
+   object to, and — like every other looping animation in this file — is
+   turned off under prefers-reduced-motion a few lines down. */
 .reminder-bell-bubble{
   position:relative;isolation:isolate;display:flex;flex-direction:row;align-items:center;gap:.5rem;
   max-width:26rem;height:2.3rem;padding:0 .75rem;margin:0;overflow:hidden;
   border-radius:10px;background:color-mix(in srgb,var(--warn) 12%,var(--warnbg));border:1.5px solid var(--warn);
-  box-shadow:var(--shadow);color:inherit;font:inherit;text-align:start;
+  box-shadow:var(--shadow);color:inherit;font:inherit;text-align:start;cursor:pointer;
+  animation:reminder-bell-bubble-glow 2.4s ease-in-out infinite;
+}
+.reminder-bell-bubble:hover{border-color:color-mix(in srgb,var(--warn) 80%,var(--ink))}
+@keyframes reminder-bell-bubble-glow{
+  0%,100%{box-shadow:var(--shadow),0 0 0 0 color-mix(in srgb,var(--warn) 45%,transparent)}
+  50%{box-shadow:var(--shadow),0 0 11px 2px color-mix(in srgb,var(--warn) 50%,transparent)}
+}
+@media (prefers-reduced-motion:reduce){
+  .reminder-bell-bubble{animation:none}
 }
 .reminder-bell-bubble-time{
   flex:0 0 auto;font-size:.76rem;font-weight:800;
@@ -1180,6 +1157,28 @@ textarea{resize:vertical;min-height:70px}
 .spacer{flex:1}
 .empty{padding:2.5rem 1rem;text-align:center;color:var(--muted)}
 .kv{display:grid;grid-template-columns:max-content 1fr;gap:.4rem 1rem;font-size:.85rem}
+/* THE REPORTS-TAB CLOSED-REMINDER TIMELINE — see
+   marketing/templates/marketing/_my_tasks_reports.html's own comment on
+   this exact block for why it exists as its own class rather than reusing
+   `.kv` just above (a 2-column grid stacks pairs into rows; this needs
+   three whole pairs laid out in ONE row instead). Forced LTR — a
+   chronological sequence, same treatment as .mono/date content elsewhere
+   in this app — so the arrow icons always physically point toward the
+   next point regardless of the page's own language direction. */
+.report-timeline{
+  display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;
+  direction:ltr;unicode-bidi:isolate;font-size:.68rem;
+}
+.report-timeline-point{
+  display:flex;flex-direction:column;align-items:flex-start;gap:.05rem;
+}
+.report-timeline-label{
+  font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.03em;
+  color:var(--muted);
+}
+.report-timeline-arrow{
+  flex:0 0 auto;color:var(--muted);opacity:.55;font-size:.65rem;
+}
 .kv dt{color:var(--muted)}.kv dd{margin:0}
 .badge{font-size:.7rem;font-weight:650;padding:.15rem .5rem;border-radius:var(--radius-sm);background:var(--accent-soft);color:var(--accent-strong)}
 hr.sep{border:none;border-top:1px solid var(--line-soft);margin:1.1rem 0}
@@ -2095,6 +2094,21 @@ table.data td.client-no { font-weight: 650; opacity: .75; }
   display:flex; flex-direction:column; gap:.5rem;
   margin:0 0 .85rem;
 }
+/* THE "WHICH DAY IS THIS" HEADER — new this round, see the template's own
+   comment on .task-hour-boxes-day-head for why it lives inside this same
+   stack rather than as a separate element. Deliberately reads as a small
+   heading (bold, accent-tinted, its own line) rather than blending into
+   the hour boxes below it — the whole point is that a reader landing here
+   from a work-shift-calendar badge several days out sees, in words,
+   before anything else, which day they are looking at. */
+.task-hour-boxes-day-head{
+  display:flex; align-items:baseline; gap:.4rem;
+  font-size:.85rem; font-weight:800; color:var(--accent-strong);
+  padding-bottom:.3rem; margin-bottom:.15rem;
+  border-bottom:1px solid var(--line);
+}
+.task-hour-boxes-day-head .fa-calendar-day{ font-size:.8rem; }
+.task-hour-boxes-day-head .mono{ font-weight:700; color:var(--ink); opacity:.85; }
 /* An ORDINARY box (has_reminder true, or the box holds nothing yet is still
    worth a normal look — never true today, has_reminder is the only branch,
    but the base rule stays undimmed either way so .hour-box-empty below is

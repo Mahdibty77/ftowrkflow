@@ -2363,17 +2363,50 @@ def _task_day_groups(rows) -> list:
         # rows a pill reveals; see this function's own docstring and
         # _my_tasks_reminders.html's own day-pill markup, which prints
         # ``g.label`` verbatim.
+        #
+        # "full_date" — new this round, ALWAYS a real date (unlike "date"
+        # just below, which stays None for Today/Tomorrow since their own
+        # pill prints "label" instead) — is what
+        # _my_tasks_reminders.html's own new above-the-table day header
+        # reads for Today/Tomorrow too, so that header can show a real
+        # weekday name + date even on the two pills whose own tab text is
+        # a word, not a date. See _weekday_label below for the word.
         {"key": today_key, "label": _("Today"), "date": None,
+         "full_date": today, "weekday_label": _weekday_label(today),
          "count": counts.get(today_key, 0)},
         {"key": tomorrow_key, "label": _("Tomorrow"), "date": None,
+         "full_date": tomorrow, "weekday_label": _weekday_label(tomorrow),
          "count": counts.get(tomorrow_key, 0)},
     ]
     for key in sorted(k for k in counts if k > tomorrow_key):
+        d = _dt.date.fromisoformat(key)
         groups.append({
-            "key": key, "label": None, "date": _dt.date.fromisoformat(key),
+            "key": key, "label": None, "date": d,
+            "full_date": d, "weekday_label": _weekday_label(d),
             "count": counts[key],
         })
     return groups
+
+
+def _weekday_label(d) -> str:
+    """The Jalali week's own weekday name for ``d`` (a plain Gregorian
+    ``date`` — weekday math itself is calendar-agnostic, only the NAMES
+    said out loud differ), language-aware. No existing helper in this
+    codebase does this: ``people/shift_hours.py``'s own ``_WEEKDAY_SHORT``
+    is English-only, 3-letter abbreviations, keyed off Python's own
+    Monday-first ``date.weekday()`` — fine for THAT file's own compact
+    columns, not for a full word here. Kept local to this module rather
+    than added there, since nothing else in this codebase needs a FULL
+    Persian weekday name yet — see ``static/js/jalali_picker.js``'s own
+    ``WEEK_FA`` for the closest existing precedent, which is single-letter
+    grid headers, not a spoken-out day name either.
+    """
+    from django.utils.translation import get_language
+
+    names_en = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    names_fa = ["دوشنبه", "سه‌شنبه", "چهارشنبه", "پنج‌شنبه", "جمعه", "شنبه", "یکشنبه"]
+    idx = d.weekday()  # Python: 0=Monday .. 6=Sunday (calendar-agnostic)
+    return names_fa[idx] if get_language() == "fa" else names_en[idx]
 
 
 def _single_day_key_from_range(due_from: str, due_to: str) -> str | None:

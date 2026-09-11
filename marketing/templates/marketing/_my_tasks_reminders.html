@@ -308,6 +308,24 @@
 <div id="taskHourBoxesWrap">
   {% for g in day_groups %}
   <div class="task-hour-boxes" data-day-key="{{ g.key }}" style="display:none;">
+    {# THE "WHICH DAY IS THIS" HEADER — the owner's own ask: landing here  #}
+    {# from a work-shift-calendar reminder badge (a day possibly several   #}
+    {# days out) used to only pre-fill the filter card's own From/To date  #}
+    {# fields — correct, but easy to miss, since nothing ABOVE the actual  #}
+    {# reminders said in plain words which day they belonged to. Lives     #}
+    {# INSIDE this same stack (not a separate element my_tasks.js would    #}
+    {# have to learn to show/hide in step with it) so the existing         #}
+    {# display:none/"" toggle on the stack itself already carries this     #}
+    {# header along for free — one mechanism, not two. Weekday name from   #}
+    {# marketing/views.py::_weekday_label (new this round — no existing    #}
+    {# helper in this codebase spells out a full Persian weekday name);    #}
+    {# the date itself through the SAME |jalali filter every other date on #}
+    {# this page already goes through, so it reads in the identical shape. #}
+    <div class="task-hour-boxes-day-head">
+      <i class="fa-solid fa-calendar-day" aria-hidden="true"></i>
+      <span>{{ g.weekday_label }}</span>
+      <span class="mono">{{ g.full_date|jalali:"Y.m.d" }}</span>
+    </div>
     {% for h in g.hour_blocks %}
     <div class="hour-box{% if not h.has_reminder %} hour-box-empty{% endif %}">
       <div class="hour-box-head">
