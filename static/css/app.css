@@ -619,21 +619,26 @@ html[data-theme="dark"] .shift-ot-link:hover{
    then asked for the shake gone entirely (hover-only now, see
    .reminder-bell-btn.is-due's own comment above) — so the job of staying
    noticeable moved here, onto the one thing that actually carries the
-   reminder's own words. Built as a slow, continuous "breathing" glow
-   around the bubble's own edge (box-shadow only — no transform, nothing
-   that could nudge the arrow pseudo-element or its neighbours out of
-   place), matching the family of pulse this app already uses elsewhere
-   for exactly this "notice me, gently, forever" job (see
-   @keyframes shift-timer-pulse a few hundred lines above — same idea,
-   text-shadow there because that pulse rides on bare text; box-shadow
-   here because this is a filled panel, not bare text). A slower, calmer
-   cadence than that 1s countdown-timer pulse on purpose — 2.4s, closer to
-   a resting heartbeat than an alarm, since this keeps running the entire
-   time a reminder sits unread rather than only in a shift's final
-   minutes. Paint-only (box-shadow never triggers layout), so it costs
-   nothing this app's own "must not make the site heavy" rule would
-   object to, and — like every other looping animation in this file — is
-   turned off under prefers-reduced-motion a few lines down. */
+   reminder's own words. Built as a slow, continuous "breathing" pulse —
+   a FIRST attempt at this only grew a glow around the bubble's OWN EDGE
+   (box-shadow, no transform), which the owner correctly pointed out was
+   the box's decoration breathing, not the box (and its text) itself; this
+   version scales the whole element instead (`transform:scale`, 1 to
+   1.045), which scales its text content right along with it since
+   transform affects the entire rendered box — kept to the box-shadow
+   bloom too, so colour and size move together. Matches the family of
+   pulse this app already uses elsewhere for exactly this "notice me,
+   gently, forever" job (see @keyframes shift-timer-pulse a few hundred
+   lines above — same idea, `transform:scale` + a glow there too, just
+   text-shadow instead of box-shadow since that one rides on bare text).
+   A slower, calmer cadence than that 1s countdown-timer pulse on purpose
+   — 2.4s, closer to a resting heartbeat than an alarm, since this keeps
+   running the entire time a reminder sits unread rather than only in a
+   shift's final minutes. Still cheap — transform+box-shadow are both
+   compositor/paint work, never layout — so it costs nothing this app's
+   own "must not make the site heavy" rule would object to, and — like
+   every other looping animation in this file — is turned off under
+   prefers-reduced-motion a few lines down. */
 .reminder-bell-bubble{
   position:relative;isolation:isolate;display:flex;flex-direction:row;align-items:center;gap:.5rem;
   max-width:26rem;height:2.3rem;padding:0 .75rem;margin:0;overflow:hidden;
@@ -643,8 +648,24 @@ html[data-theme="dark"] .shift-ot-link:hover{
 }
 .reminder-bell-bubble:hover{border-color:color-mix(in srgb,var(--warn) 80%,var(--ink))}
 @keyframes reminder-bell-bubble-glow{
-  0%,100%{box-shadow:var(--shadow),0 0 0 0 color-mix(in srgb,var(--warn) 45%,transparent)}
-  50%{box-shadow:var(--shadow),0 0 11px 2px color-mix(in srgb,var(--warn) 50%,transparent)}
+  /* SCALES THE WHOLE BUBBLE — box AND the text inside it together, not a
+     glow around its edge on its own. The owner's own correction: a ring
+     blooming outside the box reads as decoration on the box, not the box
+     itself "breathing"; `transform:scale` on the bubble scales its text
+     content right along with it (transform affects the whole rendered
+     box, contents included), which is what a literal "breathing" box was
+     asked for. Kept small (1 to 1.045) — enough to read as a gentle
+     inhale/exhale at this box's own size, not a jarring jump — and paired
+     with the same warm bloom as before so the "breathing" and the colour
+     move together rather than one moving and the other not. */
+  0%,100%{
+    transform:scale(1);
+    box-shadow:var(--shadow),0 0 0 0 color-mix(in srgb,var(--warn) 45%,transparent);
+  }
+  50%{
+    transform:scale(1.045);
+    box-shadow:var(--shadow),0 0 11px 2px color-mix(in srgb,var(--warn) 50%,transparent);
+  }
 }
 @media (prefers-reduced-motion:reduce){
   .reminder-bell-bubble{animation:none}

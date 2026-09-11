@@ -2840,6 +2840,11 @@ def my_tasks(request, scope: str = "own"):
     case_choices = _visible_case_rows_all(request, case_access)
     rows = _task_rows(request, case_access, scope=scope)
     report_rows = _task_report_rows(request, case_access, scope=scope)
+    # Own scope only (see this file's head comment on the tab strip in
+    # my_tasks.html for why) — empty for scope_all, where `person` can be
+    # None, rather than trying to replicate the Reminders/Reports tabs' own
+    # admin-wide widening for a model that has no such thing yet.
+    eod_report_rows = person.eod_reports.all() if scope != "all" and person is not None else []
     due_from = (request.GET.get("from") or "").strip()
     due_to = (request.GET.get("to") or "").strip()
     # The day-shape every hour box on this page can ever draw — computed
@@ -2849,6 +2854,46 @@ def my_tasks(request, scope: str = "own"):
     # pill's own box stack carries only that day's own matching rows.
     hour_blocks = _task_hour_blocks(request.user)
     day_groups = _task_day_groups(rows)
+    # Whichever SINGLE day, if any, ?from=/?to= together name — the shift
+    # calendar's own open-reminder badge link (see _single_day_key_from_range's
+    # own docstring). "" (never None, so the template's own data attribute
+    # reads as a plain empty string rather than the literal word "None") when
+    # the two values are blank, unparsable, or a genuine multi-day range;
+    # marketing/static/marketing/js/my_tasks.js auto-activates the matching
+    # day pill on load when this names one — MOVED ABOVE the loop below
+    # (this round), not just above `return render(...)`, since that loop now
+    # needs to know this value too.
+    active_day_key = _single_day_key_from_range(due_from, due_to) or ""
+    # A CONFIRMED BUG, THIS ROUND: _task_day_groups only ever builds a pill
+    # for Today, Tomorrow, and a FUTURE day past tomorrow that has at least
+    # one row on it — by design, so the always-visible pill strip never
+    # clutters itself with a day nobody asked to see (see that function's
+    # own docstring). But a work-shift-calendar badge can point at ANY day
+    # that has at least one of this viewer's own reminders on it, including
+    # one ON OR BEFORE TODAY (an overdue reminder someone is only now
+    # investigating from their calendar) — a day _task_day_groups never
+    # builds a pill for. Landing here with `active_day_key` naming a day
+    # with NO matching pill left the page silently falling back to "All"
+    # (my_tasks.js's own querySelector simply finds nothing — see its head
+    # comment's own "silent no-op" line), which is exactly what the owner
+    # reported: clicking a calendar badge for a specific day showed nothing
+    # different from before, not that day's own header + hour boxes. Fixed
+    # by adding a pill for `active_day_key` here too, whenever it names a
+    # real day this view's own `rows` has something on that isn't ALREADY
+    # one of Today/Tomorrow/a future pill — same shape every other entry in
+    # this list already has, built the identical way _task_day_groups
+    # itself builds a further-future entry, just not restricted to "after
+    # tomorrow" since a badge link is an explicit request for ONE named day,
+    # not an ambient "what's coming up" pill worth always showing.
+    if active_day_key and active_day_key not in {g["key"] for g in day_groups}:
+        import datetime as _dt
+
+        _active_date = _dt.date.fromisoformat(active_day_key)
+        day_groups.append({
+            "key": active_day_key, "label": None, "date": _active_date,
+            "full_date": _active_date, "weekday_label": _weekday_label(_active_date),
+            "count": sum(1 for r in rows if r.day_key == active_day_key),
+        })
     for group in day_groups:
         # Each day pill's own always-visible hour boxes — Today and
         # Tomorrow's own earlier-round treatment, now given to EVERY pill
@@ -2859,14 +2904,6 @@ def my_tasks(request, scope: str = "own"):
         # than once per request.
         group["hour_blocks"] = _task_hour_groups_for_day(
             rows, hour_blocks, group["key"])
-    # Whichever SINGLE day, if any, ?from=/?to= together name — the shift
-    # calendar's own open-reminder badge link (see _single_day_key_from_range's
-    # own docstring). "" (never None, so the template's own data attribute
-    # reads as a plain empty string rather than the literal word "None") when
-    # the two values are blank, unparsable, or a genuine multi-day range;
-    # marketing/static/marketing/js/my_tasks.js auto-activates the matching
-    # day pill on load when this names one.
-    active_day_key = _single_day_key_from_range(due_from, due_to) or ""
 
     return render(request, "marketing/my_tasks.html", {
         "active_tab": "reminders",
@@ -2931,6 +2968,9 @@ def my_tasks(request, scope: str = "own"):
         "report_person_choices": sorted(
             {(r["person_name"], r["person_key"])
              for r in report_rows if r.get("person_key")}),
+        # The End-of-day reports tab — see this view's own comment just
+        # above eod_report_rows' own assignment for its own scope.
+        "eod_report_rows": eod_report_rows,
     })
 
 

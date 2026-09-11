@@ -24,7 +24,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Foolad Tabar Workflow{% endblock %}</title>
   {% include "includes/favicon.html" %}
-  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=reminder-bell-bubble-5">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=reminder-bell-bubble-6">
   <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-17">
   <link rel="stylesheet" href="{% static 'css/icons-offline.css' %}?v=shift-icons-4">
   <script>
@@ -865,7 +865,7 @@
     <span class="se-hi">Dear <span class="se-nm" id="shiftEndName">{{ shift_end_name|default:"colleague" }}</span>,</span>
     <span class="se-msg">your work shift has ended.</span>
     <span class="se-sub">Hope you had a good day — see you next shift.</span>
-    <span class="se-hint" id="shiftEndHint">Returning to sign-in in <span id="shiftEndSecs">40</span>s…</span>
+    <span class="se-hint" id="shiftEndHint">Continuing to your end-of-day report in <span id="shiftEndSecs">20</span>s…</span>
   </div>
 </div>
 
@@ -1050,6 +1050,7 @@
     var overlay = document.getElementById('signOutConfirm');
     var cancel = document.getElementById('signOutCancel');
     var ok = document.getElementById('signOutOk');
+    var eodReportUrl = "{% url 'people:eod_report' %}";
     if (!form || !flag) return;
     if (!overlay) return;
     var armed = false;
@@ -1070,18 +1071,20 @@
     }
     if (ok) {
       ok.addEventListener('click', function () {
-        flag.value = '1';
-        armed = true;
         overlay.hidden = true;
-        // This IS the deliberate close the beforeunload speed bump further
-        // down exists to slow down accidental ones — skip it for THIS
-        // submit specifically (a second, browser-native "are you sure?" on
-        // top of the confirm the person just clicked through would be
-        // exactly the annoyance that check is meant to avoid). Two separate
-        // IIFEs (this one predates the other), so a window flag rather than
-        // a shared local is what crosses that boundary.
+        // Used to arm + submit #pmLogoutForm directly, right here — an
+        // immediate, synchronous logout. It no longer does: this confirm
+        // click now leads to the SAME end-of-day report page the automatic
+        // timeout does (see showEnd()'s own comment in the other IIFE
+        // below), "immediately" rather than after a countdown, since the
+        // owner's own instruction singled out a manual, already-confirmed
+        // sign-out as not needing the goodbye wait. explicit=1 threads
+        // through to the deferred logout that page's own submit performs,
+        // so people.signals._explicit_sign_out still reads this as an
+        // explicit sign-out exactly as it did when this button submitted
+        // the form directly.
         window.__ftSkipUnloadConfirm = true;
-        form.submit();
+        window.location.href = eodReportUrl + '?end=1&explicit=1';
       });
     }
     overlay.addEventListener('click', function (e) {
@@ -1113,8 +1116,7 @@
     var secondsLeft = {% if shift_seconds_left is not None %}{{ shift_seconds_left }}{% else %}null{% endif %};
     var pingUrl = "{{ shift_ping_url|default:'' }}";
     var endName = "{% filter escapejs %}{{ shift_end_name|default:'colleague' }}{% endfilter %}";
-    var loginUrl = "{% url 'accounts:login' %}";
-    var logoutUrl = "{% url 'accounts:logout' %}";
+    var eodReportUrl = "{% url 'people:eod_report' %}";
     var overlay = document.getElementById('shiftEndOverlay');
     var nameEl = document.getElementById('shiftEndName');
     var hintNum = document.getElementById('shiftEndSecs');
@@ -1122,7 +1124,7 @@
     var WARN_SECS = 30 * 60;
     var URGENT_SECS = 10 * 60;
     var CRITICAL_SECS = 5 * 60;
-    var GOODBYE_SECS = 40;
+    var GOODBYE_SECS = 20;
     var DRIFT_SECS = 2.5;
     var ended = false;
     var endAtMs = null;
@@ -1301,23 +1303,22 @@
       try { document.body.classList.add('shift-ended-lock'); } catch (e) {}
       var left = GOODBYE_SECS;
       if (hintNum) hintNum.textContent = String(left);
-      try {
-        fetch(logoutUrl, {
-          method: 'POST',
-          headers: {
-            'X-CSRFToken': csrfToken(),
-            'X-Requested-With': 'XMLHttpRequest'
-          },
-          credentials: 'same-origin',
-          body: new URLSearchParams({ csrfmiddlewaretoken: csrfToken() })
-        }).catch(function () {});
-      } catch (e) {}
+      // The actual logout used to fire right here, immediately, in the
+      // background, while this goodbye message merely counted down over it
+      // (fire-and-forget, never awaited — see git history). It does not any
+      // more: the end-of-day report page is now what this countdown leads
+      // to, while the session is STILL authenticated (people.views.eod_report
+      // is the one that finally logs out, once that page is submitted — see
+      // its own docstring) — logging out here first would have destroyed the
+      // session before that page ever got a chance to render. See
+      // WorkShiftMiddleware._is_exempt_path's own comment for the exemption
+      // this depends on.
       var goodbyeTimer = setInterval(function () {
         left -= 1;
         if (hintNum) hintNum.textContent = String(Math.max(0, left));
         if (left <= 0) {
           clearInterval(goodbyeTimer);
-          window.location.href = loginUrl;
+          window.location.href = eodReportUrl + '?end=1';
         }
       }, 1000);
     }
