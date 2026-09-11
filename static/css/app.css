@@ -611,64 +611,57 @@ html[data-theme="dark"] .shift-ot-link:hover{
    CLICKABLE AGAIN (a <button>, see base.html's own comment on this
    element) — cursor:pointer restored, same click target as the bell.
 
-   THE GLOW — this round's answer to "make the text keep drawing the
+   THE UNFOLD — this round's answer to "make the text keep drawing the
    user's attention back to it, don't let them miss that a reminder is
-   due"; the owner deliberately left HOW open ("هر ایده درست و بهینه و
-   سبکی که هست ... ایده و خلاقیت اینجا را به تو بسپارم"). The bell's own
-   automatic shake used to be that "keep noticing me" signal; the owner
-   then asked for the shake gone entirely (hover-only now, see
-   .reminder-bell-btn.is-due's own comment above) — so the job of staying
-   noticeable moved here, onto the one thing that actually carries the
-   reminder's own words. Built as a slow, continuous "breathing" pulse —
-   a FIRST attempt at this only grew a glow around the bubble's OWN EDGE
-   (box-shadow, no transform), which the owner correctly pointed out was
-   the box's decoration breathing, not the box (and its text) itself; this
-   version scales the whole element instead (`transform:scale`, 1 to
-   1.045), which scales its text content right along with it since
-   transform affects the entire rendered box — kept to the box-shadow
-   bloom too, so colour and size move together. Matches the family of
-   pulse this app already uses elsewhere for exactly this "notice me,
-   gently, forever" job (see @keyframes shift-timer-pulse a few hundred
-   lines above — same idea, `transform:scale` + a glow there too, just
-   text-shadow instead of box-shadow since that one rides on bare text).
-   A slower, calmer cadence than that 1s countdown-timer pulse on purpose
-   — 2.4s, closer to a resting heartbeat than an alarm, since this keeps
-   running the entire time a reminder sits unread rather than only in a
-   shift's final minutes. Still cheap — transform+box-shadow are both
-   compositor/paint work, never layout — so it costs nothing this app's
-   own "must not make the site heavy" rule would object to, and — like
-   every other looping animation in this file — is turned off under
-   prefers-reduced-motion a few lines down. */
+   due"; the owner deliberately left HOW open, then, across two follow-
+   ups, corrected two earlier attempts at it: a ring blooming around the
+   bubble's own edge (box-shadow only), then a whole-box "breathing" scale
+   pulse (1 to 1.045) — both still read as too quiet to notice. This
+   THIRD attempt is a different kind of motion entirely, the owner's own
+   description: the bubble reads as tucked away INSIDE the bell's own
+   button at rest, pops out and unfolds open "like a letter" out of it,
+   STAYS OPEN a full 10 seconds (long enough to actually read, not just
+   flash by), then folds back in — and repeats, forever, rather than a
+   continuous idle pulse. `transform-origin` is pinned to the edge that
+   touches the bell (see the `[dir]`-aware pair just below this rule) so
+   the scale-up/scale-down genuinely reads as emerging FROM that point,
+   not just growing from its own centre. Still `transform`+`opacity`
+   only — no box-shadow animation this time, nothing that touches layout
+   — so a 13-SECOND cycle (0.5s to unfold, 10s held open, 0.5s to fold
+   back, 2s tucked away, then repeat) costs the compositor the same
+   two brief transitions it always would regardless of how long the flat
+   "held open"/"tucked away" stretches between them last — this app's own
+   "must not make the site heavy" rule again, just proven a different way
+   than the shift-timer-style pulse family a few hundred lines above.
+   Turned off under prefers-reduced-motion a few lines down, same as
+   every other looping animation in this file — a viewer who asked their
+   OS for less motion gets the bubble simply held open and readable the
+   whole time instead of cycling. */
 .reminder-bell-bubble{
   position:relative;isolation:isolate;display:flex;flex-direction:row;align-items:center;gap:.5rem;
   max-width:26rem;height:2.3rem;padding:0 .75rem;margin:0;overflow:hidden;
   border-radius:10px;background:color-mix(in srgb,var(--warn) 12%,var(--warnbg));border:1.5px solid var(--warn);
   box-shadow:var(--shadow);color:inherit;font:inherit;text-align:start;cursor:pointer;
-  animation:reminder-bell-bubble-glow 2.4s ease-in-out infinite;
+  transform-origin:100% 50%;
+  animation:reminder-bell-bubble-unfold 13s ease-in-out infinite;
 }
+[dir="rtl"] .reminder-bell-bubble{transform-origin:0% 50%}
 .reminder-bell-bubble:hover{border-color:color-mix(in srgb,var(--warn) 80%,var(--ink))}
-@keyframes reminder-bell-bubble-glow{
-  /* SCALES THE WHOLE BUBBLE — box AND the text inside it together, not a
-     glow around its edge on its own. The owner's own correction: a ring
-     blooming outside the box reads as decoration on the box, not the box
-     itself "breathing"; `transform:scale` on the bubble scales its text
-     content right along with it (transform affects the whole rendered
-     box, contents included), which is what a literal "breathing" box was
-     asked for. Kept small (1 to 1.045) — enough to read as a gentle
-     inhale/exhale at this box's own size, not a jarring jump — and paired
-     with the same warm bloom as before so the "breathing" and the colour
-     move together rather than one moving and the other not. */
-  0%,100%{
-    transform:scale(1);
-    box-shadow:var(--shadow),0 0 0 0 color-mix(in srgb,var(--warn) 45%,transparent);
-  }
-  50%{
-    transform:scale(1.045);
-    box-shadow:var(--shadow),0 0 11px 2px color-mix(in srgb,var(--warn) 50%,transparent);
-  }
+@keyframes reminder-bell-bubble-unfold{
+  /* Tucked away (small + invisible) for 0%-0%/100% and again 85%-100% —
+     the two "inside the bell's box" stretches, one at each end of the
+     loop so it reads as one continuous cycle rather than snapping on
+     restart. 4%-81% is the full 10 SECONDS held open (13s cycle × 77% ≈
+     10s) — a flat, unanimated stretch, exactly as cheap while it holds as
+     no animation at all. The two short ramps (0%→4%, 81%→85%, each
+     roughly half a second) are the actual "pop out and unfold"/"fold
+     back in" motion. */
+  0%,100%{transform:scale(.15);opacity:0}
+  4%,81%{transform:scale(1);opacity:1}
+  85%{transform:scale(.15);opacity:0}
 }
 @media (prefers-reduced-motion:reduce){
-  .reminder-bell-bubble{animation:none}
+  .reminder-bell-bubble{animation:none;transform:scale(1);opacity:1}
 }
 .reminder-bell-bubble-time{
   flex:0 0 auto;font-size:.76rem;font-weight:800;
