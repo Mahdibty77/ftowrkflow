@@ -24,7 +24,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Foolad Tabar Workflow{% endblock %}</title>
   {% include "includes/favicon.html" %}
-  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=merge-audit134-1-bell-green-box-pulse-panel-static">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=merge-audit134-1-bell-green-box-pulse-panel-static-taskform-fixed-row">
   <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-17">
   <link rel="stylesheet" href="{% static 'css/icons-offline.css' %}?v=shift-icons-4">
   <script>
@@ -177,6 +177,7 @@
 <body class="unit-{{ active_unit_code|lower }}">
 {% if user.is_authenticated %}
 <div class="shell">
+  {% if not hide_sidebar %}
   <aside class="sidebar">
     <div class="sb-brand">
       <div class="sb-logo">FT</div>
@@ -521,6 +522,7 @@
       <span>{{ user.profile.title_line }}</span>
     </div>
   </aside>
+  {% endif %}
 
   <div class="main">
     <div class="main-sticky-head">

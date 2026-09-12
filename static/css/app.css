@@ -1126,6 +1126,26 @@ textarea{resize:vertical;min-height:70px}
 .errorlist{list-style:none;padding:0;margin:.2rem 0 0;color:var(--rej);font-size:.76rem}
 .form-narrow{max-width:600px}
 .inline-form{display:inline}
+/* task_form.html's own form+preview row (marketing/templates/marketing/
+   task_form.html) — FIXED geometry, deliberately NOT the ordinary
+   RTL/LTR-mirrors-with-DOM-order behaviour every plain .row-flex on this
+   app relies on elsewhere (.topbar-end, the reminder bell). The owner's
+   own screenshots showed why that default is wrong here specifically:
+   the form sits on the LEFT with nothing beside it before any date is
+   picked, and the preview card that appears afterwards has to fill the
+   EMPTY SPACE ON THE RIGHT — not swap the form itself over to the right,
+   which is what plain mirroring did in English/LTR chrome (Persian/RTL
+   happened to already land on the wanted geometry by coincidence, English
+   did not). `direction:ltr` on the ROW forces its own flex main-start to
+   always be the geometric left regardless of page language, so the FIRST
+   DOM child (the form) is always leftmost and the second (the preview
+   card) always rightmost; the `[dir="rtl"]` rule below then restores
+   correct RTL text flow INSIDE each child without touching that fixed
+   left/right order — a scoped, one-off override, not a change to the
+   shared .row-flex utility class every other layout on this app still
+   mirrors normally. */
+.task-form-row{display:flex;align-items:flex-start;gap:1rem;flex-wrap:wrap;direction:ltr}
+[dir="rtl"] .task-form-row > *{direction:rtl}
 
 /* ---------------- Login ---------------- */
 .auth-wrap{min-height:100vh;display:grid;place-items:center;background:linear-gradient(135deg,#0a1629,#101542);padding:1rem}
