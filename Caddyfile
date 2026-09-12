@@ -1,8 +1,17 @@
 # ---------------------------------------------------------------------------
 # Optional HTTPS front door for an internal deployment with no public domain
-# (DEPLOY.md section 12 — mkcert + the "https" compose profile). Not used and
-# not started unless that profile is explicitly enabled: everyone else keeps
+# (DEPLOY.md section 12 — the "https" compose profile). Not used and not
+# started unless that profile is explicitly enabled: everyone else keeps
 # talking to the "web" service on WEB_PORT exactly as before.
+#
+# "tls internal" — no external tool, no certificate file, no extra command on
+# the server at all: Caddy generates its own local certificate-authority and
+# leaf certificate for {$FT_HTTPS_HOST} the first time it starts, and keeps
+# reusing the same one after (cached in the caddy_data volume) rather than
+# regenerating it every restart. The one manual step this does not remove —
+# there is no way to remove it and still be a real certificate — is telling
+# OTHER computers to trust that CA once; see DEPLOY.md section 12 for the one
+# command that exports it and where to install it.
 #
 # {$FT_HTTPS_HOST} (bare host/IP, no scheme) is read from the environment
 # (.env) rather than written here, because it is different for every
@@ -12,7 +21,7 @@
 # same host feeds both blocks below.
 # ---------------------------------------------------------------------------
 https://{$FT_HTTPS_HOST} {
-	tls /certs/ft.crt /certs/ft.key
+	tls internal
 	reverse_proxy web:8000
 }
 

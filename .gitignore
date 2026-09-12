@@ -24,9 +24,6 @@ _clean_*.py
 /staticfiles/
 /.license/
 /backups/
-# TLS cert/key for the optional caddy HTTPS profile (DEPLOY.md section 12) —
-# private key material, generated per-deployment with mkcert, never shared.
-/certs/
 
 # Tooling
 .DS_Store

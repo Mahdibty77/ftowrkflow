@@ -194,20 +194,24 @@ services:
 
   # ---------------------------------------------------------------------------
   # Optional HTTPS front door for a deployment with no public domain (an
-  # internal LAN server, e.g. DEPLOY.md section 12) — mkcert on the host
-  # generates a certificate the operator installs on their own company
-  # computers, and Caddy terminates TLS with it in front of "web". A PWA
-  # "Install app" prompt (already wired — see static/manifest.json and
-  # core/templates/base.html's service-worker registration) only ever offers
-  # itself to a browser over HTTPS or localhost, which is the one thing a
-  # plain "docker compose up" on an internal IP cannot give it.
+  # internal LAN server, e.g. DEPLOY.md section 12). Caddy generates and
+  # manages its own certificate for FT_HTTPS_HOST internally (see the
+  # Caddyfile's own "tls internal" comment) — no external tool, no manual
+  # certificate command, nothing to run on this server beyond the one build
+  # command below. A PWA "Install app" prompt (already wired — see
+  # static/manifest.json and core/templates/base.html's service-worker
+  # registration) only ever offers itself to a browser over HTTPS or
+  # localhost, which is the one thing a plain "docker compose up" on an
+  # internal IP cannot give it.
   #
   # Behind the "https" PROFILE on purpose: a bare `docker compose up -d`
   # (every existing deployment's own command, unchanged) never starts this
   # service and nothing else in this file changes — "web" keeps answering on
   # WEB_PORT exactly as it always has. Opt in with:
   #   docker compose --profile https up -d --build
-  # See DEPLOY.md section 12 for the full mkcert walkthrough.
+  # See DEPLOY.md section 12 for the full walkthrough (one line in .env, one
+  # extra word on the usual build command, and one command afterwards to hand
+  # the generated CA to other computers).
   # ---------------------------------------------------------------------------
   caddy:
     image: caddy:2-alpine
@@ -216,8 +220,8 @@ services:
     depends_on:
       - web
     environment:
-      # Bare host/IP the certificate below was issued for, e.g. 192.168.1.50
-      # or ftworkflow.local — no scheme, no port. Deliberately NOT a required
+      # Bare host/IP people type into their browser, e.g. 192.168.1.50 or
+      # ftworkflow.local — no scheme, no port. Deliberately NOT a required
       # (":?") variable: Compose resolves every service's environment block
       # up front regardless of which profile is active, so a hard requirement
       # here would fail `docker compose up -d` for every deployment that has
@@ -228,10 +232,10 @@ services:
       FT_HTTPS_HOST: ${FT_HTTPS_HOST:-}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      # mkcert -cert-file certs/ft.crt -key-file certs/ft.key <the same host>
-      # — see DEPLOY.md section 12. Never committed (.gitignore'd): private
-      # key material, generated per-deployment, not shared between servers.
-      - ./certs:/certs:ro
+      # Caddy's own generated CA + certificate for FT_HTTPS_HOST live here —
+      # persisted so a restart (or a rebuild) reuses the same certificate
+      # instead of minting a new one that every already-trusting computer
+      # would have to re-trust.
       - caddy_data:/data
       - caddy_config:/config
     ports:

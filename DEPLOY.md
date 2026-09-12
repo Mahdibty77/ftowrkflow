@@ -316,49 +316,55 @@ never offers it on any computer other than the server itself, no matter what.
 
 Section 10 covers HTTPS behind a real domain (Let's Encrypt). This section is
 for the common case where that is not an option — an internal server with no
-public domain — using **mkcert** to create a certificate your own company's
-computers trust, and the `caddy` service already defined in
-`docker-compose.yml` (inactive by default — see that file's own comment on the
-`caddy` service) to terminate TLS with it.
+public domain. Nothing extra to install and nothing extra to run on the
+server itself: the `caddy` service already defined in `docker-compose.yml`
+(inactive unless you ask for it — see that file's own comment on the `caddy`
+service) generates and manages its own certificate internally. The only
+unavoidable manual step is telling OTHER computers to trust the certificate
+Caddy generates — there is no way around that and still have a certificate
+that means anything.
 
-## 12.1. Generate a certificate on the server
+## 12.1. Turn the HTTPS front door on
 
-```bash
-sudo apt-get update && sudo apt-get install -y libnss3-tools
-curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
-chmod +x mkcert-v*-linux-amd64
-sudo mv mkcert-v*-linux-amd64 /usr/local/bin/mkcert
-mkcert -install
+In `.env` (same file as `POSTGRES_PASSWORD` etc. — see section A3), set the
+address people actually type into their browser — the server's own LAN IP is
+fine, e.g.:
+
+```
+FT_HTTPS_HOST=192.168.101.30
 ```
 
-Then, from the project folder (the one with `docker-compose.yml`), issue a
-certificate for the server's own LAN address — e.g. `192.168.101.30`:
+Then build/start with **one extra word** on the usual command:
 
 ```bash
-mkdir -p certs
-mkcert -cert-file certs/ft.crt -key-file certs/ft.key 192.168.101.30
+sudo docker compose --profile https up -d --build
 ```
 
-Use the exact address people type into their browser. Add more names to the
-same command (space-separated) if the server also answers to a hostname, e.g.
-`mkcert -cert-file certs/ft.crt -key-file certs/ft.key 192.168.101.30 ftworkflow.local`.
+That is the entire server-side change from your normal deploy command.
+Everything else — generating the certificate, keeping it across restarts,
+redirecting plain HTTP to HTTPS — Caddy does on its own the first time it
+starts. Watch `docker compose logs caddy` for `certificate obtained`. The app
+is now reachable at `https://192.168.101.30` (plain `http://192.168.101.30`
+redirects there automatically); `http://SERVER_IP:8000` keeps working exactly
+as before for anyone who does not need the install prompt.
 
 ## 12.2. Trust that certificate on every other computer
 
-`mkcert -install` above only made the server itself trust its own
-certificate. Every OTHER computer that should see a padlock instead of a
-warning needs the same local CA — find it with:
+Caddy's own certificate is not signed by a public authority (there is no
+domain for one to vouch for), so a browser that has never seen it will show a
+warning instead of a padlock — and will not offer the install prompt. Export
+the certificate Caddy generated, once, from the server:
 
 ```bash
-mkcert -CAROOT
+docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt ./ftworkflow-ca.crt
 ```
 
-Copy the `rootCA.pem` file from that folder onto each computer and install it
-into the OS's trusted root store:
+Copy `ftworkflow-ca.crt` onto each computer that should install the app and
+add it to the OS's trusted root store:
 
-- **Windows:** double-click `rootCA.pem` → **Install Certificate** → **Local
-  Machine** → place it in **"Trusted Root Certification Authorities"**. For
-  many computers at once, this is a standard Group Policy "Certificates" push.
+- **Windows:** double-click it → **Install Certificate** → **Local Machine**
+  → place it in **"Trusted Root Certification Authorities"**. For many
+  computers at once, this is a standard Group Policy "Certificates" push.
 - **macOS:** double-click it, then in Keychain Access set it to **Always
   Trust**.
 - **Android:** Settings → Security → Encryption & credentials → Install a
@@ -368,30 +374,10 @@ Skipping this step does not block anything — the site still opens — but that
 computer's browser will show a certificate warning and will not offer the
 install prompt.
 
-## 12.3. Turn the HTTPS front door on
+## 12.3. Install it
 
-In `.env` (same file as `POSTGRES_PASSWORD` etc. — see section A3):
-
-```
-FT_HTTPS_HOST=192.168.101.30
-```
-
-Then start (or restart) the stack **with the profile flag** — this is the one
-command that differs from every other section of this guide:
-
-```bash
-docker compose --profile https up -d --build
-```
-
-Watch `docker compose logs caddy` for `certificate obtained` / a clean start.
-The app is now reachable at `https://192.168.101.30` (plain
-`http://192.168.101.30` redirects there automatically); `http://SERVER_IP:8000`
-keeps working exactly as before for anyone who does not need the install
-prompt.
-
-## 12.4. Install it
-
-On a computer with the CA trusted (12.2), open `https://192.168.101.30`:
+On a computer with the certificate trusted (12.2), open
+`https://192.168.101.30`:
 
 - **Chrome / Edge (desktop):** an install icon appears at the right end of the
   address bar; click it → **Install**.
@@ -401,13 +387,13 @@ On a computer with the CA trusted (12.2), open `https://192.168.101.30`:
   manifest for this and always shows the option; it still needs HTTPS for the
   service worker behind it to register).
 
-## 12.5. If you add or change the server's address later
+## 12.4. If you add or change the server's address later
 
-Re-run the `mkcert -cert-file ...` command in 12.1 with the new address(es),
-update `FT_HTTPS_HOST` in `.env` to match, and re-run
-`docker compose --profile https up -d`. The CA computers already trust (12.2)
-does not need reinstalling — only the certificate changed, not the CA that
-signed it.
+Update `FT_HTTPS_HOST` in `.env` to the new address and re-run
+`docker compose --profile https up -d --build`. Caddy issues itself a new
+certificate for the new address automatically; repeat 12.2 for it (a
+certificate for a different address is a different certificate, even from the
+same CA).
 
 ---
 
