@@ -624,23 +624,18 @@ html[data-theme="dark"] .shift-ot-link:hover{
    seconds) — a "blink" reads as more urgent than a slow breath, which is
    the point here.
 
-   SHARED WITH THE CLICK-OPEN PANEL'S OWN DUE-STAMP/NOTE — the owner's own
-   later follow-up: .reminder-bell-time/.reminder-bell-note (the SAME two
-   pieces of prose, just inside .reminder-bell-panel instead of the
-   always-visible bubble) get this identical animation too, not a second
-   one invented for them — one due reminder, the same "written words"
-   treatment wherever its stamp/note text appears. Reusing --ink/--rej
-   here rather than any new pair is also what keeps the owner's own
-   "text and background must never end up the same colour" rule trivially
-   satisfied: --ink is this app's normal body-text colour (already chosen,
-   everywhere else, to read against --paper) and --rej is a saturated red
-   nowhere near this widget's own backgrounds (--paper for the panel,
-   the --warn-tinted mix for the bubble) in either theme — no new colour
-   pair to separately prove safe. */
+   THE CLICK-OPEN PANEL'S OWN DUE-STAMP/NOTE STAY STATIC — a round briefly
+   gave .reminder-bell-time/.reminder-bell-note (the same two pieces of
+   prose, inside .reminder-bell-panel rather than the always-visible
+   bubble) this identical animation too; the owner's own follow-up walked
+   that back — the panel only exists once a person has already clicked to
+   open it looking for the "View in My Tasks" link, so moving text while
+   they read it serves no one the way the ALWAYS-visible bubble's own
+   attention-grabbing pulse does. Kept as a plain, generic keyframe name
+   (not "bubble"-specific) even though only the bubble uses it now, in
+   case a future round needs the identical pulse somewhere else again. */
 .reminder-bell-bubble-time,
-.reminder-bell-bubble-note,
-.reminder-bell-time,
-.reminder-bell-note{
+.reminder-bell-bubble-note{
   animation:reminder-text-blink 1.3s ease-in-out infinite;
 }
 @keyframes reminder-text-blink{
@@ -650,9 +645,7 @@ html[data-theme="dark"] .shift-ot-link:hover{
 @media (prefers-reduced-motion:reduce){
   .reminder-bell-bubble,
   .reminder-bell-bubble-time,
-  .reminder-bell-bubble-note,
-  .reminder-bell-time,
-  .reminder-bell-note{animation:none}
+  .reminder-bell-bubble-note{animation:none}
 }
 .reminder-bell-bubble-time{
   flex:0 0 auto;font-size:.76rem;font-weight:800;
@@ -990,6 +983,17 @@ tr.row-unseen .docno{font-weight:800}
    against the page. Belt and braces with the offsets above: either alone fixes
    the stretching, together they also keep it in the right place. */
 tr.row-unseen > td:first-child{position:relative}
+
+/* Inbox deadline countdown (Commercial/Technical/Supply only — see
+   deadline_countdown filter and inbox.html). A snapshot as of render time,
+   never a live/ticking clock — the product owner's own instruction, to keep
+   a hundred-row inbox cheap to paint. Placed after .row-unseen so an urgent
+   row's red tint wins over the unopened wash when a row is both. */
+tr.row-deadline-urgent{background:color-mix(in srgb,var(--rej) 14%,transparent)}
+.inbox-countdown-col{width:1%;white-space:nowrap;}
+.inbox-countdown{display:inline-flex;align-items:center;gap:.3rem;font-size:.72rem;line-height:1.15;color:var(--muted);}
+.inbox-countdown .ic-line{display:block;}
+.inbox-countdown.is-urgent{color:var(--rej);font-weight:700;}
 
 /* ---------------- Buttons ---------------- */
 .btn{display:inline-flex;align-items:center;gap:.4rem;cursor:pointer;font-family:var(--sans);font-size:.82rem;font-weight:600;padding:.5rem .9rem;border-radius:var(--radius-sm);border:1px solid var(--line);background:var(--paper);color:var(--ink);transition:background .12s,border-color .12s,color .12s,box-shadow .12s}
