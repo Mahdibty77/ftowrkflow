@@ -305,6 +305,110 @@ activation page and you simply paste the same license string again, so **keep
 that string somewhere outside the server**. A new license is only needed when
 the machine itself changes.
 
+# 12. Installing the app on other computers (PWA), with no public domain
+
+The site already carries everything needed for a browser's "Install app" /
+"Add to Home Screen" prompt — a manifest (`static/manifest.json`) and a
+registered service worker (`core/templates/base.html`). The one thing that
+prompt refuses to appear without is **HTTPS** (or `localhost`) — that is a
+browser security rule, not a setting in this app, so `http://192.168.1.50:8000`
+never offers it on any computer other than the server itself, no matter what.
+
+Section 10 covers HTTPS behind a real domain (Let's Encrypt). This section is
+for the common case where that is not an option — an internal server with no
+public domain — using **mkcert** to create a certificate your own company's
+computers trust, and the `caddy` service already defined in
+`docker-compose.yml` (inactive by default — see that file's own comment on the
+`caddy` service) to terminate TLS with it.
+
+## 12.1. Generate a certificate on the server
+
+```bash
+sudo apt-get update && sudo apt-get install -y libnss3-tools
+curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
+chmod +x mkcert-v*-linux-amd64
+sudo mv mkcert-v*-linux-amd64 /usr/local/bin/mkcert
+mkcert -install
+```
+
+Then, from the project folder (the one with `docker-compose.yml`), issue a
+certificate for the server's own LAN address — e.g. `192.168.101.30`:
+
+```bash
+mkdir -p certs
+mkcert -cert-file certs/ft.crt -key-file certs/ft.key 192.168.101.30
+```
+
+Use the exact address people type into their browser. Add more names to the
+same command (space-separated) if the server also answers to a hostname, e.g.
+`mkcert -cert-file certs/ft.crt -key-file certs/ft.key 192.168.101.30 ftworkflow.local`.
+
+## 12.2. Trust that certificate on every other computer
+
+`mkcert -install` above only made the server itself trust its own
+certificate. Every OTHER computer that should see a padlock instead of a
+warning needs the same local CA — find it with:
+
+```bash
+mkcert -CAROOT
+```
+
+Copy the `rootCA.pem` file from that folder onto each computer and install it
+into the OS's trusted root store:
+
+- **Windows:** double-click `rootCA.pem` → **Install Certificate** → **Local
+  Machine** → place it in **"Trusted Root Certification Authorities"**. For
+  many computers at once, this is a standard Group Policy "Certificates" push.
+- **macOS:** double-click it, then in Keychain Access set it to **Always
+  Trust**.
+- **Android:** Settings → Security → Encryption & credentials → Install a
+  certificate → CA certificate.
+
+Skipping this step does not block anything — the site still opens — but that
+computer's browser will show a certificate warning and will not offer the
+install prompt.
+
+## 12.3. Turn the HTTPS front door on
+
+In `.env` (same file as `POSTGRES_PASSWORD` etc. — see section A3):
+
+```
+FT_HTTPS_HOST=192.168.101.30
+```
+
+Then start (or restart) the stack **with the profile flag** — this is the one
+command that differs from every other section of this guide:
+
+```bash
+docker compose --profile https up -d --build
+```
+
+Watch `docker compose logs caddy` for `certificate obtained` / a clean start.
+The app is now reachable at `https://192.168.101.30` (plain
+`http://192.168.101.30` redirects there automatically); `http://SERVER_IP:8000`
+keeps working exactly as before for anyone who does not need the install
+prompt.
+
+## 12.4. Install it
+
+On a computer with the CA trusted (12.2), open `https://192.168.101.30`:
+
+- **Chrome / Edge (desktop):** an install icon appears at the right end of the
+  address bar; click it → **Install**.
+- **Android Chrome:** menu (⋮) → **Install app**, or the banner Chrome shows
+  on its own after a couple of visits.
+- **iOS Safari:** Share button → **Add to Home Screen** (Safari ignores the
+  manifest for this and always shows the option; it still needs HTTPS for the
+  service worker behind it to register).
+
+## 12.5. If you add or change the server's address later
+
+Re-run the `mkcert -cert-file ...` command in 12.1 with the new address(es),
+update `FT_HTTPS_HOST` in `.env` to match, and re-run
+`docker compose --profile https up -d`. The CA computers already trust (12.2)
+does not need reinstalling — only the certificate changed, not the CA that
+signed it.
+
 ---
 
 ## Notes

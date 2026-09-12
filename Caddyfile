@@ -1,0 +1,23 @@
+# ---------------------------------------------------------------------------
+# Optional HTTPS front door for an internal deployment with no public domain
+# (DEPLOY.md section 12 — mkcert + the "https" compose profile). Not used and
+# not started unless that profile is explicitly enabled: everyone else keeps
+# talking to the "web" service on WEB_PORT exactly as before.
+#
+# {$FT_HTTPS_HOST} (bare host/IP, no scheme) is read from the environment
+# (.env) rather than written here, because it is different for every
+# deployment (a LAN IP, a .local hostname, ...) and this file is shared,
+# version-controlled source — see FT_HTTPS_HOST in .env.example. Caddy
+# substitutes {$VAR} tokens anywhere in this file before parsing it, so the
+# same host feeds both blocks below.
+# ---------------------------------------------------------------------------
+https://{$FT_HTTPS_HOST} {
+	tls /certs/ft.crt /certs/ft.key
+	reverse_proxy web:8000
+}
+
+# Plain-HTTP requests to the same address redirect to the HTTPS one instead of
+# falling through to Caddy's own default 404 page.
+http://{$FT_HTTPS_HOST} {
+	redir https://{$FT_HTTPS_HOST}{uri} permanent
+}

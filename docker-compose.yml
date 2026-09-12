@@ -192,8 +192,56 @@ services:
       # license string again - keep it somewhere safe. See DEPLOY.md section 11.
     entrypoint: ["/bin/sh", "/scripts/backup_service.sh"]
 
+  # ---------------------------------------------------------------------------
+  # Optional HTTPS front door for a deployment with no public domain (an
+  # internal LAN server, e.g. DEPLOY.md section 12) — mkcert on the host
+  # generates a certificate the operator installs on their own company
+  # computers, and Caddy terminates TLS with it in front of "web". A PWA
+  # "Install app" prompt (already wired — see static/manifest.json and
+  # core/templates/base.html's service-worker registration) only ever offers
+  # itself to a browser over HTTPS or localhost, which is the one thing a
+  # plain "docker compose up" on an internal IP cannot give it.
+  #
+  # Behind the "https" PROFILE on purpose: a bare `docker compose up -d`
+  # (every existing deployment's own command, unchanged) never starts this
+  # service and nothing else in this file changes — "web" keeps answering on
+  # WEB_PORT exactly as it always has. Opt in with:
+  #   docker compose --profile https up -d --build
+  # See DEPLOY.md section 12 for the full mkcert walkthrough.
+  # ---------------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    profiles: ["https"]
+    depends_on:
+      - web
+    environment:
+      # Bare host/IP the certificate below was issued for, e.g. 192.168.1.50
+      # or ftworkflow.local — no scheme, no port. Deliberately NOT a required
+      # (":?") variable: Compose resolves every service's environment block
+      # up front regardless of which profile is active, so a hard requirement
+      # here would fail `docker compose up -d` for every deployment that has
+      # never touched this profile and has no reason to set this var at all.
+      # Left blank, Caddy itself refuses to start and says why in
+      # `docker compose logs caddy` — the failure stays scoped to only
+      # whoever actually opted into --profile https.
+      FT_HTTPS_HOST: ${FT_HTTPS_HOST:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # mkcert -cert-file certs/ft.crt -key-file certs/ft.key <the same host>
+      # — see DEPLOY.md section 12. Never committed (.gitignore'd): private
+      # key material, generated per-deployment, not shared between servers.
+      - ./certs:/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    ports:
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTP_REDIRECT_PORT:-80}:80"
+
 volumes:
   postgres_data:
   media_data:
   code_db_data:
   license_data:
+  caddy_data:
+  caddy_config:
