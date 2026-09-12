@@ -778,3 +778,52 @@
    base.html and so never load this file, can have them too without dragging the
    rest of this file along. base.html loads autogrow.js BEFORE this file, because
    the inline confirm panel above calls window.FTAutoGrow when it opens. */
+
+/* ------------------------------------------------------ export picker */
+(function () {
+  "use strict";
+  // One "Export" button that, on click, is ITSELF replaced in place by a
+  // small horizontal row of format links (Excel / PDF / Print view /
+  // Grouped Excel) — not a dropdown opening below it (the owner's own
+  // instruction: the trigger should visually become the three options, in
+  // the same spot, and collapse back on any other click). Replacing the old
+  // row of separate buttons — see cases/templates/cases/_side_section.html.
+  // Up to 4 of these can exist on one case-detail page at once (TO/PI x up
+  // to 2 sides on a split case), so this is delegated + id-scoped, the same
+  // shape data-termsheet-toggle already uses in _form_table.html, rather
+  // than one listener per instance.
+  function setOpen(panel, open) {
+    var toggle = document.querySelector('[data-export-toggle="' + panel.id + '"]');
+    panel.hidden = !open;
+    // The trigger is hidden, not removed — it is what "collapses back to"
+    // once the panel closes again, so it has to still be there afterward.
+    if (toggle) {
+      toggle.hidden = open;
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+  }
+  function closeAllExportPanels(except) {
+    document.querySelectorAll(".export-picker-panel").forEach(function (panel) {
+      if (panel === except) return;
+      setOpen(panel, false);
+    });
+  }
+  document.addEventListener("click", function (e) {
+    var toggle = e.target && e.target.closest ? e.target.closest("[data-export-toggle]") : null;
+    if (toggle) {
+      var panel = document.getElementById(toggle.getAttribute("data-export-toggle"));
+      if (!panel) return;
+      closeAllExportPanels(panel);
+      setOpen(panel, true);
+      return;
+    }
+    // A click on one of the format links itself collapses back to the
+    // trigger too — Excel/Grouped Excel download without navigating away,
+    // so without this the row of options would otherwise just sit open.
+    if (e.target.closest(".export-picker-panel a.js-export-link")) {
+      closeAllExportPanels();
+      return;
+    }
+    if (!e.target.closest(".export-picker-panel")) closeAllExportPanels();
+  });
+})();

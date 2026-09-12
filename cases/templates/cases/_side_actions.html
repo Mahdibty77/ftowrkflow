@@ -8,7 +8,7 @@
         {% csrf_token %}<input type="hidden" name="action" value="assign"><input type="hidden" name="side" value="{{ sd.code }}">
         <div class="row-flex">
           <select name="assignee" data-combo data-placeholder="Search technical expert…" style="flex:1">
-            {% for u in sd.tech_pool %}<option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}{% if u.profile.internal_code %} ({{ u.profile.internal_code }}){% endif %}</option>{% endfor %}
+            {% for u in sd.tech_pool %}<option value="{{ u.pk }}">{{ u|person_name }}{% if u.profile.internal_code %} ({{ u.profile.internal_code }}){% endif %}</option>{% endfor %}
           </select>
           <button type="button" data-confirm-trigger class="btn btn-sm btn-primary">Assign</button>
         </div>
@@ -20,7 +20,7 @@
         {% csrf_token %}<input type="hidden" name="action" value="assign"><input type="hidden" name="side" value="{{ sd.code }}">
         <div class="row-flex">
           <select name="assignee" data-combo data-placeholder="Search {{ sd.label|lower }} expert…" style="flex:1">
-            {% for u in sd.pool %}<option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}{% if u.profile.internal_code %} ({{ u.profile.internal_code }}){% endif %}</option>{% endfor %}
+            {% for u in sd.pool %}<option value="{{ u.pk }}">{{ u|person_name }}{% if u.profile.internal_code %} ({{ u.profile.internal_code }}){% endif %}</option>{% endfor %}
           </select>
           <button type="button" data-confirm-trigger class="btn btn-sm btn-primary">Assign</button>
         </div>

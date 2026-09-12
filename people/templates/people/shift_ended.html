@@ -16,13 +16,13 @@
       <span class="se-hi">Dear <span class="se-nm" id="shiftEndName">{{ shift_end_name|default:"colleague" }}</span>,</span>
       <span class="se-msg">your work shift has ended.</span>
       <span class="se-sub">Hope you had a good day — see you next shift.</span>
-      <span class="se-hint" id="shiftEndHint">Returning to sign-in in <span id="shiftEndSecs">40</span>s…</span>
+      <span class="se-hint" id="shiftEndHint">Returning to sign-in in <span id="shiftEndSecs">20</span>s…</span>
     </div>
   </div>
   <script>
     (function () {
       var loginUrl = "/accounts/login/";
-      var left = 40;
+      var left = 20;
       var hintNum = document.getElementById('shiftEndSecs');
       var timer = setInterval(function () {
         left -= 1;

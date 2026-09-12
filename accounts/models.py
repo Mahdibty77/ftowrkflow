@@ -214,6 +214,41 @@ class Profile(models.Model):
     # -- Display helpers ---------------------------------------------------
     @property
     def full_name(self) -> str:
+        """The name shown for THIS LOGIN wherever this login's own identity
+        is named to whoever is looking — the topbar, "My profile", and
+        anywhere else that names a *seat* rather than a bare account.
+
+        Used to be ``self.user.get_full_name()`` — Django's own ``User
+        .first_name``/``last_name`` — and that could only ever show a Latin
+        name, even after this platform grew a per-person chrome-language
+        toggle, because those two columns are ALWAYS the Latin half:
+        ``accounts.forms::PersonSeatForm.save`` writes
+        ``person.first_name_en``/``last_name_en`` onto them every time a
+        seat is linked to a Person, and blanks them for an unassigned seat —
+        never the Persian pair. So this property was, in effect, the one
+        piece of "who am I logged in as" chrome that never noticed the
+        toggle at all.
+
+        Routed through the SAME lookup every other seat-naming helper in the
+        platform already uses to answer "which human holds this login" —
+        ``people.work_shift.person_for_user`` (imported locally: a Profile
+        living in ``accounts`` reaching into ``people`` at module level would
+        be circular, the identical reason ``marketing/views.py`` and
+        ``reports/views.py`` already give for importing it the same way) —
+        so that whenever a Person is linked this now resolves through
+        ``Person.display_name``, which IS language-aware (see that
+        property's own docstring): Persian while this VIEWER's chrome is
+        Persian, Latin while it is English. Only a login with no linked
+        Person at all — the ``admin`` console account, a brand-new
+        unassigned seat — falls back to the old, Latin-only behaviour,
+        unchanged, because there is no Person record here to be
+        language-aware ABOUT.
+        """
+        from people.work_shift import person_for_user
+
+        person = person_for_user(self.user)
+        if person is not None:
+            return person.display_name
         name = self.user.get_full_name().strip()
         return name or self.user.username
 
@@ -303,6 +338,14 @@ class Profile(models.Model):
         if self.is_admin:
             return True
         return self.unit == Unit.COMMERCIAL and self.role == Role.MANAGER
+
+    # Purchasing's own equivalent of can_add_client above — same shape, same
+    # reasoning, a different unit's manager ("Supervisor" in the UI).
+    @property
+    def can_add_supplier(self) -> bool:
+        if self.is_admin:
+            return True
+        return self.unit == Unit.PURCHASING and self.role == Role.MANAGER
 
     @property
     def display_first_name(self) -> str:
@@ -395,8 +438,8 @@ class PlatformConfig(models.Model):
         help_text="Default floating time in seconds (e.g. 900 = 15:00).",
     )
     default_reconnect_grace_seconds = models.PositiveIntegerField(
-        default=10 * 60,
-        help_text="Default reconnect time in seconds (e.g. 600 = 10:00).",
+        default=15 * 60,
+        help_text="Default reconnect time in seconds (e.g. 900 = 15:00).",
     )
     updated_at = models.DateTimeField(auto_now=True)
 

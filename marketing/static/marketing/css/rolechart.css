@@ -745,10 +745,12 @@
 /* ---- The focus card's own marked look ---------------------------------------
    A THIRD visual state, alongside is-focus/is-lit above: the FOCUS card of
    any active query — not only case mode's — carries this one further mark
-   (a distinctly-coloured ring/glow plus the small corner checkmark below) on
-   top of plain is-focus, so a reader can tell "this is the one card the
-   query is actually ABOUT" apart from "this card just happens to be lit
-   because something was connected to it".
+   (the small corner checkmark below) on top of plain is-focus, so a reader
+   can tell "this is the one card the query is actually ABOUT" apart from
+   "this card just happens to be lit because something was connected to it".
+   IT USED TO ALSO CARRY A DISTINCTLY-COLOURED RING/GLOW ON TOP OF THAT
+   CHECKMARK — see "THE COLOUR WAS DROPPED AGAIN THIS ROUND" below for why
+   that half of the mark is gone; the checkmark alone is what is left.
 
    THIS USED TO BE CASE-MODE-ONLY — the class is still literally named
    ``is-case-anchor`` and every id/function behind the badge still says
@@ -776,24 +778,47 @@
    is-focus's own rules by source order alone — keeps this correct
    regardless of where in the file it sits.
 
-   Colour, not just a badge: --warn (already theme-aware — see
-   static/css/app.css's dark block — no dark-mode override needed here just
-   to follow it) stands in for --accent on this one card's own ring/glow,
-   the same "a real colour, not a heavier version of the same look" rule the
-   owner asked for between is-focus and is-lit themselves, applied a second
-   time between an ordinary lit card and THIS one — now the single ring/glow
-   every focus card gets, regardless of how it became the focus. */
+   THE COLOUR WAS DROPPED AGAIN THIS ROUND — A SECOND REVERSAL ON TOP OF THE
+   ONE DESCRIBED ABOVE, and this one removes the ring/glow's own colour
+   outright rather than deciding who gets it. Until now this state still
+   painted the card a distinct reddish/amber tone: --warn stood in for
+   --accent on this one card's own stroke, fill AND glow, "a real colour, not
+   a heavier version of the same look" — the same reasoning the owner had
+   originally given for telling is-focus and is-lit apart from each other,
+   applied a second time here. The owner's own follow-up called that choice
+   out by name: a card marked as active should turn the SAME dark colour
+   treatment every other non-empty/solid card on this chart already uses —
+   the plain "solid, ink-bordered card" idiom this file opens with, which,
+   once a query is running, is exactly the dark per-row fill an ordinary
+   is-lit card already wears (see "THE LIT FILL NOW MATCHES THE IDLE DARK
+   BASE" above) — not a colour of its own. So the reddish stroke/fill/glow is
+   gone outright, in every theme: nothing below is coloured by --warn any
+   more.
+
+   WHAT IS LEFT IS ONE LINE — THE FILL ALONE — and even that is not a new
+   colour: it is the identical per-row hsl() is-lit's own rule above already
+   computes, repeated here only because is-lit and is-focus are two separate
+   classes that this node never carries at the same time (a node is either
+   THE focus or merely lit, never both), so the cascade cannot reach across
+   from one card's class to another's rule. The border and the glow are not
+   restated at all: with the reddish overrides gone, this selector's own
+   border falls straight through to the plain is-focus/is-lit stroke rule
+   above (`stroke:var(--accent); stroke-width:2`), and its glow falls straight
+   through to plain is-focus's own filter rules elsewhere in the query-mode
+   section (light) and in the dark-theme block further up this file — both
+   already colour themselves with --accent, which is exactly "the same look
+   as every other focus/lit card" the owner asked for, reached by deleting an
+   override rather than writing a new one.
+
+   THE CHECKMARK BADGE BELOW IS UNTOUCHED BY THIS ROUND, DELIBERATELY: the
+   owner's ask was specifically about the CARD'S OWN COLOUR, not about
+   removing the "this is the one the query is about" signal outright, and the
+   small corner dot+tick already carries that signal on its own — legible
+   sitting on a dark card exactly as it was already legible sitting on the old
+   reddish one, since its own --paper ring (further below) never depended on
+   which colour the card under it happened to be. */
 .rc-chart.is-query .rc-node.is-focus.is-case-anchor .rc-box{
-  stroke:var(--warn);
-  fill:color-mix(in srgb, var(--warn) 14%, var(--paper));
-}
-.rc-chart.is-query .rc-node.is-focus.is-case-anchor .rc-box{
-  filter:drop-shadow(0 4px 12px color-mix(in srgb, var(--warn) 45%, transparent));
-}
-[data-mode="dark"] .rc-chart.is-query .rc-node.is-focus.is-case-anchor .rc-box,
-[data-theme="dark"] .rc-chart.is-query .rc-node.is-focus.is-case-anchor .rc-box{
-  filter:drop-shadow(0 0 9px var(--warn));
-  fill:color-mix(in srgb, var(--warn) 24%, var(--paper));
+  fill:hsl(var(--rc-row-h) calc(var(--rc-row-s) + 6%) calc(var(--rc-row-l, 18%) + 6%));
 }
 /* The small corner badge itself — a filled dot plus a check-mark glyph,
    built as real SVG children of the anchor node's own <g> by
@@ -1043,7 +1068,7 @@
   box-shadow:var(--shadow-lg); padding:.55rem .6rem;
 }
 .rc-us-cases-panel[hidden]{ display:none; }
-/* The panel's own fixed head — title, the three status counts, and the
+/* The panel's own fixed head — title, the four status counts, and the
    archive link — all above the one scrolling region, so none of them scroll
    away under a long case list. */
 .rc-us-cases-head{ flex:0 0 auto; }
@@ -1051,10 +1076,19 @@
   font-size:.7rem; font-weight:800; letter-spacing:.03em; color:var(--accent);
   text-transform:uppercase; margin:0 0 .35rem;
 }
-/* Approved / Cancelled / No result for the company this query is about —
-   the same three buckets services.py::_status_fa already puts every case in
-   (see services.case_status_counts), so these can never disagree with the
-   per-case status badges in the list below them. */
+/* Approved / Cancelled / Closed / No result for the company this query is
+   about — FOUR buckets as of this round (was three), the SAME four
+   marketing/views.py::_case_card_counts already computes for
+   company_detail.html's own Cases card, via client_case_counts
+   (chart_interact.js's renderUsCasesCounts) — see that view's own docstring
+   for why this panel switched from its own three-bucket rule to that shared
+   one. NOT THE SAME AS THE PER-CASE STATUS BADGES IN THE LIST BELOW THEM,
+   ON ONE DELIBERATE POINT: this summary counts a FINAL_CLOSED case under
+   "Closed", but that case's own row further down still prints its
+   three-way ``status_fa`` text, "Approved" — a deliberate, documented
+   asymmetry (see renderUsCasesCounts's own comment), not a bug, and the
+   identical one company_detail.html's Cases tab already carries between its
+   own four-way header chips and its three-way per-row "Outcome" column. */
 .rc-us-cases-counts{
   display:flex; flex-wrap:wrap; gap:.3rem; margin:0 0 .35rem;
 }
@@ -1065,12 +1099,19 @@
   padding:.14rem .5rem; white-space:nowrap;
 }
 .rc-us-cases-count b{ font-size:.78rem; font-weight:800; color:var(--ink); }
-/* --ok / --rej are the platform's own status tokens and both already flip
-   with the theme (static/css/app.css's dark block), so neither needs a
-   dark-mode override here. "No result" stays the neutral --ink the other two
-   counts share: it is not an outcome, it is the absence of one. */
+/* --ok / --rej / --accent are the platform's own tokens and all three
+   already flip with the theme (static/css/app.css's dark block), so none of
+   them needs a dark-mode override here. "Closed" reads as --accent rather
+   than a status colour of its own, matching how company_detail.html marks
+   the identical bucket: its Cases tab prints "Closed" as a plain, unmodified
+   `.chip` (no `.c-ok`/`.c-rej`/`.c-draft`), which app.css's own `.chip`
+   base rule renders in the platform's accent colour — see that file's own
+   `.chip`/`.chip.c-*` rules. "No result" stays the neutral --ink the other
+   three counts share: it is not an outcome, it is the absence of one —
+   unchanged from before this round. */
 .rc-us-cases-count.is-approved b{ color:var(--ok); }
 .rc-us-cases-count.is-cancelled b{ color:var(--rej); }
+.rc-us-cases-count.is-closed b{ color:var(--accent); }
 /* "Open in the case archive, filtered to this company" — a plain text link,
    not a button: it leaves the chart entirely. Only rendered for the admin/GM
    tier (chart_interact.js), the same tier the per-case rows below are already

@@ -15,7 +15,7 @@ from accounts.constants import Role, Unit, SupplyKind
 
 from .codes import build_doc_no, next_case_serial, year_month_token
 from .constants import CaseStatus, EventAction, FormKind, OfferType, PriceType, Side
-from .models import Case, CaseEvent, CaseForm, Client, LineItem, SerialCounter
+from .models import Case, CaseEvent, CaseForm, Client, LineItem, SerialCounter, Supplier
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +78,30 @@ def sync_client_code_counter() -> int:
         counter.value = max_n
         counter.save(update_fields=["value"])
     return counter.value
+
+
+def _max_numeric_supplier_code() -> int:
+    """Highest numeric supplier code currently stored (0 if none)."""
+    max_n = 0
+    for code in Supplier.objects.values_list("code", flat=True):
+        s = str(code or "").strip()
+        if s.isdigit():
+            max_n = max(max_n, int(s))
+    return max_n
+
+
+def next_supplier_code(width: int = 3) -> str:
+    """Next sequential supplier code — Supplier's own next_client_code."""
+    max_n = _max_numeric_supplier_code()
+    counter, _ = SerialCounter.objects.select_for_update().get_or_create(
+        key="supplier_code", defaults={"value": max_n},
+    )
+    if counter.value < max_n:
+        counter.value = max_n
+    counter.value += 1
+    counter.save(update_fields=["value"])
+    n = int(counter.value)
+    return str(n).zfill(width) if n < 1000 else str(n)
 
 
 @transaction.atomic
@@ -1062,7 +1086,7 @@ def _publish_current_forms_to(case, to_unit: str, side: str = None,
     elif leaving_unit == Unit.SUPPLY:
         leaving_kind = FormKind.PI
     for sc in sides:
-        for kind in (FormKind.INQUIRY, FormKind.TO, FormKind.PI):
+        for kind in (FormKind.INQUIRY, FormKind.TO, FormKind.PI, FormKind.PURCHASE_INVOICE):
             form = case.current_form(kind, sc)
             if form is None:
                 continue
@@ -2544,6 +2568,30 @@ def inbox_filter_q(user, *, role=None, work_user=None):
                 | (side_active_at(Unit.SUPPLY, Side.EXTERNAL) & Q(supply_external_assignee=work)))
         return ns | sp
 
+    if unit == Unit.PURCHASING:
+        # UNLIKE every branch above, this does NOT key off an exclusive
+        # status of its own — a case stays FINAL_APPROVED the entire time
+        # Purchasing is working on it (Commercial's own branch above keeps
+        # matching the SAME status, on purpose — see accounts/constants.py's
+        # "PURCHASING and WAREHOUSE" docstring section for why two units
+        # holding real access to one case at once is deliberate here, unlike
+        # every other handoff in this workflow). No split-side handling —
+        # Purchasing was not asked for one.
+        base = nonsplit & Q(status=CaseStatus.FINAL_APPROVED)
+        if profile.role == Role.MANAGER:
+            return base & (Q(purchasing_assignee__isnull=True) | Q(purchasing_assignee=work))
+        return base & Q(purchasing_assignee=work)
+
+    if unit == Unit.WAREHOUSE:
+        # This ONE DOES get its own exclusive status — Purchasing sending to
+        # Warehouse is an ordinary one-unit-at-a-time handoff, same shape as
+        # every pre-existing transition (the FINAL_APPROVED/Purchasing
+        # branch above is the only exception in this whole function).
+        base = nonsplit & Q(status=CaseStatus.WITH_WAREHOUSE)
+        if profile.role == Role.MANAGER:
+            return base & (Q(warehouse_assignee__isnull=True) | Q(warehouse_assignee=work))
+        return base & Q(warehouse_assignee=work)
+
     return None
 
 
@@ -3579,6 +3627,39 @@ def allowed_actions(case: Case, user, *, role=None, work_user=None) -> set[str]:
                     actions.add("approve_send")
         actions.add("view")
 
+    # --- Purchasing ------------------------------------------------------
+    # No exclusive status gate here (unlike every branch above and below) —
+    # see inbox_filter_q's own PURCHASING branch and assign_purchasing's own
+    # docstring for why: Commercial keeps acting on the SAME FINAL_APPROVED
+    # case at the same time, on purpose.
+    elif unit == Unit.PURCHASING:
+        if status == CaseStatus.FINAL_APPROVED:
+            can_act = work_id == case.purchasing_assignee_id or (
+                is_manager and not case.purchasing_assignee_id)
+            if can_act:
+                actions.update({"build_purchase_invoice", "comment"})
+                if is_manager and not case.purchasing_assignee_id:
+                    actions.add("assign_purchasing")
+                if case.forms.filter(kind=FormKind.PURCHASE_INVOICE).exists():
+                    actions.add("send_to_warehouse")
+        actions.add("view")
+
+    # --- Warehouse ---------------------------------------------------------
+    # Ordinary exclusive-status branch, same shape as Technical/Supply above
+    # — Warehouse's own downstream behaviour (what it actually DOES with a
+    # received Purchase Invoice) is not yet designed and deliberately not
+    # guessed at here; only the base "manager can hand it to an expert"
+    # capability every other unit already has is granted for now.
+    elif unit == Unit.WAREHOUSE:
+        if status == CaseStatus.WITH_WAREHOUSE:
+            can_act = work_id == case.warehouse_assignee_id or (
+                is_manager and not case.warehouse_assignee_id)
+            if can_act:
+                actions.add("comment")
+                if is_manager and not case.warehouse_assignee_id:
+                    actions.add("assign")
+        actions.add("view")
+
     # Export is available to every unit as soon as a TO or PI exists — even when
     # the viewer is not the current holder of the case.
     if case.forms.filter(kind__in=[FormKind.TO, FormKind.PI], is_current=True).exists():
@@ -4413,6 +4494,18 @@ def assign(case: Case, actor, assignee, comment: str = "", side: str = ""):
                   "supply_assignee", "split_active",
                   "internal_status", "external_status",
                   "internal_holder", "external_holder", "updated_at"]
+    elif case.holder_unit == Unit.WAREHOUSE:
+        # A normal holder_unit-driven handoff (unlike Purchasing, which needed
+        # its own separate assign_purchasing() — see that function's own
+        # docstring for why: Purchasing's access happens WITHOUT holder_unit
+        # ever becoming Unit.PURCHASING, so it can never reach this dispatch
+        # at all). Warehouse's own downstream behaviour past this point is
+        # still undesigned (deferred), but "the manager can hand an incoming
+        # case to one of their experts" is the same base capability every
+        # other unit already has, and is safe to give it now.
+        case.warehouse_assignee = assignee
+        case.assigned_to = assignee
+        fields = ["assigned_to", "warehouse_assignee", "updated_at"]
     else:
         case.assigned_to = assignee
         fields = ["assigned_to", "updated_at"]
@@ -4958,6 +5051,217 @@ def burn_case(case: Case, actor, comment: str = ""):
         "status", "holder_unit", "awaiting_approval", "proposed_action", "updated_at",
     ])
     log(case, actor, EventAction.BURN, comment=comment, from_unit=Unit.COMMERCIAL)
+
+
+def assign_purchasing(case: Case, actor, assignee):
+    """Purchasing's own manager assigns the case to one of their experts.
+
+    Cannot reuse the generic assign() above: that dispatches on
+    case.holder_unit, which stays Unit.COMMERCIAL the entire time a case is
+    with Purchasing (Commercial keeps its own Final-Approved actions on it
+    simultaneously — see accounts/constants.py's "PURCHASING and WAREHOUSE"
+    docstring section, and inbox_filter_q's own PURCHASING branch for the
+    read-side half of this same design). No status/holder_unit change here —
+    only purchasing_assignee moves, exactly what inbox_filter_q's PURCHASING
+    branch and allowed_actions' own PURCHASING branch both key off.
+    """
+    case.purchasing_assignee = assignee
+    case.save(update_fields=["purchasing_assignee", "updated_at"])
+    note = f"Assigned to {assignee.get_full_name() or assignee.username}"
+    log(case, actor, EventAction.ASSIGN, to_unit=Unit.PURCHASING, comment=note)
+
+
+def send_to_warehouse(case: Case, actor, comment: str = ""):
+    """Purchasing's ONLY action past building the Purchase Invoice — see the
+    product owner's own instruction (one action, no other option here).
+
+    An ordinary exclusive handoff (see send_to_supply above for the shape
+    this mirrors) — UNLIKE assign_purchasing just above, this one DOES move
+    holder_unit/status, because once Purchasing is done, Purchasing's own
+    turn is genuinely over (the case leaves Purchasing's inbox exactly the
+    way case.status no longer matching FINAL_APPROVED naturally implies),
+    the same way every other handoff in this workflow already works.
+    """
+    _publish_current_forms_to(case, Unit.WAREHOUSE, leaving_unit=Unit.PURCHASING)
+    case.status = CaseStatus.WITH_WAREHOUSE
+    case.holder_unit = Unit.WAREHOUSE
+    case.assigned_to = case.warehouse_assignee
+    case.save(update_fields=[
+        "status", "holder_unit", "assigned_to", "updated_at",
+    ])
+    log(case, actor, EventAction.SEND_TO_WAREHOUSE, comment=comment,
+        from_unit=Unit.PURCHASING, to_unit=Unit.WAREHOUSE)
+
+
+PURCHASE_INVOICE_COLUMNS = [
+    "#", "Item Code", "FTCO CODE", "FTCO DESCRIPTION", "SIZE", "QTY", "UNIT",
+    "BRAND", "BASE PRICE", "MARGIN %", "UNIT PRICE",
+    "QTY PURCHASED", "PRICE PURCHASED", "SUPPLIER",
+]
+
+
+def _purchase_invoice_current_rows(case):
+    """(rows, editable_form) for the Purchase Invoice build page.
+
+    ``rows`` always reflects the LATEST Proforma's reference columns
+    (Item Code / FTCO CODE / FTCO DESCRIPTION / SIZE / QTY / UNIT / BRAND /
+    the base-price+margin%+final-price triple the product owner asked the
+    old single UNIT PRICE column split into), each row's own "QTY" here
+    being the quantity STILL REMAINING to purchase — original Proforma qty
+    minus whatever was already purchased on every PAST, already-SENT
+    Purchase Invoice for that same row (matched by "#", the stable row
+    identity across Inquiry -> TO -> PI -> Purchase Invoice — see
+    _row_client_no's own comment for why never "Item Code", which is
+    per-form-minted and not unique).
+
+    ``qty_purchased``/``price_purchased``/``supplier_*`` on each row are the
+    Purchasing-only columns: whatever is already saved on the CURRENT,
+    NOT-YET-SENT Purchase Invoice form, if one is being edited right now
+    (0/blank for a brand new one) — this is the ONE invoice's own entry, an
+    INCREMENT, never a running cumulative total (the product owner's own
+    words: "whatever number is entered, the remaining shows as a label
+    under it" — remaining only ever goes down by what THIS invoice takes).
+
+    ``editable_form`` is that in-progress CaseForm, or None when there is
+    nothing to continue editing (either no Purchase Invoice exists yet, or
+    the latest one was already sent to Warehouse) — save_purchase_invoice
+    below uses this same None-ness to decide "update in place" vs. "start a
+    new version".
+    """
+    from .export_data import _cell, _strip_html, parse_money
+
+    latest_pinv = case.forms.filter(kind=FormKind.PURCHASE_INVOICE).order_by("-version").first()
+    editable_form = latest_pinv if (latest_pinv is not None and not latest_pinv.sent) else None
+
+    purchased_elsewhere: dict[str, float] = {}
+    for f in case.forms.filter(kind=FormKind.PURCHASE_INVOICE, sent=True):
+        for pr in (f.table or []):
+            key = _row_client_no(pr)
+            purchased_elsewhere[key] = purchased_elsewhere.get(key, 0.0) + parse_money(pr.get("qty_purchased"))
+
+    in_progress_by_row = {}
+    if editable_form is not None:
+        for pr in (editable_form.table or []):
+            in_progress_by_row[_row_client_no(pr)] = pr
+
+    # Primary/non-split side only — Purchasing was not asked for an
+    # internal/external split the way Technical/Supply have one, so a case
+    # that WAS side-split earlier in Inquiry/TO/PI only offers its primary
+    # side's Proforma here. Revisit if/when the product owner asks for
+    # Purchasing to handle a split case's second side too.
+    pi_form = case.current_form(FormKind.PI)
+    if pi_form is None:
+        return [], editable_form
+
+    rows = []
+    for r in (pi_form.table or []):
+        if str((r or {}).get("_deleted", "") or "") == "1":
+            continue
+        if str((r or {}).get("_unsuppliable", "") or "") == "1":
+            continue
+        key = _row_client_no(r)
+        original_qty = parse_money(r.get("qty"))
+        remaining = max(0.0, original_qty - purchased_elsewhere.get(key, 0.0))
+        prior = in_progress_by_row.get(key) or {}
+        final_price = parse_money(r.get("UNIT PRICE"))
+        raw_base = r.get("_unit_price_raw")
+        base_price = parse_money(raw_base) if raw_base not in (None, "") else final_price
+        margin_percent = round((final_price / base_price - 1) * 100, 1) if base_price else 0.0
+        rows.append({
+            # "#", not just "client_row" — _row_client_no (used both above,
+            # reading purchased_elsewhere/in_progress_by_row, and again the
+            # NEXT time this exact saved row is read back) looks for "#"
+            # first. Without this key a round trip through
+            # save_purchase_invoice -> re-render silently lost every row's
+            # own qty_purchased/price_purchased/supplier — caught by
+            # actually re-reading a save back in testing, not by inspection.
+            "#": key,
+            "client_row": key,
+            "item_code": _cell(r, "Item Code"),
+            "ftco_code": _cell(r, "کد"),
+            "ftco_description": _strip_html(_cell(r, "Final Arranged Text")),
+            "size": _strip_html(_cell(r, "size")),
+            "qty": remaining,
+            "unit": _strip_html(_cell(r, "unit")),
+            "brand": _strip_html(_cell(r, "BRAND")),
+            "base_price": base_price,
+            "margin_percent": margin_percent,
+            "unit_price": final_price,
+            "qty_purchased": parse_money(prior.get("qty_purchased")),
+            "price_purchased": prior.get("price_purchased") or "",
+            "supplier_id": prior.get("supplier_id"),
+            "supplier_name": prior.get("supplier_name") or "",
+        })
+    return rows, editable_form
+
+
+def purchase_invoice_rows(case) -> list:
+    """Public read-only entry point for _purchase_invoice_current_rows —
+    used by the build page's GET and by _purchase_invoice_section.html's
+    own summary, so both always agree with what a save would validate
+    against."""
+    rows, _editable_form = _purchase_invoice_current_rows(case)
+    return rows
+
+
+def save_purchase_invoice(case, actor, post_data) -> "CaseForm":
+    """Save the Purchase Invoice currently being built/edited (never sends
+    it — see send_to_warehouse above for the one and only forward action,
+    per the product owner's own instruction).
+
+    ``post_data`` is a QueryDict — ``getlist`` per field, one entry per row,
+    in the SAME order _purchase_invoice_current_rows returned them (the
+    build template renders one row per list entry and posts back in that
+    order — see cases/templates/cases/purchase_invoice_build.html).
+    """
+    from .export_data import parse_money
+
+    rows, editable_form = _purchase_invoice_current_rows(case)
+    qty_list = post_data.getlist("qty_purchased")
+    price_list = post_data.getlist("price_purchased")
+    supplier_list = post_data.getlist("supplier")
+
+    for i, row in enumerate(rows):
+        raw_qty = qty_list[i] if i < len(qty_list) else ""
+        new_qty = parse_money(raw_qty) if str(raw_qty).strip() else 0.0
+        if new_qty > row["qty"] + 1e-9:
+            raise ValueError(
+                f"Row #{row['client_row']}: cannot purchase more than the "
+                f"remaining quantity ({row['qty']:g})."
+            )
+        row["qty_purchased"] = new_qty
+        raw_price = price_list[i] if i < len(price_list) else ""
+        row["price_purchased"] = str(raw_price).strip()
+        raw_supplier = supplier_list[i] if i < len(supplier_list) else ""
+        raw_supplier = str(raw_supplier).strip()
+        if raw_supplier:
+            supplier = Supplier.objects.filter(pk=raw_supplier).first()
+            row["supplier_id"] = supplier.pk if supplier else None
+            row["supplier_name"] = supplier.name if supplier else ""
+        else:
+            row["supplier_id"] = None
+            row["supplier_name"] = ""
+
+    if editable_form is not None:
+        editable_form.table = rows
+        editable_form.columns = PURCHASE_INVOICE_COLUMNS
+        editable_form.save(update_fields=["table", "columns", "updated_at"])
+        form = editable_form
+        is_new = False
+    else:
+        latest = case.forms.filter(kind=FormKind.PURCHASE_INVOICE).order_by("-version").first()
+        version = (latest.version + 1) if latest is not None else 1
+        form = CaseForm.objects.create(
+            case=case, kind=FormKind.PURCHASE_INVOICE, side="",
+            version=version, table=rows, columns=PURCHASE_INVOICE_COLUMNS,
+        )
+        form.make_current()
+        is_new = True
+
+    log(case, actor, EventAction.BUILD_PURCHASE_INVOICE,
+        comment=("Purchase Invoice built" if is_new else "Purchase Invoice updated"),
+        form_kind=FormKind.PURCHASE_INVOICE, form_version=form.version)
+    return form
 
 
 def _upgrade_price_to_two_stage(case: Case, actor, *,

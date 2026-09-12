@@ -714,3 +714,112 @@ def validate_due_at_shift(user, due_at) -> bool:
     start, end = shift_window(person)
     due_time = due_at.time().replace(microsecond=0)
     return _in_window(due_time, start, end)
+
+
+def validate_due_at_future(due_at) -> bool:
+    """Is ``due_at`` still in the future? ``True``/``False``, never raises —
+    the same "caller decides what a False means to it" contract
+    :func:`validate_due_at_shift` already documents, reused here for the
+    companion rule the owner asked for THIS round: a reminder is a thing to
+    be reminded of LATER, and a due time that has already passed the moment
+    it is submitted is not a reminder at all, it is a typo.
+
+    THIS IS A GENUINE, DELIBERATE NARROWING OF WHAT ``marketing/forms.py::
+    _clean_jalali_datetime`` USED TO ARGUE, AT LENGTH, FOR ITS OWN REASONS —
+    see that function's own docstring, which still explains the history: a
+    past due time was allowed there because the old "Set new time"
+    re-time control on the pre-"My Tasks" reminders list needed to be able to
+    walk an overdue reminder's time BACKWARDS to "now" as the fastest way to
+    bring it back to the top of the list. That control
+    (``marketing/views.py::reminder_retime``) no longer exists — it was
+    retired as a live bypass of the mandatory close-only-via-a-report cycle
+    (see the comment left in ``views.py`` where it used to be defined) — so
+    the one legitimate reason a reminder's OWN due time ever needed to name
+    the past is gone, and every remaining caller of this check is a brand
+    new reminder being CREATED, never one being walked backward. Enforcing
+    "future only" here closes that gap rather than reopening the retired
+    control's own loophole by a different, unguarded door.
+
+    COMPARED AGAINST ``timezone.now()`` AT THE INSTANT THIS IS CALLED, not
+    against some earlier snapshot — a submission that was valid when the page
+    was rendered but has since ticked past into the past (a very slow typist,
+    or a stale tab resubmitted) is correctly refused, the same "compare live,
+    never a cached moment" discipline ``_task_rows``' own ``is_due`` already
+    documents for the identical reason.
+
+    ``due_at`` IS EXPECTED TO BE A ``datetime`` (naive or aware — Django's own
+    form field already hands this an aware one, in the project's local time,
+    via ``marketing/forms.py::_clean_jalali_datetime``, but a naive value is
+    made aware in the project's own timezone rather than compared against
+    ``now()`` in the wrong frame, so a caller that ever passes a naive value
+    still gets a correct answer instead of a silently wrong one). ``None`` is
+    treated as invalid (``False``) — "no time was even picked" is exactly the
+    kind of input a form's ``clean()`` hands this function on a still-invalid
+    submission, ``validate_due_at_shift``'s own reasoning for the same guard.
+    """
+    if due_at is None:
+        return False
+    if timezone.is_naive(due_at):
+        due_at = timezone.make_aware(due_at, timezone.get_current_timezone())
+    return due_at > timezone.now()
+
+
+def validate_due_at_working_day(due_at) -> bool:
+    """Does ``due_at``'s CALENDAR DAY fall on a day this company actually
+    works? ``True``/``False``, never raises — the third of the three rules
+    the owner asked for this round, alongside :func:`validate_due_at_future`
+    above (a reminder must not be set for the past) and
+    :func:`validate_due_at_shift` (a reminder must fall inside the owner's
+    own daily HOURS). This one is the missing DAY half of that same
+    question: ``validate_due_at_shift`` is explicit that it checks the TIME
+    OF DAY only and says plainly that "which calendar days count as a
+    working day at all (weekends, holidays) is a different question this
+    function does not answer" — this is that other function, answering
+    exactly that question, for a reminder's due DATE rather than its time.
+
+    REUSES ``people/shift_hours.py::_is_working_day`` VERBATIM, RATHER THAN
+    RE-DERIVING WEEKEND/HOLIDAY LOGIC A SECOND TIME — the exact function the
+    monthly shift-planning table (``plan_month``) and the login-day gate
+    (``note_shift_login``/``record_presence_ping``) both already lean on for
+    the identical question, "is the shift actually expected to be worked on
+    this Gregorian date". It already folds BOTH halves of "not a working
+    day" into one boolean — Thursday/Friday weekends
+    (``people.iran_holidays.WEEKEND_WEEKDAYS``) AND Iran's official calendar
+    (``people.iran_holidays.is_official_holiday``, itself already layered on
+    top of the weekend check there, per that module's own docstring: "a
+    holiday that falls on a weekend is not double-counted as an extra day
+    off") — so calling it once here is not a partial answer that still needs
+    a second, separate holiday check bolted on beside it; it already IS both
+    checks, done the one place this codebase already does them.
+
+    IMPORTED BY ITS OWN UNDERSCORE NAME, DELIBERATELY, RATHER THAN GIVEN A
+    NEW PUBLIC ALIAS — the identical judgement ``validate_due_at_shift``
+    itself already makes for ``people/work_shift.py::_in_window`` a few lines
+    up in this same module (see that function's own comment): the leading
+    underscore marks a name private to the ``people`` APP, not to the one
+    module it is defined in, and reading a pure, side-effect-free predicate
+    across that line — no state, no writes, just a date in and a bool out —
+    is the same safe crossing ``marketing/services.py`` already documents for
+    ``cases.services._actor_snapshot``. Renaming it here would create a
+    second name for the one answer to "is this a working day", which is
+    exactly the kind of duplicate-source-of-truth this codebase goes out of
+    its way to avoid — see this module's own repeated "ONE ... NEVER A
+    SECOND" refrain elsewhere in this file.
+
+    ONLY THE DATE PART IS READ — ``due_at.date()``, converted to this
+    project's LOCAL calendar day first (``timezone.localtime``) exactly as
+    ``_task_rows``' own ``day_key`` already is, so a reminder set for a few
+    minutes after local midnight is judged against the LOCAL day it visibly
+    falls on, never the UTC day the raw stored instant happens to carry.
+    ``due_at`` is expected to be an aware ``datetime`` (see
+    :func:`validate_due_at_future`'s identical note on why a naive value is
+    made aware rather than mishandled); ``None`` is treated as invalid
+    (``False``), the same guard every sibling validator in this module uses.
+    """
+    if due_at is None or getattr(due_at, "date", None) is None:
+        return False
+    if timezone.is_naive(due_at):
+        due_at = timezone.make_aware(due_at, timezone.get_current_timezone())
+    from people.shift_hours import _is_working_day
+
+    return _is_working_day(timezone.localtime(due_at).date())

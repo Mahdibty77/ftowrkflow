@@ -10,10 +10,11 @@ no entry here silently borrows the administration indigo, which is why every
 Unit value needs one: two units sharing an accent is precisely the "which unit
 am I looking at" question this file exists to answer.
 
-The five accents are chosen to stay apart from each other by hue as well as by
+The accents are chosen to stay apart from each other by hue as well as by
 name - bronze 38deg, teal-green 160deg, engineer blue 205deg, slate indigo
-244deg, mulberry 330deg - so they are still distinguishable side by side in the
-sidebar dot, and each keeps white text above 4.5:1.
+244deg, mulberry 330deg, terracotta 15deg, moss 95deg, violet 275deg - so they
+are still distinguishable side by side in the sidebar dot, and each keeps
+white text above 4.5:1.
 """
 
 UNIT_THEMES = {
@@ -43,6 +44,27 @@ UNIT_THEMES = {
         "accent": "#8c3f63",        # muted mulberry
         "accent_strong": "#6b2e4c",
         "accent_soft": "#f6ebf1",
+        "on_accent": "#ffffff",
+    },
+    "PURCHASING": {
+        "label": "Purchasing",
+        "accent": "#a8481f",        # terracotta
+        "accent_strong": "#7d3517",
+        "accent_soft": "#f7e9e0",
+        "on_accent": "#ffffff",
+    },
+    "WAREHOUSE": {
+        "label": "Warehouse",
+        "accent": "#5c7a1f",        # moss
+        "accent_strong": "#455c17",
+        "accent_soft": "#eef3e0",
+        "on_accent": "#ffffff",
+    },
+    "QC": {
+        "label": "Quality Control",
+        "accent": "#6b3f9e",        # violet
+        "accent_strong": "#4f2e78",
+        "accent_soft": "#f0ebf7",
         "on_accent": "#ffffff",
     },
     "ADMIN": {

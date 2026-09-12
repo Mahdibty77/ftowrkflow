@@ -34,9 +34,9 @@ from core.persian_text import normalize_persian
 from . import codes, exports, services
 from .constants import CaseStatus, FormKind, DocKind, MarketingLabel, OfferType, PriceType, EventAction, Side
 from .forms import (CaseCreateForm, ClientForm, ClientRenameForm, CommentForm,
-                    ExpertCodeForm)
+                    ExpertCodeForm, SupplierForm, SupplierRenameForm)
 from .inquiry_validate import validate_inquiry_rows
-from .models import Case, CaseEvent, CaseForm, Client, ExpertCode, LineItem
+from .models import Case, CaseEvent, CaseForm, Client, ExpertCode, LineItem, Supplier
 
 
 def _vat_percent_value() -> float:
@@ -1403,11 +1403,50 @@ def case_detail(request, pk):
                             key=_form_chip_sort_key, reverse=True),
     }
 
+    # Purchase Invoice — Purchasing's own form. Deliberately NOT folded into
+    # sides_data/_side_section.html's per-side Inquiry/TO/PI loop above: no
+    # internal/external split was asked for, and that pipeline is already the
+    # most complex part of this view — a separate, simpler block here is
+    # lower-risk than threading a 4th form kind through side-aware machinery
+    # it was never designed for. is_warehouse also gates
+    # case_detail.html's own suppression of the Inquiry/Technical/Proforma
+    # tabs for Warehouse viewers (see that template).
+    is_purchasing = viewer_unit == Unit.PURCHASING
+    is_warehouse = viewer_unit == Unit.WAREHOUSE
+    pinv_forms = sorted(_forms_of(FormKind.PURCHASE_INVOICE), key=_form_chip_sort_key)
+    if is_admin_view or is_purchasing or is_warehouse:
+        pinv_version_list = pinv_forms
+    else:
+        pinv_version_list = [
+            f for f in pinv_forms if services.form_published_to_unit(f, viewer_unit)
+        ][-1:]
+    purchase_invoice = {
+        "visible": bool(
+            is_admin_view or is_purchasing or is_warehouse or pinv_forms
+        ),
+        "versions": pinv_version_list,
+        "current": pinv_forms[-1] if pinv_forms else None,
+        "can_build": "build_purchase_invoice" in actions,
+        "can_send": "send_to_warehouse" in actions,
+    }
+
     # Possible assignees when the manager wants to delegate the case.
     assignees = []
     if "assign" in actions:
         assignees = User.objects.filter(
             profile__unit=case.holder_unit,
+            profile__role=Role.EXPERT,
+            is_active=True,
+        ).select_related("profile").order_by("first_name", "username")
+
+    # Purchasing's own assignee pool — cannot reuse "assign"/assignees above
+    # (that one is keyed off case.holder_unit, which stays Unit.COMMERCIAL
+    # the whole time Purchasing is working — see assign_purchasing's own
+    # docstring), so this is a second, Purchasing-specific pool.
+    purchasing_assignees = []
+    if "assign_purchasing" in actions:
+        purchasing_assignees = User.objects.filter(
+            profile__unit=Unit.PURCHASING,
             profile__role=Role.EXPERT,
             is_active=True,
         ).select_related("profile").order_by("first_name", "username")
@@ -1925,6 +1964,10 @@ def case_detail(request, pk):
         "is_comm": is_comm,
         "is_tech": is_tech,
         "is_supply": is_supply,
+        "is_purchasing": is_purchasing,
+        "is_warehouse": is_warehouse,
+        "purchase_invoice": purchase_invoice,
+        "purchasing_assignees": purchasing_assignees,
         "viewer_unit": viewer_unit or "",
         # Admin-only export audit timeline (who exported what, and when).
         "export_logs": (list(case.export_logs.select_related("actor").all()[:300])
@@ -2231,6 +2274,56 @@ def _newver_context(case, rows, side, offer_type, price_type, seeded=False,
         "price_types": PriceType.CHOICES,
         "clients": Client.objects.all().order_by("name"),
     }
+
+
+@login_required
+def purchase_invoice_build(request, pk):
+    """Purchasing's own simple build/edit page for its Purchase Invoice.
+
+    Deliberately NOT the itemcoder grid tool TO/PI use (tool_for_case /
+    save_from_tool) — the product owner's own choice: a plain, purpose-built
+    page, since almost none of itemcoder's own machinery (margin controls,
+    code assignment, virtual scrolling) applies to filling in a quantity, a
+    price and a supplier per row. Storage still goes through the SAME
+    CaseForm/services.save_form-adjacent machinery every other form kind
+    uses (see services.save_purchase_invoice), so version history / the
+    Warehouse handoff / user_can_view_case all keep working exactly the way
+    they already do for Inquiry/TO/PI.
+    """
+    case = get_object_or_404(Case, pk=pk)
+    from people.role_nav import work_context
+    ctx = work_context(request)
+
+    if not services.user_can_view_case(
+        case, request.user, role=ctx.role, work_user=ctx.seat_user,
+    ):
+        messages.error(request, _("You do not have access to this case."))
+        return redirect("cases:inbox")
+
+    actions = services.allowed_actions(
+        case, request.user, role=ctx.role, work_user=ctx.seat_user,
+    )
+    can_edit = "build_purchase_invoice" in actions
+
+    if request.method == "POST":
+        if not can_edit:
+            messages.error(request, _("You may not edit this Purchase Invoice."))
+            return redirect("cases:case_detail", pk=pk)
+        try:
+            services.save_purchase_invoice(case, request.user, request.POST)
+            messages.success(request, _("Purchase Invoice saved."))
+        except ValueError as exc:
+            messages.error(request, str(exc))
+        return redirect("cases:purchase_invoice_build", pk=pk)
+
+    rows, editable_form = services._purchase_invoice_current_rows(case)
+    return render(request, "cases/purchase_invoice_build.html", {
+        "case": case,
+        "rows": rows,
+        "can_edit": can_edit,
+        "is_editing": editable_form is not None,
+        "suppliers": Supplier.objects.all().order_by("name"),
+    })
 
 
 @login_required
@@ -3120,6 +3213,20 @@ def transition(request, pk):
                 )
                 services.assign(case, actor, assignee, comment=comment,
                                 side=request.POST.get("side", ""))
+            elif action == "assign_purchasing":
+                # Cannot reuse the generic "assign" branch above: it resolves
+                # its pool from case.holder_unit, which stays Unit.COMMERCIAL
+                # the whole time a case is with Purchasing — see
+                # services.assign_purchasing's own docstring.
+                assignee_id = request.POST.get("assignee")
+                assignee = get_object_or_404(
+                    User.objects.filter(profile__unit=Unit.PURCHASING,
+                                        profile__role=Role.EXPERT, is_active=True),
+                    pk=assignee_id,
+                )
+                services.assign_purchasing(case, actor, assignee)
+            elif action == "send_to_warehouse":
+                services.send_to_warehouse(case, actor, comment)
             elif action == "close":
                 services.close_case(case, actor, comment)
             elif action == "cannot_supply":
@@ -3823,6 +3930,29 @@ def _deny_clients_fx(request, message: str | None = None):
     return redirect("cases:inbox")
 
 
+def _is_purchasing_manager(user) -> bool:
+    profile = _profile(user)
+    return bool(profile and profile.is_manager and profile.unit == Unit.PURCHASING)
+
+
+def _can_manage_suppliers(user) -> bool:
+    """Purchasing manager ("Supervisor" in the UI) or platform admin —
+    Supplier's own _can_manage_clients_fx."""
+    return _is_purchasing_manager(user) or _is_platform_admin(user)
+
+
+def _deny_suppliers(request, message: str | None = None):
+    messages.error(
+        request,
+        message if message is not None else _(
+            "Only the Purchasing supervisor or an Administrator can manage suppliers."
+        ),
+    )
+    if _is_platform_admin(request.user):
+        return redirect("accounts:admin_console")
+    return redirect("cases:inbox")
+
+
 def _parse_rial_price(raw):
     from decimal import Decimal, InvalidOperation
     s = str(raw or "").replace(",", "").replace(" ", "").strip()
@@ -4149,6 +4279,75 @@ def client_rename(request, pk):
     else:
         form = ClientRenameForm(instance=client)
     return render(request, "cases/client_form.html", {"form": form, "client": client})
+
+
+@login_required
+def supplier_list(request):
+    """Supplier's own client_list — same shape, no Marketing label overlay
+    (that exception is Commercial-specific, see client_list's own comment),
+    no bulk-upload/wipe (not asked for)."""
+    if not _can_manage_suppliers(request.user):
+        return _deny_suppliers(
+            request, _("Only the Purchasing supervisor or an Administrator can manage suppliers.")
+        )
+
+    query = request.GET.get("q", "").strip()
+    profile = _profile(request.user)
+    suppliers = Supplier.objects.all()
+    if query:
+        suppliers = suppliers.filter(Q(name__icontains=query) | Q(code__icontains=query))
+    suppliers = list(suppliers.order_by("code", "name"))
+
+    return render(request, "cases/supplier_list.html", {
+        "suppliers": suppliers,
+        "query": query,
+        "can_add": bool(profile and profile.can_add_supplier),
+    })
+
+
+@login_required
+def supplier_add(request):
+    profile = _profile(request.user)
+    if not (profile and profile.can_add_supplier):
+        return _deny_suppliers(
+            request, _("Only the Purchasing supervisor or an Administrator can add suppliers.")
+        )
+
+    if request.method == "POST":
+        form = SupplierForm(request.POST)
+        if form.is_valid():
+            supplier = form.save(commit=False)
+            supplier.code = services.next_supplier_code()
+            supplier.created_by = request.user
+            supplier.save()
+            messages.success(
+                request,
+                _("Supplier added with code %(code)s.") % {"code": supplier.code},
+            )
+            return redirect("cases:supplier_list")
+    else:
+        form = SupplierForm()
+    return render(request, "cases/supplier_form.html", {"form": form})
+
+
+@login_required
+def supplier_rename(request, pk):
+    supplier = get_object_or_404(Supplier, pk=pk)
+    profile = _profile(request.user)
+    if not (profile and profile.can_add_supplier):
+        return _deny_suppliers(
+            request, _("Only the Purchasing supervisor or an Administrator can rename suppliers.")
+        )
+
+    if request.method == "POST":
+        form = SupplierRenameForm(request.POST, instance=supplier)
+        if form.is_valid():
+            form.save()
+            messages.success(request, _("Supplier renamed (the code stays the same)."))
+            return redirect("cases:supplier_list")
+    else:
+        form = SupplierRenameForm(instance=supplier)
+    return render(request, "cases/supplier_form.html", {"form": form, "supplier": supplier})
 
 
 @login_required

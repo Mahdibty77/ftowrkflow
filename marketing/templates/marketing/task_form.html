@@ -125,7 +125,57 @@
 </div>
 {% endif %}
 
-<form method="post" class="card form-narrow" autocomplete="off">
+{% comment %}
+  THE FORM AND ITS "ALSO DUE THAT DAY" PREVIEW, SIDE BY SIDE — the owner's
+  own follow-up ask this round: the live preview used to sit nested inside
+  the due-at field's own box; it now lives in a wholly separate `.card` of
+  its own, laid out beside the form by this plain `.row-flex` wrapper. NO
+  `[dir="rtl"]` OVERRIDE FOR THE ORDERING ITSELF — the SAME plain-flexbox
+  reliance `.topbar-end`/the reminder bell already lean on (see those own
+  comments): a flex row's DOM order already mirrors with the page's own
+  `dir`, so the preview card sits first in markup precisely so it lands on
+  the RIGHT in this app's own Persian/RTL default, which is what the owner
+  asked for by eye, on the screen they actually use.
+
+  THE PREVIEW CARD STARTS HIDDEN (`hidden` on the card itself, not on some
+  wrapper around it) — nothing has been picked yet on a fresh GET, and
+  ``is_next_step``'s own locked display (see this file's head comment) never
+  even draws the ordinary due-at box on a step where the due-at field IS
+  still live, so this card is equally relevant there; it simply stays
+  hidden until a date is actually confirmed either way.
+
+  THE HOUR-GROUPED BODY — the owner's own ask: "همان تفکیک ساعتی ... که
+  الان برای امروز فردا هست" (the same hour-by-hour breakdown Today/
+  Tomorrow already have) — reuses the EXACT SAME `.task-hour-boxes`/
+  `.hour-box`/`.hour-box-head`/`.hour-box-dot`/`.hour-box-rows` markup shape
+  the Reminders tab's own day stacks already render server-side (see
+  marketing/templates/marketing/_my_tasks_reminders.html), built client-side
+  from `data.hour_groups` instead — see
+  marketing/static/marketing/js/task_due_preview.js's own head comment, and
+  marketing/views.py::my_tasks_day_reminders for the JSON endpoint that now
+  hands back hour-grouped rows (through the SAME `_task_hour_blocks`/
+  `_task_hour_groups_for_day` helpers, rather than a second hand-rolled
+  grouping) instead of one flat list.
+
+  data-field-id, NOT A HARD-CODED "id_due_at" — the id Django's own
+  auto-id machinery assigns this field, read the same way the <label>
+  above already does (`form.due_at.id_for_label`), so a future rename of
+  the field never leaves this panel silently listening on a name that no
+  longer exists.
+{% endcomment %}
+<div class="row-flex" style="align-items:flex-start;">
+  <div class="card" id="dueDayPreview" hidden style="flex:1 1 260px;min-width:260px;"
+       data-field-id="{{ form.due_at.id_for_label }}"
+       data-url="{% url 'marketing:my_tasks_day_reminders' %}"
+       data-heading-text="{% trans "Also due that day" %}"
+       data-empty-text="{% trans "No other reminders of yours are due that day yet." %}">
+    <div class="card-head">
+      <h3 id="dueDayPreviewHead"><i class="fa-regular fa-calendar-check"></i></h3>
+    </div>
+    <div id="dueDayPreviewList" class="task-hour-boxes"></div>
+  </div>
+
+<form method="post" class="card form-narrow" autocomplete="off" style="flex:2 1 380px;">
   {% csrf_token %}
 
   {% if form.non_field_errors %}
@@ -205,4 +255,8 @@
     <a href="{% url 'marketing:my_tasks' %}" class="btn btn-ghost">{% if is_next_step %}{% trans "Skip" %}{% else %}{% trans "Cancel" %}{% endif %}</a>
   </div>
 </form>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'marketing/js/task_due_preview.js' %}?v=hourbox-card-1" defer></script>
 {% endblock %}

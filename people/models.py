@@ -76,6 +76,7 @@ to. A tenure that is still current has ``ended_at`` null. ``SeatEventLog`` and
 from django.conf import settings
 from django.db import models, transaction
 from django.utils.translation import gettext_lazy as _
+from django.utils.translation import get_language
 
 from .constants import DETAIL_CODE_COUNTER_KEY, DETAIL_CODE_START, PersonStatus
 
@@ -208,10 +209,15 @@ class Person(models.Model):
         help_text="Floating time grace after shift start, in seconds (default 15:00).",
     )
     # Brief disconnect buffer (tab close / offline). Admins configure; staff UI
-    # does not mention this value. Default 10:00 (10 minutes).
+    # does not mention this value. Default 15:00 (15 minutes) — raised from the
+    # original 10:00 so an ordinary short outage (a power blip, a Wi-Fi drop)
+    # reconnects within grace on its own; only a gap that outlasts this now
+    # raises a RequestType.CODE_PRESENCE_GAP StaffRequest asking the person
+    # what happened (see people.staff_requests, and shift_hours._record_away
+    # where the gap is first detected).
     reconnect_grace_seconds = models.PositiveIntegerField(
-        default=10 * 60,
-        help_text="Reconnect time after disconnect, in seconds (default 10:00).",
+        default=15 * 60,
+        help_text="Reconnect time after disconnect, in seconds (default 15:00).",
     )
 
     # --- Status + guarantees deposited with the company -----------------
@@ -294,9 +300,56 @@ class Person(models.Model):
 
     @property
     def display_name(self) -> str:
-        """Latin name for UI chrome (Users, seats, messages). Never Persian."""
+        """Language-aware name for LIVE UI chrome — the topbar, the People
+        list, seat/assignment pickers, My Tasks, request/reminder screens —
+        wherever a person's name is shown to whoever is looking at the screen
+        right now, in whichever of the two chrome languages they are looking
+        at it in.
+
+        Used to be Latin-only, unconditionally ("Never Persian") — written
+        back when the platform had no language toggle at all and Latin was
+        the only chrome language there was. Now that a viewer can switch
+        chrome language per-person in Settings
+        (``accounts.models.Profile.language``, activated every request by
+        ``accounts.middleware.LanguageMiddleware``), the name has to follow
+        that choice the same way every other piece of chrome text already
+        does: Persian (``first_name``/``last_name``) while Persian is active,
+        Latin (``first_name_en``/``last_name_en``) while English is active —
+        both typed by the owner on the same person-details form, never
+        transliterated (see those fields' own comments).
+
+        FALLBACK BOTH WAYS, so this can never render blank just because only
+        one half of the form was filled in: the language NOT currently active
+        is tried next, then the sign-in username, then the permanent detail
+        code (which every row always has) as the last resort.
+
+        Reads ``django.utils.translation.get_language()`` — the ACTIVE
+        request's language — rather than anything stored on this Person, on
+        purpose: this property is very often asked to name someone OTHER than
+        the viewer (an admin reading a row on the People list, a manager
+        picking a name out of a seat dropdown), so the language that matters
+        is whoever is looking, not whoever is being looked at.
+
+        NOT used for FROZEN historical text — a CaseEvent/ClientEvent actor
+        snapshot, a CompanyReport author, or the seat-history/timeline
+        strings ``people.seats._person_label`` writes onto
+        ``SeatEventLog``/``SeatAssignmentLog``/a delegation's ``CaseEvent
+        .comment``. Those are written once and must never change meaning
+        depending on who reads them later or what language happened to be
+        active at the moment they were written, so they deliberately keep
+        resolving a Latin, deterministic name of their own
+        (``cases.services._person_display_name`` for actor snapshots,
+        ``people.seats._person_label`` for seat/case history) instead of
+        calling this property. See those functions' own docstrings.
+        """
+        persian = f"{self.first_name} {self.last_name}".strip()
+        latin = self.full_name_en
+        preferred, fallback = (
+            (persian, latin) if get_language() == "fa" else (latin, persian)
+        )
         return (
-            self.full_name_en
+            preferred
+            or fallback
             or (self.username or "").strip()
             or self.detail_code
         )
@@ -738,6 +791,16 @@ class ShiftDayLog(models.Model):
     # it exists purely so a queried month can be explained — "the 40 missing
     # minutes on the 12th were four absences", not an unexplained shortfall.
     away_minutes = models.PositiveIntegerField(default=0)
+    # Seconds (not minutes — no carry-bank needed for an audit-only figure)
+    # spent where pings kept arriving (tab open, in grace) but the browser
+    # reported no real interaction (click/key/scroll/pointer) since the
+    # previous ping — "open but not necessarily worked", as distinct from
+    # away_minutes ("not open at all"). Same rule as away_minutes: audit
+    # only, never subtracted from ``minutes``. Nothing reads this column
+    # today; it is being collected now so a later report can be built on
+    # real history instead of starting from zero — see
+    # record_presence_ping's own comment for what "real interaction" means.
+    idle_seconds = models.PositiveIntegerField(default=0)
     first_login = models.DateTimeField(null=True, blank=True)
     last_logout = models.DateTimeField(null=True, blank=True)
     last_ping = models.DateTimeField(null=True, blank=True)
@@ -757,10 +820,62 @@ class ShiftDayLog(models.Model):
         return f"{self.person_id} {self.day} · {self.minutes}m"
 
 
+class EndOfDayReport(models.Model):
+    """One person's end-of-shift report for one calendar work day.
+
+    Filed either live, right as that day's shift ends (see
+    ``people.views.eod_report`` and ``core/templates/base.html``'s
+    ``showEnd()``/sign-out handling), or as a forced catch-up the next time
+    this person logs in, if a shift ended without one ever being filed (tab
+    closed, laptop asleep — ``WorkShiftMiddleware`` caught the next request
+    instead) — see ``people.eod_reports.missing_report_days`` and
+    ``people.middleware.EndOfDayReportGateMiddleware``.
+
+    Deliberately not ``marketing.models.CompanyReport``: that one is about a
+    company/case, optional, any number per day, and read by three unrelated
+    screens (a company page, a case page, My Tasks) that know nothing about
+    "end of day". This one is about the person's own day, exactly one per
+    ``work_day`` (see the unique constraint below), and carries no approval
+    workflow at all, unlike ``StaffRequest`` — supervisor-side review is an
+    explicitly later phase.
+    """
+
+    person = models.ForeignKey(
+        Person, on_delete=models.CASCADE, related_name="eod_reports",
+    )
+    work_day = models.DateField(db_index=True)
+    # Each a list of non-blank strings — the "+"-to-add-another repeatable
+    # field group people/templates/people/eod_report.html renders, one entry
+    # per request/idea. See people.eod_reports.submit_report for how the
+    # posted form fields become this shape.
+    requests_for_supervisor = models.JSONField(default=list, blank=True)
+    ideas_for_today = models.JSONField(default=list, blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-work_day", "-submitted_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["person", "work_day"],
+                name="people_eodreport_unique_person_day",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.person_id} · {self.work_day}"
+
+
 class RequestType(models.Model):
     """Catalogue of personnel request kinds (Overtime, …)."""
 
     CODE_OVERTIME = "overtime"
+    # Raised by the SYSTEM (shift_hours._record_away), never by the person
+    # choosing to open the form the way Overtime is — see
+    # people.staff_requests.create_presence_gap_draft. A person only ever
+    # acts on one of these to fill in the reason (DRAFT -> SUBMITTED); they
+    # cannot create one from nothing, so this type is deliberately never
+    # granted through PersonRequestAccess (compare CODE_OVERTIME, which is).
+    CODE_PRESENCE_GAP = "presence_gap"
 
     code = models.SlugField(max_length=40, unique=True)
     title = models.CharField(max_length=80)

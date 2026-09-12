@@ -67,6 +67,28 @@ def on_user_logged_in(sender, request, user, **kwargs):
         note_shift_login(person)
     except Exception:
         pass
+    _stamp_missing_eod_reports(request, person)
+
+
+def _stamp_missing_eod_reports(request, person) -> None:
+    """Compute this person's own unfiled past-day end-of-day reports once,
+    right here at login, and park the answer on the session.
+
+    Why the session, and not a fresh query every request: see
+    people.eod_reports's own module docstring — the per-request gate
+    (EndOfDayReportGateMiddleware) needs to be free (a session-dict read,
+    already-loaded for every authenticated request) rather than a query on
+    its own, and login is the one moment this answer can change without the
+    person doing anything, so it is the one moment worth paying for.
+    """
+    if request is None:
+        return
+    try:
+        from .eod_reports import missing_report_days
+        missing = missing_report_days(person)
+        request.session["ft_eod_missing"] = [d.isoformat() for d in missing]
+    except Exception:
+        pass
 
 
 def on_user_logged_out(sender, request, user, **kwargs):

@@ -12,7 +12,7 @@
 {% if drill_person %}
 <div class="flash flash-info" style="margin-bottom:1rem;">
   <i class="fa-solid fa-user"></i>
-  <span>{% trans "Showing cases for" %} <strong dir="auto">{{ drill_person.get_full_name|default:drill_person.username }}</strong>{% if drill_person.profile.internal_code %} <span class="mono">({{ drill_person.profile.internal_code }})</span>{% endif %}{% if show_money and drill_grand_total_display %} · {% trans "Grand total (all PI):" %} <strong class="mono">{{ drill_grand_total_display }}</strong>{% endif %} —
+  <span>{% trans "Showing cases for" %} <strong dir="auto">{{ drill_person|person_name }}</strong>{% if drill_person.profile.internal_code %} <span class="mono">({{ drill_person.profile.internal_code }})</span>{% endif %}{% if show_money and drill_grand_total_display %} · {% trans "Grand total (all PI):" %} <strong class="mono">{{ drill_grand_total_display }}</strong>{% endif %} —
   <a href="{% url 'cases:archive' %}">{% trans "clear filter" %}</a></span>
 </div>
 {% endif %}
@@ -113,7 +113,7 @@
           <span class="nv-switch-slider"></span>
         </span>
         <span class="nv-toggle-text">
-          <span class="nv-toggle-label">{% trans "Manager view" %}</span>
+          <span class="nv-toggle-label">{% trans "Supervisor view" %}</span>
           <span class="nv-toggle-state {% if mine_only %}is-on{% endif %}" id="archiveMineState">
             {% if mine_only %}{% trans "On" %}{% else %}{% trans "Off" %}{% endif %}
           </span>

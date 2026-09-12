@@ -331,7 +331,7 @@ def request_detail(request, pk):
     can_decide = (
         is_gm
         and req.status == StaffRequest.STATUS_SUBMITTED
-        and req.request_type.code == RequestType.CODE_OVERTIME
+        and req.request_type.code in (RequestType.CODE_OVERTIME, RequestType.CODE_PRESENCE_GAP)
     )
     # Opening detail clears the unread alarm for that party (badge --, move to History when decided).
     if is_gm:
@@ -363,8 +363,15 @@ def request_detail(request, pk):
 @login_required
 @gm_required
 def gm_overtime_inbox(request):
-    """GM Requests: pending (Active) + decided History; unread marks on new submits."""
-    pending = list(sr.gm_pending_overtime())
+    """GM Requests: pending (Active) + decided History; unread marks on new submits.
+
+    Despite the name (kept for the URL/template it has always had), the
+    queue is every request type together — sr.gm_pending_requests() carries
+    no type filter, and the type_counts loop just below already grouped
+    history + pending by request_type.title generically, before there was a
+    second type for it to actually group.
+    """
+    pending = list(sr.gm_pending_requests())
     pending_rows = _history_rows(pending, unread_for="reviewer")
     history = list(sr.history_for_gm()[:400])
     history_rows = _history_rows(history)
@@ -431,6 +438,50 @@ def gm_overtime_decide(request, pk):
                 request,
                 _("Overtime request for %(name)s was rejected.")
                 % {"name": req.person.display_name},
+            )
+        else:
+            messages.error(request, _("Unknown decision."))
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    return redirect("people:request_detail", pk=req.pk)
+
+
+@login_required
+@gm_required
+@require_POST
+def gm_presence_gap_decide(request, pk):
+    """GM decides whether an explained gap stays excused or is deducted.
+
+    Approve = no deduction (the reason was accepted). Reject = the gap's
+    minutes are subtracted from that day's DISPLAYED total from now on — see
+    sr.decide_presence_gap and sr.rejected_presence_gap_minutes_for_day for
+    where that subtraction actually happens (read time, never by rewriting
+    the day's own stored ShiftDayLog row).
+    """
+    req = get_object_or_404(
+        StaffRequest.objects.select_related("person", "request_type"),
+        pk=pk,
+    )
+    decision = (request.POST.get("decision") or "").strip().lower()
+    note = (request.POST.get("decision_note") or "").strip()
+    try:
+        if decision == "approve":
+            sr.decide_presence_gap(req, user=request.user, approve=True, note=note)
+            messages.success(
+                request,
+                _("Gap on %(day)s excused for %(name)s — no time deducted.")
+                % {"day": req.work_day, "name": req.person.display_name},
+            )
+        elif decision == "reject":
+            sr.decide_presence_gap(req, user=request.user, approve=False, note=note)
+            messages.success(
+                request,
+                _("Gap on %(day)s for %(name)s: %(label)s will be deducted.")
+                % {
+                    "day": req.work_day,
+                    "name": req.person.display_name,
+                    "label": sr.minutes_label(req.requested_minutes or 0),
+                },
             )
         else:
             messages.error(request, _("Unknown decision."))

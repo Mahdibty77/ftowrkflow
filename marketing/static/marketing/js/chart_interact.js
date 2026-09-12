@@ -1494,14 +1494,42 @@
     return { left: left, top: top, width: width, height: height };
   }
 
-  // The three status counts for the company this query is about — approved /
-  // cancelled / no result, the same three buckets services.py::_status_fa
-  // already puts every case in (see services.case_status_counts, and
-  // marketing/views.py's client_case_counts endpoint behind
-  // CFG.caseStatusCountsUrl). Fetched per open and rendered into the panel's
-  // own fixed head; a viewer whose deployment does not expose the endpoint,
-  // or a request that fails, simply gets no counts row rather than an error —
-  // the case list underneath is the panel's real content and stands alone.
+  // The FOUR status counts for the company this query is about — Approved /
+  // Cancelled / Closed / No result, the SAME four-way split
+  // marketing/views.py::_case_card_counts already computes for
+  // marketing/templates/marketing/company_detail.html's own Cases card (and,
+  // as of this round, for the Cases TAB's header chips on that same page —
+  // see that view's own docstring). THIS ROUND WIDENED THIS PANEL FROM THREE
+  // BUCKETS TO THOSE SAME FOUR, on the owner's own ask: the panel used to
+  // show its own narrower Approved/Cancelled/"No result" split (backed by a
+  // since-removed function, ``_counts_over``, reading each row's already-
+  // three-way-bucketed ``status_fa``); ``client_case_counts`` now calls
+  // ``_case_card_counts`` directly instead, over these same scoped rows, so
+  // this panel's summary and the company page's own Cases card can never
+  // disagree about which bucket a case falls in. A FINAL_CLOSED case's own
+  // ROW further down this panel still prints its three-way ``status_fa``
+  // text ("Approved") rather than "Closed" — that per-row text is a
+  // deliberately separate, untouched concern (see ``client_case_counts``'s
+  // own docstring for why), the exact same asymmetry company_detail.html's
+  // Cases tab already lives with between its four-way header chips and its
+  // own three-way per-row "Outcome" column.
+  //
+  // Fetched per open and rendered into the panel's own fixed head; a viewer
+  // whose deployment does not expose the endpoint, or a request that fails,
+  // simply gets no counts row rather than an error — the case list
+  // underneath is the panel's real content and stands alone.
+  //
+  // LABELS NOW GO THROUGH t(), NOT LITERAL ENGLISH. The three original pills
+  // used to set their own text as bare English string literals — a
+  // pre-existing gap in a file where every other piece of UI text already
+  // routes through CFG.i18n (see this file's own top-of-file "---- i18n
+  // ----" comment) — which this edit closes in passing, since the function
+  // was already being touched to add the fourth bucket. See
+  // marketing/views.py's own ``chart_i18n`` dict for
+  // caseCountApproved/caseCountCancelled/caseCountClosed/caseCountPending —
+  // all four reuse the EXACT SAME English source text
+  // company_detail.html's own {% trans %} tags already carry for these same
+  // four words, so no new Persian catalog entries were needed for them.
   function renderUsCasesCounts(client) {
     usCasesCounts.hidden = true;
     usCasesCounts.innerHTML = '';
@@ -1510,9 +1538,11 @@
     get(CFG.caseStatusCountsUrl, { client_id: client.id }).then(function (data) {
       if (mySeq !== usCasesCountsSeq || !data || !data.ok || !data.counts) { return; }
       var rows = [
-        { cls: 'is-approved', text: 'Approved', n: data.counts.approved },
-        { cls: 'is-cancelled', text: 'Cancelled', n: data.counts.cancelled },
-        { cls: 'is-pending', text: 'No result', n: data.counts.pending }
+        { cls: 'is-approved', text: t('caseCountApproved'), n: data.counts.approved },
+        { cls: 'is-cancelled', text: t('caseCountCancelled'), n: data.counts.cancelled },
+        // NEW THIS ROUND — see the block comment above this function.
+        { cls: 'is-closed', text: t('caseCountClosed'), n: data.counts.closed },
+        { cls: 'is-pending', text: t('caseCountPending'), n: data.counts.pending }
       ];
       usCasesCounts.innerHTML = '';
       rows.forEach(function (row) {

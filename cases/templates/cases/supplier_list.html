@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% trans "Suppliers" %} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% trans "Suppliers" %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{% trans "Suppliers" %}</h1><div class="sub">{% trans "Supplier names are unique; codes are assigned automatically." %}</div></div>
+  <div class="btn-row">
+    {% if can_add %}<a href="{% url 'cases:supplier_add' %}" class="btn btn-primary">{% trans "Add supplier" %}</a>{% endif %}
+  </div>
+</div>
+
+<div class="row-flex" style="margin-bottom:1rem;">
+  <input type="text" id="supplierFilter" placeholder="{% trans 'Search by name or code…' %}" style="max-width:320px;" autocomplete="off" autofocus value="{{ query }}">
+</div>
+
+<div class="table-wrap">
+  <table class="data">
+    <thead><tr><th style="width:120px">{% trans "Code" %}</th><th style="width:260px">{% trans "Name" %}</th><th style="width:160px"></th></tr></thead>
+    <tbody id="supplierRows">
+      {% for s in suppliers %}
+        <tr data-search="{{ s.name|lower }} {{ s.code|lower }}">
+          <td class="mono">{{ s.code }}</td>
+          <td dir="auto">{{ s.name }}</td>
+          <td style="white-space:nowrap;text-align:right;">
+            {% if can_add %}<a href="{% url 'cases:supplier_rename' s.pk %}" class="btn btn-sm">{% trans "Rename" %}</a>{% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="3" class="empty">{% trans "No suppliers yet." %}</td></tr>
+      {% endfor %}
+      <tr id="supplierNoMatch" style="display:none;"><td colspan="3" class="empty">{% trans "No supplier matches your search." %}</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+  (function () {
+    var inp = document.getElementById('supplierFilter');
+    if (!inp) return;
+    var rows = Array.prototype.slice.call(document.querySelectorAll('#supplierRows tr[data-search]'));
+    var noMatch = document.getElementById('supplierNoMatch');
+    inp.addEventListener('input', function () {
+      var q = inp.value.trim().toLowerCase();
+      var shown = 0;
+      rows.forEach(function (r) {
+        var ok = !q || r.dataset.search.indexOf(q) >= 0;
+        r.style.display = ok ? '' : 'none';
+        if (ok) shown++;
+      });
+      if (noMatch) noMatch.style.display = (q && shown === 0) ? '' : 'none';
+    });
+  })();
+</script>
+{% endblock %}

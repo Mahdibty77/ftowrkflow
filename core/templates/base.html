@@ -24,7 +24,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Foolad Tabar Workflow{% endblock %}</title>
   {% include "includes/favicon.html" %}
-  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=merge-main-1">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=merge-audit134-1">
   <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-17">
   <link rel="stylesheet" href="{% static 'css/icons-offline.css' %}?v=shift-icons-4">
   <script>
@@ -587,17 +587,91 @@
         no badge at all when there is exactly one due reminder, since a
         badge reading "1" on a bell that is already the whole notification
         would just be visual noise for a fact the icon alone already states).
+
+        AUDIT #134 FOLLOW-UP (this round) — three refinements, still no
+        change to WHO can ever see this or WHOSE data it shows:
+
+        1. THE WIDGET NOW RENDERS FOR ANYONE WHO COULD EVER HOLD A REMINDER,
+           NOT ONLY WHEN ONE IS DUE RIGHT NOW. Gated on the new
+           `reminder_bell` context flag (marketing/context_processors.py) —
+           True whenever this login passed the exact same person-record
+           gate `reminder_notice` itself always required (see that module's
+           "THE GATE WAS WRONG FOR A WHILE" section; the gate did not
+           change, only what happens once it is passed). `reminder_notice`
+           keeps its old, narrower contract untouched — a dict when
+           something is due, `{}` otherwise — so every `{% if
+           reminder_notice %}` below still means exactly what it always
+           meant; only the OUTER `{% if %}` moved onto the new, wider flag.
+           With nothing due, the button renders with no `.is-due` class
+           (neutral styling, static/css/app.css's own `.reminder-bell-btn`
+           base rule) and its click goes straight to My Tasks instead of
+           toggling an empty panel — see the onclick/aria-* below, which
+           branch on `reminder_notice` alone.
+        2. THE PERSISTENT SUMMARY BUBBLE, #reminderBellBubble — only when
+           `reminder_notice` is truthy (there is nothing to summarise
+           otherwise). NOT the dropdown panel below: the panel still only
+           opens on click and is unchanged; this is additionally always
+           visible, so the single most urgent due reminder's date/time,
+           company-or-case and note are on screen with no click at all,
+           reusing the exact `.chip.c-warn` markup the panel already prints
+           a few lines down rather than a new visual style (see
+           static/css/app.css's own comment on `.reminder-bell-bubble`).
+           Clicking the bubble opens the SAME panel the bell does (one
+           `classList.toggle('open')` call, shared, not a second toggle).
+        3. THE SHAKE lives entirely in CSS now (`.reminder-bell-btn.is-due
+           .fa-bell`'s own `animation`, static/css/app.css) — nothing to
+           add here beyond the `.is-due` class itself, which was already
+           being computed for the button's colour.
       {% endcomment %}
-      {% if reminder_notice %}
+      {% if reminder_bell %}
       <div class="reminder-bell" id="reminderBellWidget">
-        <button class="reminder-bell-btn" type="button"
+        {% if reminder_notice %}
+        {# The persistent "latest notification" bubble — see this file's own #}
+        {# AUDIT #134 comment above and static/css/app.css's matching one on #}
+        {# .reminder-bell-bubble for why this exists beside the click-to-    #}
+        {# open panel rather than replacing it. CLICKABLE AGAIN, LIKE THE    #}
+        {# VERY FIRST VERSION — a follow-up round briefly made this a plain, #}
+        {# unclickable <div> (the owner's own ask at the time), then asked   #}
+        {# for the click back a round later ("مثل قبل"): a <button> once     #}
+        {# more, toggling the identical #reminderBellPanel the bell does —   #}
+        {# one open/close state to keep in sync, not two. Also now carries   #}
+        {# the "keep drawing the eye back to it" glow — see app.css's own    #}
+        {# comment on .reminder-bell-bubble for why that moved HERE, off     #}
+        {# the bell icon, this round. #}
+        <button type="button" class="reminder-bell-bubble" id="reminderBellBubble"
                 onclick="document.getElementById('reminderBellPanel').classList.toggle('open')"
-                aria-haspopup="true" aria-label="{% trans "Reminder due" %}">
+                aria-label="{% trans "Reminder due" %}">
+          <span class="reminder-bell-bubble-time">{{ reminder_notice.due_at|jalali:"Y.m.d H:i" }}</span>
+          {% if reminder_notice.client_name or reminder_notice.case_doc_no %}
+          <span class="reminder-bell-bubble-facts">
+            {% if reminder_notice.client_name %}
+            <span class="chip c-warn"><i class="fa-solid fa-building"></i><span dir="auto">{{ reminder_notice.client_name }}</span></span>
+            {% endif %}
+            {% if reminder_notice.case_doc_no %}
+            <span class="chip c-warn"><i class="fa-solid fa-folder-open"></i><span class="mono">{{ reminder_notice.case_doc_no }}</span></span>
+            {% endif %}
+          </span>
+          {% endif %}
+          {% if reminder_notice.note %}
+          {# Widened this round (see app.css's own comment on                #}
+          {# .reminder-bell-bubble — row layout now, not stacked, so the     #}
+          {# topbar itself never grows taller) — room for more of the note   #}
+          {# than the old narrow/tall shape could fit on one line.           #}
+          <span class="reminder-bell-bubble-note" dir="auto">{{ reminder_notice.note|truncatechars:70 }}</span>
+          {% endif %}
+          <span class="reminder-bell-bubble-arrow" aria-hidden="true"></span>
+        </button>
+        {% endif %}
+        <button class="reminder-bell-btn{% if reminder_notice %} is-due{% endif %}" type="button"
+                onclick="{% if reminder_notice %}document.getElementById('reminderBellPanel').classList.toggle('open'){% else %}window.location.href='{% url 'marketing:my_tasks' %}'{% endif %}"
+                aria-haspopup="{% if reminder_notice %}true{% else %}false{% endif %}"
+                aria-label="{% if reminder_notice %}{% trans "Reminder due" %}{% else %}{% trans "Reminders" %}{% endif %}">
           <i class="fa-solid fa-bell"></i>
           {% if reminder_notice.others %}
           <span class="reminder-bell-badge">{{ reminder_notice.others|add:1 }}</span>
           {% endif %}
         </button>
+        {% if reminder_notice %}
         <div class="reminder-bell-panel" id="reminderBellPanel">
           <div class="reminder-bell-head">
             <strong class="reminder-bell-time">{{ reminder_notice.due_at|jalali:"Y.m.d H:i" }}</strong>
@@ -625,6 +699,7 @@
             {% trans "View in My Tasks" %} <i class="fa-solid fa-arrow-right-long"></i>
           </a>
         </div>
+        {% endif %}
       </div>
       {% endif %}
 
@@ -790,7 +865,7 @@
     <span class="se-hi">Dear <span class="se-nm" id="shiftEndName">{{ shift_end_name|default:"colleague" }}</span>,</span>
     <span class="se-msg">your work shift has ended.</span>
     <span class="se-sub">Hope you had a good day — see you next shift.</span>
-    <span class="se-hint" id="shiftEndHint">Returning to sign-in in <span id="shiftEndSecs">40</span>s…</span>
+    <span class="se-hint" id="shiftEndHint">Continuing to your end-of-day report in <span id="shiftEndSecs">20</span>s…</span>
   </div>
 </div>
 
@@ -803,6 +878,29 @@
       <button type="button" class="btn btn-ghost so-cancel" id="signOutCancel">{% trans "Cancel" %}</button>
       <button type="button" class="btn btn-primary so-ok" id="signOutOk">{% trans "Confirm Sign out" %}</button>
     </div>
+  </div>
+</div>
+{% endif %}
+
+{# Same overlay family as #signOutConfirm above — shown when              #}
+{# presence_gap_request (people.context_processors.work_shift_banner) or  #}
+{# a ping's presence_gap_pending says this person has an unexplained,     #}
+{# beyond-grace disconnect waiting on them. data-pk names WHICH request   #}
+{# the reason posts to; the JS below fills it in on page load and again   #}
+{# whenever a ping response names a different (newly-raised) one. #}
+{% if presence_gap_request %}
+<div id="presenceGapModal" class="shift-end-overlay so-confirm" data-pk="{{ presence_gap_request.pk }}">
+  <div class="shift-end-welcome so-confirm-card">
+    <span class="se-hi">{% trans "You were disconnected earlier" %}</span>
+    <span class="se-msg so-confirm-msg" id="presenceGapMsg">
+      {% blocktrans with mins=presence_gap_request.requested_label day=presence_gap_request.work_day|jalali:"Y.m.d" %}Your session went quiet for about {{ mins }} on {{ day }} and did not reconnect in time. What happened?{% endblocktrans %}
+    </span>
+    <textarea id="presenceGapReason" rows="3" placeholder="{% trans 'e.g. power outage, internet dropped, computer crashed…' %}"
+      style="width:100%;max-width:26rem;margin-top:.6rem;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:.5rem .65rem;font:inherit;resize:vertical;"></textarea>
+    <div class="so-confirm-actions">
+      <button type="button" class="btn btn-primary" id="presenceGapSubmit">{% trans "Submit" %}</button>
+    </div>
+    <div class="muted" id="presenceGapError" style="font-size:.78rem;color:var(--rej);margin-top:.4rem;" hidden></div>
   </div>
 </div>
 {% endif %}
@@ -952,6 +1050,7 @@
     var overlay = document.getElementById('signOutConfirm');
     var cancel = document.getElementById('signOutCancel');
     var ok = document.getElementById('signOutOk');
+    var eodReportUrl = "{% url 'people:eod_report' %}";
     if (!form || !flag) return;
     if (!overlay) return;
     var armed = false;
@@ -972,10 +1071,20 @@
     }
     if (ok) {
       ok.addEventListener('click', function () {
-        flag.value = '1';
-        armed = true;
         overlay.hidden = true;
-        form.submit();
+        // Used to arm + submit #pmLogoutForm directly, right here — an
+        // immediate, synchronous logout. It no longer does: this confirm
+        // click now leads to the SAME end-of-day report page the automatic
+        // timeout does (see showEnd()'s own comment in the other IIFE
+        // below), "immediately" rather than after a countdown, since the
+        // owner's own instruction singled out a manual, already-confirmed
+        // sign-out as not needing the goodbye wait. explicit=1 threads
+        // through to the deferred logout that page's own submit performs,
+        // so people.signals._explicit_sign_out still reads this as an
+        // explicit sign-out exactly as it did when this button submitted
+        // the form directly.
+        window.__ftSkipUnloadConfirm = true;
+        window.location.href = eodReportUrl + '?end=1&explicit=1';
       });
     }
     overlay.addEventListener('click', function (e) {
@@ -1007,8 +1116,7 @@
     var secondsLeft = {% if shift_seconds_left is not None %}{{ shift_seconds_left }}{% else %}null{% endif %};
     var pingUrl = "{{ shift_ping_url|default:'' }}";
     var endName = "{% filter escapejs %}{{ shift_end_name|default:'colleague' }}{% endfilter %}";
-    var loginUrl = "{% url 'accounts:login' %}";
-    var logoutUrl = "{% url 'accounts:logout' %}";
+    var eodReportUrl = "{% url 'people:eod_report' %}";
     var overlay = document.getElementById('shiftEndOverlay');
     var nameEl = document.getElementById('shiftEndName');
     var hintNum = document.getElementById('shiftEndSecs');
@@ -1016,7 +1124,7 @@
     var WARN_SECS = 30 * 60;
     var URGENT_SECS = 10 * 60;
     var CRITICAL_SECS = 5 * 60;
-    var GOODBYE_SECS = 40;
+    var GOODBYE_SECS = 20;
     var DRIFT_SECS = 2.5;
     var ended = false;
     var endAtMs = null;
@@ -1031,6 +1139,109 @@
     if (overlay && overlay.parentNode !== document.body) document.body.appendChild(overlay);
     var confirmOverlay = document.getElementById('signOutConfirm');
     if (confirmOverlay && confirmOverlay.parentNode !== document.body) document.body.appendChild(confirmOverlay);
+
+    // --- Real-interaction tracking (feeds the ping's "active" flag; see
+    // people.shift_hours.record_presence_ping's docstring for what it's
+    // for). Passive listeners on the four cheapest-to-fire real-activity
+    // events; each just stamps a timestamp, no DOM read/write, so this
+    // costs nothing even on pointermove/scroll. Never reset by the ping
+    // timer itself — only a human touching the page counts.
+    var lastActivityAt = Date.now();
+    ['pointerdown', 'keydown', 'scroll', 'pointermove'].forEach(function (evt) {
+      document.addEventListener(evt, function () { lastActivityAt = Date.now(); }, { passive: true, capture: true });
+    });
+
+    // --- Presence-gap modal: shown when this person has an unexplained,
+    // beyond-grace disconnect waiting on them (see people.staff_requests
+    // create_presence_gap_draft / pending_presence_gap_for). Rendered
+    // server-side already-visible (no "hidden" attribute) when the page
+    // loaded with one pending; also opened live if a ping response names a
+    // newly-raised one, without a page reload.
+    var gapModal = document.getElementById('presenceGapModal');
+    var gapModalShownFor = null;
+    function openGapModal(pk) {
+      if (!gapModal || !pk || gapModalShownFor === pk) return;
+      gapModalShownFor = pk;
+      gapModal.setAttribute('data-pk', String(pk));
+      gapModal.hidden = false;
+    }
+    if (gapModal) {
+      if (gapModal.parentNode !== document.body) document.body.appendChild(gapModal);
+      var initialPk = gapModal.getAttribute('data-pk');
+      if (initialPk) gapModalShownFor = initialPk;
+      var gapSubmitBtn = document.getElementById('presenceGapSubmit');
+      var gapReasonEl = document.getElementById('presenceGapReason');
+      var gapErrorEl = document.getElementById('presenceGapError');
+      if (gapSubmitBtn) {
+        gapSubmitBtn.addEventListener('click', function () {
+          var pk = gapModal.getAttribute('data-pk');
+          var reason = (gapReasonEl && gapReasonEl.value || '').trim();
+          if (!reason) {
+            if (gapErrorEl) { gapErrorEl.textContent = 'Enter what happened before submitting.'; gapErrorEl.hidden = false; }
+            return;
+          }
+          gapSubmitBtn.disabled = true;
+          fetch('/people/shift/gap/' + encodeURIComponent(pk) + '/explain/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken(), 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+            body: new URLSearchParams({ reason: reason })
+          }).then(function (r) { return r.json(); }).then(function (data) {
+            gapSubmitBtn.disabled = false;
+            if (data && data.ok) {
+              gapModal.hidden = true;
+            } else if (gapErrorEl) {
+              gapErrorEl.textContent = (data && data.error) || 'Could not submit — try again.';
+              gapErrorEl.hidden = false;
+            }
+          }).catch(function () {
+            gapSubmitBtn.disabled = false;
+            if (gapErrorEl) { gapErrorEl.textContent = 'Could not submit — try again.'; gapErrorEl.hidden = false; }
+          });
+        });
+      }
+    }
+
+    // --- Close-button speed bump. The browser's own generic "Leave site?"
+    // confirm is the only hook a page gets on the OS close button (see the
+    // PWA conversation this came out of — no custom text, no custom
+    // buttons, that is a browser security limit, not something fixable
+    // here) — but it is a real speed bump: closing now takes a deliberate
+    // second click instead of one.
+    //
+    // beforeunload cannot tell "closing the tab" apart from "clicked a link
+    // / submitted a form" — every ordinary navigation in this app IS a full
+    // page load (this is a server-rendered multi-page app, not an SPA), so
+    // firing on both would mean a confirm dialog on every single click
+    // anywhere in the app. internalNav is what tells them apart: any
+    // same-document link click or form submit marks the VERY NEXT unload as
+    // ordinary navigation (skip the confirm), reset a beat later so it
+    // never lingers to cover a later, real close. Only closing the
+    // tab/window, or navigating via the address bar, leaves it false.
+    var internalNav = false;
+    var internalNavResetTimer = null;
+    function markInternalNav() {
+      internalNav = true;
+      if (internalNavResetTimer) clearTimeout(internalNavResetTimer);
+      internalNavResetTimer = setTimeout(function () { internalNav = false; }, 500);
+    }
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest && e.target.closest('a[href]');
+      if (a) markInternalNav();
+    }, true);
+    document.addEventListener('submit', markInternalNav, true);
+
+    window.addEventListener('beforeunload', function (e) {
+      if (internalNav) return;
+      if (window.__ftSkipUnloadConfirm) return;
+      if (ended) return;
+      // Only while a shift is actually open (secondsLeft is a real
+      // countdown, not null/ended) — a signed-in page with no shift
+      // (Admin/GM) or one already ended has nothing this should protect.
+      if (typeof secondsLeft !== 'number' || secondsLeft < 0) return;
+      e.preventDefault();
+      e.returnValue = '';
+    });
 
     function csrfToken() {
       var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
@@ -1092,29 +1303,29 @@
       try { document.body.classList.add('shift-ended-lock'); } catch (e) {}
       var left = GOODBYE_SECS;
       if (hintNum) hintNum.textContent = String(left);
-      try {
-        fetch(logoutUrl, {
-          method: 'POST',
-          headers: {
-            'X-CSRFToken': csrfToken(),
-            'X-Requested-With': 'XMLHttpRequest'
-          },
-          credentials: 'same-origin',
-          body: new URLSearchParams({ csrfmiddlewaretoken: csrfToken() })
-        }).catch(function () {});
-      } catch (e) {}
+      // The actual logout used to fire right here, immediately, in the
+      // background, while this goodbye message merely counted down over it
+      // (fire-and-forget, never awaited — see git history). It does not any
+      // more: the end-of-day report page is now what this countdown leads
+      // to, while the session is STILL authenticated (people.views.eod_report
+      // is the one that finally logs out, once that page is submitted — see
+      // its own docstring) — logging out here first would have destroyed the
+      // session before that page ever got a chance to render. See
+      // WorkShiftMiddleware._is_exempt_path's own comment for the exemption
+      // this depends on.
       var goodbyeTimer = setInterval(function () {
         left -= 1;
         if (hintNum) hintNum.textContent = String(Math.max(0, left));
         if (left <= 0) {
           clearInterval(goodbyeTimer);
-          window.location.href = loginUrl;
+          window.location.href = eodReportUrl + '?end=1';
         }
       }, 1000);
     }
 
     function syncFromServer(data) {
       if (!data) return;
+      if (data.presence_gap_pending) openGapModal(data.presence_gap_pending);
       if (data.allowed === false || data.shift_ended) {
         if (data.name) endName = data.name;
         showEnd();
@@ -1135,8 +1346,14 @@
       }
     }
 
+    var lastPingAtMs = Date.now();
     function doPing() {
       if (ended || !pingUrl) return;
+      // Active means: some real interaction happened since the PREVIOUS
+      // ping went out, not "since ever" — each ping judges only its own
+      // window, the same grain shift_hours.record_presence_ping credits in.
+      var active = lastActivityAt >= lastPingAtMs;
+      lastPingAtMs = Date.now();
       fetch(pingUrl, {
         method: 'POST',
         headers: {
@@ -1144,7 +1361,8 @@
           'X-Requested-With': 'XMLHttpRequest',
           'Accept': 'application/json'
         },
-        credentials: 'same-origin'
+        credentials: 'same-origin',
+        body: new URLSearchParams({ active: active ? '1' : '0' })
       }).then(window.FTJson).then(syncFromServer).catch(function (err) {
         // A ping that cannot be read as JSON almost always means the session is
         // gone: WorkShiftMiddleware only answers this endpoint with the
@@ -1216,11 +1434,11 @@
   })();
 </script>
 <script src="{% static 'js/autogrow.js' %}?v=autogrow-1"></script>
-<script src="{% static 'js/ui.js' %}?v=copy-check-1"></script>
+<script src="{% static 'js/ui.js' %}?v=export-picker-1"></script>
 {% else %}
   {% block anon_content %}{% endblock %}
 {% endif %}
 {% block scripts %}{% endblock %}
-  <script src="{% static 'js/jalali_picker.js' %}?v=8"></script>
+  <script src="{% static 'js/jalali_picker.js' %}?v=9"></script>
 </body>
 </html>

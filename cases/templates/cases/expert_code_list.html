@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load ft_extras %}
 {% block title %}Expert codes · Foolad Tabar Workflow{% endblock %}
 {% block topbar %}Expert Codes{% endblock %}
 {% block content %}
@@ -18,7 +19,7 @@
         <tr>
           <td class="mono">{{ ec.code }}</td>
           <td>{{ ec.name }}</td>
-          <td class="muted">{{ ec.user.get_full_name|default:"—" }}</td>
+          <td class="muted">{{ ec.user|person_name|default:"—" }}</td>
           {% if can_edit %}<td><a href="{% url 'cases:expert_code_edit' ec.pk %}" class="btn btn-sm">Edit</a></td>{% endif %}
         </tr>
       {% empty %}

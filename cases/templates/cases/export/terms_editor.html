@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% block title %}{% if export_fmt == 'html' %}Print view{% else %}PDF{% endif %} Terms — {{ form.get_kind_display }}{% endblock %}
 {% block content %}
 <style>
@@ -34,9 +35,9 @@
   <p class="lead">
     Edit English and Persian terms for this export. After you confirm,
     {% if is_html == 'html' %}
-      the Print view opens in a new tab with these texts on the last page
+      {% trans "the Print view downloads with these texts on the last page" %}
     {% else %}
-      the PDF opens in a new tab with these texts on the last page
+      {% trans "the PDF downloads with these texts on the last page" %}
     {% endif %}
     and this sheet is kept as the term sheet of Version
     {{ form.version|stringformat:"02d" }}{% if form.two_stage %} · Two Stage{% endif %}.
@@ -115,12 +116,15 @@
       {# are always the CURRENT defaults, never a stale copy.                    #}
       <button type="button" class="btn" id="te-reset"><i class="fa-solid fa-rotate-left"></i> Reset to default</button>
       {% if is_html == 'html' %}
-      <button type="submit" class="btn btn-primary" id="te-submit"><i class="fa-solid fa-file-lines"></i> Confirm &amp; Open Print view</button>
+      <button type="submit" class="btn btn-primary" id="te-submit"><i class="fa-solid fa-file-lines"></i> {% trans "Confirm & Download Print view" %}</button>
       {% else %}
       <button type="submit" class="btn btn-primary" id="te-submit"><i class="fa-solid fa-file-lines"></i> Confirm &amp; Download PDF</button>
       {% endif %}
     </div>
   </form>
+  <span id="te-msg-downloaded" hidden>{% trans "Download started — check your browser Downloads folder." %}</span>
+  <span id="te-msg-failed-html" hidden>{% trans "Could not download Print view." %}</span>
+  <span id="te-msg-failed-pdf" hidden>{% trans "Could not download PDF." %}</span>
   {{ default_terms|json_script:"te-defaults" }}
 </div>
 {% endwith %}
@@ -205,17 +209,6 @@
     return "downloaded";
   }
 
-  function openBlobInNewTab(blob, fallbackName) {
-    var url = URL.createObjectURL(blob);
-    var win = window.open(url, "_blank");
-    if (!win) {
-      // Popup blocked — fall back to download.
-      return saveBlob(blob, fallbackName || defaultName);
-    }
-    setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
-    return "opened";
-  }
-
   form.addEventListener("submit", function (event) {
     event.preventDefault();
     if (btn) btn.disabled = true;
@@ -265,23 +258,28 @@
       if (isHtml) {
         if (!payload.html_base64) throw new Error(payload.error || "Print view generation failed.");
         var htmlBlob = b64ToBlob(payload.html_base64, "text/html;charset=utf-8");
-        return openBlobInNewTab(htmlBlob, name);
+        return saveBlob(htmlBlob, name);
       }
       if (!payload.pdf_base64) throw new Error(payload.error || "PDF generation failed.");
       var pdfBlob = b64ToBlob(payload.pdf_base64, "application/pdf");
       var ok = await isPdfBlob(pdfBlob);
       if (!ok) throw new Error("Invalid PDF received from server.");
-      return openBlobInNewTab(pdfBlob, name);
-    }).then(function (modeDone) {
+      return saveBlob(pdfBlob, name);
+    }).then(function () {
+      // Always a real download now — see saveBlob above (the previous
+      // window.open-in-a-new-tab path, and its own now-pointless "opened"
+      // status text, are gone; the product owner's own instruction was that
+      // NO export format should ever open a browser tab, only download).
+      // Pre-rendered by the server (see #te-msg-downloaded) rather than a
+      // hardcoded string here, since this codebase has no JS-side i18n and
+      // the golden bilingual rule still applies to this text.
       if (!status) return;
-      if (modeDone === "cancelled") status.textContent = "Save cancelled.";
-      else if (modeDone === "opened") status.textContent = isHtml
-        ? "Print view opened in a new tab."
-        : "PDF opened in a new tab.";
-      else if (modeDone === "downloaded") status.textContent = "Download started — check your browser Downloads folder.";
-      else status.textContent = "Download started — check your browser Downloads folder.";
+      var msgEl = document.getElementById("te-msg-downloaded");
+      status.textContent = msgEl ? msgEl.textContent : "Download started — check your browser Downloads folder.";
     }).catch(function (err) {
-      var msg = (err && err.message) || (isHtml ? "Could not open Print view." : "Could not open PDF.");
+      var fallbackEl = document.getElementById(isHtml ? "te-msg-failed-html" : "te-msg-failed-pdf");
+      var fallback = fallbackEl ? fallbackEl.textContent : (isHtml ? "Could not download Print view." : "Could not download PDF.");
+      var msg = (err && err.message) || fallback;
       if (/Failed to fetch|NetworkError/i.test(msg)) {
         msg = "Could not reach the export endpoint. Refresh the page and try again.";
       }

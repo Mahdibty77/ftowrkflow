@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% trans "Purchase Invoice" %} · {{ case.doc_no }} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% trans "Purchase Invoice" %}{% endblock %}
+{% block head_extra %}
+<style>
+  .pinv-table-wrap { overflow-x: auto; }
+  .pinv-table { border-collapse: collapse; width: 100%; font-size: .82rem; }
+  .pinv-table th, .pinv-table td { border: 1px solid var(--line); padding: .4rem .5rem; white-space: nowrap; text-align: center; }
+  .pinv-table td[dir="auto"] { text-align: start; white-space: normal; max-width: 22ch; }
+  .pinv-table thead th { background: var(--paper-2, #f4f6f9); position: sticky; top: 0; }
+  /* QTY (remaining) and QTY PURCHASED share one colour; UNIT PRICE and PRICE
+     PURCHASED share another — the product owner's own instruction, "since
+     they're dependent on each other". */
+  .pinv-col-qty { background: #eaf2fb; }
+  .pinv-col-price { background: #eefaf1; }
+  .pinv-row-input { width: 6.5rem; border: 1px solid var(--line); border-radius: 6px; padding: .3rem .4rem; font: inherit; text-align: center; }
+  .pinv-cell-wrap { position: relative; }
+  .pinv-remaining-badge { position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); z-index: 6; font-size: .58rem; font-weight: 700; padding: 1px 7px; border-radius: 8px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,.2); background: #2e86c1; color: #fff; }
+  .pinv-remaining-badge.is-over { background: #c0392b; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{% trans "Purchase Invoice" %}</h1>
+    <div class="sub"><span class="mono">{{ case.doc_no }}</span></div>
+  </div>
+  <div class="btn-row">
+    <a href="{% url 'cases:case_detail' case.pk %}" class="btn btn-sm"><i class="fa-solid fa-arrow-left"></i> {% trans "Back to case" %}</a>
+  </div>
+</div>
+
+{% if not can_edit %}
+<p class="muted">{% trans "Read-only — you may not edit this Purchase Invoice." %}</p>
+{% endif %}
+
+<form method="post" id="pinvForm">
+  {% csrf_token %}
+  <div class="pinv-table-wrap card">
+    <table class="pinv-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>{% trans "Item Code" %}</th>
+          <th>{% trans "FTCO CODE" %}</th>
+          <th>{% trans "FTCO DESCRIPTION" %}</th>
+          <th>{% trans "SIZE" %}</th>
+          <th class="pinv-col-qty">{% trans "QTY" %}</th>
+          <th>{% trans "UNIT" %}</th>
+          <th>{% trans "BRAND" %}</th>
+          <th>{% trans "Base price" %}</th>
+          <th>{% trans "Margin %" %}</th>
+          <th>{% trans "Unit price" %}</th>
+          <th class="pinv-col-qty">{% trans "Qty purchased" %}</th>
+          <th class="pinv-col-price">{% trans "Price purchased" %}</th>
+          <th>{% trans "Supplier" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr data-row-qty="{{ row.qty }}">
+          <td class="mono">{{ row.client_row }}</td>
+          <td class="mono">{{ row.item_code }}</td>
+          <td class="mono">{{ row.ftco_code }}</td>
+          <td dir="auto">{{ row.ftco_description }}</td>
+          <td>{{ row.size }}</td>
+          <td class="pinv-col-qty mono">{{ row.qty|floatformat:"-2" }}</td>
+          <td>{{ row.unit }}</td>
+          <td dir="auto">{{ row.brand }}</td>
+          <td class="mono">{{ row.base_price|floatformat:"-2" }}</td>
+          <td class="mono">{{ row.margin_percent|floatformat:"-1" }}%</td>
+          <td class="mono">{{ row.unit_price|floatformat:"-2" }}</td>
+          <td class="pinv-col-qty">
+            <div class="pinv-cell-wrap">
+              {% if can_edit %}
+              <input type="text" inputmode="decimal" class="pinv-row-input pinv-qty-input" name="qty_purchased"
+                     data-remaining="{{ row.qty }}" value="{{ row.qty_purchased|floatformat:'-2' }}">
+              {% else %}
+              <span class="mono">{{ row.qty_purchased|floatformat:"-2" }}</span>
+              {% endif %}
+            </div>
+          </td>
+          <td class="pinv-col-price">
+            {% if can_edit %}
+            <input type="text" inputmode="decimal" class="pinv-row-input" name="price_purchased" value="{{ row.price_purchased }}">
+            {% else %}
+            <span class="mono">{{ row.price_purchased }}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if can_edit %}
+            <select name="supplier" data-combo data-placeholder="{% trans 'Search supplier…' %}" style="min-width:11rem;">
+              <option value=""></option>
+              {% for s in suppliers %}
+              <option value="{{ s.pk }}" {% if s.pk == row.supplier_id %}selected{% endif %} dir="auto">{{ s.name }}</option>
+              {% endfor %}
+            </select>
+            {% else %}
+            <span dir="auto">{{ row.supplier_name }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="14" class="empty">{% trans "No Proforma rows to purchase against." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if can_edit %}
+  <div class="btn-row" style="margin-top:1rem;">
+    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> {% trans "Save" %}</button>
+  </div>
+  {% endif %}
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  "use strict";
+  // Live "remaining" badge under each Qty-purchased cell — updates as the
+  // user types, same idea as itemcoder's own price-source chip
+  // (.price-src, see itemcoder/static/itemcoder/js/pi_pricing.js) though a
+  // separate, simpler implementation: this page intentionally does not load
+  // any itemcoder JS (see purchase_invoice_build view's own docstring for
+  // why — none of that tool's own machinery applies here).
+  function paintBadge(input) {
+    var wrap = input.closest(".pinv-cell-wrap");
+    if (!wrap) return;
+    var remaining = parseFloat(input.getAttribute("data-remaining")) || 0;
+    var typed = parseFloat(input.value) || 0;
+    var left = remaining - typed;
+    var badge = wrap.querySelector(".pinv-remaining-badge");
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "pinv-remaining-badge";
+      wrap.appendChild(badge);
+    }
+    badge.classList.toggle("is-over", left < 0);
+    badge.textContent = "{% trans 'remaining' %}: " + (Math.round(left * 100) / 100);
+  }
+
+  var qtyInputs = Array.prototype.slice.call(document.querySelectorAll(".pinv-qty-input"));
+  qtyInputs.forEach(function (input) {
+    paintBadge(input);
+    input.addEventListener("input", function () { paintBadge(input); });
+  });
+
+  // Enter moves to the SAME column, next row down — the product owner's
+  // own instruction ("like the UNIT PRICE columns"), mirroring
+  // itemcoder/static/itemcoder/js/pi_columns.js's own focusNextWritableInCol.
+  var table = document.querySelector(".pinv-table");
+  if (table) {
+    table.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter") return;
+      var field = e.target;
+      if (!field || field.tagName !== "INPUT") return;
+      e.preventDefault();
+      var row = field.closest("tr");
+      if (!row) return;
+      var cellIndex = Array.prototype.indexOf.call(row.children, field.closest("td"));
+      var next = row;
+      while (true) {
+        next = next.nextElementSibling;
+        if (!next) return;
+        var cell = next.children[cellIndex];
+        var nextField = cell && cell.querySelector("input");
+        if (nextField) { nextField.focus(); nextField.select(); return; }
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}

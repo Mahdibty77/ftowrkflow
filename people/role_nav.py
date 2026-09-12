@@ -385,6 +385,10 @@ def role_nav_icon(role) -> str:
         return "fa-screwdriver-wrench"
     if unit == "SUPPLY":
         return "fa-boxes-packing"
+    if unit == "PURCHASING":
+        return "fa-money-bill-wave"
+    if unit == "WAREHOUSE":
+        return "fa-cubes"
     if unit == "COMMERCIAL":
         if r == "MANAGER":
             return "fa-briefcase"

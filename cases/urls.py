@@ -18,6 +18,7 @@ urlpatterns = [
     path("<int:pk>/report/add/", views.case_report_add, name="case_report_add"),
     path("<int:pk>/reminder/add/", views.case_reminder_add, name="case_reminder_add"),
     path("<int:pk>/edit-items/", views.edit_items, name="edit_items"),
+    path("<int:pk>/purchase-invoice/", views.purchase_invoice_build, name="purchase_invoice_build"),
     path("<int:pk>/transition/", views.transition, name="transition"),
     path("<int:pk>/currency-conversion/log/", views.log_currency_conversion, name="log_currency_conversion"),
     path("<int:pk>/export/<str:form_kind>/pdf/confirm/", views.export_form_pdf_confirm, name="export_form_pdf_confirm"),
@@ -32,6 +33,11 @@ urlpatterns = [
     path("clients/upload/", views.client_upload, name="client_upload"),
     path("clients/wipe/", views.client_wipe, name="client_wipe"),
     path("clients/lookup/", views.client_lookup, name="client_lookup"),
+
+    # Purchasing master data
+    path("suppliers/", views.supplier_list, name="supplier_list"),
+    path("suppliers/add/", views.supplier_add, name="supplier_add"),
+    path("suppliers/<int:pk>/rename/", views.supplier_rename, name="supplier_rename"),
 
     path("master-data/", views.master_data_hub, name="master_data_hub"),
     path("fx-rates/", views.fx_rates, name="fx_rates"),

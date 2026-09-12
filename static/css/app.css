@@ -331,6 +331,25 @@ html[data-theme="dark"] .shift-ot-link:hover{
    own button. */
 .profile-menu{position:absolute;inset-inline-end:0;top:calc(100% + 8px);width:260px;background:var(--paper);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lg);padding:.8rem;display:none;z-index:40}
 .profile-menu.open{display:block}
+/* Export picker — one "Export" button that, on click, is ITSELF replaced in
+   place by a small horizontal row of format links (Excel/PDF/Print view/
+   Grouped Excel) — not a dropdown hanging below it. Clicking a format link,
+   or anywhere else on the page, collapses the row back down to just the
+   trigger. See static/js/ui.js's own "export picker" section for the
+   mechanism (delegated + id-scoped, since up to 4 of these can exist on one
+   case-detail page). Plain inline flow, not position:absolute — the panel
+   takes the trigger's own place in the row rather than overlaying it. */
+.export-picker{display:inline-flex}
+.export-picker-trigger{justify-content:center}
+/* Same idiom as .shift-warn-banner[hidden] / .filter-clear-x[hidden] above:
+   .btn's own display:inline-flex is an AUTHOR rule, which always outranks
+   the browser's default [hidden]{display:none} UA rule regardless of
+   specificity — without this override the trigger button stayed visibly
+   flexed even with the hidden attribute set (confirmed live: computed
+   display was still "flex"). */
+.export-picker-trigger[hidden]{display:none !important;}
+.export-picker-panel{display:flex;flex-direction:row;flex-wrap:nowrap;gap:.4rem}
+.export-picker-panel[hidden]{display:none}
 .pm-head{display:flex;gap:.7rem;align-items:center;padding-bottom:.7rem;border-bottom:1px solid var(--line-soft);margin-bottom:.6rem}
 .pm-name{font-weight:650}.pm-sub{font-size:.74rem;color:var(--muted)}
 .pm-kv{display:grid;grid-template-columns:max-content 1fr;gap:.25rem .8rem;font-size:.78rem;margin:0 0 .6rem}
@@ -425,27 +444,211 @@ html[data-theme="dark"] .shift-ot-link:hover{
    exactly onto, a plain .flash-warning's own flat var(--warnbg)/--warnline
    tint (see that rule earlier in this file) rather than the boosted one.
    Nothing here invents a new colour; it only turns the existing warning
-   proportion back DOWN instead of up. */
+   proportion back DOWN instead of up.
+
+   AUDIT #134 FOLLOW-UP (this round) — three further refinements on top of
+   the shape above, all still presentation only (marketing/reminders.py and
+   marketing/context_processors.py's own DATA are untouched beyond the one
+   additive ``reminder_bell`` flag documented in the latter's docstring):
+   (1) the trigger button itself now has a NEUTRAL resting state — no
+   colour at all — for a person with nothing currently due, instead of the
+   whole widget vanishing (see .reminder-bell-btn / .reminder-bell-btn.is-
+   due below); (2) a small always-visible "cloud" beside the button,
+   .reminder-bell-bubble, carries the most urgent due reminder's summary
+   without needing a click, and (as of a later follow-up) carries its own
+   slow attention-drawing glow — see that class's own comment further
+   down for why that job moved onto it; (3) once .is-due applies, the
+   bell icon's own backing disc fills in on hover — see
+   .reminder-bell-btn.is-due .fa-bell's own comment for why this is a
+   plain hover transition now rather than the automatic periodic shake an
+   earlier follow-up gave it. */
 
 /* The trigger: a small rounded button, not a bare icon floating in the
-   topbar — its own tinted background is what makes it read as a filled
-   badge rather than a plain outline glyph (this app's offline icon set,
-   static/css/icons-offline.css, ships exactly one bell glyph, drawn as a
-   stroked outline and painted solid via CSS mask same as every other icon
-   here; there is no separate "filled body" variant to switch to, so the
-   filled READING comes from this backing chip instead of the glyph itself).
+   topbar. NEUTRAL BY DEFAULT now (AUDIT #134 follow-up) — a person with
+   nothing due still gets a bell here (see base.html's own comment on the
+   ``reminder_bell`` context flag for why it renders at all), styled like
+   any other quiet icon control on this surface (the same --line/--cloud/
+   --muted trio .pm-mode uses for its own light/dark toggle buttons a few
+   hundred lines below), so a resting bell reads as "nothing to do" rather
+   than as a perpetual warning. The tinted .is-due look below is what used
+   to be this rule's ONLY state, moved onto a modifier class rather than
+   removed — its own comment (further down, on .reminder-bell-btn.is-due)
+   carries the "no separate filled glyph" reasoning that used to sit here,
+   since that constraint only matters once the icon needs to look urgent.
    Sized to sit comfortably inside .topbar's own 3.6rem min-height with room
-   to spare, never to it. */
-.reminder-bell{position:relative}
+   to spare, never to it, in EITHER state. */
+.reminder-bell{position:relative;display:flex;align-items:center;gap:.5rem}
 .reminder-bell-btn{
   position:relative;display:inline-flex;align-items:center;justify-content:center;
   width:2.3rem;height:2.3rem;padding:0;
-  border-radius:10px;border:1px solid var(--warnline);
-  background:color-mix(in srgb,var(--warn) 6%,var(--warnbg));
-  color:var(--warn);cursor:pointer;font:inherit;
+  border-radius:10px;border:1px solid var(--line);
+  background:var(--cloud);
+  color:var(--muted);cursor:pointer;font:inherit;
+  transition:background .12s,border-color .12s,color .12s;
 }
-.reminder-bell-btn:hover{background:color-mix(in srgb,var(--warn) 14%,var(--warnbg));border-color:var(--warn)}
+.reminder-bell-btn:hover{background:color-mix(in srgb,var(--ink) 8%,var(--cloud));border-color:var(--line)}
 .reminder-bell-btn .fa-bell{font-size:1rem}
+/* The URGENT look — everything this rule pair used to be, unconditionally,
+   before this round; now only while something is actually due. There is
+   no separate "filled body" bell glyph to switch to for this state either
+   (this app's offline icon set, static/css/icons-offline.css, ships
+   exactly one bell, drawn as a stroked outline and painted solid via CSS
+   mask same as every other icon here), so the filled READING still comes
+   from this backing chip's own tint, exactly as it always did. */
+.reminder-bell-btn.is-due{
+  border-color:var(--warnline);
+  background:color-mix(in srgb,var(--warn) 6%,var(--warnbg));
+  color:var(--warn);
+}
+.reminder-bell-btn.is-due:hover{background:color-mix(in srgb,var(--warn) 14%,var(--warnbg));border-color:var(--warn)}
+/* THE FILLED DISC — HOVER-ONLY NOW, NOT A PERIODIC SHAKE. Two earlier
+   rounds gave this icon an automatic, ever-repeating shake+fill pulse; the
+   owner then changed their mind entirely: no automatic motion at all —
+   "پشیمون شدم ... لازم نیست زنگوله بلرزد ... فقط وقتی موس روی آن رفت
+   زنگوله بک‌گراندش پر بشه". So there is no @keyframes animation left on
+   the bell icon at all any more — the backing disc (the same "no separate
+   filled glyph in this app's offline icon set" trick the shake used to
+   drive) now simply fades in on :hover and fades back out on mouse-leave,
+   a plain transition, exactly the same mechanism .reminder-bell-btn.is-
+   due's own background-colour hover above already uses. The "keep drawing
+   the eye back" job the shake used to do moved onto the bubble instead —
+   see .reminder-bell-bubble's own glow below. */
+.reminder-bell-btn.is-due .fa-bell{position:relative}
+.reminder-bell-btn.is-due .fa-bell::before{
+  content:"";position:absolute;inset:-4px;border-radius:50%;
+  background:var(--warn);z-index:-1;opacity:0;
+  transition:opacity .15s ease-in-out;
+}
+.reminder-bell-btn.is-due:hover .fa-bell::before{opacity:.85}
+/* THE PERSISTENT "LATEST NOTIFICATION" BUBBLE — only while something is
+   due (base.html wraps it in the same {% if reminder_notice %} the panel
+   below already uses). Distinct from .reminder-bell-panel further down:
+   the panel only shows on click; this shows WITHOUT one, which is the
+   entire point of it — the owner's own words were that the summary should
+   ALWAYS be visible, not just on click. Reuses this app's existing CHIP
+   language rather than inventing a new visual style — the exact same
+   .chip.c-warn markup .reminder-bell-facts already prints for the client/
+   case facts below, just sized down for a much smaller box (see the
+   override a few rules down) — sitting in the same warm "urgent" materials
+   .reminder-bell-btn.is-due already wears, not the neutral --paper surface
+   every other floating panel in this app uses (see "A STRONGER COLOUR,
+   THIS ROUND" below for why that changed).
+
+   A ROW, NOT A COLUMN, THIS ROUND — the owner's own follow-up: the first
+   version stacked time/facts/note on their own lines, which read fine but
+   grew .topbar past its own 3.6rem min-height (that cost was explicitly
+   accepted at the time — see the git history on this comment — and the
+   owner then asked for it back out). Laying the same three pieces out
+   side by side instead needs more WIDTH, not height, to fit them — hence
+   the much larger max-width below — but never taller than the bell button
+   sitting beside it (height:2.3rem, matching .reminder-bell-btn exactly,
+   with overflow:hidden as the backstop if a viewer's font settings ever
+   push a line taller than that). NOT A CLICK TARGET ANY MORE either (see
+   base.html's own comment on this element): no cursor:pointer, no :hover
+   rule — a plain <div> now, not a <button>; only the bell icon opens the
+   dropdown panel.
+
+   A STRONGER COLOUR, THIS ROUND — the owner's own words: the box "should
+   have a bolder background and draw more attention". The first version
+   used the same quiet var(--paper) surface every other floating panel in
+   this app sits on, with only a thin --warnline border to hint at urgency.
+   This now wears the SAME warm tint .reminder-bell-btn.is-due already
+   uses for the bell button itself (color-mix(...--warn...--warnbg)), just
+   pushed a little stronger since a bubble has more surface area to carry
+   it than a small icon chip does, plus a full-strength --warn border
+   instead of the softer --warnline — so the whole widget (button + bubble)
+   now reads as one consistent "something needs you" colour, not two
+   different intensities of it.
+
+   position:static, deliberately NOT absolute like the dropdown panel: a
+   bubble that floats free of layout could drift over the page title on a
+   narrow viewport with nothing to stop it, where a plain flex sibling is
+   automatically kept inside whatever room .topbar-end actually has and
+   shrinks/wraps with it instead.
+
+   CLICKABLE AGAIN (a <button>, see base.html's own comment on this
+   element) — cursor:pointer restored, same click target as the bell.
+
+   THE BOX ITSELF IS COMPLETELY STATIC — no animation property here at
+   all any more. Three earlier attempts at "keep drawing the eye back to
+   it" all animated the BOX: a ring blooming around its edge, then the
+   whole box breathing (scale), then the whole box popping open out of
+   the bell like a letter and folding back in. The owner rejected all
+   three and asked for the opposite split: the box fixed in place, size
+   and position never changing, and the MOVEMENT confined entirely to the
+   text inside it — see .reminder-bell-bubble-time/-note's own comment
+   just below for where that motion actually lives now. */
+.reminder-bell-bubble{
+  position:relative;isolation:isolate;display:flex;flex-direction:row;align-items:center;gap:.5rem;
+  max-width:26rem;height:2.3rem;padding:0 .75rem;margin:0;overflow:hidden;
+  border-radius:10px;background:color-mix(in srgb,var(--warn) 12%,var(--warnbg));border:1.5px solid var(--warn);
+  box-shadow:var(--shadow);color:inherit;font:inherit;text-align:start;cursor:pointer;
+}
+.reminder-bell-bubble:hover{border-color:color-mix(in srgb,var(--warn) 80%,var(--ink))}
+/* THE TEXT BREATHES AND BLINKS — the owner's own words, and their own
+   explicit split from the box around it, which stays fixed (see that
+   rule's own comment just above). Applied to the two pieces of this
+   bubble that are genuinely "written words" (the due-stamp and the note)
+   — not the small company/case chips beside them, which already carry
+   their own steady --warn colour as a tag/badge rather than prose, and
+   would only look broken flashing between two different colours than
+   their neighbours. `transform:scale` is the "breathe" half (a gentle
+   grow/shrink, cheap — both are flex items, so they are blockified and
+   `transform` behaves predictably on them even though neither sets its
+   own `display`); `color` cycling between --rej (this app's existing
+   danger/red token — the same one Cancelled-case counts already use
+   elsewhere) and --ink (this app's normal dark text colour — "black" for
+   this purpose) is the "blink" half, timed to peak at the same moment
+   the scale peaks so the two read as one single pulse, not two competing
+   motions. `color` is a paint-only property (never triggers layout,
+   unlike `background`/`border` would on a differently-shaped element),
+   so — on two short text nodes, not the whole box — this stays well
+   inside the "must not make the site heavy" rule the rest of this
+   widget's own history already leans on. A brisker cadence than this
+   app's other slow "breathing" pulses on purpose (1.3s, not several
+   seconds) — a "blink" reads as more urgent than a slow breath, which is
+   the point here. */
+.reminder-bell-bubble-time,
+.reminder-bell-bubble-note{
+  animation:reminder-bell-bubble-text-blink 1.3s ease-in-out infinite;
+}
+@keyframes reminder-bell-bubble-text-blink{
+  0%,100%{transform:scale(1);color:var(--ink)}
+  50%{transform:scale(1.08);color:var(--rej)}
+}
+@media (prefers-reduced-motion:reduce){
+  .reminder-bell-bubble-time,
+  .reminder-bell-bubble-note{animation:none}
+}
+.reminder-bell-bubble-time{
+  flex:0 0 auto;font-size:.76rem;font-weight:800;
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.reminder-bell-bubble-facts{flex:0 0 auto;display:flex;gap:.25rem;flex-wrap:nowrap}
+/* The identical .chip.c-warn the dropdown panel prints below, only smaller
+   — a row this short has far less vertical room than the panel's own 300px
+   block does. */
+.reminder-bell-bubble-facts .chip{font-size:.6rem;padding:.1rem .4rem;gap:.2rem;white-space:nowrap}
+.reminder-bell-bubble-note{
+  flex:1 1 auto;min-width:0;font-size:.72rem;opacity:.85;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+/* The speech-bubble arrow: a small square rotated 45deg, half-hidden behind
+   the bubble's own inline-end edge (inset-inline-end, not right — the same
+   logical-placement reasoning .topbar-end and .reminder-bell-panel already
+   rely on, so it points at the bell in both languages with no [dir=rtl]
+   override needed here either). isolation:isolate on the bubble above
+   gives this its own stacking context, so z-index:-1 only ever tucks the
+   arrow's far corner behind the bubble's own painted surface — never
+   behind anything else in the topbar — leaving just the two outward-
+   facing edges (top + inline-end, carrying the bubble's own border
+   colour) visible as the "point". */
+.reminder-bell-bubble-arrow{
+  position:absolute;top:50%;inset-inline-end:-5px;z-index:-1;
+  width:.55rem;height:.55rem;transform:translateY(-50%) rotate(45deg);
+  background:color-mix(in srgb,var(--warn) 12%,var(--warnbg));
+  border-inline-end:1.5px solid var(--warn);border-top:1.5px solid var(--warn);
+}
 /* The count badge: reminder_notice.others + 1, i.e. the TOTAL number of
    due-and-open reminders, not just "how many besides this one" — the
    trigger is now the first and often only thing a viewer sees, so it has to
@@ -925,6 +1128,28 @@ textarea{resize:vertical;min-height:70px}
 .spacer{flex:1}
 .empty{padding:2.5rem 1rem;text-align:center;color:var(--muted)}
 .kv{display:grid;grid-template-columns:max-content 1fr;gap:.4rem 1rem;font-size:.85rem}
+/* THE REPORTS-TAB CLOSED-REMINDER TIMELINE — see
+   marketing/templates/marketing/_my_tasks_reports.html's own comment on
+   this exact block for why it exists as its own class rather than reusing
+   `.kv` just above (a 2-column grid stacks pairs into rows; this needs
+   three whole pairs laid out in ONE row instead). Forced LTR — a
+   chronological sequence, same treatment as .mono/date content elsewhere
+   in this app — so the arrow icons always physically point toward the
+   next point regardless of the page's own language direction. */
+.report-timeline{
+  display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;
+  direction:ltr;unicode-bidi:isolate;font-size:.68rem;
+}
+.report-timeline-point{
+  display:flex;flex-direction:column;align-items:flex-start;gap:.05rem;
+}
+.report-timeline-label{
+  font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.03em;
+  color:var(--muted);
+}
+.report-timeline-arrow{
+  flex:0 0 auto;color:var(--muted);opacity:.55;font-size:.65rem;
+}
 .kv dt{color:var(--muted)}.kv dd{margin:0}
 .badge{font-size:.7rem;font-weight:650;padding:.15rem .5rem;border-radius:var(--radius-sm);background:var(--accent-soft);color:var(--accent-strong)}
 hr.sep{border:none;border-top:1px solid var(--line-soft);margin:1.1rem 0}
@@ -1041,6 +1266,18 @@ table.coding-table td.num input{text-align:right}
 .jdp-spacer{flex:1}
 .jdp-today{border:1px solid var(--line);background:var(--cloud);border-radius:6px;padding:.25rem .5rem;cursor:pointer;font:inherit;font-size:.74rem}
 .jdp-ok{border:0;background:var(--accent);color:#fff;border-radius:6px;padding:.25rem .6rem;cursor:pointer;font:inherit;font-size:.74rem;font-weight:650}
+/* The year portion of .jdp-title, made clickable to open the year-picker
+   view below — dotted underline is the only affordance, kept understated so
+   the title still reads as a title first and a button second. */
+.jdp-year-btn{border:0;background:transparent;padding:0;font:inherit;font-weight:700;color:inherit;cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px}
+.jdp-year-btn:hover{color:var(--accent)}
+/* Year-picker grid: a flat, scrollable list rather than the day grid's 7
+   columns (four-digit years need real width) — see jalali_picker.js's own
+   renderYears() for why it is a scrollable list instead of decade paging. */
+.jdp-ygrid{grid-template-columns:repeat(4,1fr);max-height:210px;overflow-y:auto}
+/* Invisible placeholder on the year-picker head so its title stays centered
+   the same way the month view's title sits between two real nav buttons. */
+.jdp-nav-ghost{visibility:hidden}
 
 /* New-case top action bar (kept reachable without scrolling the grid) */
 /* --mist is the page background (see body): the bar is sticky, so it needs an
@@ -1108,15 +1345,18 @@ table.coding-table td.num input{text-align:right}
 .arrival-note.assign-note{border-color:#a85a2a;background:rgba(168,90,42,.07);margin-top:.5rem}
 .arrival-note.assign-note .an-head{color:#a85a2a}
 
-/* Per-unit colours (Commercial = amber, Technical = blue, Supply = copper) */
+/* Per-unit colours (Commercial = amber, Technical = blue, Supply = copper,
+   Purchasing = terracotta, Warehouse = moss — core.theming's own accents) */
 .u-COMMERCIAL{--unit-color:#b8860b;--unit-bg:rgba(184,134,11,.10)}
 .u-TECHNICAL{--unit-color:#1f5f8b;--unit-bg:rgba(31,95,139,.10)}
 .u-SUPPLY{--unit-color:#1f7a5a;--unit-bg:rgba(31,122,90,.10)}
+.u-PURCHASING{--unit-color:#a8481f;--unit-bg:rgba(168,72,31,.10)}
+.u-WAREHOUSE{--unit-color:#5c7a1f;--unit-bg:rgba(92,122,31,.10)}
 /* Comment box tinted by the commenter's unit */
 .arrival-note.unit-note{border-color:var(--unit-color);background:var(--unit-bg)}
 .arrival-note.unit-note .an-head{color:var(--unit-color)}
 /* Timeline route chips tinted by their unit */
-.tl-route .unit.u-COMMERCIAL,.tl-route .unit.u-TECHNICAL,.tl-route .unit.u-SUPPLY{border-color:var(--unit-color);background:var(--unit-bg);color:var(--unit-color);font-weight:700}
+.tl-route .unit.u-COMMERCIAL,.tl-route .unit.u-TECHNICAL,.tl-route .unit.u-SUPPLY,.tl-route .unit.u-PURCHASING,.tl-route .unit.u-WAREHOUSE{border-color:var(--unit-color);background:var(--unit-bg);color:var(--unit-color);font-weight:700}
 .dstat.c-supplygreen{border-inline-start-color:#1f7a5a}.dstat.c-supplygreen .ic{background:#1f7a5a}
 
 /* Internal / External sub-stream switcher */
@@ -1427,6 +1667,8 @@ html[data-theme="dark"] .sb-item.is-dim:hover{opacity:.88}
 .lc-cell.u-COMMERCIAL{border-inline-start-color:#b07514}
 .lc-cell.u-TECHNICAL{border-inline-start-color:#1f5f8b}
 .lc-cell.u-SUPPLY{border-inline-start-color:#1f7a5a}
+.lc-cell.u-PURCHASING{border-inline-start-color:#a8481f}
+.lc-cell.u-WAREHOUSE{border-inline-start-color:#5c7a1f}
 .lc-cell-unit{font-size:.66rem;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);
   font-weight:700;margin-bottom:.25rem}
 .lc-entry{display:flex;align-items:baseline;gap:.4rem;padding:.1rem 0}
@@ -1828,6 +2070,21 @@ table.data td.client-no { font-weight: 650; opacity: .75; }
   display:flex; flex-direction:column; gap:.5rem;
   margin:0 0 .85rem;
 }
+/* THE "WHICH DAY IS THIS" HEADER — new this round, see the template's own
+   comment on .task-hour-boxes-day-head for why it lives inside this same
+   stack rather than as a separate element. Deliberately reads as a small
+   heading (bold, accent-tinted, its own line) rather than blending into
+   the hour boxes below it — the whole point is that a reader landing here
+   from a work-shift-calendar badge several days out sees, in words,
+   before anything else, which day they are looking at. */
+.task-hour-boxes-day-head{
+  display:flex; align-items:baseline; gap:.4rem;
+  font-size:.85rem; font-weight:800; color:var(--accent-strong);
+  padding-bottom:.3rem; margin-bottom:.15rem;
+  border-bottom:1px solid var(--line);
+}
+.task-hour-boxes-day-head .fa-calendar-day{ font-size:.8rem; }
+.task-hour-boxes-day-head .mono{ font-weight:700; color:var(--ink); opacity:.85; }
 /* An ORDINARY box (has_reminder true, or the box holds nothing yet is still
    worth a normal look — never true today, has_reminder is the only branch,
    but the base rule stays undimmed either way so .hour-box-empty below is
@@ -2220,6 +2477,9 @@ body.unit-supply     .unit-dot{ background:#1f7a5a; }
    has a size but no default background, so a unit with no rule renders an
    invisible hole in the sidebar footer rather than an accent. */
 body.unit-marketing  .unit-dot{ background:#8c3f63; }
+body.unit-purchasing .unit-dot{ background:#a8481f; }
+body.unit-warehouse  .unit-dot{ background:#5c7a1f; }
+body.unit-qc         .unit-dot{ background:#6b3f9e; }
 body.unit-admin      .unit-dot{ background:var(--accent); }
 
 /* ---- In-card theme switcher (profile dropdown): colour skins + light/dark ---- */

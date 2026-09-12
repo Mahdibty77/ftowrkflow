@@ -5,7 +5,7 @@ from django.utils.translation import gettext_lazy as _
 from core.persian_text import normalize_persian
 
 from .constants import DocKind, MarketingLabel, OfferType, PriceType
-from .models import Client, ExpertCode
+from .models import Client, ExpertCode, Supplier
 
 
 class CaseCreateForm(forms.Form):
@@ -224,6 +224,35 @@ class ClientRenameForm(forms.ModelForm):
     class Meta:
         model = Client
         fields = ["name"]
+
+
+class SupplierForm(forms.ModelForm):
+    """Add a new supplier (code is assigned automatically) — Supplier's own
+    ClientForm, same duplicate-name check for the same reason (see
+    ClientForm.clean_name's own comment)."""
+
+    class Meta:
+        model = Supplier
+        fields = ["name"]
+        # Explicit, translated — ClientForm leaves this to ModelForm's own
+        # auto-prettified-from-field-name default ("Name", never translated,
+        # a pre-existing gap outside this round's scope); this form is new,
+        # so it starts out properly bilingual instead of copying that gap.
+        labels = {"name": _("Name")}
+
+    def clean_name(self):
+        name = self.cleaned_data["name"].strip()
+        needle = normalize_persian(name).lower()
+        if any(normalize_persian(s.name).lower() == needle for s in Supplier.objects.all()):
+            raise forms.ValidationError(_("A supplier with this name already exists."))
+        return name
+
+
+class SupplierRenameForm(forms.ModelForm):
+    class Meta:
+        model = Supplier
+        fields = ["name"]
+        labels = {"name": _("Name")}
 
 
 class ExpertCodeForm(forms.ModelForm):

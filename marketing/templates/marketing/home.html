@@ -14,7 +14,7 @@
 {% block title %}{% trans "Marketing" %} · Foolad Tabar Workflow{% endblock %}
 {% block topbar %}{% trans "Marketing" %}{% endblock %}
 {% block head_extra %}
-<link rel="stylesheet" href="{% static 'marketing/css/rolechart.css' %}">
+<link rel="stylesheet" href="{% static 'marketing/css/rolechart.css' %}?v=active-card-dark-1">
 {% endblock %}
 {% block content %}
 
@@ -303,5 +303,5 @@
 {# no-ops if the chart is absent — see its own top-of-file comment. That #}
 {# guard predates the tab strip and is kept as-is; it costs nothing and #}
 {# keeps the script safe to load from anywhere. #}
-<script src="{% static 'marketing/js/chart_interact.js' %}"></script>
+<script src="{% static 'marketing/js/chart_interact.js' %}?v=us-cases-4bucket-1"></script>
 {% endblock %}

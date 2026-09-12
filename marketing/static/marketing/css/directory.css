@@ -151,57 +151,19 @@
   .dir-roles-list{ columns:1; }
 }
 
-/* The PI money total inside the Cases card — the figure the case archive
-   prints as "Grand total (all PI)", over exactly the rows in the table below
-   it (see marketing/views.py::_pi_money_total). A band rather than another
-   .infobox tile: it belongs to that one table, and a tile up beside the case
-   counts would not say which cases it had added up. Drawn only when there is
-   a figure to draw; a viewer with no money visibility gets no band at all. */
-.dir-money{
-  display:flex;
-  align-items:baseline;
-  flex-wrap:wrap;
-  gap:.35rem .7rem;
-  margin:0 0 .8rem;
-  padding:.55rem .8rem;
-  border:1px solid var(--accent);
-  border-radius:var(--radius);
-  background:var(--accent-soft);
-}
-.dir-money-l{
-  font-size:.68rem;
-  text-transform:uppercase;
-  letter-spacing:.5px;
-  color:var(--accent-strong);
-  font-weight:700;
-}
-/* margin-inline-end, not margin-right — this gap belongs BETWEEN the icon and
-   the label text that follows it (.dir-money-l's own template markup: icon,
-   then the label), so it needs to sit on the icon's TRAILING side under
-   either direction rather than staying pinned to its physical right, which
-   would leave the icon and label flush together and the gap stranded on the
-   band's outer edge instead once the row mirrors under Persian — the same
-   fix, and the same reasoning, as every h3/card-head icon this round (see
-   e.g. company_detail.html's own `<h3><i ...>` headings). */
-.dir-money-l i{ margin-inline-end:.3rem; }
-.dir-money-v{
-  font-size:1rem;
-  font-weight:800;
-  overflow-wrap:anywhere;
-  min-width:0;
-}
-/* margin-inline-start:auto, not margin-left — the same "pin to the end of the
-   row" idiom static/css/app.css's own [dir=rtl] section documents at length
-   (see e.g. .sb-item .nav-badge there): a physical margin-left:auto keeps
-   pulling free space from the box's true left even once this row mirrors
-   under <html dir="rtl">, which is the row's START in Persian, not its end —
-   it would shove the note in beside the money figure instead of pinning it
-   flush at the band's outer edge. */
-.dir-money-note{
-  font-size:.72rem;
-  color:var(--muted);
-  margin-inline-start:auto;
-}
+/* .dir-money / .dir-money-l / .dir-money-v / .dir-money-note — the single
+   "Grand total (all PI)" band that used to sit under the Cases TAB's own
+   header chips (marketing/templates/marketing/company_detail.html), fed by
+   the now-removed ``marketing/views.py::_pi_money_total`` — ARE REMOVED, this
+   round, along with the only markup that ever carried them. The owner asked
+   for that single figure replaced by the same four-way PI breakdown the
+   Cases CARD above the tabs already shows (see that template's own comment,
+   and ``_pi_money_by_bucket``), and nothing on this page uses these four
+   classes any more — see the template's own comment left where the band used
+   to sit for the full reasoning. Checked by grep before deleting: no other
+   template carries `dir-money` either. The narrow-screen override that used
+   to live in the @media block below (`.dir-money-note{ margin-inline-start:0
+   }`) went with them. */
 
 /* The reports list. One block per report — who wrote it and when, the case it
    was filed against (or that it was filed on the company itself), the preset
@@ -255,10 +217,6 @@
    columns beside it either. */
 @media (max-width:760px){
   .dir-labels-cell{ max-width:none; }
-  /* The money band's note is pushed to the far end by margin-inline-start:auto
-     on a wide row (see that rule above); once the band wraps onto two lines
-     that push is meaningless, so it drops back to sitting under the figure. */
-  .dir-money-note{ margin-inline-start:0; }
 }
 
 /* ---------------------------------------------------------------------------
