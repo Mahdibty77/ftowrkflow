@@ -133,7 +133,11 @@
       pick.disabled = true;
       pick.textContent = 'Saving…';
     }
-    form.submit();
+    // requestSubmit(), not submit() — see archive_stream.js's own
+    // submitFilters() for why: plain submit() never fires a "submit" event,
+    // so base.html's beforeunload guard pops "Leave site?" on every use for
+    // anyone with a shift open.
+    form.requestSubmit();
   }
   if (file) {
     file.addEventListener('change', saveSelected);

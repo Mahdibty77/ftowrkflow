@@ -173,7 +173,12 @@
       var fv = fromEl ? (fromEl.value || '').trim() : '';
       var tv = toEl ? (toEl.value || '').trim() : '';
       if ((fv && tv) || (!fv && !tv) || (e.target.value || '').trim() === '') {
-        form.submit();
+        // requestSubmit(), not submit() — see archive_stream.js's own
+        // submitFilters() for why: plain submit() never fires a "submit"
+        // event, so base.html's beforeunload guard cannot tell this apart
+        // from actually leaving the page and pops "Leave site?" for anyone
+        // with a shift open.
+        form.requestSubmit();
       }
     });
   });

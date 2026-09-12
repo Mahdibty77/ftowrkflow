@@ -575,7 +575,11 @@
       form.appendChild(p);
     }
     document.body.appendChild(form);
-    form.submit();
+    // requestSubmit(), not submit() — see archive_stream.js's own
+    // submitFilters() for why: plain submit() never fires a "submit" event,
+    // so base.html's beforeunload guard pops "Leave site?" on every seat
+    // action for anyone with a shift open.
+    form.requestSubmit();
   }
 
   if (bodyEl && baseItems.length) {

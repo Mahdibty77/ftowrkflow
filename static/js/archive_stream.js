@@ -256,7 +256,15 @@
 
   function submitFilters() {
     if (!form) return;
-    form.submit();
+    // requestSubmit(), not submit(): the plain DOM submit() method does not
+    // fire a "submit" event, which is the one thing base.html's close-button
+    // beforeunload guard listens for to tell "just an ordinary in-app
+    // navigation" apart from "actually leaving" (see its own long comment).
+    // Every status-tab click called plain submit() here, so the guard never
+    // saw it as internal navigation and popped the "Leave site?" confirm on
+    // every single click, for anyone with a shift open — requestSubmit()
+    // submits exactly the same form the same way but fires that event first.
+    form.requestSubmit();
   }
 
   if (form) {
