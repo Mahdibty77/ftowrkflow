@@ -28,6 +28,14 @@ from django.utils import timezone
 
 LOOKBACK_DAYS = 30
 
+# This feature did not exist before this date — nobody could have filed a
+# report for a shift day before it, so none of those days are ever "missing".
+# Without this floor, the very first login after this ships would find every
+# tracked day in the LOOKBACK_DAYS window unfiled and lock every person in
+# the system out behind the catch-up flow for work they did before the
+# feature could have asked them for it (the product owner's own instruction).
+EOD_REPORTS_LAUNCH_DATE = date(2026, 9, 12)
+
 
 def missing_report_days(person, *, today: date | None = None) -> list[date]:
     """Past (strictly before ``today``) tracked shift days ``person`` has
@@ -39,14 +47,15 @@ def missing_report_days(person, *, today: date | None = None) -> list[date]:
     ended, is the LIVE flow's job (see people.views.eod_report's own
     docstring), not a catch-up — the same line the product owner drew
     explicitly (a same-day reconnect only ever owes the presence-gap
-    explanation, never this).
+    explanation, never this). Never earlier than EOD_REPORTS_LAUNCH_DATE —
+    see that constant's own comment.
     """
     if person is None:
         return []
     from .models import EndOfDayReport, ShiftDayLog
 
     today = today or timezone.localdate()
-    since = today - timedelta(days=LOOKBACK_DAYS)
+    since = max(today - timedelta(days=LOOKBACK_DAYS), EOD_REPORTS_LAUNCH_DATE)
     tracked_days = set(
         ShiftDayLog.objects.filter(
             person=person, day__gte=since, day__lt=today, minutes__gt=0,

@@ -2311,10 +2311,15 @@ def purchase_invoice_build(request, pk):
             return redirect("cases:case_detail", pk=pk)
         try:
             services.save_purchase_invoice(case, request.user, request.POST)
-            messages.success(request, _("Purchase Invoice saved."))
         except ValueError as exc:
             messages.error(request, str(exc))
-        return redirect("cases:purchase_invoice_build", pk=pk)
+            return redirect("cases:purchase_invoice_build", pk=pk)
+        messages.success(request, _("Purchase Invoice saved."))
+        # Exits this standalone environment back to the case page, the same
+        # way Save always has for every other unit — reopening the Purchase
+        # Invoice tab it was launched from (see case_detail.html's own
+        # ?opentab= handling, already used by Reports/Reminders).
+        return redirect(f"{reverse('cases:case_detail', args=[pk])}?opentab=pinv")
 
     rows, editable_form = services._purchase_invoice_current_rows(case)
     return render(request, "cases/purchase_invoice_build.html", {
@@ -2323,6 +2328,9 @@ def purchase_invoice_build(request, pk):
         "can_edit": can_edit,
         "is_editing": editable_form is not None,
         "suppliers": Supplier.objects.all().order_by("name"),
+        # Its own standalone environment, like the TO/PI tool — see this
+        # view's own docstring. No sidebar, full width for the table.
+        "hide_sidebar": True,
     })
 
 

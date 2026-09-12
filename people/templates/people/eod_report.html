@@ -11,6 +11,26 @@
   <link rel="stylesheet" href="{% static 'css/app.css' %}?v=shift-end-8">
   <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-17">
   <link rel="stylesheet" href="{% static 'css/icons-offline.css' %}?v=shift-icons-4">
+  <script>
+    // Apply the saved appearance (colour skin + light/dark) before first
+    // paint — the same script base.html carries. This page does not extend
+    // base.html at all (see the comment on the <style> block below for why),
+    // and that base script was the one thing shift_ended.html's own layout
+    // did NOT also copy, so this page always rendered the default blue/light
+    // skin no matter what the person had actually chosen everywhere else.
+    (function () {
+      var r = document.documentElement, skin = 'blue', mode = 'light';
+      try {
+        skin = localStorage.getItem('ft-skin') || 'blue';
+        mode = localStorage.getItem('ft-mode') || localStorage.getItem('ft-theme') || 'light';
+      } catch (e) {}
+      if (skin === 'm') skin = 'blue'; if (skin === 'f') skin = 'rose';
+      if (skin !== 'blue' && skin !== 'rose' && skin !== 'teal') skin = 'blue';
+      r.setAttribute('data-skin', skin);
+      r.setAttribute('data-mode', mode === 'dark' ? 'dark' : 'light');
+      if (mode === 'dark') r.setAttribute('data-theme', 'dark');
+    })();
+  </script>
   <style>
     /* Standalone page (no base.html — see this template's own docstring in
        people/views.py::eod_report for why): a tiny bit of its own layout

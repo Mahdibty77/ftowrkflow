@@ -9,15 +9,26 @@
   .pinv-table th, .pinv-table td { border: 1px solid var(--line); padding: .4rem .5rem; white-space: nowrap; text-align: center; }
   .pinv-table td[dir="auto"] { text-align: start; white-space: normal; max-width: 22ch; }
   .pinv-table thead th { background: var(--paper-2, #f4f6f9); position: sticky; top: 0; }
-  /* QTY (remaining) and QTY PURCHASED share one colour; UNIT PRICE and PRICE
-     PURCHASED share another — the product owner's own instruction, "since
-     they're dependent on each other". */
-  .pinv-col-qty { background: #eaf2fb; }
-  .pinv-col-price { background: #eefaf1; }
+  /* QTY (remaining) and QTY PURCHASED share one strong colour; UNIT PRICE
+     (the merged base/margin/final cell) and PRICE PURCHASED share another —
+     the product owner's own instruction, "since they're dependent on each
+     other" — made more visually distinct on this round's feedback. */
+  .pinv-col-qty { background: #bfdcf7; }
+  .pinv-col-price { background: #c9f2d6; }
   .pinv-row-input { width: 6.5rem; border: 1px solid var(--line); border-radius: 6px; padding: .3rem .4rem; font: inherit; text-align: center; }
   .pinv-cell-wrap { position: relative; }
   .pinv-remaining-badge { position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); z-index: 6; font-size: .58rem; font-weight: 700; padding: 1px 7px; border-radius: 8px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,.2); background: #2e86c1; color: #fff; }
   .pinv-remaining-badge.is-over { background: #c0392b; }
+  /* Base price -> Margin -> Unit price, merged into one column and laid out
+     horizontally so it reads as one story instead of three separate
+     columns — the product owner's own instruction this round. */
+  .pinv-price-combo { display: flex; align-items: center; justify-content: center; gap: .3rem; font-size: .72rem; white-space: nowrap; }
+  .pinv-pc-arrow { color: var(--muted); font-size: .65rem; }
+  .pinv-pc-margin { color: var(--muted); }
+  .pinv-pc-final { font-weight: 700; font-size: .85rem; }
+  .pinv-grand-total { display: flex; align-items: center; gap: .6rem; padding: .75rem 1rem; margin-bottom: .75rem; }
+  .pinv-grand-total .label { font-size: .8rem; color: var(--muted); }
+  .pinv-grand-total .value { font-size: 1.15rem; font-weight: 700; }
 </style>
 {% endblock %}
 {% block content %}
@@ -35,6 +46,12 @@
 <p class="muted">{% trans "Read-only — you may not edit this Purchase Invoice." %}</p>
 {% endif %}
 
+<div class="pinv-grand-total card">
+  <i class="fa-solid fa-file-invoice-dollar" style="color:var(--accent-strong);"></i>
+  <span class="label">{% trans "Grand total (purchased)" %}</span>
+  <span class="value mono" id="pinvGrandTotal">0</span>
+</div>
+
 <form method="post" id="pinvForm">
   {% csrf_token %}
   <div class="pinv-table-wrap card">
@@ -49,11 +66,11 @@
           <th class="pinv-col-qty">{% trans "QTY" %}</th>
           <th>{% trans "UNIT" %}</th>
           <th>{% trans "BRAND" %}</th>
-          <th>{% trans "Base price" %}</th>
-          <th>{% trans "Margin %" %}</th>
-          <th>{% trans "Unit price" %}</th>
+          <th class="pinv-col-price">{% trans "Unit price" %}</th>
+          <th>{% trans "Brand purchased" %}</th>
           <th class="pinv-col-qty">{% trans "Qty purchased" %}</th>
           <th class="pinv-col-price">{% trans "Price purchased" %}</th>
+          <th>{% trans "Total price" %}</th>
           <th>{% trans "Supplier" %}</th>
         </tr>
       </thead>
@@ -68,9 +85,22 @@
           <td class="pinv-col-qty mono">{{ row.qty|floatformat:"-2" }}</td>
           <td>{{ row.unit }}</td>
           <td dir="auto">{{ row.brand }}</td>
-          <td class="mono">{{ row.base_price|floatformat:"-2" }}</td>
-          <td class="mono">{{ row.margin_percent|floatformat:"-1" }}%</td>
-          <td class="mono">{{ row.unit_price|floatformat:"-2" }}</td>
+          <td class="pinv-col-price">
+            <span class="pinv-price-combo">
+              <span class="pinv-pc-base mono">{{ row.base_price|floatformat:"-2" }}</span>
+              <span class="pinv-pc-arrow">→</span>
+              <span class="pinv-pc-margin mono">{{ row.margin_percent|floatformat:"-1" }}%</span>
+              <span class="pinv-pc-arrow">→</span>
+              <span class="pinv-pc-final mono">{{ row.unit_price|floatformat:"-2" }}</span>
+            </span>
+          </td>
+          <td dir="auto">
+            {% if can_edit %}
+            <input type="text" class="pinv-row-input" name="brand_purchased" value="{{ row.brand_purchased }}">
+            {% else %}
+            <span dir="auto">{{ row.brand_purchased }}</span>
+            {% endif %}
+          </td>
           <td class="pinv-col-qty">
             <div class="pinv-cell-wrap">
               {% if can_edit %}
@@ -83,11 +113,12 @@
           </td>
           <td class="pinv-col-price">
             {% if can_edit %}
-            <input type="text" inputmode="decimal" class="pinv-row-input" name="price_purchased" value="{{ row.price_purchased }}">
+            <input type="text" inputmode="decimal" class="pinv-row-input pinv-price-input" name="price_purchased" value="{{ row.price_purchased }}">
             {% else %}
             <span class="mono">{{ row.price_purchased }}</span>
             {% endif %}
           </td>
+          <td class="mono pinv-row-total">{{ row.total_price_purchased|floatformat:"-2" }}</td>
           <td>
             {% if can_edit %}
             <select name="supplier" data-combo data-placeholder="{% trans 'Search supplier…' %}" style="min-width:11rem;">
@@ -146,6 +177,43 @@
     paintBadge(input);
     input.addEventListener("input", function () { paintBadge(input); });
   });
+
+  // Total price per row (qty purchased x price purchased) and the grand
+  // total card above the table — both plain arithmetic recomputed on every
+  // keystroke, same "no framework, no server round trip" spirit as the
+  // remaining badge just above. Never persisted client-side; the server
+  // recomputes and stores the same product on Save (services.save_purchase_invoice).
+  function fmt(n) {
+    var s = (Math.round(n * 100) / 100).toString();
+    var parts = s.split(".");
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return parts.join(".");
+  }
+  function rowInputs(row) {
+    return {
+      qty: row.querySelector(".pinv-qty-input"),
+      price: row.querySelector(".pinv-price-input"),
+      total: row.querySelector(".pinv-row-total"),
+    };
+  }
+  function recalcAll() {
+    var grand = 0;
+    document.querySelectorAll(".pinv-table tbody tr").forEach(function (row) {
+      var f = rowInputs(row);
+      if (!f.total) return;
+      var qty = f.qty ? (parseFloat(f.qty.value) || 0) : 0;
+      var price = f.price ? (parseFloat(f.price.value) || 0) : 0;
+      var total = qty * price;
+      f.total.textContent = fmt(total);
+      grand += total;
+    });
+    var grandEl = document.getElementById("pinvGrandTotal");
+    if (grandEl) grandEl.textContent = fmt(grand);
+  }
+  document.querySelectorAll(".pinv-qty-input, .pinv-price-input").forEach(function (input) {
+    input.addEventListener("input", recalcAll);
+  });
+  recalcAll();
 
   // Enter moves to the SAME column, next row down — the product owner's
   // own instruction ("like the UNIT PRICE columns"), mirroring

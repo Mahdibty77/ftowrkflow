@@ -3,6 +3,9 @@
   <div class="tab active" data-tab="inq-{{ sd.code }}">{% trans "Inquiry" %}</div>
   <div class="tab" data-tab="to-{{ sd.code }}">{% trans "Technical Offer" %}</div>
   <div class="tab" data-tab="pi-{{ sd.code }}">{% trans "Proforma" %}</div>
+  {% if purchase_invoice.visible and not multi_side %}
+  <div class="tab" data-tab="pinv-{{ sd.code }}">{% trans "Purchase Invoice" %}</div>
+  {% endif %}
   {# REPORTS AND REMINDERS — moved here this round from what used to be a       #}
   {# separate standalone "Marketing" card with its own independent tab          #}
   {# switcher (see case_detail.html's own long comment on why that card is      #}
@@ -403,6 +406,12 @@
   {% trans "No proforma yet." as empty_pi_text %}
   {% include "cases/_versioned_section.html" with forms=sd.version_lists.PI group_id="pi-"|add:sd.code empty_text=empty_pi_text %}
 </div>
+
+{% if purchase_invoice.visible and not multi_side %}
+<div class="tab-panel" id="panel-pinv-{{ sd.code }}">
+  {% include "cases/_purchase_invoice_section.html" %}
+</div>
+{% endif %}
 
 {% if not multi_side %}
 {# ----------------------------------------------------------------- reports #}

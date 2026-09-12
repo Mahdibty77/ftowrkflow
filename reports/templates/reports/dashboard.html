@@ -131,6 +131,11 @@
             <div class="dc-m"><span class="dc-v">{{ c.built_to }}</span><span class="dc-l">TOs built</span></div>
             <div class="dc-m"><span class="dc-v">{{ c.assigned }}</span><span class="dc-l">Assigned</span></div>
             <div class="dc-m"><span class="dc-v">{{ c.in_inbox }}</span><span class="dc-l">In inbox now</span></div>
+          {% elif sec.kind == 'purchasing' %}
+            <div class="dc-m"><span class="dc-v">{{ c.built_pinv }}</span><span class="dc-l">Invoices built</span></div>
+            <div class="dc-m"><span class="dc-v">{{ c.assigned }}</span><span class="dc-l">Assigned</span></div>
+            <div class="dc-m"><span class="dc-v">{{ c.in_inbox }}</span><span class="dc-l">In inbox now</span></div>
+            <div class="dc-m"><span class="dc-v">{{ c.sent_to_warehouse }}</span><span class="dc-l">Sent to warehouse</span></div>
           {% else %}
             <div class="dc-m"><span class="dc-v">{{ c.priced_pi }}</span><span class="dc-l">PIs priced</span></div>
             <div class="dc-m"><span class="dc-v">{{ c.assigned }}</span><span class="dc-l">Assigned</span></div>

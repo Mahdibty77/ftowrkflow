@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load ft_extras i18n %}
+{% get_current_language_bidi as LANGUAGE_BIDI %}
 {% block title %}Inbox · Foolad Tabar Workflow{% endblock %}
 {% block topbar %}{% trans "Inbox" %}{% endblock %}
 {% block content %}
@@ -53,11 +54,13 @@
       <tr>
         <th>{% trans "Document No." %}</th>{% if unit != 'SUPPLY' %}<th>{% trans "Client" %}</th>{% endif %}<th>{% trans "Status" %}</th>
         <th>{% trans "Deadline" %}</th><th>{% trans "Offer type" %}</th><th>{% trans "Updated" %}</th>
+        {% if scope == 'commercial' or scope == 'technical' or scope == 'supply' %}<th class="inbox-countdown-col">{% trans "Time left" %}</th>{% endif %}
       </tr>
     </thead>
     <tbody>
       {% for c in cases %}
-        <tr class="row-link{% if c.is_new_in_inbox %} row-unseen{% endif %}" onclick="window.location='{% url 'cases:case_detail' c.pk %}'">
+        {% with dl=c.deadline|deadline_countdown %}
+        <tr class="row-link{% if c.is_new_in_inbox %} row-unseen{% endif %}{% if dl.urgent %} row-deadline-urgent{% endif %}" onclick="window.location='{% url 'cases:case_detail' c.pk %}'">
           <td>{% if c.is_new_in_inbox %}<span class="sr-only">{% trans "Unopened." %} </span>{% endif %}
             <span class="docno-line">
               <span class="docno"><span>{{ c.doc_no }}</span></span>{% if c.is_delegated %} <span class="pill pill-delegated">{% trans "Delegated" %}</span>{% endif %}
@@ -71,9 +74,31 @@
           <td>{% if c.deadline %}{{ c.deadline|jalali:"Y.m.d H:i" }}{% else %}<span class="muted">—</span>{% endif %}</td>
           <td><span class="offer-cell">{{ c.offer_type_label|default:"—" }}</span></td>
           <td class="muted">{{ c.updated_at|jalali:"Y.m.d H:i" }}</td>
+          {% if scope == 'commercial' or scope == 'technical' or scope == 'supply' %}
+          <td class="inbox-countdown-col">
+            {% if dl.expired %}
+              <span class="inbox-countdown is-urgent">
+                <i class="fa-solid fa-stopwatch"></i>
+                <span class="ic-line">{% trans "Expired" %}</span>
+              </span>
+            {% elif dl.has_deadline %}
+              <span class="inbox-countdown{% if dl.urgent %} is-urgent{% endif %}">
+                <i class="fa-solid fa-stopwatch"></i>
+                {% if LANGUAGE_BIDI %}
+                  <span class="ic-line">{{ dl.hours }} {% trans "hour" %}</span><span class="ic-line">{{ dl.minutes }} {% trans "minute" %}</span>
+                {% else %}
+                  <span class="ic-line">{{ dl.hours }}h {{ dl.minutes }}m</span>
+                {% endif %}
+              </span>
+            {% else %}
+              <span class="muted">—</span>
+            {% endif %}
+          </td>
+          {% endif %}
         </tr>
+        {% endwith %}
       {% empty %}
-        <tr><td colspan="{% if unit == 'SUPPLY' %}5{% else %}6{% endif %}" class="empty">{% trans "Your inbox is empty." %}</td></tr>
+        <tr><td colspan="{% if scope == 'commercial' or scope == 'technical' %}7{% else %}6{% endif %}" class="empty">{% trans "Your inbox is empty." %}</td></tr>
       {% endfor %}
     </tbody>
   </table>

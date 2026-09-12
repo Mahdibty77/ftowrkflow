@@ -4,7 +4,8 @@ Four groups, in the order they appear below:
 
     dictget / get_item      variable-key lookups, which the dot syntax cannot do
     jalali, featdisp,       display formatting: Shamsi dates, feature values,
-    phone_fmt, person_name  phone numbers, the human behind a seat's User row
+    phone_fmt, person_name, phone numbers, the human behind a seat's User row,
+    deadline_countdown      and a case's remaining time to deadline
     visible_form_columns    everything that renders a SAVED Technical Offer or
     and the filters under   Proforma table so it matches the live itemcoder tool
     it                      exactly — same columns, same titles, same row
@@ -120,6 +121,52 @@ def phone_fmt(value):
     return " ".join(groups)
 
 
+class _DeadlineCountdown:
+    """Attribute bag for ``{{ case.deadline|deadline_countdown }}`` —
+    ``has_deadline`` / ``urgent`` / ``expired`` / ``hours`` / ``minutes``, so
+    the template picks the wording (a one-line "3h 4m" in English, a two-line
+    wrap in Persian, or "Expired" once the deadline has passed) while this
+    filter only ever answers "how much time, and is it urgent" — computed
+    fresh on every render, never a live/ticking value (the product owner's
+    own instruction: a snapshot as of page load/refresh is enough, a
+    per-second clock is not worth the extra weight on a page that can list a
+    hundred rows).
+    """
+    __slots__ = ("has_deadline", "urgent", "expired", "hours", "minutes")
+
+    def __init__(self, has_deadline=False, urgent=False, expired=False,
+                 hours=0, minutes=0):
+        self.has_deadline = has_deadline
+        self.urgent = urgent
+        self.expired = expired
+        self.hours = hours
+        self.minutes = minutes
+
+
+@register.filter
+def deadline_countdown(deadline):
+    """Time left to a deadline — see :class:`_DeadlineCountdown`.
+
+    ``urgent`` is true under 4 hours remaining, including once the deadline
+    has passed (``expired``) — still the reddest, most urgent state a row can
+    be in, not a special case of it. ``hours``/``minutes`` are 0 once expired
+    (the template shows "Expired" instead of reading them then; they are not
+    a countdown of how overdue it is).
+    """
+    if not deadline:
+        return _DeadlineCountdown()
+    from django.utils import timezone as _tz
+
+    remaining = deadline - _tz.now()
+    expired = remaining.total_seconds() <= 0
+    total_minutes = max(0, int(remaining.total_seconds() // 60))
+    hours, minutes = divmod(total_minutes, 60)
+    return _DeadlineCountdown(
+        has_deadline=True, urgent=total_minutes < 4 * 60, expired=expired,
+        hours=hours, minutes=minutes,
+    )
+
+
 @register.filter
 def person_name(user):
     """The human behind a seat's User row — never a blank name or ``_seatNN``.
@@ -200,6 +247,46 @@ def pf_remark_of(pf_map, row):
         return ""
     cr = _norm_row_key(row.get("#", row.get("client_row", "")))
     return pf_map.get(cr, "")
+
+
+@register.filter
+def to_unsuppliable_map(form_obj):
+    """{client row # -> True} for a saved Technical Offer's rows the matching
+    Proforma has marked NOT SUPPLIABLE.
+
+    Calls straight into cases.export_data._pi_unsuppliable_client_rows — the
+    exact function the PDF/HTML export already reads this mark through — so
+    the read-only Technical tab on the case page can never disagree with what
+    exporting that same TO produces. That function's own docstring explains
+    why this is computed live rather than copied onto the TO's stored rows:
+    Supply owns the mark and sets it on the Proforma, clearing it there must
+    clear it everywhere at once, and a copy on the TO would be a second place
+    for the two to drift apart. Empty for a PI (its own rows already carry
+    the mark directly) or a TO with no matching Proforma version yet.
+    """
+    if (getattr(form_obj, "kind", "") or "").upper() != "TO":
+        return {}
+    case = getattr(form_obj, "case", None)
+    if case is None:
+        return {}
+    from cases.export_data import _pi_unsuppliable_client_rows
+    return _pi_unsuppliable_client_rows(case, form_obj)
+
+
+@register.filter
+def row_unsuppliable(row, unsup_map):
+    """Whether a saved form row is NOT SUPPLIABLE — its own flag (a Proforma
+    row) or, via :func:`to_unsuppliable_map`, the matching Proforma row's (a
+    Technical Offer row, which never carries the flag itself — see that
+    filter's own docstring)."""
+    if not isinstance(row, dict):
+        return False
+    if str(row.get("_unsuppliable", "") or "") == "1":
+        return True
+    if not unsup_map:
+        return False
+    cr = _norm_row_key(row.get("#", row.get("client_row", "")))
+    return bool(unsup_map.get(cr))
 
 
 @register.filter

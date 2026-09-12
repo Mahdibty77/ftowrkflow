@@ -1732,6 +1732,22 @@ msgstr "فردا"
 msgid "Status"
 msgstr "وضعیت"
 
+#: cases/templates/cases/inbox.html
+msgid "Time left"
+msgstr "زمان باقی‌مانده"
+
+#: cases/templates/cases/inbox.html
+msgid "Expired"
+msgstr "به اتمام رسیده"
+
+#: cases/templates/cases/inbox.html
+msgid "hour"
+msgstr "ساعت"
+
+#: cases/templates/cases/inbox.html
+msgid "minute"
+msgstr "دقیقه"
+
 #: cases/templates/cases/case_detail.html:513
 #: cases/templates/cases/case_detail.html:610
 #: cases/templates/cases/_side_section.html:375
@@ -4589,6 +4605,18 @@ msgid "Price purchased"
 msgstr "قیمت خریداری‌شده"
 
 #: cases/templates/cases/purchase_invoice_build.html
+msgid "Brand purchased"
+msgstr "برند خریداری‌شده"
+
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "Total price"
+msgstr "قیمت کل"
+
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "Grand total (purchased)"
+msgstr "جمع کل (خریداری‌شده)"
+
+#: cases/templates/cases/purchase_invoice_build.html
 msgid "Supplier"
 msgstr "تأمین‌کننده"
 
@@ -4611,6 +4639,10 @@ msgstr "فاکتور خرید ذخیره شد."
 #: cases/templates/cases/purchase_invoice_build.html
 msgid "You may not edit this Purchase Invoice."
 msgstr "شما اجازه‌ی ویرایش این فاکتور خرید را ندارید."
+
+#: cases/templates/cases/_purchase_invoice_section.html
+msgid "Purchase Invoice versions"
+msgstr "نسخه‌های فاکتور خرید"
 
 #: cases/templates/cases/_purchase_invoice_section.html
 msgid "No purchase invoice yet."

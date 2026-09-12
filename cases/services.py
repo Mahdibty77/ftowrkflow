@@ -5105,8 +5105,8 @@ def send_to_warehouse(case: Case, actor, comment: str = ""):
 
 PURCHASE_INVOICE_COLUMNS = [
     "#", "Item Code", "FTCO CODE", "FTCO DESCRIPTION", "SIZE", "QTY", "UNIT",
-    "BRAND", "BASE PRICE", "MARGIN %", "UNIT PRICE",
-    "QTY PURCHASED", "PRICE PURCHASED", "SUPPLIER",
+    "BRAND", "BASE PRICE", "MARGIN %", "UNIT PRICE", "BRAND PURCHASED",
+    "QTY PURCHASED", "PRICE PURCHASED", "TOTAL PRICE PURCHASED", "SUPPLIER",
 ]
 
 
@@ -5197,8 +5197,10 @@ def _purchase_invoice_current_rows(case):
             "base_price": base_price,
             "margin_percent": margin_percent,
             "unit_price": final_price,
+            "brand_purchased": prior.get("brand_purchased") or "",
             "qty_purchased": parse_money(prior.get("qty_purchased")),
             "price_purchased": prior.get("price_purchased") or "",
+            "total_price_purchased": parse_money(prior.get("qty_purchased")) * parse_money(prior.get("price_purchased")),
             "supplier_id": prior.get("supplier_id"),
             "supplier_name": prior.get("supplier_name") or "",
         })
@@ -5229,6 +5231,7 @@ def save_purchase_invoice(case, actor, post_data) -> "CaseForm":
     rows, editable_form = _purchase_invoice_current_rows(case)
     qty_list = post_data.getlist("qty_purchased")
     price_list = post_data.getlist("price_purchased")
+    brand_list = post_data.getlist("brand_purchased")
     supplier_list = post_data.getlist("supplier")
 
     for i, row in enumerate(rows):
@@ -5242,6 +5245,9 @@ def save_purchase_invoice(case, actor, post_data) -> "CaseForm":
         row["qty_purchased"] = new_qty
         raw_price = price_list[i] if i < len(price_list) else ""
         row["price_purchased"] = str(raw_price).strip()
+        row["total_price_purchased"] = new_qty * parse_money(raw_price)
+        raw_brand = brand_list[i] if i < len(brand_list) else ""
+        row["brand_purchased"] = str(raw_brand).strip()
         raw_supplier = supplier_list[i] if i < len(supplier_list) else ""
         raw_supplier = str(raw_supplier).strip()
         if raw_supplier:

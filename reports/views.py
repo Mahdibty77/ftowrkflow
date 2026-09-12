@@ -395,6 +395,46 @@ def _supply_cards(users, from_dt, to_dt):
     return sorted(cards, key=lambda c: c["assigned"], reverse=True)
 
 
+def _purchasing_cards(users, from_dt, to_dt):
+    # Same shape as _supply_cards: inbox uses the real inbox_cases() rules,
+    # the assignee column is tallied by _case_ids_by_user. Purchasing has no
+    # internal/external split (see accounts/constants.py's own "PURCHASING
+    # and WAREHOUSE" note), so there is only the one assignee field to count.
+    users = list(users)
+    ids = [u.id for u in users]
+    id_set = set(ids)
+
+    assigned = _case_ids_by_user(
+        _apply_range(
+            Case.objects.filter(purchasing_assignee_id__in=ids),
+            from_dt, to_dt),
+        id_set,
+        "purchasing_assignee",
+    )
+
+    # This unit's counterpart to the Commercial card's leading "Total": the
+    # cases this person built a Purchase Invoice for in the chosen range. A
+    # case whose invoice was edited twice inside the range counts once.
+    built = _event_case_ids_by_actor(
+        ids, id_set, EventAction.BUILD_PURCHASE_INVOICE, from_dt, to_dt)
+    sent = _event_case_ids_by_actor(
+        ids, id_set, EventAction.SEND_TO_WAREHOUSE, from_dt, to_dt)
+
+    in_inbox = _inbox_counts_in_range(users, from_dt, to_dt)
+    cards = []
+    for user in users:
+        card = _person(user)
+        card.update({
+            "built_pinv": len(built.get(user.id, ())),
+            "assigned": len(assigned.get(user.id, ())),
+            "in_inbox": in_inbox.get(user.id, 0),
+            "sent_to_warehouse": len(sent.get(user.id, ())),
+            "filter_key": "assignee",
+        })
+        cards.append(card)
+    return sorted(cards, key=lambda c: c["assigned"], reverse=True)
+
+
 def _unit_users(unit, include_manager):
     roles = [Role.EXPERT]
     if include_manager:
@@ -431,6 +471,9 @@ def _unit_section(unit, from_dt, to_dt, include_manager, form_cache=None,
     elif unit == Unit.TECHNICAL:
         cards = _technical_cards(users, from_dt, to_dt)
         kind = "technical"
+    elif unit == Unit.PURCHASING:
+        cards = _purchasing_cards(users, from_dt, to_dt)
+        kind = "purchasing"
     else:
         cards = _supply_cards(users, from_dt, to_dt)
         kind = "supply"
@@ -575,7 +618,7 @@ def _own_report(request, profile):
     if ctx.is_substitute:
         return redirect("cases:inbox")
     if role_name != Role.EXPERT or unit not in (
-            Unit.COMMERCIAL, Unit.TECHNICAL, Unit.SUPPLY):
+            Unit.COMMERCIAL, Unit.TECHNICAL, Unit.SUPPLY, Unit.PURCHASING):
         # No expert seat resolves — an unassigned account, or a seat whose role
         # this page has nothing to say about. Same destination as before.
         #
@@ -586,7 +629,7 @@ def _own_report(request, profile):
         # Marketing seat on to its own workspace — and the same is true of the
         # dispatcher's closing redirect below, which is where a Marketing
         # SUPERVISOR arrives. Keep this list and core.context_processors
-        # ._OWN_REPORT_UNITS saying the same three; see the note there.
+        # ._OWN_REPORT_UNITS saying the same four; see the note there.
         return redirect("cases:inbox")
 
     f, t, rf, rt = _range_from_request(request)
@@ -635,7 +678,7 @@ def dashboard(request):
     if not (is_admin or is_gm or is_manager or is_supervisor):
         return _own_report(request, profile)
 
-    # ---- Admin / General manager: overview + all three units ---------------
+    # ---- Admin / General manager: overview + all four units ----------------
     if is_admin or is_gm:
         ov_f, ov_t, ov_rf, ov_rt = _range_from_request(request, prefix="ov_")
         # This page totals the proformas twice — once for the platform overview,
@@ -648,7 +691,7 @@ def dashboard(request):
         form_cache = {}
         overview = _platform_overview(ov_f, ov_t, form_cache=form_cache)
         sections = []
-        for unit in (Unit.COMMERCIAL, Unit.TECHNICAL, Unit.SUPPLY):
+        for unit in (Unit.COMMERCIAL, Unit.TECHNICAL, Unit.SUPPLY, Unit.PURCHASING):
             f, t, rf, rt = _range_from_request(request, prefix=f"{unit.lower()}_")
             section = _unit_section(unit, f, t, include_manager=True,
                                     form_cache=form_cache)
@@ -663,7 +706,7 @@ def dashboard(request):
         })
 
     # ---- Unit manager / supervisor: their own unit ---------------------------
-    if profile.unit in (Unit.COMMERCIAL, Unit.TECHNICAL, Unit.SUPPLY):
+    if profile.unit in (Unit.COMMERCIAL, Unit.TECHNICAL, Unit.SUPPLY, Unit.PURCHASING):
         f, t, rf, rt = _range_from_request(request)
         # Managers and supervisors both see expert cards PLUS the manager's own
         # card (same metrics / drill-down to archive as any expert).

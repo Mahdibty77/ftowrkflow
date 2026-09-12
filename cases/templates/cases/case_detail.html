@@ -185,6 +185,13 @@
       </form>
     {% endif %}
 
+    {% if 'send_to_warehouse' in actions %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action" data-comment style="margin-bottom:.4rem;">
+        {% csrf_token %}<input type="hidden" name="action" value="send_to_warehouse">
+        <button type="button" data-confirm-trigger class="btn btn-sm btn-primary"><i class="fa-solid fa-paper-plane"></i> {% trans "Send to Warehouse" %}</button>
+      </form>
+    {% endif %}
+
     {% if tech_split_can_assign %}
       <form method="post" action="{% url 'cases:transition' case.pk %}" class="field confirm-action" data-comment>
         {% csrf_token %}
@@ -455,20 +462,6 @@
   {% include "cases/_side_section.html" with sd=sd primary=forloop.first %}
 </div>
 {% endfor %}
-{% endif %}
-
-{% if purchase_invoice.visible %}
-{# Deliberately a plain, always-visible card — NOT wired into the           #}
-{# .side-switch/data-side-tab tab system above. That system's multi_side /  #}
-{# non-multi_side dual-homing of Reports & Reminders (see the long comment  #}
-{# on the .side-switch block itself) is already the most intricate part of  #}
-{# this page; Purchase Invoice is not side-owned data (no internal/external #}
-{# split was asked for), so it does not need a tab slot in that system at   #}
-{# all, and forcing it into one would risk that existing logic for no real  #}
-{# benefit. #}
-<div class="card" style="margin-top:1rem;">
-  {% include "cases/_purchase_invoice_section.html" %}
-</div>
 {% endif %}
 
 {% if not hide_combined %}

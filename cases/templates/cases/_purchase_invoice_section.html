@@ -1,13 +1,28 @@
 {% load i18n %}
 {% comment %}
-  Purchase Invoice — Purchasing's own form. Included once, unconditionally
-  (not per-side — see case_detail.html's own comment on why this sits
-  outside the side-switch/tab system entirely). ``purchase_invoice`` is the
-  dict cases/views.py::case_detail builds: visible/versions/current/
-  can_build/can_send.
+  Purchase Invoice — Purchasing's own form. Rendered as its own tab in
+  _side_section.html's tab bar, right after Proforma (not per-side: no
+  internal/external split was asked for, so it is gated `not multi_side`
+  at both the tab button and this panel, same as Reports/Reminders just
+  below it). ``purchase_invoice`` is the dict cases/views.py::case_detail
+  builds: visible/versions/current/can_build/can_send. The "Send to
+  Warehouse" action itself lives in the page's main Actions card, beside
+  every other unit's own hand-off buttons — not here.
 {% endcomment %}
-<div class="card-head">
-  <h3><i class="fa-solid fa-money-bill-wave" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "Purchase Invoice" %}</h3>
+<div class="row-flex" style="margin-bottom:.6rem;flex-wrap:wrap;gap:.4rem;">
+  <span class="muted" style="font-size:.8rem;">{% trans "Purchase Invoice versions" %}</span>
+  <span class="spacer"></span>
+  {% if purchase_invoice.can_build %}
+    <a class="btn btn-sm btn-primary" href="{% url 'cases:purchase_invoice_build' case.pk %}">
+      <i class="fa-solid fa-{% if purchase_invoice.current and not purchase_invoice.current.sent %}pen{% else %}wand-magic-sparkles{% endif %}"></i>
+      {% if purchase_invoice.current and not purchase_invoice.current.sent %}{% trans "Edit current" %}{% else %}{% trans "Create" %}{% endif %}
+    </a>
+  {% endif %}
+  {% if not purchase_invoice.can_build and purchase_invoice.current %}
+    <a class="btn btn-sm" href="{% url 'cases:purchase_invoice_build' case.pk %}">
+      <i class="fa-solid fa-eye"></i> {% trans "View" %}
+    </a>
+  {% endif %}
 </div>
 
 {% if purchase_invoice.versions %}
@@ -23,24 +38,3 @@
 {% else %}
 <p class="muted" style="font-size:.85rem;">{% trans "No purchase invoice yet." %}</p>
 {% endif %}
-
-<div class="row-flex" style="gap:.5rem;flex-wrap:wrap;">
-  {% if purchase_invoice.can_build %}
-    <a class="btn btn-sm btn-primary" href="{% url 'cases:purchase_invoice_build' case.pk %}">
-      <i class="fa-solid fa-{% if purchase_invoice.current and not purchase_invoice.current.sent %}pen{% else %}wand-magic-sparkles{% endif %}"></i>
-      {% if purchase_invoice.current and not purchase_invoice.current.sent %}{% trans "Edit current" %}{% else %}{% trans "Create" %}{% endif %}
-    </a>
-  {% endif %}
-  {% if purchase_invoice.can_send %}
-    <form method="post" action="{% url 'cases:transition' case.pk %}" class="confirm-action">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="send_to_warehouse">
-      <button type="button" data-confirm-trigger class="btn btn-sm btn-primary"><i class="fa-solid fa-arrow-right-long"></i> {% trans "Send to Warehouse" %}</button>
-    </form>
-  {% endif %}
-  {% if not purchase_invoice.can_build and not purchase_invoice.can_send and purchase_invoice.current %}
-    <a class="btn btn-sm" href="{% url 'cases:purchase_invoice_build' case.pk %}">
-      <i class="fa-solid fa-eye"></i> {% trans "View" %}
-    </a>
-  {% endif %}
-</div>
