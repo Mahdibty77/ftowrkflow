@@ -1215,11 +1215,25 @@
     // / submitted a form" — every ordinary navigation in this app IS a full
     // page load (this is a server-rendered multi-page app, not an SPA), so
     // firing on both would mean a confirm dialog on every single click
-    // anywhere in the app. internalNav is what tells them apart: any
-    // same-document link click or form submit marks the VERY NEXT unload as
-    // ordinary navigation (skip the confirm), reset a beat later so it
-    // never lingers to cover a later, real close. Only closing the
-    // tab/window, or navigating via the address bar, leaves it false.
+    // anywhere in the app. internalNav is what tells them apart: any click
+    // or form submit marks the VERY NEXT unload as ordinary navigation (skip
+    // the confirm), reset a beat later so it never lingers to cover a later,
+    // real close. Only closing the tab/window, or navigating via the address
+    // bar, leaves it false — neither of those is ever preceded by a click
+    // inside the page itself.
+    //
+    // Deliberately ANY click, not just an <a href> or a real <button
+    // type=submit> — this app is full of the same "whole row/card is
+    // clickable" pattern (class="row-link", onclick="window.location=...":
+    // every archive/inbox/directory row, several JS auto-submits reached via
+    // form.requestSubmit()) with no <a> tag anywhere in it, and narrowing
+    // this to just <a href> missed every one of them: clicking an inbox row,
+    // an archive tab, a save-and-exit button — anything that does not
+    // literally carry an href — popped the confirm exactly as if the tab
+    // were being closed. There is no real cost to marking too eagerly: the
+    // flag only ever suppresses one confirm on the very next unload and
+    // resets a moment later on its own, so a click that leads nowhere simply
+    // times out unused.
     var internalNav = false;
     var internalNavResetTimer = null;
     function markInternalNav() {
@@ -1227,10 +1241,7 @@
       if (internalNavResetTimer) clearTimeout(internalNavResetTimer);
       internalNavResetTimer = setTimeout(function () { internalNav = false; }, 500);
     }
-    document.addEventListener('click', function (e) {
-      var a = e.target && e.target.closest && e.target.closest('a[href]');
-      if (a) markInternalNav();
-    }, true);
+    document.addEventListener('click', markInternalNav, true);
     document.addEventListener('submit', markInternalNav, true);
 
     window.addEventListener('beforeunload', function (e) {
