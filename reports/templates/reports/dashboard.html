@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
 {% comment %}
   One page, one name. An expert reaches this page from a sidebar item called
   "My Report" and used to land on a browser tab and a topbar that both said
@@ -115,7 +115,7 @@
         <div class="dc-top">
           <div class="dc-avatar">{{ c.name|slice:":1"|upper }}</div>
           <div class="dc-id">
-            <div class="dc-name">{{ c.name }}{% if c.is_manager %} <span class="dc-mgr">Manager</span>{% endif %}</div>
+            <div class="dc-name">{{ c.name }}{% if c.is_manager %} <span class="dc-mgr">{% trans "Supervisor" %}</span>{% endif %}</div>
             {% if c.code %}<div class="dc-code">{{ c.code }}</div>{% endif %}
           </div>
         </div>

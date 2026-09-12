@@ -100,7 +100,7 @@
             {% if case.commercial_expert_display %}
               <span dir="auto">{{ case.commercial_expert_display }}</span>
             {% else %}
-              <span dir="auto">{{ case.created_by.get_full_name|default:case.created_by.username }}</span>
+              <span dir="auto">{{ case.created_by|person_name }}</span>
               <span class="mono muted">({{ case.created_by.profile.internal_code|default:case.expert_code }})</span>
             {% endif %}
           </dd>
@@ -110,7 +110,7 @@
             {% if case.technical_expert_display %}
               <span dir="auto">{{ case.technical_expert_display }}</span>
             {% elif to_author %}
-              <span dir="auto">{{ to_author.get_full_name|default:to_author.username }}</span>{% if to_author.profile.internal_code %} <span class="mono muted">({{ to_author.profile.internal_code }})</span>{% endif %}
+              <span dir="auto">{{ to_author|person_name }}</span>{% if to_author.profile.internal_code %} <span class="mono muted">({{ to_author.profile.internal_code }})</span>{% endif %}
             {% endif %}
           </dd>
           {% endif %}
@@ -118,7 +118,7 @@
           <dd>
             {% with owner=case.current_owner %}
               {% if owner %}
-                <span dir="auto">{{ owner.get_full_name|default:owner.username }}</span>
+                <span dir="auto">{{ owner|person_name }}</span>
               {% else %}
                 {# holder_unit_label, not the raw holder_unit code — see that #}
                 {# property's own comment on cases/models.py::Case. #}
@@ -136,7 +136,7 @@
   <div class="card">
     <div class="card-head"><h3>{% trans "Actions" %}</h3></div>
     {% if case.awaiting_approval %}
-      <div class="flash flash-warning">{% blocktrans with proposed=case.get_proposed_action_display|default:case.proposed_action %}An expert has requested to send this case ({{ proposed }}). Manager approval required.{% endblocktrans %}</div>
+      <div class="flash flash-warning">{% blocktrans with proposed=case.get_proposed_action_display|default:case.proposed_action %}An expert has requested to send this case ({{ proposed }}). Supervisor approval required.{% endblocktrans %}</div>
     {% endif %}
 
     {% if 'assign' in actions and case.holder_unit == 'SUPPLY' %}
@@ -150,7 +150,7 @@
             <label><i class="fa-solid fa-user-plus"></i> {% blocktrans with side=sd.label %}Assign {{ side }} to expert{% endblocktrans %}</label>
             <div class="row-flex">
               <select name="assignee" data-combo data-placeholder="{% blocktrans with side=sd.label|lower %}Search {{ side }} expert…{% endblocktrans %}" style="flex:1">
-                {% for u in sd.pool %}<option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }} ({{ u.profile.internal_code }})</option>{% endfor %}
+                {% for u in sd.pool %}<option value="{{ u.pk }}">{{ u|person_name }} ({{ u.profile.internal_code }})</option>{% endfor %}
               </select>
               <button type="button" data-confirm-trigger class="btn btn-sm btn-primary">{% trans "Assign" %}</button>
             </div>
@@ -164,7 +164,21 @@
         <label><i class="fa-solid fa-user-plus"></i> {% trans "Assign to expert" %}</label>
         <div class="row-flex">
           <select name="assignee" data-combo data-placeholder="{% trans 'Search expert…' %}" style="flex:1">
-            {% for u in assignees %}<option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}</option>{% endfor %}
+            {% for u in assignees %}<option value="{{ u.pk }}">{{ u|person_name }}</option>{% endfor %}
+          </select>
+          <button type="button" data-confirm-trigger class="btn btn-sm btn-primary">{% trans "Assign" %}</button>
+        </div>
+      </form>
+    {% endif %}
+
+    {% if 'assign_purchasing' in actions %}
+      <form method="post" action="{% url 'cases:transition' case.pk %}" class="field confirm-action" data-comment>
+        {% csrf_token %}
+        <input type="hidden" name="action" value="assign_purchasing">
+        <label><i class="fa-solid fa-user-plus"></i> {% trans "Assign to expert" %}</label>
+        <div class="row-flex">
+          <select name="assignee" data-combo data-placeholder="{% trans 'Search expert…' %}" style="flex:1">
+            {% for u in purchasing_assignees %}<option value="{{ u.pk }}">{{ u|person_name }}</option>{% endfor %}
           </select>
           <button type="button" data-confirm-trigger class="btn btn-sm btn-primary">{% trans "Assign" %}</button>
         </div>
@@ -178,7 +192,7 @@
         <label><i class="fa-solid fa-user-plus"></i> {% trans "Assign to expert (both sides)" %}</label>
         <div class="row-flex">
           <select name="assignee" data-combo data-placeholder="{% trans 'Search technical expert…' %}" style="flex:1">
-            {% for u in tech_pool %}<option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}{% if u.profile.internal_code %} ({{ u.profile.internal_code }}){% endif %}</option>{% endfor %}
+            {% for u in tech_pool %}<option value="{{ u.pk }}">{{ u|person_name }}{% if u.profile.internal_code %} ({{ u.profile.internal_code }}){% endif %}</option>{% endfor %}
           </select>
           <button type="button" data-confirm-trigger class="btn btn-sm btn-primary">{% trans "Assign" %}</button>
         </div>
@@ -302,7 +316,7 @@
 
     {% if 'approve_cancel' in actions %}
       <hr class="sep">
-      <div class="flash flash-warning" style="margin-bottom:.5rem;"><i class="fa-solid fa-triangle-exclamation"></i><span>{% if case.proposed_action|slice:":4" == "burn" %}{% trans "A burn was requested. Manager approval required." %}{% else %}{% trans "A cancellation was requested. Manager approval required." %}{% endif %}</span></div>
+      <div class="flash flash-warning" style="margin-bottom:.5rem;"><i class="fa-solid fa-triangle-exclamation"></i><span>{% if case.proposed_action|slice:":4" == "burn" %}{% trans "A burn was requested. Supervisor approval required." %}{% else %}{% trans "A cancellation was requested. Supervisor approval required." %}{% endif %}</span></div>
       <form method="post" action="{% url 'cases:transition' case.pk %}" class="field">
         {% csrf_token %}
         <textarea name="comment" rows="2" placeholder="{% trans 'Approval / rejection note…' %}"></textarea>
@@ -380,7 +394,7 @@
     <span class="lc-chip"><b>{{ lc.item_count }}</b> {% trans "items" %}</span>
     <span class="lc-chip"><i class="fa-regular fa-calendar"></i> {{ lc.created_at|jalali:"Y.m.d H:i" }}</span>
     <span class="lc-chip lc-total"><i class="fa-solid fa-hourglass-half"></i> {{ lc.total }} {% if lc.is_terminal %}{% trans "total" %}{% else %}{% trans "so far" %}{% endif %}</span>
-    {% if forloop.first %}<span class="lc-badge">{% trans "Managers" %}</span>{% endif %}
+    {% if forloop.first %}<span class="lc-badge">{% trans "Supervisors" %}</span>{% endif %}
   </div>
   <div class="lc-flow">
     {% for r in lc.rows %}
@@ -429,11 +443,33 @@
 </div>
 {% endif %}
 
+{% if is_admin_view or not is_warehouse %}
+{# Warehouse deliberately does not see Inquiry/Technical/Proforma at all —   #}
+{# the product owner's own explicit instruction. Every OTHER unit already   #}
+{# sees all three tabs unconditionally once it clears user_can_view_case    #}
+{# (there was no per-unit tab-suppression anywhere before this); admins/GMs #}
+{# still see everything regardless, same as every other admin exception on  #}
+{# this page.                                                                #}
 {% for sd in sides_data %}
 <div class="side-section" data-side-panel="{{ sd.code }}" {% if not forloop.first %}style="display:none;"{% endif %}>
   {% include "cases/_side_section.html" with sd=sd primary=forloop.first %}
 </div>
 {% endfor %}
+{% endif %}
+
+{% if purchase_invoice.visible %}
+{# Deliberately a plain, always-visible card — NOT wired into the           #}
+{# .side-switch/data-side-tab tab system above. That system's multi_side /  #}
+{# non-multi_side dual-homing of Reports & Reminders (see the long comment  #}
+{# on the .side-switch block itself) is already the most intricate part of  #}
+{# this page; Purchase Invoice is not side-owned data (no internal/external #}
+{# split was asked for), so it does not need a tab slot in that system at   #}
+{# all, and forcing it into one would risk that existing logic for no real  #}
+{# benefit. #}
+<div class="card" style="margin-top:1rem;">
+  {% include "cases/_purchase_invoice_section.html" %}
+</div>
+{% endif %}
 
 {% if not hide_combined %}
 <div class="side-section" data-side-panel="ALL" style="display:none;">
@@ -737,7 +773,7 @@
               {% endif %}
             </td>
             {% if sees_all_case_reminders %}
-            <td dir="auto">{{ r.owner.get_full_name|default:r.owner.username }}</td>
+            <td dir="auto">{{ r.owner|person_name }}</td>
             {% endif %}
           </tr>
           {% empty %}

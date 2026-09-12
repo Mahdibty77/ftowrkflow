@@ -1070,9 +1070,15 @@ msgstr "بازگشت به شرکت"
 msgid "No contact roles exist yet — add the first one in the field below."
 msgstr "هنوز هیچ سمتی برای مخاطبین وجود ندارد — اولین مورد را در فیلد زیر اضافه کنید."
 
-#: marketing/templates/marketing/contact_form.html:87
+#. Orphaned by the Role.SUPERVISOR "Supervisor" -> "Observer" rename — see
+#. accounts/constants.py's own "ROLE LABELS VS. ROLE CODES" section. Left in
+#. place rather than deleted (harmless; a future real makemessages run prunes it).
 msgid "No contact roles exist yet. A Marketing Supervisor has to add the first one before a contact can be filed under a job title."
 msgstr "هنوز هیچ سمتی برای مخاطبین وجود ندارد. یک سرپرست بازاریابی باید ابتدا اولین مورد را اضافه کند تا بتوان مخاطبی را زیر یک عنوان شغلی ثبت کرد."
+
+#: marketing/templates/marketing/contact_form.html:87
+msgid "No contact roles exist yet. A Marketing Observer has to add the first one before a contact can be filed under a job title."
+msgstr "هنوز هیچ سمتی برای مخاطبین وجود ندارد. یک ناظر بازاریابی باید ابتدا اولین مورد را اضافه کند تا بتوان مخاطبی را زیر یک عنوان شغلی ثبت کرد."
 
 #: marketing/templates/marketing/contact_form.html:100
 msgid "Adds the title to the shared list for everyone in Marketing. Leave it blank if you picked a role above."
@@ -1239,9 +1245,14 @@ msgstr "افزودن کار"
 msgid "Set a reminder"
 msgstr "تنظیم یادآوری"
 
-#: marketing/templates/marketing/reminder_form.html:75
+#. Orphaned by the Role.SUPERVISOR "Supervisor" -> "Observer" rename — see
+#. accounts/constants.py's own "ROLE LABELS VS. ROLE CODES" section.
 msgid "Like your reports, a Marketing Supervisor (and the platform admin) can see this reminder on your unit's reminders list — nobody outside Marketing does, only you can close it out (by submitting the report it calls for), and it is still not recorded on the company's own timeline."
 msgstr "مانند گزارش‌های شما، سرپرست بازاریابی (و مدیر سیستم) می‌تواند این یادآوری را در فهرست یادآوری‌های واحد شما ببیند — هیچ‌کس خارج از بازاریابی این را نمی‌بیند، فقط خودتان می‌توانید آن را ببندید (با ثبت گزارشی که نیاز دارد)، و همچنان در جدول زمانی خود شرکت ثبت نمی‌شود."
+
+#: marketing/templates/marketing/reminder_form.html:75
+msgid "Like your reports, a Marketing Observer (and the platform admin) can see this reminder on your unit's reminders list — nobody outside Marketing does, only you can close it out (by submitting the report it calls for), and it is still not recorded on the company's own timeline."
+msgstr "مانند گزارش‌های شما، ناظر بازاریابی (و مدیر سیستم) می‌تواند این یادآوری را در فهرست یادآوری‌های واحد شما ببیند — هیچ‌کس خارج از بازاریابی این را نمی‌بیند، فقط خودتان می‌توانید آن را ببندید (با ثبت گزارشی که نیاز دارد)، و همچنان در جدول زمانی خود شرکت ثبت نمی‌شود."
 
 #: marketing/templates/marketing/reminder_form.html:82
 msgid "When this time passes, a notification appears at the top of your screen and stays there until you act on it."
@@ -1311,11 +1322,16 @@ msgstr "تغییر"
 msgid "No report options exist yet — add the first one in the field below."
 msgstr "هنوز هیچ گزینه گزارشی وجود ندارد — اولین مورد را در فیلد زیر اضافه کنید."
 
+#. Orphaned by the Role.SUPERVISOR "Supervisor" -> "Observer" rename — see
+#. accounts/constants.py's own "ROLE LABELS VS. ROLE CODES" section.
+msgid "No report options exist yet. A Marketing Supervisor or the platform admin can add them; until then, write the report below."
+msgstr "هنوز هیچ گزینه گزارشی وجود ندارد. یک سرپرست بازاریابی یا مدیر سیستم می‌تواند آن‌ها را اضافه کند؛ تا آن زمان، گزارش را در زیر بنویسید."
+
 #: marketing/templates/marketing/report_form.html:89
 #: marketing/templates/marketing/task_report_add.html:88
 #: marketing/templates/marketing/task_report_form.html:83
-msgid "No report options exist yet. A Marketing Supervisor or the platform admin can add them; until then, write the report below."
-msgstr "هنوز هیچ گزینه گزارشی وجود ندارد. یک سرپرست بازاریابی یا مدیر سیستم می‌تواند آن‌ها را اضافه کند؛ تا آن زمان، گزارش را در زیر بنویسید."
+msgid "No report options exist yet. A Marketing Observer or the platform admin can add them; until then, write the report below."
+msgstr "هنوز هیچ گزینه گزارشی وجود ندارد. یک ناظر بازاریابی یا مدیر سیستم می‌تواند آن‌ها را اضافه کند؛ تا آن زمان، گزارش را در زیر بنویسید."
 
 #: marketing/templates/marketing/report_form.html:103
 #: marketing/templates/marketing/task_report_add.html:98
@@ -2063,11 +2079,20 @@ msgstr " و دست‌کم یک قلم به جدول اضافه کنید."
 msgid ". Add at least one item to the table."
 msgstr "دست‌کم یک قلم به جدول اضافه کنید."
 
+#. Orphaned by the Role.MANAGER "Manager" -> "Supervisor" rename — see
+#. accounts/constants.py's own "ROLE LABELS VS. ROLE CODES" section.
 msgid "A burn was requested. Manager approval required."
 msgstr "درخواست سوزاندن ثبت شده است. نیاز به تأیید مدیر."
 
+msgid "A burn was requested. Supervisor approval required."
+msgstr "درخواست سوزاندن ثبت شده است. نیاز به تأیید سرپرست."
+
+#. Orphaned — see the comment on "A burn was requested..." just above.
 msgid "A cancellation was requested. Manager approval required."
 msgstr "درخواست لغو ثبت شده است. نیاز به تأیید مدیر."
+
+msgid "A cancellation was requested. Supervisor approval required."
+msgstr "درخواست لغو ثبت شده است. نیاز به تأیید سرپرست."
 
 msgid "Accounts nobody holds"
 msgstr "حساب‌هایی که کسی در اختیار ندارد"
@@ -2420,11 +2445,20 @@ msgstr "در حال بارگذاری بیشتر…"
 msgid "Log in as"
 msgstr "ورود به‌جای"
 
+#. Orphaned by the Role.MANAGER "Manager" -> "Supervisor" rename — see
+#. accounts/constants.py's own "ROLE LABELS VS. ROLE CODES" section.
 msgid "Manager view"
 msgstr "نمای مدیر"
 
+msgid "Supervisor view"
+msgstr "نمای سرپرست"
+
+#. Orphaned — see the comment on "Manager view" just above.
 msgid "Managers"
 msgstr "مدیران"
+
+msgid "Supervisors"
+msgstr "سرپرستان"
 
 msgid "Mark cannot supply"
 msgstr "علامت‌گذاری عدم امکان تأمین"
@@ -2948,8 +2982,13 @@ msgstr "<strong>ارسال به تأمین ممکن نیست</strong> — یک �
 msgid "<strong>Cannot submit to Supply</strong> — the Technical Offer has rows flagged as <em>Technical Problem</em>.\n        Resolve all flags in the TO tool before forwarding."
 msgstr "<strong>ارسال به تأمین ممکن نیست</strong> — پیشنهاد فنی ردیف‌هایی با پرچم <em>مشکل فنی</em> دارد.\n        پیش از ارسال، همه پرچم‌ها را در ابزار TO برطرف کنید."
 
+#. Orphaned by the Role.MANAGER "Manager" -> "Supervisor" rename — see
+#. accounts/constants.py's own "ROLE LABELS VS. ROLE CODES" section.
 msgid "An expert has requested to send this case (%(proposed)s). Manager approval required."
 msgstr "یک کارشناس درخواست ارسال این پرونده را داده است (%(proposed)s). نیاز به تأیید مدیر."
+
+msgid "An expert has requested to send this case (%(proposed)s). Supervisor approval required."
+msgstr "یک کارشناس درخواست ارسال این پرونده را داده است (%(proposed)s). نیاز به تأیید سرپرست."
 
 msgid "Assign %(side)s to expert"
 msgstr "تخصیص %(side)s به کارشناس"
@@ -3105,18 +3144,30 @@ msgstr "یادآوری‌های باز خودتان که در روز %(day)s س�
 
 #. accounts/constants.py::Role — the seat role shown in "<Unit> · <Role>"
 #. everywhere a person's title line is rendered (sidebar footer, People,
-#. Console, company sub-header, case holding-unit field).
-#: accounts/constants.py:64
+#. Console, company sub-header, case holding-unit field). Role.MANAGER now
+#. displays as "Supervisor" (this same msgid, below) and Role.SUPERVISOR now
+#. displays as "Observer" — see accounts/constants.py's own "ROLE LABELS VS.
+#. ROLE CODES" docstring section. This "Manager" entry is no longer referenced
+#. by any CHOICES tuple; left in place rather than deleted, gettext-orphan
+#. entries are harmless and a future real makemessages run will prune it.
+#: accounts/constants.py:76
 msgid "Manager"
 msgstr "مدیر"
 
-#: accounts/constants.py:65
+#. accounts/constants.py::Role.MANAGER's own label as of the rename above.
+#: accounts/constants.py:76
 msgid "Supervisor"
 msgstr "سرپرست"
 
-#: accounts/constants.py:66
+#: accounts/constants.py:78
 msgid "Expert"
 msgstr "کارشناس"
+
+#. accounts/constants.py::Role.SUPERVISOR's own label as of the rename above
+#. — freed up "Supervisor" (now Role.MANAGER's) for exactly this reason.
+#: accounts/constants.py:77
+msgid "Observer"
+msgstr "ناظر"
 
 #. accounts/constants.py::SupplyKind — Internal vs External split shown only
 #. for Supply experts, alongside their unit/role title line.
@@ -4250,3 +4301,332 @@ msgstr "یادآورهای دیگر همان روز"
 #: marketing/templates/marketing/task_form.html:178
 msgid "No other reminders of yours are due that day yet."
 msgstr "یادآور دیگری از شما هنوز برای آن روز ثبت نشده است."
+
+#. --------------------------------------------------------------------
+#. people/templates/people/eod_report.html — the mandatory end-of-day
+#. report page (people.views.eod_report). See that view's own docstring
+#. for the three ways this page is reached (catch-up / live / no-op).
+#. --------------------------------------------------------------------
+#: people/templates/people/eod_report.html
+msgid "End-of-day report"
+msgstr "گزارش پایان روز"
+
+#: people/templates/people/eod_report.html
+msgid "Unfiled end-of-day report"
+msgstr "گزارش پایان روز ثبت‌نشده"
+
+#: people/templates/people/eod_report.html
+msgid "You have not filed the end-of-day report for %(day)s yet. Please complete it before continuing."
+msgstr "شما هنوز گزارش پایان روز %(day)s را ثبت نکرده‌اید. لطفاً پیش از ادامه، آن را تکمیل کنید."
+
+#: people/templates/people/eod_report.html
+msgid "%(n)s reports are outstanding in total — you'll be asked for the rest right after this one."
+msgstr "در مجموع %(n)s گزارش باقی‌مانده دارید — بلافاصله بعد از این یکی، بقیه را هم از شما می‌پرسیم."
+
+#: people/templates/people/eod_report.html
+msgid "Your shift for %(day)s has ended. Please complete this report before signing out."
+msgstr "شیفت کاری شما برای %(day)s به پایان رسیده است. لطفاً پیش از خروج، این گزارش را تکمیل کنید."
+
+#: people/templates/people/eod_report.html
+msgid "Requests you have for your supervisor"
+msgstr "درخواستی که از سرپرست خود دارید"
+
+#: people/templates/people/eod_report.html
+msgid "Add another"
+msgstr "افزودن مورد دیگر"
+
+#: people/templates/people/eod_report.html
+msgid "Your ideas for today"
+msgstr "ایده‌های امروز شما"
+
+#: people/templates/people/eod_report.html
+msgid "If you have an idea or suggestion for improving how things are done, write it here."
+msgstr "اگر برای بهتر شدن کارها ایده یا پیشنهادی دارید، اینجا بنویسید."
+
+#: people/templates/people/eod_report.html
+msgid "Remove"
+msgstr "حذف"
+
+#. --------------------------------------------------------------------
+#. marketing/templates/marketing/_my_tasks_eod_reports.html — the "End of
+#. day reports" tab on the My Tasks hub (marketing.views.my_tasks), listing
+#. this viewer's own submitted EndOfDayReport rows.
+#. --------------------------------------------------------------------
+#: marketing/templates/marketing/my_tasks.html
+msgid "End-of-day reports"
+msgstr "گزارش‌های پایان روز"
+
+#: marketing/templates/marketing/_my_tasks_eod_reports.html
+msgid "Work day"
+msgstr "روز کاری"
+
+#: marketing/templates/marketing/_my_tasks_eod_reports.html
+msgid "Submitted at"
+msgstr "زمان ثبت"
+
+#: marketing/templates/marketing/_my_tasks_eod_reports.html
+msgid "Requests for supervisor"
+msgstr "درخواست از سرپرست"
+
+#: marketing/templates/marketing/_my_tasks_eod_reports.html
+msgid "Ideas"
+msgstr "ایده‌ها"
+
+#: marketing/templates/marketing/_my_tasks_eod_reports.html
+msgid "You have not submitted any end-of-day reports yet."
+msgstr "شما هنوز هیچ گزارش پایان روزی ثبت نکرده‌اید."
+
+#. --------------------------------------------------------------------
+#. cases/templates/cases/export/terms_editor.html — the PDF/Print-view
+#. termsheet confirm page. Only the strings touched by the "force download,
+#. never open a new tab" change are translated; the rest of this page was
+#. already untranslated before this round and is out of scope.
+#. --------------------------------------------------------------------
+#: cases/templates/cases/export/terms_editor.html
+msgid "the Print view downloads with these texts on the last page"
+msgstr "نمای چاپ همراه با این متن‌ها در صفحه‌ی آخر دانلود می‌شود"
+
+#: cases/templates/cases/export/terms_editor.html
+msgid "the PDF downloads with these texts on the last page"
+msgstr "PDF همراه با این متن‌ها در صفحه‌ی آخر دانلود می‌شود"
+
+#: cases/templates/cases/export/terms_editor.html
+msgid "Confirm & Download Print view"
+msgstr "تأیید و دانلود نمای چاپ"
+
+#: cases/templates/cases/export/terms_editor.html
+msgid "Download started — check your browser Downloads folder."
+msgstr "دانلود شروع شد — پوشه‌ی دانلودهای مرورگر خود را بررسی کنید."
+
+#: cases/templates/cases/export/terms_editor.html
+msgid "Could not download Print view."
+msgstr "دانلود نمای چاپ ممکن نشد."
+
+#: cases/templates/cases/export/terms_editor.html
+msgid "Could not download PDF."
+msgstr "دانلود PDF ممکن نشد."
+
+#. cases/templates/cases/_side_section.html — the single "Export" trigger
+#. button that replaced the old row of separate Excel/PDF/Print-view
+#. buttons (opens .export-picker-panel, a small horizontal row of the same
+#. format links). See static/js/ui.js's own "export picker" section.
+#: cases/templates/cases/_side_section.html
+msgid "Export"
+msgstr "خروجی"
+
+#. --------------------------------------------------------------------
+#. accounts/constants.py::Unit — three new units (Purchasing/Warehouse/QC),
+#. same mechanism as the existing Commercial/Technical/Supply/Marketing
+#. labels just above (Unit.LABELS feeds Profile.unit_label/title_line).
+#. --------------------------------------------------------------------
+#: accounts/constants.py
+msgid "Purchasing"
+msgstr "خرید"
+
+#: accounts/constants.py
+msgid "Warehouse"
+msgstr "انبارداری"
+
+#: accounts/constants.py
+msgid "Quality Control"
+msgstr "کنترل کیفیت"
+
+#. --------------------------------------------------------------------
+#. cases/constants.py — the Purchasing/Warehouse case-workflow stage:
+#. FormKind.PURCHASE_INVOICE, CaseStatus.WITH_WAREHOUSE (also reused by
+#. ARCHIVE_GROUP_LABELS, same msgid), and their EventAction entries.
+#. --------------------------------------------------------------------
+#: cases/constants.py
+msgid "Purchase Invoice"
+msgstr "فاکتور خرید"
+
+#: cases/constants.py
+msgid "With Warehouse"
+msgstr "نزد انبارداری"
+
+#: cases/constants.py
+msgid "Purchase Invoice built"
+msgstr "فاکتور خرید ساخته شد"
+
+#: cases/constants.py
+msgid "Submitted to Warehouse"
+msgstr "ارسال به انبارداری"
+
+#. --------------------------------------------------------------------
+#. cases/templates/cases/supplier_list.html, supplier_form.html,
+#. cases/views.py, cases/forms.py — the new Supplier master-data screens
+#. (Purchasing's own equivalent of Clients). Unlike client_list.html/
+#. client_form.html, which this was modelled on, these are new and
+#. properly bilingual from the start.
+#. --------------------------------------------------------------------
+#: cases/templates/cases/client_form.html cases/templates/cases/supplier_form.html
+msgid "Save"
+msgstr "ذخیره"
+
+#: cases/templates/cases/client_list.html cases/templates/cases/supplier_list.html
+msgid "Rename"
+msgstr "تغییر نام"
+
+#: cases/templates/cases/supplier_list.html
+msgid "Suppliers"
+msgstr "تأمین‌کنندگان"
+
+#: cases/templates/cases/supplier_list.html
+msgid "Supplier names are unique; codes are assigned automatically."
+msgstr "نام تأمین‌کنندگان یکتاست؛ کدها به‌صورت خودکار تخصیص داده می‌شوند."
+
+#: cases/templates/cases/supplier_list.html
+msgid "Search by name or code…"
+msgstr "جستجو بر اساس نام یا کد…"
+
+#: cases/templates/cases/supplier_list.html
+msgid "No suppliers yet."
+msgstr "هنوز هیچ تأمین‌کننده‌ای ثبت نشده است."
+
+#: cases/templates/cases/supplier_list.html
+msgid "No supplier matches your search."
+msgstr "هیچ تأمین‌کننده‌ای با این جستجو مطابقت ندارد."
+
+#: cases/templates/cases/supplier_form.html
+msgid "Rename supplier"
+msgstr "تغییر نام تأمین‌کننده"
+
+#: cases/templates/cases/supplier_list.html cases/templates/cases/supplier_form.html
+msgid "Add supplier"
+msgstr "افزودن تأمین‌کننده"
+
+#: cases/templates/cases/supplier_form.html
+msgid "The code %(code)s stays the same."
+msgstr "کد %(code)s تغییر نمی‌کند."
+
+#: cases/templates/cases/supplier_form.html
+msgid "A sequential code is assigned automatically."
+msgstr "یک کد ترتیبی به‌صورت خودکار تخصیص داده می‌شود."
+
+#: cases/views.py
+msgid "Only the Purchasing supervisor or an Administrator can manage suppliers."
+msgstr "فقط سرپرست خرید یا مدیر سیستم می‌تواند تأمین‌کنندگان را مدیریت کند."
+
+#: cases/views.py
+msgid "Only the Purchasing supervisor or an Administrator can add suppliers."
+msgstr "فقط سرپرست خرید یا مدیر سیستم می‌تواند تأمین‌کننده اضافه کند."
+
+#: cases/views.py
+msgid "Only the Purchasing supervisor or an Administrator can rename suppliers."
+msgstr "فقط سرپرست خرید یا مدیر سیستم می‌تواند نام تأمین‌کننده را تغییر دهد."
+
+#: cases/views.py
+msgid "Supplier added with code %(code)s."
+msgstr "تأمین‌کننده با کد %(code)s اضافه شد."
+
+#: cases/views.py
+msgid "Supplier renamed (the code stays the same)."
+msgstr "نام تأمین‌کننده تغییر کرد (کد همان قبلی می‌ماند)."
+
+#: cases/forms.py
+msgid "A supplier with this name already exists."
+msgstr "تأمین‌کننده‌ای با این نام از قبل وجود دارد."
+
+#. --------------------------------------------------------------------
+#. cases/templates/cases/purchase_invoice_build.html — Purchasing's own
+#. simple build page, and cases/templates/cases/_purchase_invoice_section.html
+#. (the case_detail card linking to it).
+#. --------------------------------------------------------------------
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "Back to case"
+msgstr "بازگشت به پرونده"
+
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "Read-only — you may not edit this Purchase Invoice."
+msgstr "فقط قابل مشاهده — شما اجازه‌ی ویرایش این فاکتور خرید را ندارید."
+
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "Item Code"
+msgstr "شماره ردیف"
+
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "FTCO CODE"
+msgstr "کد FTCO"
+
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "FTCO DESCRIPTION"
+msgstr "شرح FTCO"
+
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "SIZE"
+msgstr "سایز"
+
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "QTY"
+msgstr "تعداد"
+
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "UNIT"
+msgstr "واحد"
+
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "BRAND"
+msgstr "برند"
+
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "Base price"
+msgstr "قیمت پایه"
+
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "Margin %"
+msgstr "درصد سود"
+
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "Unit price"
+msgstr "قیمت واحد"
+
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "Qty purchased"
+msgstr "تعداد خریداری‌شده"
+
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "Price purchased"
+msgstr "قیمت خریداری‌شده"
+
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "Supplier"
+msgstr "تأمین‌کننده"
+
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "Search supplier…"
+msgstr "جستجوی تأمین‌کننده…"
+
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "No Proforma rows to purchase against."
+msgstr "هیچ ردیف پروفرمایی برای خرید وجود ندارد."
+
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "remaining"
+msgstr "باقی‌مانده"
+
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "Purchase Invoice saved."
+msgstr "فاکتور خرید ذخیره شد."
+
+#: cases/templates/cases/purchase_invoice_build.html
+msgid "You may not edit this Purchase Invoice."
+msgstr "شما اجازه‌ی ویرایش این فاکتور خرید را ندارید."
+
+#: cases/templates/cases/_purchase_invoice_section.html
+msgid "No purchase invoice yet."
+msgstr "هنوز فاکتور خریدی ثبت نشده است."
+
+#: cases/templates/cases/_purchase_invoice_section.html
+msgid "Sent"
+msgstr "ارسال‌شده"
+
+#. "Edit current"/"View"/"Assign to expert"/"Assign" all reuse pre-existing
+#. entries elsewhere in this file (identical msgstr already covers this
+#. usage too — gettext matches by msgid text, not call site).
+#: cases/templates/cases/_purchase_invoice_section.html
+msgid "Create"
+msgstr "ایجاد"
+
+#: cases/templates/cases/_purchase_invoice_section.html
+msgid "Send to Warehouse"
+msgstr "ارسال به انبارداری"

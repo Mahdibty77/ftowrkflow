@@ -52,6 +52,38 @@ class Client(models.Model):
         return f"{self.code} — {self.name}"
 
 
+class Supplier(models.Model):
+    """A vendor Purchasing buys from — Purchasing's own equivalent of Client
+    above, for the exact same reason: the product owner explicitly asked for
+    a supplier list the Purchasing Supervisor (``Role.MANAGER``) manages, that
+    an ordinary Purchasing user can only search and pick from (never free-type
+    or add inline) when filling a Purchase Invoice — see cases/services.py's
+    ``can_add_supplier``/``supplier_*`` functions and the ``data-combo`` field
+    on the Purchase Invoice form.
+
+    Deliberately simpler than Client: no ``assigned_experts`` — the product
+    owner described the Supervisor managing ONE shared list every Purchasing
+    user picks from, not per-expert scoping the way Commercial's client list
+    has (Client.assigned_experts exists for a restriction nobody asked for
+    here).
+    """
+
+    name = models.CharField(max_length=200, unique=True)
+    code = models.CharField(max_length=20, unique=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="created_suppliers",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.code} — {self.name}"
+
+
 class ExpertCode(models.Model):
     """Two-column expert code table (code, name).
 
@@ -142,6 +174,22 @@ class Case(models.Model):
     supply_external_assignee = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True,
         on_delete=models.SET_NULL, related_name="supply_external_cases",
+    )
+    # Sticky assignees for Purchasing/Warehouse, same shape as
+    # technical_assignee/supply_assignee above — no internal/external split,
+    # since neither unit was asked for one. Purchasing's is read while
+    # holder_unit is STILL Unit.COMMERCIAL (Commercial keeps Final-Approved
+    # authority the whole time Purchasing works — see accounts/constants.py's
+    # "PURCHASING and WAREHOUSE" docstring section), which is exactly why this
+    # can't reuse assign()'s existing holder_unit-keyed dispatch and needed
+    # its own field/functions instead of just slotting into the existing ones.
+    purchasing_assignee = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="purchasing_cases",
+    )
+    warehouse_assignee = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="warehouse_cases",
     )
     # True when the case became TO & PI by upgrading an original TO (two-stage).
     upgraded_two_stage = models.BooleanField(default=False)
@@ -431,7 +479,9 @@ class CaseForm(models.Model):
     """
 
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="forms")
-    kind = models.CharField(max_length=10, choices=FormKind.CHOICES, db_index=True)
+    # 20, not 10 — FormKind.PURCHASE_INVOICE is 17 characters, longer than
+    # every other FormKind value the original max_length was sized for.
+    kind = models.CharField(max_length=20, choices=FormKind.CHOICES, db_index=True)
     # Internal / External sub-stream this form belongs to (blank for single-side
     # cases that predate the split).
     side = models.CharField(max_length=10, blank=True, db_index=True)
@@ -551,8 +601,10 @@ class CaseEvent(models.Model):
     from_unit = models.CharField(max_length=20, blank=True)
     to_unit = models.CharField(max_length=20, blank=True)
     comment = models.TextField(blank=True)
-    # When the event concerns a TO/PI form, record which form and version it was.
-    form_kind = models.CharField(max_length=10, blank=True)
+    # When the event concerns a form, record which form and version it was.
+    # 20, not 10 — see CaseForm.kind's own comment (FormKind.PURCHASE_INVOICE
+    # is 17 characters).
+    form_kind = models.CharField(max_length=20, blank=True)
     form_version = models.IntegerField(null=True, blank=True)
     # Internal / External sub-stream this event belongs to (blank = case-level).
     side = models.CharField(max_length=10, blank=True, db_index=True)
@@ -624,7 +676,7 @@ class CaseExportLog(models.Model):
         settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL,
         related_name="case_exports",
     )
-    form_kind = models.CharField(max_length=10, blank=True)      # TO / PI
+    form_kind = models.CharField(max_length=20, blank=True)      # TO / PI / ... — see CaseForm.kind's own comment
     form_version = models.IntegerField(null=True, blank=True)
     side = models.CharField(max_length=10, blank=True)
     fmt = models.CharField(max_length=20, blank=True)            # xlsx / grouped / pdf / html

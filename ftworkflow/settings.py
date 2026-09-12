@@ -184,6 +184,9 @@ MIDDLEWARE = [
     # for an account with must_change_password set — a freshly created account,
     # or one an admin just reset.
     "accounts.middleware.MustChangePasswordMiddleware",
+    # Sends every non-allowlisted request to the end-of-day report page while
+    # a past work day still has no report filed for it.
+    "people.middleware.EndOfDayReportGateMiddleware",
 ]
 
 ROOT_URLCONF = "ftworkflow.urls"

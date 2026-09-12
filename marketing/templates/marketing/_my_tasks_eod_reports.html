@@ -1,0 +1,73 @@
+{% load i18n ft_extras %}
+{% comment %}
+  MY TASKS — END-OF-DAY REPORTS TAB. Included by my_tasks.html's own
+  #panel-eod_reports; sibling partial to _my_tasks_reminders.html /
+  _my_tasks_reports.html, for the same reason those two are split out on
+  their own (see my_tasks.html's own head comment).
+
+  Every people.models.EndOfDayReport THIS VIEWER filed, own scope only for
+  now — see my_tasks.html's own head comment for why this tab does not
+  widen under scope_all yet. Rows come from marketing/views.py::my_tasks's
+  own eod_report_rows.
+
+  No filter card, unlike the Reminders/Reports tabs beside it — nothing here
+  is filtered by company/case (this model carries neither), and the list is
+  naturally small and bounded (at most one row per tracked work day).
+
+  Each of the two free-text field groups is stored as a JSON list of
+  strings (see people.models.EndOfDayReport) — rendered here as a compact
+  bulleted list, "—" when empty.
+{% endcomment %}
+
+<div class="card">
+  <div class="card-head">
+    <h3><i class="fa-solid fa-clipboard-check" style="color:var(--accent-strong);margin-inline-end:.4rem;"></i>{% trans "End-of-day reports" %}
+      <span class="count">{{ eod_report_rows|length }}</span>
+    </h3>
+  </div>
+
+  <div class="vscroll">
+  <table class="data" id="myTasksEodReportsTable">
+    <thead>
+      <tr>
+        <th>{% trans "Work day" %}</th>
+        <th>{% trans "Submitted at" %}</th>
+        <th>{% trans "Requests for supervisor" %}</th>
+        <th>{% trans "Ideas" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in eod_report_rows %}
+      <tr>
+        <td class="mono">{{ r.work_day|jalali:"Y.m.d" }}</td>
+        <td class="mono">{{ r.submitted_at|jalali:"Y.m.d H:i" }}</td>
+        <td>
+          {% if r.requests_for_supervisor %}
+          <ul class="eod-list">
+            {% for item in r.requests_for_supervisor %}<li dir="auto">{{ item }}</li>{% endfor %}
+          </ul>
+          {% else %}<span class="muted">—</span>{% endif %}
+        </td>
+        <td>
+          {% if r.ideas_for_today %}
+          <ul class="eod-list">
+            {% for item in r.ideas_for_today %}<li dir="auto">{{ item }}</li>{% endfor %}
+          </ul>
+          {% else %}<span class="muted">—</span>{% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="4" class="empty">{% trans "You have not submitted any end-of-day reports yet." %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<style>
+  .eod-list { margin:0; padding-inline-start:1.1em; font-size:.85rem; }
+  .eod-list li { margin-bottom:.2rem; }
+  .eod-list li:last-child { margin-bottom:0; }
+</style>

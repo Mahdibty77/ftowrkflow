@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% if supplier %}{% trans "Rename supplier" %}{% else %}{% trans "Add supplier" %}{% endif %} · Foolad Tabar Workflow{% endblock %}
+{% block topbar %}{% if supplier %}{% trans "Rename supplier" %}{% else %}{% trans "Add supplier" %}{% endif %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{% if supplier %}{% trans "Rename supplier" %}{% else %}{% trans "Add supplier" %}{% endif %}</h1>
+  <div class="sub">{% if supplier %}{% blocktrans with code=supplier.code %}The code {{ code }} stays the same.{% endblocktrans %}{% else %}{% trans "A sequential code is assigned automatically." %}{% endif %}</div></div>
+</div>
+
+<form method="post" class="card form-narrow">
+  {% csrf_token %}
+  {% for field in form %}
+    <div class="field">
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.errors %}<ul class="errorlist">{% for e in field.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+  {% endfor %}
+  <div class="btn-row">
+    <button type="submit" class="btn btn-primary">{% trans "Save" %}</button>
+    <a href="{% url 'cases:supplier_list' %}" class="btn btn-ghost">{% trans "Cancel" %}</a>
+  </div>
+</form>
+{% endblock %}

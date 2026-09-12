@@ -1292,6 +1292,15 @@ def open_cases_for_seat(person_role: PersonRole):
         | Q(supply_external_assignee=source)
         | Q(technical_internal_assignee=source)
         | Q(technical_external_assignee=source)
+        # Purchasing/Warehouse joined the workflow after this function was
+        # written and were missed here — without these two, a case held
+        # ONLY via purchasing_assignee/warehouse_assignee (e.g. FINAL_APPROVED
+        # with a live Purchasing expert, or WITH_WAREHOUSE) was invisible to
+        # both the Delegate task list AND close_seat's own "block closing a
+        # seat with open work" guard (open_task_count uses this same query),
+        # letting a seat close while it silently still named on a live case.
+        | Q(purchasing_assignee=source)
+        | Q(warehouse_assignee=source)
     ).exclude(status__in=ended).distinct()
 
 
@@ -1348,21 +1357,34 @@ def delegate_tasks(
 
     from cases.constants import EventAction
     from cases.services import log as case_log
+    from cases.services import _expert_display_for
 
     for case in cases:
         updates = ["is_delegated", "delegated_from_seat", "delegated_at"]
         case.is_delegated = True
         case.delegated_from_seat = source
         case.delegated_at = now
+        technical_moved = False
         if case.created_by_id == source.pk:
             case.created_by = dest
             updates.append("created_by")
+            # commercial_expert_display is frozen at case creation (see
+            # freeze_commercial_expert / cases.services.create_case) and is
+            # shown in PREFERENCE to created_by everywhere it appears — a
+            # formal delegation is the one lifecycle event where created_by
+            # itself is repointed above, so the frozen text must follow it
+            # or the case keeps printing the seat's now-departed previous
+            # holder next to "Commercial Expert" forever.
+            if (case.commercial_expert_display or "").strip():
+                case.commercial_expert_display = _expert_display_for(dest)
+                updates.append("commercial_expert_display")
         if case.assigned_to_id == source.pk:
             case.assigned_to = dest
             updates.append("assigned_to")
         if case.technical_assignee_id == source.pk:
             case.technical_assignee = dest
             updates.append("technical_assignee")
+            technical_moved = True
         if case.supply_assignee_id == source.pk:
             case.supply_assignee = dest
             updates.append("supply_assignee")
@@ -1375,9 +1397,30 @@ def delegate_tasks(
         if case.technical_internal_assignee_id == source.pk:
             case.technical_internal_assignee = dest
             updates.append("technical_internal_assignee")
+            technical_moved = True
         if case.technical_external_assignee_id == source.pk:
             case.technical_external_assignee = dest
             updates.append("technical_external_assignee")
+            technical_moved = True
+        if technical_moved and (case.technical_expert_display or "").strip():
+            # Same reasoning as commercial_expert_display just above, mirrored
+            # for freeze_technical_expert's field.
+            case.technical_expert_display = _expert_display_for(dest)
+            updates.append("technical_expert_display")
+        # See open_cases_for_seat's own comment just above: these two were
+        # missed when Purchasing/Warehouse joined the workflow, so a
+        # delegation used to leave them pointing at the seat that was just
+        # emptied out — silently wrong once that same seat slot was ever
+        # given to a different person later (people/seats.py recycles the
+        # User row rather than deleting it, so the stale FK would then
+        # start showing THAT new, unrelated person's name on an old case
+        # they never touched).
+        if case.purchasing_assignee_id == source.pk:
+            case.purchasing_assignee = dest
+            updates.append("purchasing_assignee")
+        if case.warehouse_assignee_id == source.pk:
+            case.warehouse_assignee = dest
+            updates.append("warehouse_assignee")
         case.save(update_fields=updates)
         # Case timeline: who delegated, from whom → to whom (date via created_at).
         case_log(

@@ -392,20 +392,24 @@ html[data-theme="dark"] .shift-ot-link:hover{
    own button. */
 .profile-menu{position:absolute;inset-inline-end:0;top:calc(100% + 8px);width:260px;background:var(--paper);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lg);padding:.8rem;display:none;z-index:40}
 .profile-menu.open{display:block}
-/* Export picker — one "Export" button opens this small horizontal row of
-   format links (Excel/PDF/Print view/Grouped Excel), replacing what used to
-   be several separate buttons side by side. See static/js/ui.js's own
-   "export picker" section for the open/close mechanism (delegated + id-
-   scoped, since up to 4 of these can exist on one case-detail page). Anchors
-   under its own trigger button (inset-inline-start:0, not centered), same
-   shape .profile-menu uses under its own button, just narrower/horizontal. */
-.export-picker{position:relative;display:inline-flex}
-/* inset-inline-END, not start: this button normally sits at the trailing
-   edge of its own row (the row-flex + .spacer pattern _side_section.html
-   already uses), so anchoring the panel's start edge would grow it off the
-   right side of the viewport under LTR (confirmed visually) — same reason
-   .profile-menu above anchors inset-inline-end:0 rather than :start. */
-.export-picker-panel{position:absolute;top:calc(100% + 6px);inset-inline-end:0;display:flex;flex-direction:row;flex-wrap:nowrap;gap:.4rem;background:var(--paper);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-lg);padding:.5rem;z-index:40;white-space:nowrap}
+/* Export picker — one "Export" button that, on click, is ITSELF replaced in
+   place by a small horizontal row of format links (Excel/PDF/Print view/
+   Grouped Excel) — not a dropdown hanging below it. Clicking a format link,
+   or anywhere else on the page, collapses the row back down to just the
+   trigger. See static/js/ui.js's own "export picker" section for the
+   mechanism (delegated + id-scoped, since up to 4 of these can exist on one
+   case-detail page). Plain inline flow, not position:absolute — the panel
+   takes the trigger's own place in the row rather than overlaying it. */
+.export-picker{display:inline-flex}
+.export-picker-trigger{justify-content:center}
+/* Same idiom as .shift-warn-banner[hidden] / .filter-clear-x[hidden] above:
+   .btn's own display:inline-flex is an AUTHOR rule, which always outranks
+   the browser's default [hidden]{display:none} UA rule regardless of
+   specificity — without this override the trigger button stayed visibly
+   flexed even with the hidden attribute set (confirmed live: computed
+   display was still "flex"). */
+.export-picker-trigger[hidden]{display:none !important;}
+.export-picker-panel{display:flex;flex-direction:row;flex-wrap:nowrap;gap:.4rem}
 .export-picker-panel[hidden]{display:none}
 .pm-head{display:flex;gap:.7rem;align-items:center;padding-bottom:.7rem;border-bottom:1px solid var(--line-soft);margin-bottom:.6rem}
 .pm-name{font-weight:650}.pm-sub{font-size:.74rem;color:var(--muted)}

@@ -54,14 +54,21 @@ class FormKind:
     INQUIRY = "INQUIRY"
     TO = "TO"
     PI = "PI"
+    # Purchasing's own closing form — seeded from PI's latest version the
+    # same way PI is seeded from TO's. See cases/services.py's
+    # inbox_filter_q/allowed_actions PURCHASING branch and
+    # itemcoder/bridge.py's _tool_grid_frame for the two places that mirror
+    # the existing PI-seeds-from-TO pattern for this.
+    PURCHASE_INVOICE = "PURCHASE_INVOICE"
 
     CHOICES = [
         (INQUIRY, _("Inquiry")),
         (TO, _("Technical Offer (TO)")),
         (PI, _("Proforma Invoice (PI)")),
+        (PURCHASE_INVOICE, _("Purchase Invoice")),
     ]
     # Token inserted into export file names (FT-TO-... / FT-PI-...).
-    EXPORT_TOKEN = {INQUIRY: "INQ", TO: "TO", PI: "PI"}
+    EXPORT_TOKEN = {INQUIRY: "INQ", TO: "TO", PI: "PI", PURCHASE_INVOICE: "PINV"}
 
 
 class PriceType:
@@ -222,6 +229,14 @@ class CaseStatus:
     FINAL_CLOSED = "FINAL_CLOSED"         # commercial shut a final-approved case (terminal)
     BURNED = "BURNED"                     # deal fell through / case burned (terminal)
     CANCELLED = "CANCELLED"               # cancelled with reason (manager approved)
+    # Purchasing sent its Purchase Invoice on. UNLIKE every status above,
+    # Purchasing itself never gets an exclusive status of its own — a case
+    # stays FINAL_APPROVED the entire time Purchasing is working (Commercial
+    # keeps its Burn/Final Closed power throughout, on purpose — see
+    # accounts/constants.py's own "PURCHASING and WAREHOUSE" docstring
+    # section). This status exists only for the ONE handoff that IS
+    # exclusive, same as every other unit-to-unit send in this workflow.
+    WITH_WAREHOUSE = "WITH_WAREHOUSE"
 
     CHOICES = [
         (DRAFT, _("Draft")),
@@ -246,6 +261,7 @@ class CaseStatus:
         (FINAL_CLOSED, _("Final Closed")),
         (BURNED, _("Burned")),
         (CANCELLED, _("Cancelled")),
+        (WITH_WAREHOUSE, _("With Warehouse")),
     ]
     LABELS = dict(CHOICES)
 
@@ -268,6 +284,7 @@ class CaseStatus:
         FINAL_CLOSED: "#1a1a1a",
         BURNED: "#1a1a1a",
         CANCELLED: "#1a1a1a",
+        WITH_WAREHOUSE: "#5c7a1f",
     }
 
     # Terminal statuses never appear in any inbox.
@@ -313,6 +330,7 @@ class CaseStatus:
         UNSUPPLIABLE_CLOSED: "Cannot supply",
         UNSUPPLIABLE_PENDING_SUPPLY: "Cannot supply",
         UNSUPPLIABLE_PENDING_COMMERCIAL: "Cannot supply",
+        WITH_WAREHOUSE: "With Warehouse",
     }
 
     # Left-to-right archive status tabs (All is rendered separately on the right).
@@ -323,6 +341,7 @@ class CaseStatus:
         "With Commercial",
         "Sent to client",
         "Final approved",
+        "With Warehouse",
         "Final closed",
         "Cannot supply",
         "Burned",
@@ -337,6 +356,7 @@ class CaseStatus:
         "With Commercial": COLORS[WITH_COMMERCIAL],
         "Sent to client": COLORS[CLOSED],
         "Final approved": COLORS[FINAL_APPROVED],
+        "With Warehouse": COLORS[WITH_WAREHOUSE],
         "Final closed": COLORS[FINAL_CLOSED],
         "Cannot supply": COLORS[UNSUPPLIABLE],
         "Burned": COLORS[BURNED],
@@ -377,6 +397,7 @@ class CaseStatus:
         "With Commercial": _("With Commercial"),
         "Sent to client": _("Sent to client"),
         "Final approved": _("Final approved"),
+        "With Warehouse": _("With Warehouse"),
         "Final closed": _("Final closed"),
         "Cannot supply": _("Cannot supply"),
         "Burned": _("Burned"),
@@ -410,6 +431,8 @@ class EventAction:
     CANCEL = "CANCEL"
     BURN = "BURN"                 # deal fell through — case burned (terminal)
     FINAL_CLOSE = "FINAL_CLOSE"   # commercial shut a final-approved case (terminal)
+    BUILD_PURCHASE_INVOICE = "BUILD_PURCHASE_INVOICE"
+    SEND_TO_WAREHOUSE = "SEND_TO_WAREHOUSE"
 
     CHOICES = [
         (CREATE, _("Case created")),
@@ -437,5 +460,7 @@ class EventAction:
         (CANCEL, _("Cancelled")),
         (BURN, _("Burned")),
         (FINAL_CLOSE, _("Final Closed")),
+        (BUILD_PURCHASE_INVOICE, _("Purchase Invoice built")),
+        (SEND_TO_WAREHOUSE, _("Submitted to Warehouse")),
     ]
     LABELS = dict(CHOICES)

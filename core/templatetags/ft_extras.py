@@ -4,7 +4,7 @@ Four groups, in the order they appear below:
 
     dictget / get_item      variable-key lookups, which the dot syntax cannot do
     jalali, featdisp,       display formatting: Shamsi dates, feature values,
-    phone_fmt               phone numbers
+    phone_fmt, person_name  phone numbers, the human behind a seat's User row
     visible_form_columns    everything that renders a SAVED Technical Offer or
     and the filters under   Proforma table so it matches the live itemcoder tool
     it                      exactly — same columns, same titles, same row
@@ -118,6 +118,23 @@ def phone_fmt(value):
     # Generic: split into 3-4 digit groups from the left.
     groups = [digits[i:i + 4] for i in range(0, len(digits), 4)]
     return " ".join(groups)
+
+
+@register.filter
+def person_name(user):
+    """The human behind a seat's User row — never a blank name or ``_seatNN``.
+
+    A secondary seat's User row has its ``first_name``/``last_name`` blanked
+    and a vacant-looking username on purpose (``people.seats._harden_secondary_seat``
+    — nobody signs in as it, it only holds work), so ``get_full_name()`` or a
+    raw username is wrong for any multi-seat person and for a just-recycled
+    seat alike. This resolves the same way the rest of the platform already
+    does — see ``cases.services._person_display_name`` — so a name shown next
+    to a role here can never drift from what the sidebar, the Seats screen and
+    a frozen timeline entry would call the same person.
+    """
+    from cases.services import _person_display_name
+    return _person_display_name(user)
 
 
 # --- Saved TO/PI forms: show exactly the tool's visible columns + titles ------

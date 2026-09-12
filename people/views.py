@@ -783,7 +783,7 @@ def presence_gap_explain(request, pk):
 
 
 def shift_ended(request):
-    """Standalone goodbye screen shown for 40s after the work shift ends."""
+    """Standalone goodbye screen shown for 20s after the work shift ends."""
     from django.shortcuts import render
 
     name = (request.GET.get("n") or "").strip() or "colleague"
@@ -792,6 +792,89 @@ def shift_ended(request):
         name = name[:80]
     return render(request, "people/shift_ended.html", {
         "shift_end_name": name,
+    })
+
+
+@login_required
+def eod_report(request):
+    """The end-of-day report page — GET renders it, POST files it.
+
+    Reached three ways, in strict priority order:
+
+      1. CATCH-UP — EndOfDayReportGateMiddleware forces every non-allowlisted
+         request here whenever this person's session carries an unfiled PAST
+         tracked day (see people.eod_reports.missing_report_days). Filed one
+         day at a time, oldest first: a submit here always redirects back to
+         this same page while any still remain, and on into the app once
+         none do. No logout involved — the session was never touched.
+
+      2. LIVE — reached with ?end=1 (POST carries the same flag as a hidden
+         field) from core/templates/base.html's showEnd() once its shortened
+         countdown ends, or immediately from the manual sign-out confirm
+         (&explicit=1 there specifically). Both used to fire the actual
+         logout immediately and only show a goodbye message while it
+         happened in the background; now they send the still-authenticated
+         session here FIRST — see WorkShiftMiddleware._is_exempt_path's own
+         comment for the exemption this depends on — and it is THIS view's
+         own submit, not the countdown, that finally calls logout(). Only
+         reachable once no catch-up day remains, since today cannot itself
+         be "missing" (missing_report_days is always < today) and a person
+         who still owes a past day should not be let to bury it under a
+         fresh one.
+
+      3. Neither — direct navigation, nothing owed. A no-op back into the
+         app; this page is never shown "just in case".
+
+    ?explicit=1 (POST hidden field, same name) only ever matters on a LIVE
+    submit, threaded through to the deferred logout() call so
+    people.signals._explicit_sign_out still reads the correct value on the
+    user_logged_out signal it always has — this view's request.POST is not
+    the same POST #pmLogoutForm used to submit directly, so that flag has to
+    be forwarded by hand rather than arriving for free.
+    """
+    from django.contrib.auth import logout as auth_logout
+    from django.utils import timezone
+
+    from .eod_reports import missing_report_days, submit_report
+    from .work_shift import person_for_user
+
+    person = person_for_user(request.user)
+    if person is None:
+        return redirect("core:home")
+
+    source = request.POST if request.method == "POST" else request.GET
+    live = (source.get("end") or "0") == "1"
+    explicit = (source.get("explicit") or "0") == "1"
+
+    missing = missing_report_days(person)
+    today = timezone.localdate()
+    if not missing and not live:
+        return redirect("core:home")
+    work_day = missing[0] if missing else today
+
+    if request.method == "POST":
+        submit_report(
+            person, work_day,
+            requests_for_supervisor=request.POST.getlist("requests"),
+            ideas_for_today=request.POST.getlist("ideas"),
+        )
+        if work_day == today:
+            request.POST = request.POST.copy()
+            request.POST["explicit_shift_end"] = "1" if explicit else "0"
+            auth_logout(request)
+            return redirect("accounts:login")
+        still_missing = missing_report_days(person)
+        request.session["ft_eod_missing"] = [d.isoformat() for d in still_missing]
+        if still_missing:
+            return redirect("people:eod_report")
+        return redirect("core:home")
+
+    return render(request, "people/eod_report.html", {
+        "work_day": work_day,
+        "is_catchup": bool(missing),
+        "remaining_count": len(missing),
+        "live": "1" if live else "0",
+        "explicit": "1" if explicit else "0",
     })
 
 

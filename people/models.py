@@ -820,6 +820,51 @@ class ShiftDayLog(models.Model):
         return f"{self.person_id} {self.day} · {self.minutes}m"
 
 
+class EndOfDayReport(models.Model):
+    """One person's end-of-shift report for one calendar work day.
+
+    Filed either live, right as that day's shift ends (see
+    ``people.views.eod_report`` and ``core/templates/base.html``'s
+    ``showEnd()``/sign-out handling), or as a forced catch-up the next time
+    this person logs in, if a shift ended without one ever being filed (tab
+    closed, laptop asleep — ``WorkShiftMiddleware`` caught the next request
+    instead) — see ``people.eod_reports.missing_report_days`` and
+    ``people.middleware.EndOfDayReportGateMiddleware``.
+
+    Deliberately not ``marketing.models.CompanyReport``: that one is about a
+    company/case, optional, any number per day, and read by three unrelated
+    screens (a company page, a case page, My Tasks) that know nothing about
+    "end of day". This one is about the person's own day, exactly one per
+    ``work_day`` (see the unique constraint below), and carries no approval
+    workflow at all, unlike ``StaffRequest`` — supervisor-side review is an
+    explicitly later phase.
+    """
+
+    person = models.ForeignKey(
+        Person, on_delete=models.CASCADE, related_name="eod_reports",
+    )
+    work_day = models.DateField(db_index=True)
+    # Each a list of non-blank strings — the "+"-to-add-another repeatable
+    # field group people/templates/people/eod_report.html renders, one entry
+    # per request/idea. See people.eod_reports.submit_report for how the
+    # posted form fields become this shape.
+    requests_for_supervisor = models.JSONField(default=list, blank=True)
+    ideas_for_today = models.JSONField(default=list, blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-work_day", "-submitted_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["person", "work_day"],
+                name="people_eodreport_unique_person_day",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.person_id} · {self.work_day}"
+
+
 class RequestType(models.Model):
     """Catalogue of personnel request kinds (Overtime, …)."""
 

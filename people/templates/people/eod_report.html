@@ -1,0 +1,136 @@
+{% load static i18n ft_extras %}
+{% get_current_language as EOD_LANG %}
+{% get_current_language_bidi as EOD_BIDI %}
+<!DOCTYPE html>
+<html lang="{{ EOD_LANG }}" dir="{% if EOD_BIDI %}rtl{% else %}ltr{% endif %}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% trans "End-of-day report" %} — Foolad Tabar Workflow</title>
+  {% include "includes/favicon.html" %}
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=shift-end-8">
+  <link rel="stylesheet" href="{% static 'css/theme-pack.css' %}?v=theme-17">
+  <link rel="stylesheet" href="{% static 'css/icons-offline.css' %}?v=shift-icons-4">
+  <style>
+    /* Standalone page (no base.html — see this template's own docstring in
+       people/views.py::eod_report for why): a tiny bit of its own layout
+       rather than the app shell's, same treatment shift_ended.html gets. */
+    body { display:flex; align-items:flex-start; justify-content:center; min-height:100vh; padding:2.5rem 1rem; box-sizing:border-box; }
+    .eod-wrap { width:100%; max-width:34rem; }
+    .eod-head { text-align:center; margin-bottom:1.2rem; }
+    .eod-head h1 { font-size:1.25rem; margin:0 0 .4rem; }
+    .eod-head p { margin:0; color:var(--muted); font-size:.92rem; line-height:1.6; }
+    .eod-group { margin-bottom:1.1rem; }
+    .eod-group > label { display:block; font-weight:600; margin-bottom:.3rem; }
+    .eod-group-help { color:var(--muted); font-size:.82rem; margin:0 0 .5rem; }
+    .eod-row { display:flex; gap:.5rem; margin-bottom:.5rem; align-items:center; }
+    .eod-row input[type="text"] { flex:1 1 auto; background:var(--paper); color:var(--ink); border:1px solid var(--line); border-radius:9px; padding:.55rem .7rem; font:inherit; }
+    .eod-row-remove { flex:0 0 auto; background:none; border:1px solid var(--line); border-radius:8px; width:2.1rem; height:2.1rem; color:var(--muted); cursor:pointer; }
+    .eod-row-remove:hover { color:var(--rej); border-color:var(--rej); }
+    .eod-add-btn { font-size:.85rem; }
+    .eod-submit-row { margin-top:1.4rem; text-align:center; }
+  </style>
+</head>
+<body>
+  <div class="eod-wrap">
+    <div class="card">
+      <div class="eod-head">
+        {% if is_catchup %}
+        <h1><i class="fa-solid fa-clipboard-check"></i> {% trans "Unfiled end-of-day report" %}</h1>
+        <p>
+          {% blocktrans with day=work_day|jalali:"Y.m.d" %}You have not filed the end-of-day report for {{ day }} yet. Please complete it before continuing.{% endblocktrans %}
+          {% if remaining_count > 1 %}<br>{% blocktrans with n=remaining_count %}{{ n }} reports are outstanding in total — you'll be asked for the rest right after this one.{% endblocktrans %}{% endif %}
+        </p>
+        {% else %}
+        <h1><i class="fa-solid fa-moon"></i> {% trans "End-of-day report" %}</h1>
+        <p>{% blocktrans with day=work_day|jalali:"Y.m.d" %}Your shift for {{ day }} has ended. Please complete this report before signing out.{% endblocktrans %}</p>
+        {% endif %}
+      </div>
+
+      <form method="post" action="{% url 'people:eod_report' %}" id="eodReportForm">
+        {% csrf_token %}
+        <input type="hidden" name="end" value="{{ live }}">
+        <input type="hidden" name="explicit" value="{{ explicit }}">
+
+        <div class="eod-group" data-eod-group="requests">
+          <label>{% trans "Requests you have for your supervisor" %}</label>
+          <div class="eod-rows"></div>
+          <button type="button" class="btn btn-sm eod-add-btn"><i class="fa-solid fa-plus"></i> {% trans "Add another" %}</button>
+        </div>
+
+        <div class="eod-group" data-eod-group="ideas">
+          <label>{% trans "Your ideas for today" %}</label>
+          <p class="eod-group-help">{% trans "If you have an idea or suggestion for improving how things are done, write it here." %}</p>
+          <div class="eod-rows"></div>
+          <button type="button" class="btn btn-sm eod-add-btn"><i class="fa-solid fa-plus"></i> {% trans "Add another" %}</button>
+        </div>
+
+        <div class="eod-submit-row">
+          <button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> {% trans "Submit report" %}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      // Each field group starts with one empty row; its own "Add another"
+      // stays disabled until that row (the last one) is non-blank — the
+      // "fill the current one before you can add the next" rule the group
+      // was asked for. A row's own remove button is a plain correction
+      // affordance, not part of that rule: removing a row never has to
+      // satisfy it, only adding one does.
+      var fieldNames = { requests: "requests", ideas: "ideas" };
+      document.querySelectorAll('.eod-group').forEach(function (group) {
+        var kind = group.getAttribute('data-eod-group');
+        var name = fieldNames[kind] || kind;
+        var rowsWrap = group.querySelector('.eod-rows');
+        var addBtn = group.querySelector('.eod-add-btn');
+
+        function lastInput() {
+          var inputs = rowsWrap.querySelectorAll('input[type="text"]');
+          return inputs.length ? inputs[inputs.length - 1] : null;
+        }
+        function refreshAddState() {
+          var last = lastInput();
+          addBtn.disabled = !last || !last.value.trim();
+        }
+        function addRow(focus) {
+          var row = document.createElement('div');
+          row.className = 'eod-row';
+          var input = document.createElement('input');
+          input.type = 'text';
+          input.name = name;
+          input.autocomplete = 'off';
+          input.addEventListener('input', refreshAddState);
+          var remove = document.createElement('button');
+          remove.type = 'button';
+          remove.className = 'eod-row-remove';
+          remove.setAttribute('aria-label', '{% trans "Remove" %}');
+          remove.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+          remove.addEventListener('click', function () {
+            if (rowsWrap.querySelectorAll('.eod-row').length <= 1) {
+              input.value = '';
+              refreshAddState();
+              return;
+            }
+            row.remove();
+            refreshAddState();
+          });
+          row.appendChild(input);
+          row.appendChild(remove);
+          rowsWrap.appendChild(row);
+          if (focus) input.focus();
+          refreshAddState();
+        }
+
+        addBtn.addEventListener('click', function () {
+          if (addBtn.disabled) return;
+          addRow(true);
+        });
+        addRow(false);
+      });
+    })();
+  </script>
+</body>
+</html>

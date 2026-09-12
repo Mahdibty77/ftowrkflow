@@ -339,6 +339,14 @@ class Profile(models.Model):
             return True
         return self.unit == Unit.COMMERCIAL and self.role == Role.MANAGER
 
+    # Purchasing's own equivalent of can_add_client above — same shape, same
+    # reasoning, a different unit's manager ("Supervisor" in the UI).
+    @property
+    def can_add_supplier(self) -> bool:
+        if self.is_admin:
+            return True
+        return self.unit == Unit.PURCHASING and self.role == Role.MANAGER
+
     @property
     def display_first_name(self) -> str:
         """Given name only (the Name field) — used on the sign-in welcome."""

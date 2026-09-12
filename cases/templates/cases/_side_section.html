@@ -239,9 +239,16 @@
       <span class="muted" style="font-size:.78rem;"><i class="fa-solid fa-lock"></i> {{ sd.to_locked_reason }}</span>
     {% endif %}
     {% if sd.version_lists.TO %}{% if is_admin_view or is_tech or is_comm %}
-      <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'TO' 'xlsx' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "Excel" %}</a>
-      <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'TO' 'pdf' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "PDF" %}</a>
-      <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'TO' 'html' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "Print view" %}</a>
+      <div class="export-picker">
+        <button type="button" class="btn btn-sm export-picker-trigger" data-export-toggle="export-to-{{ sd.code }}" aria-expanded="false" aria-haspopup="true">
+          <i class="fa-solid fa-download"></i> {% trans "Export" %}
+        </button>
+        <div class="export-picker-panel" id="export-to-{{ sd.code }}" hidden>
+          <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'TO' 'xlsx' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "Excel" %}</a>
+          <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'TO' 'pdf' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "PDF" %}</a>
+          <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'TO' 'html' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "Print view" %}</a>
+        </div>
+      </div>
     {% endif %}{% endif %}
   </div>
   {% trans "No technical offer yet." as empty_to_text %}
@@ -271,20 +278,27 @@
       <span class="muted" style="font-size:.78rem;"><i class="fa-solid fa-lock"></i> {{ sd.pi_locked_reason }}</span>
     {% endif %}
     {% if sd.version_lists.PI %}
-      {% if is_admin_view or is_comm %}
-        <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'xlsx' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "Excel" %}</a>
-        <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'pdf' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "PDF" %}</a>
-        <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'html' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "Print view" %}</a>
-      {% elif is_supply %}
-        <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'xlsx' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "Excel" %}</a>
-      {% endif %}
-      {% if is_admin_view or is_supply %}
-        <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'grouped' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "Grouped Excel" %}</a>
-      {% endif %}
+      <div class="export-picker">
+        <button type="button" class="btn btn-sm export-picker-trigger" data-export-toggle="export-pi-{{ sd.code }}" aria-expanded="false" aria-haspopup="true">
+          <i class="fa-solid fa-download"></i> {% trans "Export" %}
+        </button>
+        <div class="export-picker-panel" id="export-pi-{{ sd.code }}" hidden>
+          {% if is_admin_view or is_comm %}
+            <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'xlsx' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "Excel" %}</a>
+            <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'pdf' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "PDF" %}</a>
+            <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'html' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "Print view" %}</a>
+          {% elif is_supply %}
+            <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'xlsx' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "Excel" %}</a>
+          {% endif %}
+          {% if is_admin_view or is_supply %}
+            <a class="btn btn-sm js-export-link" href="{% url 'cases:export_form' case.pk 'PI' 'grouped' %}{% if multi_side %}?side={{ sd.code }}{% endif %}">{% trans "Grouped Excel" %}</a>
+          {% endif %}
+        </div>
+      </div>
     {% endif %}
   </div>
   {% if sd.assignee %}
-    <div class="muted" style="font-size:.78rem;margin-bottom:.5rem;"><i class="fa-solid fa-user-check"></i> {% blocktrans with side=sd.label %}{{ side }} expert{% endblocktrans %}: <span dir="auto">{{ sd.assignee.get_full_name|default:sd.assignee.username }}</span></div>
+    <div class="muted" style="font-size:.78rem;margin-bottom:.5rem;"><i class="fa-solid fa-user-check"></i> {% blocktrans with side=sd.label %}{{ side }} expert{% endblocktrans %}: <span dir="auto">{{ sd.assignee|person_name }}</span></div>
   {% endif %}
   {% if sd.version_lists.PI and is_comm or sd.version_lists.PI and is_supply or sd.version_lists.PI and is_admin_view %}
   <div class="pi-comm-wrap"
@@ -595,7 +609,7 @@
           {% endif %}
         </td>
         {% if sees_all_case_reminders %}
-        <td dir="auto">{{ r.owner.get_full_name|default:r.owner.username }}</td>
+        <td dir="auto">{{ r.owner|person_name }}</td>
         {% endif %}
       </tr>
       {% empty %}
@@ -657,7 +671,7 @@
     {% if 'comment' in actions %}
     <div class="tl-side-comment card">
       <div class="card-head"><h3>{% trans "Add a comment" %}</h3></div>
-      <form class="ajax-comment-form" data-action-url="{% url 'cases:transition' case.pk %}" data-target="tl-list-{{ sd.code }}" data-user-name="{{ user.get_full_name|default:user.username }}">
+      <form class="ajax-comment-form" data-action-url="{% url 'cases:transition' case.pk %}" data-target="tl-list-{{ sd.code }}" data-user-name="{{ user|person_name }}">
         {% csrf_token %}
         <input type="hidden" name="action" value="comment">
         <input type="hidden" name="side" value="{{ sd.code }}">
@@ -681,7 +695,7 @@
             {% if ex.form_version is not None %}<span class="tl-ver">{% blocktrans with ver=ex.form_version|stringformat:"02d" %}Version {{ ver }}{% endblocktrans %}</span>{% endif %}
             {% if ex.side and case.has_internal and case.has_external %}<span class="side-chip u-side-{{ ex.side }}">{{ ex.side_label }}</span>{% endif %}
           </div>
-          <div class="tl-meta">{{ ex.actor.get_full_name|default:ex.actor.username|default:"—" }} · {{ ex.created_at|jalali:"Y.m.d H:i" }}</div>
+          <div class="tl-meta">{{ ex.actor|person_name|default:"—" }} · {{ ex.created_at|jalali:"Y.m.d H:i" }}</div>
         </li>
       {% empty %}
         <li class="muted">{% trans "No exports yet." %}</li>
@@ -705,7 +719,7 @@
             {% if fx.side and case.has_internal and case.has_external %}<span class="side-chip u-side-{{ fx.side }}">{{ fx.side_label }}</span>{% endif %}
             {% if fx.source %}<span class="muted" style="font-size:.72rem;margin-left:.35rem;">({{ fx.source }})</span>{% endif %}
           </div>
-          <div class="tl-meta">{{ fx.actor.get_full_name|default:fx.actor.username|default:"—" }} · {{ fx.created_at|jalali:"Y.m.d H:i" }}</div>
+          <div class="tl-meta">{{ fx.actor|person_name|default:"—" }} · {{ fx.created_at|jalali:"Y.m.d H:i" }}</div>
         </li>
       {% empty %}
         <li class="muted">{% trans "No currency conversions yet." %}</li>

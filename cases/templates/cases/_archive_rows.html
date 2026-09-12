@@ -29,7 +29,7 @@
           {# right (status, dates, totals) are untouched.                         #}
           <td dir="auto">{{ c.order_no|default:"—" }}</td>
           {% if unit != 'SUPPLY' %}<td><span dir="auto">{{ c.client.name }}</span> <span class="muted mono">({{ c.client.code }})</span></td>{% endif %}
-          {% if is_admin or unit == 'TECHNICAL' or unit == 'SUPPLY' %}<td>{% if c.commercial_expert_display %}<span dir="auto">{{ c.commercial_expert_display }}</span>{% else %}<span dir="auto">{{ c.created_by.get_full_name|default:c.created_by.username }}</span> <span class="muted mono">({{ c.expert_code }})</span>{% endif %}</td>{% endif %}
+          {% if is_admin or unit == 'TECHNICAL' or unit == 'SUPPLY' %}<td>{% if c.commercial_expert_display %}<span dir="auto">{{ c.commercial_expert_display }}</span>{% else %}<span dir="auto">{{ c.created_by|person_name }}</span> <span class="muted mono">({{ c.expert_code }})</span>{% endif %}</td>{% endif %}
           <td>{{ c.price_type_label }}</td>
           {# One pill when there is one status to report; one pill per side, each #}
           {# named, only when the two sides of a combined case are genuinely in   #}

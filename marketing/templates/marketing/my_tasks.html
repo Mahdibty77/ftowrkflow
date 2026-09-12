@@ -108,12 +108,21 @@
   </div>
 </div>
 
-{# TWO TABS — Reminders (an earlier stage) and Reports (this stage). See the #}
-{# head comment: this strip and the #companyTabs id it reuses were built to  #}
-{# take this second tab with no change to the Reminders tab's own markup.   #}
+{# TABS — Reminders and Reports (earlier stages), End-of-day reports (this #}
+{# stage). See the head comment: this strip and the #companyTabs id it     #}
+{# reuses were built to take one more tab with no change to any earlier    #}
+{# tab's own markup. THE THIRD TAB IS "OWN" SCOPE ONLY (not scope_all) —   #}
+{# unlike Reminders/Reports it has no admin-wide widening yet (supervisor- #}
+{# side review of these is an explicitly later phase — see                #}
+{# marketing/views.py::my_tasks's own docstring), and scope_all's own      #}
+{# ``person`` can genuinely be None, which this tab's own rows are not     #}
+{# built to handle.                                                        #}
 <div class="tabs" id="companyTabs">
   <div class="tab active" data-tab="reminders"><i class="fa-solid fa-bell"></i> {% trans "Reminders" %}</div>
   <div class="tab" data-tab="reports"><i class="fa-solid fa-file-lines"></i> {% trans "Reports" %}</div>
+  {% if not scope_all %}
+  <div class="tab" data-tab="eod_reports"><i class="fa-solid fa-clipboard-check"></i> {% trans "End-of-day reports" %}</div>
+  {% endif %}
 </div>
 
 <div class="tab-panel active" id="panel-reminders">
@@ -123,6 +132,12 @@
 <div class="tab-panel" id="panel-reports">
   {% include "marketing/_my_tasks_reports.html" %}
 </div>
+
+{% if not scope_all %}
+<div class="tab-panel" id="panel-eod_reports">
+  {% include "marketing/_my_tasks_eod_reports.html" %}
+</div>
+{% endif %}
 
 {% endblock %}
 {% block scripts %}
