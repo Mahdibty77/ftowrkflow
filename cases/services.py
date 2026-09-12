@@ -12,6 +12,7 @@ import re
 from django.db import transaction
 
 from accounts.constants import Role, Unit, SupplyKind
+from core.persian_text import normalize_persian
 
 from .codes import build_doc_no, next_case_serial, year_month_token
 from .constants import CaseStatus, EventAction, FormKind, OfferType, PriceType, Side
@@ -168,9 +169,18 @@ def import_clients_from_excel(file_obj, user) -> tuple[int, int, list]:
             wb.close()
             raise ValueError("The Excel file has no active sheet.")
 
-        # code -> Client, and lower(name) -> code (for uniqueness checks)
+        # code -> Client, and normalized-name -> code (for uniqueness checks).
+        # normalize_persian, NOT a plain .lower() — the same Persian/Arabic
+        # letter-variant + whitespace folding ClientForm.clean_name and
+        # marketing/services.py's get_or_create_client already dedup new
+        # clients by (see core.persian_text), so a bulk Excel import can
+        # never register a byte-different near-duplicate of an existing
+        # client that those two paths would have merged.
         by_code = {c.code: c for c in Client.objects.all().only("id", "code", "name")}
-        name_owner = {c.name.strip().lower(): c.code for c in by_code.values() if c.name}
+        name_owner = {
+            normalize_persian(c.name).lower(): c.code
+            for c in by_code.values() if c.name
+        }
 
         to_create: list[Client] = []
         to_update: list[Client] = []
@@ -196,7 +206,7 @@ def import_clients_from_excel(file_obj, user) -> tuple[int, int, list]:
             if len(name_val) > 200:
                 name_val = name_val[:200]
 
-            name_key = name_val.lower()
+            name_key = normalize_persian(name_val).lower()
             if code in seen_codes:
                 warnings.append(f"Duplicate code in file skipped: {code}")
                 continue

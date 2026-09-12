@@ -464,29 +464,30 @@ html[data-theme="dark"] .shift-ot-link:hover{
    earlier follow-up gave it. */
 
 /* The trigger: a small rounded button, not a bare icon floating in the
-   topbar. NEUTRAL BY DEFAULT now (AUDIT #134 follow-up) — a person with
-   nothing due still gets a bell here (see base.html's own comment on the
-   ``reminder_bell`` context flag for why it renders at all), styled like
-   any other quiet icon control on this surface (the same --line/--cloud/
-   --muted trio .pm-mode uses for its own light/dark toggle buttons a few
-   hundred lines below), so a resting bell reads as "nothing to do" rather
-   than as a perpetual warning. The tinted .is-due look below is what used
-   to be this rule's ONLY state, moved onto a modifier class rather than
-   removed — its own comment (further down, on .reminder-bell-btn.is-due)
-   carries the "no separate filled glyph" reasoning that used to sit here,
-   since that constraint only matters once the icon needs to look urgent.
-   Sized to sit comfortably inside .topbar's own 3.6rem min-height with room
-   to spare, never to it, in EITHER state. */
+   topbar. GREEN ("all clear") BY DEFAULT — the owner's own later follow-up:
+   a person with nothing due still gets a bell here (see base.html's own
+   comment on the ``reminder_bell`` context flag for why it renders at all),
+   but a resting bell should read as a positive, reassuring "nothing to do"
+   rather than the neutral grey/--muted look an earlier round gave it — the
+   same --ok/--okbg/--okline trio .chip.c-ok and .flash-success already use
+   for "this is fine" elsewhere in this app, not a new colour invented for
+   just this button. The tinted .is-due look below is the URGENT state,
+   moved onto a modifier class rather than removed — its own comment
+   (further down, on .reminder-bell-btn.is-due) carries the "no separate
+   filled glyph" reasoning that used to sit here, since that constraint only
+   matters once the icon needs to look urgent. Sized to sit comfortably
+   inside .topbar's own 3.6rem min-height with room to spare, never to it,
+   in EITHER state. */
 .reminder-bell{position:relative;display:flex;align-items:center;gap:.5rem}
 .reminder-bell-btn{
   position:relative;display:inline-flex;align-items:center;justify-content:center;
   width:2.3rem;height:2.3rem;padding:0;
-  border-radius:10px;border:1px solid var(--line);
-  background:var(--cloud);
-  color:var(--muted);cursor:pointer;font:inherit;
+  border-radius:10px;border:1px solid var(--okline);
+  background:var(--okbg);
+  color:var(--ok);cursor:pointer;font:inherit;
   transition:background .12s,border-color .12s,color .12s;
 }
-.reminder-bell-btn:hover{background:color-mix(in srgb,var(--ink) 8%,var(--cloud));border-color:var(--line)}
+.reminder-bell-btn:hover{background:color-mix(in srgb,var(--ok) 14%,var(--okbg));border-color:var(--ok)}
 .reminder-bell-btn .fa-bell{font-size:1rem}
 /* The URGENT look — everything this rule pair used to be, unconditionally,
    before this round; now only while something is actually due. There is
@@ -607,18 +608,36 @@ html[data-theme="dark"] .shift-ot-link:hover{
    widget's own history already leans on. A brisker cadence than this
    app's other slow "breathing" pulses on purpose (1.3s, not several
    seconds) — a "blink" reads as more urgent than a slow breath, which is
-   the point here. */
+   the point here.
+
+   SHARED WITH THE CLICK-OPEN PANEL'S OWN DUE-STAMP/NOTE — the owner's own
+   later follow-up: .reminder-bell-time/.reminder-bell-note (the SAME two
+   pieces of prose, just inside .reminder-bell-panel instead of the
+   always-visible bubble) get this identical animation too, not a second
+   one invented for them — one due reminder, the same "written words"
+   treatment wherever its stamp/note text appears. Reusing --ink/--rej
+   here rather than any new pair is also what keeps the owner's own
+   "text and background must never end up the same colour" rule trivially
+   satisfied: --ink is this app's normal body-text colour (already chosen,
+   everywhere else, to read against --paper) and --rej is a saturated red
+   nowhere near this widget's own backgrounds (--paper for the panel,
+   the --warn-tinted mix for the bubble) in either theme — no new colour
+   pair to separately prove safe. */
 .reminder-bell-bubble-time,
-.reminder-bell-bubble-note{
-  animation:reminder-bell-bubble-text-blink 1.3s ease-in-out infinite;
+.reminder-bell-bubble-note,
+.reminder-bell-time,
+.reminder-bell-note{
+  animation:reminder-text-blink 1.3s ease-in-out infinite;
 }
-@keyframes reminder-bell-bubble-text-blink{
+@keyframes reminder-text-blink{
   0%,100%{transform:scale(1);color:var(--ink)}
   50%{transform:scale(1.08);color:var(--rej)}
 }
 @media (prefers-reduced-motion:reduce){
   .reminder-bell-bubble-time,
-  .reminder-bell-bubble-note{animation:none}
+  .reminder-bell-bubble-note,
+  .reminder-bell-time,
+  .reminder-bell-note{animation:none}
 }
 .reminder-bell-bubble-time{
   flex:0 0 auto;font-size:.76rem;font-weight:800;
