@@ -551,10 +551,16 @@ def inbox(request):
     # the nav badge always agree; here we only add the per-unit ordering.
     cases = services.inbox_cases_for_request(request).select_related("client")
 
-    # Inbox ordering for EVERY unit: the nearest deadline sits at the top; cases
-    # without a deadline sink to the bottom, ordered by creation time.
+    # Inbox ordering for EVERY unit: a case awaiting THIS unit's own
+    # manager/supervisor approval (Commercial's cancel/burn request flow —
+    # awaiting_approval is never set outside that flow, so this sorts to a
+    # no-op for every other unit) always sits above the deadline ordering
+    # entirely — the product owner's own instruction, so a pending approval
+    # is never buried under a page of nearer deadlines. Within each of those
+    # two groups, the nearest deadline sits at the top; cases without a
+    # deadline sink to the bottom, ordered by creation time.
     cases = cases.extra(select={"no_deadline": "deadline IS NULL"}).order_by(
-        "no_deadline", "deadline", "created_at")
+        "-awaiting_approval", "no_deadline", "deadline", "created_at")
     scope = {Unit.SUPPLY: "supply", Unit.TECHNICAL: "technical",
              Unit.COMMERCIAL: "commercial"}.get(unit, "none")
     context_extra = {"scope": scope, "unit": unit}
@@ -613,11 +619,16 @@ def inbox(request):
     except Exception:
         logger.exception("inbox: NEW marker lookup failed for user %s", request.user.pk)
 
-    # Two levels of ordering: what this person has not opened yet comes first,
-    # and inside each group the deadline order above still decides. Python's
-    # sort is stable, so sorting on the unseen flag alone leaves every row's
-    # position relative to its group-mates exactly as the database returned it —
-    # nearest deadline first, no-deadline last, then creation time.
+    # Three levels of ordering: a case awaiting THIS reader's own approval
+    # (Commercial's cancel/burn request flow) always sits above everything
+    # else, full stop — not just above the deadline ordering (already true of
+    # the ORDER BY above) but above the unseen-first grouping right below too,
+    # so a pending approval the manager has already opened once does not sink
+    # under a page of merely-unseen, unrelated cases. Then what this person
+    # has not opened yet comes first. Python's sort is stable, so sorting on
+    # these two flags alone leaves every row's position relative to its
+    # group-mates exactly as the database returned it — nearest deadline
+    # first, no-deadline last, then creation time.
     #
     # It is done HERE, in Python, and not in the ORDER BY: the seen state lives
     # in a per-reader table that the inbox query does not join, and it has just
@@ -629,7 +640,10 @@ def inbox(request):
     # A row only moves when the page is fetched again — opening a case marks it
     # read on the server, and the reader sees it drop on their NEXT load rather
     # than sliding out from under the cursor mid-page.
-    cases_list.sort(key=lambda c: not getattr(c, "is_new_in_inbox", False))
+    cases_list.sort(key=lambda c: (
+        not getattr(c, "awaiting_approval", False),
+        not getattr(c, "is_new_in_inbox", False),
+    ))
 
     fx_stale = False
     is_manager = (

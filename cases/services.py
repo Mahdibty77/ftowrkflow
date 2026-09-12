@@ -2493,13 +2493,20 @@ def inbox_filter_q(user, *, role=None, work_user=None):
     nonsplit = Q(split_active=False)
 
     if unit == Unit.COMMERCIAL:
-        # A final-approved case is still open (it can be Final-Closed) but it
-        # should sit in the Archive, not the active inbox. So exclude both the
-        # terminal statuses and FINAL_APPROVED from the inbox.
-        inbox_hide = list(TERM) + [CaseStatus.FINAL_APPROVED]
+        # A final-approved case is still open (it can be Final-Closed), and a
+        # closed/sent-to-client one can still be reopened later, but neither
+        # belongs in the ACTIVE inbox any more — both sit in the Archive from
+        # here on. So exclude the terminal statuses, FINAL_APPROVED, AND
+        # CLOSED from the inbox (and, for a split case, from either side of
+        # it — side_active_at's own default only excludes TERM, so CLOSED
+        # and FINAL_APPROVED are spelled out again inline below rather than
+        # widening that shared helper for every other unit that calls it).
+        inbox_hide = list(TERM) + [CaseStatus.FINAL_APPROVED, CaseStatus.CLOSED]
         ns = nonsplit & ~Q(status__in=inbox_hide) & Q(holder_unit=Unit.COMMERCIAL)
-        sp = split & (side_active_at(Unit.COMMERCIAL, Side.INTERNAL)
-                      | side_active_at(Unit.COMMERCIAL, Side.EXTERNAL))
+        sp = split & (
+            (Q(internal_holder=Unit.COMMERCIAL) & ~Q(internal_status__in=inbox_hide))
+            | (Q(external_holder=Unit.COMMERCIAL) & ~Q(external_status__in=inbox_hide))
+        )
         base = ns | sp
         pending_ns = nonsplit & Q(status=CaseStatus.PENDING_CANCEL)
         pending_sp = split & (

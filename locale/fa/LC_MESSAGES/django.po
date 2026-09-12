@@ -4552,6 +4552,14 @@ msgstr "تأمین‌کننده‌ای با این نام از قبل وجود �
 msgid "Back to case"
 msgstr "بازگشت به پرونده"
 
+#: core/templates/base.html
+msgid "Back"
+msgstr "بازگشت"
+
+#: core/templates/base.html
+msgid "Forward"
+msgstr "جلو"
+
 #: cases/templates/cases/purchase_invoice_build.html
 msgid "Read-only — you may not edit this Purchase Invoice."
 msgstr "فقط قابل مشاهده — شما اجازه‌ی ویرایش این فاکتور خرید را ندارید."

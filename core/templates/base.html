@@ -527,7 +527,29 @@
   <div class="main">
     <div class="main-sticky-head">
     <header class="topbar">
-      <h1 class="page-title">{% block topbar %}{% endblock %}</h1>
+      {# .topbar-start groups the Back/Forward pair with the page title into
+         ONE flex row, the same way .topbar-end groups the bell + profile
+         widget at the other end — .topbar's own justify-content:space-between
+         only ever expects two direct children (see that rule's own comment),
+         so a THIRD child here would push the title toward the middle instead
+         of leaving it flush at the start edge.
+
+         Back/Forward are hidden by default (app.css's own @media
+         display-mode: standalone rule), because a normal browser tab already
+         has these on its own address bar. An INSTALLED PWA hides that whole
+         bar (the entire point of "standalone" — see static/manifest.json),
+         which took real browser history navigation away with it, so this
+         reaches for the same history.back()/forward() the browser's own
+         arrows call — nothing app-specific to undo/redo, this app has no such
+         concept, it is exactly the page-to-page navigation those arrows
+         already gave. #}
+      <div class="topbar-start">
+        <div class="topbar-nav">
+          <button type="button" class="topbar-nav-btn" onclick="history.back()" title="{% trans 'Back' %}" aria-label="{% trans 'Back' %}"><i class="fa-solid fa-arrow-left"></i></button>
+          <button type="button" class="topbar-nav-btn" onclick="history.forward()" title="{% trans 'Forward' %}" aria-label="{% trans 'Forward' %}"><i class="fa-solid fa-arrow-right-long"></i></button>
+        </div>
+        <h1 class="page-title">{% block topbar %}{% endblock %}</h1>
+      </div>
 
       {# .topbar-end groups everything that lives at the OTHER end of the bar #}
       {# from the page title into one flex row, so a second item (the        #}
