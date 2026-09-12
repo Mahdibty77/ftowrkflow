@@ -348,12 +348,27 @@ def client_search(request):
     (chart_interact.js's ``CFG.clientSearchUrl``) is the live caller; the
     ``labels`` field is also what the separate company-directory section
     reads.
+
+    ``limit=None`` — UNCAPPED, deliberately, the same "no bound" convention
+    ``companies_for_label``'s own name-match call already relies on
+    (``search_clients``'s docstring: the table is hundreds of rows,
+    confirmed against production). The "+ Add company" panel opens with an
+    EMPTY query (``chart_interact.js``'s ``addCompanyPicker.search('')``)
+    and its own list, ``.rc-modal-list``, is a plain ``overflow-y:auto``
+    scroll box built to hold as many rows as it is handed — ``search_clients``'s
+    OWN default ``limit=25`` was a display cap left over from before that
+    panel existed, and applied to an EMPTY query it silently hid every
+    client past the first 25 alphabetically from a viewer who has not yet
+    typed anything to narrow the list, with no scrollbar-visible hint that
+    more existed. Uncapped, opening the panel shows (and lets a viewer
+    scroll) the FULL shared directory, and typing still narrows it via the
+    same substring match as before — just never re-truncated afterwards.
     """
     access = access_for(request)
     if not access.can_view:
         return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
     query = request.GET.get("q") or ""
-    clients = services.search_clients(query)
+    clients = services.search_clients(query, limit=None)
     labels_map = services.labels_for_clients(
         [c.pk for c in clients], request.user, access.scope,
         elevated=access.can_manage_config)

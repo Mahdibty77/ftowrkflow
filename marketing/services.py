@@ -444,7 +444,7 @@ def log_case_role_change(case: Case, actor, old_label: str, new_label: str) -> N
 # --------------------------------------------------------------------------- #
 # The client directory itself
 # --------------------------------------------------------------------------- #
-def search_clients(query: str = "", limit: int = 25):
+def search_clients(query: str = "", limit: int | None = 25):
     """Clients whose name contains ``query`` (case-insensitive), by name.
 
     GLOBAL and UNSCOPED — every Marketing viewer (Expert, Supervisor, or the
@@ -452,6 +452,13 @@ def search_clients(query: str = "", limit: int = 25):
     Commercial uses; hiding a real registered company's mere existence from
     a colleague would contradict the shared-directory design. Returns
     ``Client`` model instances, not dicts — callers serialize.
+
+    ``limit=None`` means UNCAPPED — both branches below slice with
+    ``[:limit]``, and a plain list/queryset both treat a ``None`` stop as "no
+    bound", so this is the same code path, not a special case. ``client_search``
+    (the "+ Add company" panel's own endpoint) and ``companies_for_label``'s
+    own name-match call both rely on this to show the FULL directory rather
+    than a truncated head of it — see each caller's own comment.
 
     Persian/Arabic letter variants (e.g. Arabic ke/ye vs. Persian keheh/ye)
     must compare as equal, so a plain ``icontains`` (which is byte/codepoint
