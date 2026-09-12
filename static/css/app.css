@@ -570,22 +570,36 @@ html[data-theme="dark"] .shift-ot-link:hover{
    CLICKABLE AGAIN (a <button>, see base.html's own comment on this
    element) — cursor:pointer restored, same click target as the bell.
 
-   THE BOX ITSELF IS COMPLETELY STATIC — no animation property here at
-   all any more. Three earlier attempts at "keep drawing the eye back to
-   it" all animated the BOX: a ring blooming around its edge, then the
-   whole box breathing (scale), then the whole box popping open out of
-   the bell like a letter and folding back in. The owner rejected all
-   three and asked for the opposite split: the box fixed in place, size
-   and position never changing, and the MOVEMENT confined entirely to the
-   text inside it — see .reminder-bell-bubble-time/-note's own comment
-   just below for where that motion actually lives now. */
+   THE BOX ALSO PULSES NOW, ON TOP OF THE TEXT'S OWN BLINK — the owner's
+   own later follow-up, reversing the "box stays fixed" call three earlier
+   rounds settled on: a ring blooming around its edge, then a scale-only
+   breathe, then a pop-open/fold-back letter, all rejected, landing on
+   "box static, text moves instead" (see the git history on this comment
+   for that back-and-forth). This time the ask is explicitly BOTH at once,
+   not one replacing the other — an experiment the owner asked to just see
+   rendered, reserving the right to say "put it back". If so, deleting the
+   `animation` line below and the @keyframes just after this rule restores
+   the exact "box static" version this replaces.
+
+   Runs on the SAME 1.3s clock as .reminder-bell-bubble-time/-note's own
+   animation just below, peaking at the same instant, so the box's
+   scale+colour pulse and the text's own scale+colour blink read as ONE
+   synchronised motion rather than two competing rhythms. Only
+   `background` cycles here, not `border-color` — :hover already owns
+   that property on this element (just below), and animating it here too
+   would fight the hover state for as long as something is due. */
 .reminder-bell-bubble{
   position:relative;isolation:isolate;display:flex;flex-direction:row;align-items:center;gap:.5rem;
   max-width:26rem;height:2.3rem;padding:0 .75rem;margin:0;overflow:hidden;
   border-radius:10px;background:color-mix(in srgb,var(--warn) 12%,var(--warnbg));border:1.5px solid var(--warn);
   box-shadow:var(--shadow);color:inherit;font:inherit;text-align:start;cursor:pointer;
+  animation:reminder-bell-bubble-box-pulse 1.3s ease-in-out infinite;
 }
 .reminder-bell-bubble:hover{border-color:color-mix(in srgb,var(--warn) 80%,var(--ink))}
+@keyframes reminder-bell-bubble-box-pulse{
+  0%,100%{transform:scale(1);background:color-mix(in srgb,var(--warn) 12%,var(--warnbg))}
+  50%{transform:scale(1.04);background:color-mix(in srgb,var(--rej) 18%,var(--warnbg))}
+}
 /* THE TEXT BREATHES AND BLINKS — the owner's own words, and their own
    explicit split from the box around it, which stays fixed (see that
    rule's own comment just above). Applied to the two pieces of this
@@ -634,6 +648,7 @@ html[data-theme="dark"] .shift-ot-link:hover{
   50%{transform:scale(1.08);color:var(--rej)}
 }
 @media (prefers-reduced-motion:reduce){
+  .reminder-bell-bubble,
   .reminder-bell-bubble-time,
   .reminder-bell-bubble-note,
   .reminder-bell-time,
